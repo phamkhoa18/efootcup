@@ -1,0 +1,4 @@
+﻿models/Tournament.ts(199,22): error TS2769: No overload matches this call.
+  The last overload gave the following error.
+    Argument of type '"save"' is not assignable to parameter of type 'RegExp | "createCollection"'.
+next.config.ts(4,3): error TS2353: Object literal may only specify known properties, and 'eslint' does not exist in type 'NextConfig'.

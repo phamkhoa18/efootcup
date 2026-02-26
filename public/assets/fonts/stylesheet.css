@@ -1,0 +1,52 @@
+@font-face {
+    font-family: 'eFootball Sans';
+    src: url('eFootballSans-Regular.eot');
+    src: local('eFootball Sans Regular'), local('eFootballSans-Regular'),
+        url('eFootballSans-Regular.eot?#iefix') format('embedded-opentype'),
+        url('eFootballSans-Regular.woff2') format('woff2'),
+        url('eFootballSans-Regular.woff') format('woff'),
+        url('eFootballSans-Regular.ttf') format('truetype');
+    font-weight: normal;
+    font-style: normal;
+    font-display: swap;
+}
+
+@font-face {
+    font-family: 'eFootball Stencil';
+    src: url('eFootballStencil-Regular.eot');
+    src: local('eFootball Stencil Regular'), local('eFootballStencil-Regular'),
+        url('eFootballStencil-Regular.eot?#iefix') format('embedded-opentype'),
+        url('eFootballStencil-Regular.woff2') format('woff2'),
+        url('eFootballStencil-Regular.woff') format('woff'),
+        url('eFootballStencil-Regular.ttf') format('truetype');
+    font-weight: normal;
+    font-style: normal;
+    font-display: swap;
+}
+
+@font-face {
+    font-family: 'eFootball Sans';
+    src: url('eFootballSans-Light.eot');
+    src: local('eFootball Sans Light'), local('eFootballSans-Light'),
+        url('eFootballSans-Light.eot?#iefix') format('embedded-opentype'),
+        url('eFootballSans-Light.woff2') format('woff2'),
+        url('eFootballSans-Light.woff') format('woff'),
+        url('eFootballSans-Light.ttf') format('truetype');
+    font-weight: 300;
+    font-style: normal;
+    font-display: swap;
+}
+
+@font-face {
+    font-family: 'eFootball Sans';
+    src: url('eFootballSans-Bold.eot');
+    src: local('eFootball Sans Bold'), local('eFootballSans-Bold'),
+        url('eFootballSans-Bold.eot?#iefix') format('embedded-opentype'),
+        url('eFootballSans-Bold.woff2') format('woff2'),
+        url('eFootballSans-Bold.woff') format('woff'),
+        url('eFootballSans-Bold.ttf') format('truetype');
+    font-weight: bold;
+    font-style: normal;
+    font-display: swap;
+}
+
