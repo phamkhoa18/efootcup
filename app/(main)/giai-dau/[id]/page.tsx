@@ -6,43 +6,45 @@ import TournamentDetailClient from "./TournamentDetailClient";
 export const revalidate = 60; // Revalidate every minute
 
 async function getTournamentData(id: string) {
-    try {
-        // Use full URL for server-side fetching in App Router
-        // In local development, process.env.NEXT_PUBLIC_APP_URL might not be set
-        const baseUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
+    // Determine the base URL for server-side fetching.
+    // Relative URLs don't work in server components, so we must be absolute.
+    const port = process.env.PORT || "3000";
+    const envUrl = process.env.NEXT_PUBLIC_APP_URL;
 
-        const res = await fetch(`${baseUrl}/api/tournaments/${id}`, {
-            next: { revalidate: 60 }
-        });
+    // We try local addresses first because they are most reliable for server-to-self communication
+    const localUrls = [
+        `http://127.0.0.1:${port}`,
+        `http://localhost:${port}`,
+        "http://127.0.0.1:3333", // Fallback for common deployment ports
+        "http://localhost:3333"
+    ];
 
-        if (!res.ok) {
-            // Fallback to absolute production URL if localhost fails (unlikely to help if local DNS is broken, but safer)
-            if (baseUrl.includes('localhost')) {
-                const prodRes = await fetch(`https://efootcup.efootball.vn/api/tournaments/${id}`, { next: { revalidate: 60 } });
-                if (prodRes.ok) {
-                    const data = await prodRes.json();
-                    return data.success ? data.data : null;
-                }
-            }
-            return null;
-        }
-
-        const data = await res.json();
-        return data.success ? data.data : null;
-    } catch (error) {
-        console.error("Fetch tournament data error:", error);
-
-        // Final fallback: if localhost failed, try the production one once
-        try {
-            const prodRes = await fetch(`https://efootcup.efootball.vn/api/tournaments/${id}`, { next: { revalidate: 60 } });
-            if (prodRes.ok) {
-                const data = await prodRes.json();
-                return data.success ? data.data : null;
-            }
-        } catch (e) { }
-
-        return null;
+    // If there's an environment variable, we consider it too (usually at the end as external DNS might fail on server)
+    if (envUrl) {
+        localUrls.unshift(envUrl); // Try the configured one first if user provided it
     }
+
+    for (const baseUrl of localUrls) {
+        try {
+            const cleanBaseUrl = baseUrl.endsWith('/') ? baseUrl.slice(0, -1) : baseUrl;
+            const res = await fetch(`${cleanBaseUrl}/api/tournaments/${id}`, {
+                next: { revalidate: 60 },
+                signal: AbortSignal.timeout(2000)
+            });
+
+            if (res.ok) {
+                const data = await res.json();
+                if (data.success) return data.data;
+            }
+        } catch (error) {
+            // Silently fail and try next URL unless it's the last one
+            if (baseUrl === localUrls[localUrls.length - 1] && !envUrl) {
+                console.error("Failed to fetch tournament data from all local addresses.");
+            }
+        }
+    }
+
+    return null;
 }
 
 export async function generateMetadata({ params }: { params: { id: string } }): Promise<Metadata> {

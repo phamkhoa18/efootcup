@@ -2,8 +2,8 @@ import { MetadataRoute } from 'next'
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     // Base URL for links
-    const prodUrl = 'https://efootcup.efootball.vn';
     const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
+    const cleanBaseUrl = baseUrl.endsWith('/') ? baseUrl.slice(0, -1) : baseUrl;
 
     // Base pages
     const routes = [
@@ -13,7 +13,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
         '/dang-nhap',
         '/dang-ky',
     ].map((route) => ({
-        url: `${prodUrl}${route}`,
+        url: `${cleanBaseUrl}${route}`,
         lastModified: new Date(),
         changeFrequency: 'daily' as const,
         priority: 1,
