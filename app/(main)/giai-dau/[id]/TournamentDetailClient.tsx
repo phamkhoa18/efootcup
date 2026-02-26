@@ -291,6 +291,7 @@ export default function TournamentDetailClient({ initialData, id }: { initialDat
                 ...regForm,
                 teamShortName: regForm.teamShortName.toUpperCase(),
                 playerName: regForm.playerName || user?.name,
+                phone: regForm.phone,
                 email: regForm.email || user?.email,
             });
             if (res.success) {
@@ -512,22 +513,198 @@ export default function TournamentDetailClient({ initialData, id }: { initialDat
                         )}
 
                         {activeTab === "register" && (
-                            <div className="max-w-2xl mx-auto bg-white border rounded-2xl p-8">
-                                {t.status !== 'registration' ? <div className="text-center py-20 text-gray-400">Hiện đang đóng đăng ký</div> :
-                                    !isAuthenticated ? <div className="text-center py-10"><Button onClick={() => router.push('/dang-nhap')}>Đăng nhập để đăng ký</Button></div> :
-                                        myRegistration ? <div className="text-center py-10"><CheckCircle2 className="w-12 h-12 text-emerald-500 mx-auto mb-4" /><h3>Bạn đã đăng ký: {myRegistration.status}</h3></div> :
-                                            <form onSubmit={handleRegister} className="space-y-4">
-                                                <div className="grid grid-cols-2 gap-4">
-                                                    <div><Label>Tên đội</Label><Input value={regForm.teamName} onChange={e => setRegForm({ ...regForm, teamName: e.target.value })} required className="rounded-xl" /></div>
-                                                    <div><Label>Viết tắt</Label><Input value={regForm.teamShortName} onChange={e => setRegForm({ ...regForm, teamShortName: e.target.value })} required maxLength={4} className="rounded-xl" /></div>
+                            <div className="max-w-4xl mx-auto">
+                                <motion.div
+                                    initial={{ opacity: 0, y: 20 }}
+                                    animate={{ opacity: 1, y: 0 }}
+                                    className="bg-white rounded-3xl border border-gray-100 shadow-xl overflow-hidden"
+                                >
+                                    <div className="grid md:grid-cols-5 min-h-[500px]">
+                                        {/* Info Side */}
+                                        <div className="md:col-span-2 bg-[#0A3D91] p-8 text-white relative overflow-hidden flex flex-col justify-between">
+                                            <div className="relative z-10">
+                                                <Badge className="bg-white/20 text-white border-none mb-4 hover:bg-white/30 backdrop-blur-sm">
+                                                    Giải đấu chính thức
+                                                </Badge>
+                                                <h3 className="text-2xl font-bold mb-4 leading-tight">Ghi danh thi đấu ngay hôm nay</h3>
+                                                <div className="space-y-4 text-white/70">
+                                                    <div className="flex items-center gap-3 text-sm">
+                                                        <div className="w-8 h-8 rounded-lg bg-white/10 flex items-center justify-center">
+                                                            <Users className="w-4 h-4 text-efb-yellow" />
+                                                        </div>
+                                                        <span>{t.maxTeams} Suất thi đấu giới hạn</span>
+                                                    </div>
+                                                    <div className="flex items-center gap-3 text-sm">
+                                                        <div className="w-8 h-8 rounded-lg bg-white/10 flex items-center justify-center">
+                                                            <Gamepad2 className="w-4 h-4 text-efb-yellow" />
+                                                        </div>
+                                                        <span>Nền tảng {t.platform}</span>
+                                                    </div>
+                                                    <div className="flex items-center gap-3 text-sm">
+                                                        <div className="w-8 h-8 rounded-lg bg-white/10 flex items-center justify-center">
+                                                            <Award className="w-4 h-4 text-efb-yellow" />
+                                                        </div>
+                                                        <span>Giải thưởng {t.prize?.total || "Hấp dẫn"}</span>
+                                                    </div>
                                                 </div>
-                                                <div className="grid grid-cols-2 gap-4">
-                                                    <div><Label>Tên VĐV</Label><Input value={regForm.playerName} onChange={e => setRegForm({ ...regForm, playerName: e.target.value })} required className="rounded-xl" /></div>
-                                                    <div><Label>In-game ID</Label><Input value={regForm.gamerId} onChange={e => setRegForm({ ...regForm, gamerId: e.target.value })} required className="rounded-xl" /></div>
+                                            </div>
+
+                                            <div className="relative z-10 pt-8 mt-8 border-t border-white/10">
+                                                <div className="flex items-center justify-between mb-2">
+                                                    <span className="text-xs font-bold uppercase tracking-wider text-white/50">Số lượng đăng ký</span>
+                                                    <span className="text-xs font-bold text-efb-yellow">{teams.length} / {t.maxTeams}</span>
                                                 </div>
-                                                <Button type="submit" className="w-full bg-efb-blue text-white rounded-xl" disabled={isRegistering}>{isRegistering ? "Đang gửi..." : "Đăng ký ngay"}</Button>
-                                                {registerMsg && <p className={`text-center text-sm mt-4 ${registerMsg.type === 'success' ? 'text-green-600' : 'text-red-600'}`}>{registerMsg.text}</p>}
-                                            </form>}
+                                                <div className="h-1.5 bg-white/10 rounded-full overflow-hidden">
+                                                    <motion.div
+                                                        initial={{ width: 0 }}
+                                                        animate={{ width: `${(teams.length / t.maxTeams) * 100}%` }}
+                                                        className="h-full bg-efb-yellow"
+                                                    />
+                                                </div>
+                                            </div>
+
+                                            {/* Decorative Background */}
+                                            <div className="absolute top-0 right-0 -translate-y-1/2 translate-x-1/2 w-64 h-64 bg-white/5 rounded-full blur-3xl pointer-events-none" />
+                                            <div className="absolute bottom-0 left-0 translate-y-1/2 -translate-x-1/2 w-48 h-48 bg-blue-400/10 rounded-full blur-2xl pointer-events-none" />
+                                        </div>
+
+                                        {/* Form Side */}
+                                        <div className="md:col-span-3 p-8 lg:p-12">
+                                            {t.status !== 'registration' ? (
+                                                <div className="h-full flex flex-col items-center justify-center py-12 text-center">
+                                                    <div className="w-16 h-16 rounded-full bg-gray-50 flex items-center justify-center mb-4">
+                                                        <Ban className="w-8 h-8 text-gray-300" />
+                                                    </div>
+                                                    <h4 className="text-lg font-bold text-efb-dark">Đăng ký đã kết thúc</h4>
+                                                    <p className="text-sm text-gray-400 mt-2">Giải đấu này đã chuyển sang giai đoạn thi đấu hoặc đã đủ người.</p>
+                                                    <Button variant="outline" className="mt-6 rounded-xl" onClick={() => setActiveTab('overview')}>Về trang chủ giải đấu</Button>
+                                                </div>
+                                            ) : !isAuthenticated ? (
+                                                <div className="h-full flex flex-col items-center justify-center py-12 text-center">
+                                                    <div className="w-16 h-16 rounded-full bg-blue-50 flex items-center justify-center mb-4">
+                                                        <Shield className="w-8 h-8 text-efb-blue" />
+                                                    </div>
+                                                    <h4 className="text-lg font-bold text-efb-dark">Yêu cầu đăng nhập</h4>
+                                                    <p className="text-sm text-gray-500 mt-2 mb-8">Vui lòng đăng nhập để hệ thống ghi nhận thông tin và quản lý đội của bạn.</p>
+                                                    <Button onClick={() => router.push('/dang-nhap')} className="bg-efb-blue px-8 h-12 rounded-xl text-white font-bold">
+                                                        Đăng nhập ngay
+                                                    </Button>
+                                                </div>
+                                            ) : myRegistration ? (
+                                                <div className="h-full flex flex-col items-center justify-center py-12 text-center">
+                                                    <div className="w-20 h-20 rounded-full bg-emerald-50 flex items-center justify-center mb-6">
+                                                        <CheckCircle2 className="w-10 h-10 text-emerald-500 animate-in zoom-in duration-500" />
+                                                    </div>
+                                                    <h4 className="text-xl font-bold text-efb-dark">Bạn đã đăng ký thành công!</h4>
+                                                    <p className="text-sm text-gray-500 mt-3 max-w-xs mx-auto">Trạng thái hiện tại: <span className="font-bold text-efb-blue uppercase">{myRegistration.status}</span>. Vui lòng kiểm tra thông báo để cập nhật lịch đấu.</p>
+                                                    <div className="mt-8 flex gap-3">
+                                                        <Button variant="outline" className="rounded-xl border-gray-200" onClick={() => router.push('/trang-ca-nhan')}>Quản lý của tôi</Button>
+                                                        <Button className="rounded-xl bg-efb-blue text-white" onClick={() => setActiveTab('players')}>Xem danh sách</Button>
+                                                    </div>
+                                                </div>
+                                            ) : (
+                                                <div className="space-y-8">
+                                                    <div>
+                                                        <h4 className="text-xl font-bold text-efb-dark mb-1">Điền thông tin đội</h4>
+                                                        <p className="text-sm text-gray-400 font-light">Vui lòng kiểm tra kỹ In-game ID để Manager dễ dàng đối chiếu.</p>
+                                                    </div>
+
+                                                    <form onSubmit={handleRegister} className="space-y-6">
+                                                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+                                                            <div className="space-y-2">
+                                                                <Label className="text-xs font-bold uppercase tracking-wider text-gray-400">Tên đội bóng</Label>
+                                                                <Input
+                                                                    placeholder="VD: Manchester United"
+                                                                    value={regForm.teamName}
+                                                                    onChange={e => setRegForm({ ...regForm, teamName: e.target.value })}
+                                                                    required
+                                                                    className="h-12 rounded-xl border-gray-200 focus:border-efb-blue focus:ring-efb-blue/10 bg-gray-50 focus:bg-white transition-all"
+                                                                />
+                                                            </div>
+                                                            <div className="space-y-2">
+                                                                <Label className="text-xs font-bold uppercase tracking-wider text-gray-400">Tên viết tắt (4 ký tự)</Label>
+                                                                <Input
+                                                                    placeholder="VD: MU"
+                                                                    value={regForm.teamShortName}
+                                                                    onChange={e => setRegForm({ ...regForm, teamShortName: e.target.value.toUpperCase() })}
+                                                                    required
+                                                                    maxLength={4}
+                                                                    className="h-12 rounded-xl border-gray-200 focus:border-efb-blue focus:ring-efb-blue/10 bg-gray-50 focus:bg-white transition-all uppercase"
+                                                                />
+                                                            </div>
+                                                        </div>
+
+                                                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+                                                            <div className="space-y-2">
+                                                                <Label className="text-xs font-bold uppercase tracking-wider text-gray-400">Họ và Tên VĐV</Label>
+                                                                <Input
+                                                                    placeholder="VD: Nguyễn Văn A"
+                                                                    value={regForm.playerName}
+                                                                    onChange={e => setRegForm({ ...regForm, playerName: e.target.value })}
+                                                                    required
+                                                                    className="h-12 rounded-xl border-gray-200 focus:border-efb-blue focus:ring-efb-blue/10 bg-gray-50 focus:bg-white transition-all"
+                                                                />
+                                                            </div>
+                                                            <div className="space-y-2">
+                                                                <Label className="text-xs font-bold uppercase tracking-wider text-gray-400">Số điện thoại (Zalo)</Label>
+                                                                <Input
+                                                                    placeholder="VD: 090xxxxxxx"
+                                                                    value={regForm.phone}
+                                                                    onChange={e => setRegForm({ ...regForm, phone: e.target.value })}
+                                                                    required
+                                                                    className="h-12 rounded-xl border-gray-200 focus:border-efb-blue focus:ring-efb-blue/10 bg-gray-50 focus:bg-white transition-all"
+                                                                />
+                                                            </div>
+                                                        </div>
+
+                                                        <div className="space-y-2">
+                                                            <Label className="text-xs font-bold uppercase tracking-wider text-gray-400">In-game ID (Konami ID)</Label>
+                                                            <Input
+                                                                placeholder="VD: efoot-1234..."
+                                                                value={regForm.gamerId}
+                                                                onChange={e => setRegForm({ ...regForm, gamerId: e.target.value })}
+                                                                required
+                                                                className="h-12 rounded-xl border-gray-200 focus:border-efb-blue focus:ring-efb-blue/10 bg-gray-50 focus:bg-white transition-all"
+                                                            />
+                                                        </div>
+
+                                                        <div className="pt-2">
+                                                            <Button
+                                                                type="submit"
+                                                                className="w-full h-14 bg-efb-blue hover:bg-efb-blue-light text-white rounded-2xl font-bold shadow-lg shadow-blue-200 transition-all flex items-center justify-center gap-2 group"
+                                                                disabled={isRegistering}
+                                                            >
+                                                                {isRegistering ? (
+                                                                    <Loader2 className="w-5 h-5 animate-spin" />
+                                                                ) : (
+                                                                    <>
+                                                                        Xác nhận đăng ký
+                                                                        <ChevronRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
+                                                                    </>
+                                                                )}
+                                                            </Button>
+                                                        </div>
+
+                                                        {registerMsg && (
+                                                            <motion.div
+                                                                initial={{ opacity: 0, y: 10 }}
+                                                                animate={{ opacity: 1, y: 0 }}
+                                                                className={`flex items-center gap-3 p-4 rounded-xl text-sm font-medium ${registerMsg.type === 'success' ? 'bg-emerald-50 text-emerald-600 border border-emerald-100' : 'bg-rose-50 text-rose-600 border border-rose-100'}`}
+                                                            >
+                                                                {registerMsg.type === 'success' ? <CheckCircle2 className="w-5 h-5" /> : <Ban className="w-5 h-5" />}
+                                                                {registerMsg.text}
+                                                            </motion.div>
+                                                        )}
+
+                                                        <p className="text-center text-[10px] text-gray-400 leading-relaxed px-8">
+                                                            Bằng việc nhấn đăng ký, bạn đồng ý với các thể lệ và quy tắc ứng xử của giải đấu. Thông tin của bạn sẽ được Manager xét duyệt trước khi chính thức tham gia.
+                                                        </p>
+                                                    </form>
+                                                </div>
+                                            )}
+                                        </div>
+                                    </div>
+                                </motion.div>
                             </div>
                         )}
                     </div>
