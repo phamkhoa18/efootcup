@@ -24,6 +24,7 @@ import { useAuth } from "@/contexts/AuthContext";
 
 const navLinks = [
     { label: "Giải đấu", href: "/giai-dau", icon: Trophy },
+    { label: "Bảng xếp hạng", href: "/bxh", icon: Users },
 ];
 
 export function Navbar() {

@@ -34,7 +34,8 @@ import {
     ClipboardList,
     Check,
     CircleAlert,
-    CheckCircle2
+    CheckCircle2,
+    Award
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Loader2 } from "lucide-react";
@@ -50,8 +51,9 @@ import {
 /* ===== Main sidebar links ===== */
 const mainSidebarLinks = [
     { label: "Dashboard", href: "/manager", icon: LayoutDashboard },
-    { label: "Giải đấu của tôi", href: "/manager/giai-dau", icon: Trophy },
+    { label: "Giải đấu", href: "/manager/giai-dau", icon: Trophy },
     { label: "Tạo giải đấu", href: "/manager/tao-giai-dau", icon: CalendarPlus },
+    { label: "Bảng xếp hạng", href: "/manager/bxh", icon: Award },
     { label: "Quản lý VĐV", href: "/manager/vdv", icon: Users },
     { label: "Thống kê", href: "/manager/thong-ke", icon: BarChart3 },
     { label: "Báo cáo", href: "/manager/bao-cao", icon: FileText },
