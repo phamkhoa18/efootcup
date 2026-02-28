@@ -194,8 +194,9 @@ export default function LichThiDauPage() {
     });
     const uniqueTeams = Array.from(uniqueTeamsMap.values());
 
-    const completedMatches = matches.filter(m => m.status === 'completed').length;
-    const totalMatches = matches.length;
+    const actualMatches = matches.filter(m => m.status !== 'walkover');
+    const completedMatches = actualMatches.filter(m => m.status === 'completed').length;
+    const totalMatches = actualMatches.length;
 
     if (isLoading) {
         return (
@@ -286,110 +287,115 @@ export default function LichThiDauPage() {
                         <p className="text-gray-500 text-sm">Vui lòng bấm Tải lịch thi đấu để khởi tạo.</p>
                     </div>
                 ) : (
-                    Object.entries(rounds).map(([roundName, roundMatches]) => (
-                        <div key={roundName}>
-                            {/* Round Header */}
-                            <div className="bg-[#D9EAF7] flex items-center justify-center py-2 px-4 relative border-b border-white">
-                                <span className="text-red-500 font-bold">{roundName}</span>
-                                <span className="text-gray-700 font-semibold ml-1">| {tournament?.title}</span>
-                                <Filter className="w-4 h-4 text-gray-500 absolute right-4 cursor-pointer" />
-                            </div>
+                    Object.entries(rounds).map(([roundName, roundMatches]) => {
+                        if (roundMatches.filter((m: any) => m.status !== 'walkover').length === 0) return null;
 
-                            {/* Table Headers */}
-                            <div className="grid grid-cols-12 gap-4 py-2 px-4 border-b border-gray-200 font-bold text-gray-700 bg-gray-50/50">
-                                <div className="col-span-1">#</div>
-                                <div className="col-span-2">CLB</div>
-                                <div className="col-span-4">Cặp đấu</div>
-                                <div className="col-span-2 text-center">Kết quả</div>
-                                <div className="col-span-1 text-center">Sân thi đấu</div>
-                                <div className="col-span-2 text-center">Trạng thái</div>
-                            </div>
+                        return (
+                            <div key={roundName}>
+                                {/* Round Header */}
+                                <div className="bg-[#D9EAF7] flex items-center justify-center py-2 px-4 relative border-b border-white">
+                                    <span className="text-red-500 font-bold">{roundName}</span>
+                                    <span className="text-gray-700 font-semibold ml-1">| {tournament?.title}</span>
+                                    <Filter className="w-4 h-4 text-gray-500 absolute right-4 cursor-pointer" />
+                                </div>
 
-                            {/* Match Rows */}
-                            <div className="divide-y divide-gray-100">
-                                {roundMatches.map((m: any, index: number) => {
-                                    const homeName = m.homeTeam?.name || "Tự do";
-                                    const awayName = m.awayTeam?.name || "Tự do";
-                                    const p1Name = m.homeTeam?.player1 || "—";
-                                    const p1Sub = m.homeTeam?.player2 && m.homeTeam.player2 !== "TBD" ? ` / ${m.homeTeam.player2}` : "";
-                                    const p2Name = m.awayTeam?.player1 || "—";
-                                    const p2Sub = m.awayTeam?.player2 && m.awayTeam.player2 !== "TBD" ? ` / ${m.awayTeam.player2}` : "";
+                                {/* Table Headers */}
+                                <div className="grid grid-cols-12 gap-4 py-2 px-4 border-b border-gray-200 font-bold text-gray-700 bg-gray-50/50">
+                                    <div className="col-span-1">#</div>
+                                    <div className="col-span-2">CLB</div>
+                                    <div className="col-span-4">Cặp đấu</div>
+                                    <div className="col-span-2 text-center">Kết quả</div>
+                                    <div className="col-span-1 text-center">Sân thi đấu</div>
+                                    <div className="col-span-2 text-center">Trạng thái</div>
+                                </div>
 
-                                    const isCompleted = m.status === 'completed';
-                                    const isHomeWin = isCompleted && ((m.homeScore || 0) > (m.awayScore || 0));
-                                    const isAwayWin = isCompleted && ((m.awayScore || 0) > (m.homeScore || 0));
+                                {/* Match Rows */}
+                                <div className="divide-y divide-gray-100">
+                                    {roundMatches.filter((m: any) => m.status !== 'walkover').map((m: any, index: number) => {
+                                        const homeName = m.homeTeam?.name || "Tự do";
+                                        const awayName = m.awayTeam?.name || "Tự do";
+                                        const p1Name = m.homeTeam?.player1 || "—";
+                                        const p1Sub = m.homeTeam?.player2 && m.homeTeam.player2 !== "TBD" ? ` / ${m.homeTeam.player2}` : "";
+                                        const p2Name = m.awayTeam?.player1 || "—";
+                                        const p2Sub = m.awayTeam?.player2 && m.awayTeam.player2 !== "TBD" ? ` / ${m.awayTeam.player2}` : "";
 
-                                    return (
-                                        <div key={m._id} className="grid grid-cols-12 gap-4 items-center py-2 px-4 hover:bg-gray-50 transition-colors">
-                                            {/* # */}
-                                            <div className="col-span-1 text-gray-900 font-bold text-sm">
-                                                {m.matchNumber}
-                                            </div>
+                                        const isWalkover = m.status === 'walkover';
+                                        const isCompleted = m.status === 'completed' || isWalkover;
+                                        const isHomeWin = isCompleted && (m.winner === (m.homeTeam?._id || m.homeTeam?.id) || (m.homeScore || 0) > (m.awayScore || 0));
+                                        const isAwayWin = isCompleted && (m.winner === (m.awayTeam?._id || m.awayTeam?.id) || (m.awayScore || 0) > (m.homeScore || 0));
 
-                                            {/* CLB */}
-                                            <div className="col-span-2 flex flex-col gap-1.5">
-                                                <div className="border border-gray-200 rounded px-1.5 py-0.5 shadow-sm bg-white text-[11px] font-semibold text-gray-700 truncate w-fit max-w-full flex items-center gap-1">
-                                                    <div className="w-1.5 h-1.5 rounded-full bg-blue-400"></div>
-                                                    {homeName}
+                                        return (
+                                            <div key={m._id} className="grid grid-cols-12 gap-4 items-center py-2 px-4 hover:bg-gray-50 transition-colors">
+                                                {/* # */}
+                                                <div className="col-span-1 text-gray-900 font-bold text-sm">
+                                                    {m.matchNumber}
                                                 </div>
-                                                <div className="border border-gray-200 rounded px-1.5 py-0.5 shadow-sm bg-white text-[11px] font-semibold text-gray-700 truncate w-fit max-w-full flex items-center gap-1">
-                                                    <div className="w-1.5 h-1.5 rounded-full bg-red-400"></div>
-                                                    {awayName}
-                                                </div>
-                                            </div>
 
-                                            {/* Cặp đấu */}
-                                            <div className="col-span-4 flex flex-col gap-1.5 text-[13px] font-medium">
-                                                <div className={`${isCompleted ? (isHomeWin ? "font-bold text-gray-900" : "text-gray-400 line-through") : "text-purple-600"}`}>
-                                                    {p1Name}{p1Sub}
+                                                {/* CLB */}
+                                                <div className="col-span-2 flex flex-col gap-1.5">
+                                                    <div className="border border-gray-200 rounded px-1.5 py-0.5 shadow-sm bg-white text-[11px] font-semibold text-gray-700 truncate w-fit max-w-full flex items-center gap-1">
+                                                        <div className="w-1.5 h-1.5 rounded-full bg-blue-400"></div>
+                                                        {homeName}
+                                                    </div>
+                                                    <div className="border border-gray-200 rounded px-1.5 py-0.5 shadow-sm bg-white text-[11px] font-semibold text-gray-700 truncate w-fit max-w-full flex items-center gap-1">
+                                                        <div className="w-1.5 h-1.5 rounded-full bg-red-400"></div>
+                                                        {awayName}
+                                                    </div>
                                                 </div>
-                                                <div className={`${isCompleted ? (isAwayWin ? "font-bold text-gray-900" : "text-gray-400 line-through") : "text-purple-600"}`}>
-                                                    {p2Name}{p2Sub}
+
+                                                {/* Cặp đấu */}
+                                                <div className="col-span-4 flex flex-col gap-1.5 text-[13px] font-medium">
+                                                    <div className={`${isCompleted ? (isHomeWin ? "font-bold text-gray-900" : "text-gray-400 line-through") : "text-purple-600"}`}>
+                                                        {p1Name}{p1Sub}
+                                                    </div>
+                                                    <div className={`${isCompleted ? (isAwayWin ? "font-bold text-gray-900" : "text-gray-400 line-through") : "text-purple-600"}`}>
+                                                        {p2Name}{p2Sub}
+                                                    </div>
                                                 </div>
-                                            </div>
 
-                                            {/* Kết quả */}
-                                            <div className="col-span-2 text-center text-sm font-bold text-gray-900">
-                                                {isCompleted || m.status === "live" ? (
-                                                    <span>{m.homeScore ?? 0} - {m.awayScore ?? 0}</span>
-                                                ) : (
-                                                    <span className="text-gray-300">-</span>
-                                                )}
-                                            </div>
-
-                                            {/* Sân thi đấu */}
-                                            <div className="col-span-1 flex justify-center">
-                                                <Button variant="outline" size="sm" className="h-6 text-[10px] rounded px-2 border-gray-200 text-gray-400 font-normal">
-                                                    Chọn sân
-                                                </Button>
-                                            </div>
-
-                                            {/* Trạng thái & Action */}
-                                            <div className="col-span-2 flex items-center justify-between pr-2">
-                                                <div className={`px-2 py-0.5 rounded text-[11px] font-semibold ${isCompleted ? "bg-emerald-50 text-emerald-600" :
-                                                    m.status === "live" ? "bg-red-50 text-red-600 animate-pulse" :
-                                                        "bg-blue-50/50 border border-blue-100 text-blue-400"
-                                                    }`}>
-                                                    {isCompleted ? "Kết thúc" : m.status === "live" ? "Đang diễn ra (LIVE)" : "Chờ thi đấu"}
-                                                </div>
-                                                <div className="flex gap-1.5 items-center text-gray-400">
-                                                    {!isCompleted && m.status !== "live" ? (
-                                                        <Play
-                                                            className="w-4 h-4 hover:text-green-500 cursor-pointer transition-colors"
-                                                            onClick={() => handleSetMatchLive(m._id || m.id)}
-                                                        />
+                                                {/* Kết quả */}
+                                                <div className="col-span-2 text-center text-sm font-bold text-gray-900">
+                                                    {isCompleted || m.status === "live" ? (
+                                                        isWalkover ? <span className="text-gray-400">Tự động đi tiếp</span> : <span>{m.homeScore ?? 0} - {m.awayScore ?? 0}</span>
                                                     ) : (
-                                                        <div className="w-4 h-4" /> // empty space placeholder
+                                                        <span className="text-gray-300">-</span>
                                                     )}
-                                                    <Edit3 className="w-4 h-4 hover:text-blue-500 cursor-pointer transition-colors" onClick={() => setEditingMatch({ ...m, roundName })} />
+                                                </div>
+
+                                                {/* Sân thi đấu */}
+                                                <div className="col-span-1 flex justify-center">
+                                                    <Button variant="outline" size="sm" className="h-6 text-[10px] rounded px-2 border-gray-200 text-gray-400 font-normal">
+                                                        Chọn sân
+                                                    </Button>
+                                                </div>
+
+                                                {/* Trạng thái & Action */}
+                                                <div className="col-span-2 flex items-center justify-between pr-2">
+                                                    <div className={`px-2 py-0.5 rounded text-[11px] font-semibold ${isCompleted ? "bg-emerald-50 text-emerald-600" :
+                                                        m.status === "live" ? "bg-red-50 text-red-600 animate-pulse" :
+                                                            "bg-blue-50/50 border border-blue-100 text-blue-400"
+                                                        }`}>
+                                                        {isWalkover ? "Đi tiếp" : isCompleted ? "Kết thúc" : m.status === "live" ? "Đang diễn ra (LIVE)" : "Chờ thi đấu"}
+                                                    </div>
+                                                    <div className="flex gap-1.5 items-center text-gray-400">
+                                                        {!isCompleted && m.status !== "live" ? (
+                                                            <Play
+                                                                className="w-4 h-4 hover:text-green-500 cursor-pointer transition-colors"
+                                                                onClick={() => handleSetMatchLive(m._id || m.id)}
+                                                            />
+                                                        ) : (
+                                                            <div className="w-4 h-4" /> // empty space placeholder
+                                                        )}
+                                                        <Edit3 className="w-4 h-4 hover:text-blue-500 cursor-pointer transition-colors" onClick={() => setEditingMatch({ ...m, roundName })} />
+                                                    </div>
                                                 </div>
                                             </div>
-                                        </div>
-                                    )
-                                })}
+                                        )
+                                    })}
+                                </div>
                             </div>
-                        </div>
-                    ))
+                        );
+                    })
                 )}
             </div>
 

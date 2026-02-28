@@ -200,6 +200,11 @@ export async function PUT(req: NextRequest, { params }: RouteParams) {
 
             if (userIds.length > 0) {
                 const Notification = (await import('@/models/Notification')).default;
+                const User = (await import('@/models/User')).default;
+                const { sendNotificationEmail } = await import('@/lib/email');
+
+                const users = await User.find({ _id: { $in: userIds } });
+
                 const notifications = userIds.map(userId => ({
                     recipient: userId,
                     type: "tournament" as const,
@@ -208,6 +213,27 @@ export async function PUT(req: NextRequest, { params }: RouteParams) {
                     link: `/giai-dau/${match.tournament}?tab=schedule`,
                 }));
                 await Notification.insertMany(notifications);
+
+                if (scheduledAt) {
+                    const timeStr = new Date(scheduledAt).toLocaleString('vi-VN', {
+                        hour: '2-digit', minute: '2-digit',
+                        day: '2-digit', month: '2-digit', year: 'numeric'
+                    });
+
+                    for (const user of users) {
+                        try {
+                            await sendNotificationEmail(
+                                user.email,
+                                user.name,
+                                "Cập nhật lịch thi đấu",
+                                `Trận đấu của bạn trong giải "${tournament?.title}" đã được đặt lịch vào lúc <strong>${timeStr}</strong>. Cố gắng tham gia đúng giờ nhé!`,
+                                `/giai-dau/${match.tournament}?tab=schedule`
+                            );
+                        } catch (e) {
+                            console.error("Lỗi gửi email lịch thi đấu:", e);
+                        }
+                    }
+                }
             }
         } catch (notifyErr) {
             console.error("Notify match update error:", notifyErr);

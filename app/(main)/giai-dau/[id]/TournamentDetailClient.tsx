@@ -46,55 +46,106 @@ const tabs = [
 const UNIT_HEIGHT = 110;
 
 const MatchCard = ({ match, onClick }: { match: any; onClick: () => void }) => {
-    const homeName = match.homeTeam?.name || match.homeTeam?.shortName || match.p1?.ingame || "TBD";
-    const awayName = match.awayTeam?.name || match.awayTeam?.shortName || match.p2?.ingame || "TBD";
-    const homeScore = match.homeScore ?? match.p1?.score ?? 0;
-    const awayScore = match.awayScore ?? match.p2?.score ?? 0;
-    const isCompleted = match.status === "completed" || match.status === "Kết thúc";
+    const isWalkover = match.status === "walkover";
+    const bracketNumber = match.bracketPosition?.y !== undefined ? match.bracketPosition.y + 1 : (match.matchNumber || 0);
+
+    const isMatchScheduled = !isWalkover && (!match.homeTeam || !match.awayTeam);
+
+    const homeName = match.homeTeam?.name || match.homeTeam?.shortName || match.p1?.name || (isWalkover ? "Tự do" : "Chờ kết quả");
+    const awayName = match.awayTeam?.name || match.awayTeam?.shortName || match.p2?.name || (isWalkover ? "Tự do" : "Chờ kết quả");
+    const homeScore = isWalkover ? "0" : (match.homeScore ?? match.p1?.score ?? "");
+    const awayScore = isWalkover ? "0" : (match.awayScore ?? match.p2?.score ?? "");
+    const isCompleted = match.status === "completed" || match.status === "Kết thúc" || isWalkover;
     const isLive = match.status === "live" || match.status === "Đang diễn ra";
-    const homeWin = isCompleted && homeScore > awayScore;
-    const awayWin = isCompleted && awayScore > homeScore;
+    const homeWin = isCompleted && (match.winner === (match.homeTeam?._id || match.homeTeam?.id) || (homeScore !== "" && awayScore !== "" && Number(homeScore) > Number(awayScore)));
+    const awayWin = isCompleted && (match.winner === (match.awayTeam?._id || match.awayTeam?.id) || (homeScore !== "" && awayScore !== "" && Number(awayScore) > Number(homeScore)));
+
+    if (isWalkover) {
+        const hName = match.homeTeam?.name || match.homeTeam?.shortName || match.p1?.ingame || "Tự do";
+        const p1Name = match.homeTeam?.player1 || match.p1?.name || "";
+        const p2Name = match.homeTeam?.player2 && match.homeTeam.player2 !== "TBD" ? match.homeTeam.player2 : "";
+
+        return (
+            <div className="flex items-center relative z-20 w-[180px]">
+                <div className="absolute -left-2 top-1/2 -translate-y-1/2 w-4 h-4 bg-[#F8FAFC] border border-[#CBD5E1] rounded-full flex items-center justify-center text-[7px] font-bold text-gray-500 z-30">
+                    {bracketNumber}
+                </div>
+
+                <motion.div
+                    whileHover={{ y: -2, scale: 1.02 }}
+                    onClick={onClick}
+                    className="w-full bg-white rounded-[6px] border border-[#E2E8F0] shadow-sm flex flex-col justify-center cursor-pointer overflow-hidden z-20 relative px-2 py-1.5 h-[44px]"
+                >
+                    <span className="text-[8px] text-gray-400 font-bold text-center mb-0.5">{hName}</span>
+                    <div className="flex flex-col items-center">
+                        <span className={`truncate text-[11px] text-gray-800 font-bold ${!match.homeTeam && !match.p1 ? "text-gray-400 italic font-medium" : ""}`}>
+                            {p1Name || (!match.homeTeam ? "Tự do" : "...")}
+                        </span>
+                        {p2Name && (
+                            <span className="truncate text-[10px] text-gray-700 font-bold mt-0.5">
+                                {p2Name}
+                            </span>
+                        )}
+                    </div>
+                </motion.div>
+            </div>
+        );
+    }
 
     return (
-        <motion.div
-            whileHover={{ y: -2 }}
-            onClick={onClick}
-            className="w-[180px] bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden z-20 cursor-pointer hover:border-efb-blue/40 hover:shadow-md transition-all group relative"
-        >
-            {isLive && (
-                <div className="bg-red-500 text-white text-[9px] font-bold text-center py-0.5 uppercase tracking-wider flex items-center justify-center gap-1">
-                    <span className="w-1 h-1 bg-white rounded-full animate-pulse" />
-                    LIVE
-                </div>
-            )}
-            <div className={`flex items-center justify-between px-3 py-2 text-[12px] ${homeWin ? "bg-blue-50/50" : ""}`}>
-                <div className="flex flex-col min-w-0 pr-2">
-                    <span className={`truncate font-bold leading-tight ${homeWin ? "text-efb-blue" : "text-efb-text-secondary"}`}>
-                        {homeName}
-                    </span>
-                    {(match.homeTeam?.player1 || match.p1) && (
-                        <span className={`truncate text-[9px] mt-0.5 ${homeWin ? "text-efb-blue/80" : "text-gray-400"}`}>
-                            {match.homeTeam?.player1 || match.p1?.name} {match.homeTeam?.player2 && match.homeTeam.player2 !== "TBD" ? `& ${match.homeTeam.player2}` : ""}
-                        </span>
-                    )}
-                </div>
-                <span className="font-bold tabular-nums text-efb-text-muted">{homeScore}</span>
+        <div className="flex items-center relative z-20 w-[180px]">
+            <div className="absolute -left-2 top-1/2 -translate-y-1/2 w-4 h-4 bg-[#F8FAFC] border border-[#CBD5E1] rounded-full flex items-center justify-center text-[7px] font-bold text-gray-500 z-30">
+                {bracketNumber}
             </div>
-            <div className="h-px bg-gray-50 mx-2" />
-            <div className={`flex items-center justify-between px-3 py-2 text-[12px] ${awayWin ? "bg-blue-50/50" : ""}`}>
-                <div className="flex flex-col min-w-0 pr-2">
-                    <span className={`truncate font-bold leading-tight ${awayWin ? "text-efb-blue" : "text-efb-text-secondary"}`}>
-                        {awayName}
-                    </span>
-                    {(match.awayTeam?.player1 || match.p2) && (
-                        <span className={`truncate text-[9px] mt-0.5 ${awayWin ? "text-efb-blue/80" : "text-gray-400"}`}>
-                            {match.awayTeam?.player1 || match.p2?.name} {match.awayTeam?.player2 && match.awayTeam.player2 !== "TBD" ? `& ${match.awayTeam.player2}` : ""}
-                        </span>
-                    )}
+
+            <motion.div
+                whileHover={{ y: -2, scale: 1.02 }}
+                onClick={onClick}
+                className="w-full bg-white rounded-[6px] border border-[#E2E8F0] shadow-sm flex flex-col cursor-pointer overflow-hidden z-20 group relative"
+            >
+                {isLive && (
+                    <div className="absolute top-0 right-0 left-0 bg-red-500 text-white text-[7px] font-bold text-center py-[1px] uppercase tracking-wider flex items-center justify-center gap-1 z-10">
+                        <span className="w-1 h-1 bg-white rounded-full animate-pulse" /> LIVE
+                    </div>
+                )}
+
+                <div className={`p-1.5 flex flex-col ${homeWin ? "bg-blue-50/20" : ""} ${isLive ? 'mt-[10px]' : ''}`}>
+                    <span className="text-[8px] text-gray-400 font-bold text-center mb-0.5">{homeName}</span>
+                    <div className="flex justify-between items-center px-1">
+                        <div className="flex flex-col min-w-0 pr-1 leading-[1.1]">
+                            <span className={`truncate text-[11px] ${homeWin ? "text-blue-700 font-bold" : "text-gray-800 font-medium"} ${!match.homeTeam && !match.p1 ? "text-gray-400 italic" : ""}`}>
+                                {match.homeTeam?.player1 || match.p1?.name || "Chờ kết quả"}
+                            </span>
+                            {match.homeTeam?.player2 && match.homeTeam.player2 !== "TBD" && (
+                                <span className={`truncate text-[11px] mt-0.5 ${homeWin ? "text-blue-700 font-bold" : "text-gray-800 font-medium"}`}>
+                                    {match.homeTeam.player2}
+                                </span>
+                            )}
+                        </div>
+                        <span className={`text-[12px] tabular-nums ml-1 ${homeWin ? "text-blue-600 font-bold" : "text-gray-400 font-semibold"}`}>{homeScore}</span>
+                    </div>
                 </div>
-                <span className="font-bold tabular-nums text-efb-text-muted">{awayScore}</span>
-            </div>
-        </motion.div>
+
+                <div className="h-px bg-[#E2E8F0] w-full" />
+
+                <div className={`p-1.5 flex flex-col ${awayWin ? "bg-blue-50/20" : ""}`}>
+                    <span className="text-[8px] text-gray-400 font-bold text-center mb-0.5">{awayName}</span>
+                    <div className="flex justify-between items-center px-1">
+                        <div className="flex flex-col min-w-0 pr-1 leading-[1.1]">
+                            <span className={`truncate text-[11px] ${awayWin ? "text-blue-700 font-bold" : "text-gray-800 font-medium"} ${!match.awayTeam && !match.p2 ? "text-gray-400 italic" : ""}`}>
+                                {match.awayTeam?.player1 || match.p2?.name || "Chờ kết quả"}
+                            </span>
+                            {match.awayTeam?.player2 && match.awayTeam.player2 !== "TBD" && (
+                                <span className={`truncate text-[11px] mt-0.5 ${awayWin ? "text-blue-700 font-bold" : "text-gray-800 font-medium"}`}>
+                                    {match.awayTeam.player2}
+                                </span>
+                            )}
+                        </div>
+                        <span className={`text-[12px] tabular-nums ml-1 ${awayWin ? "text-blue-600 font-bold" : "text-gray-400 font-semibold"}`}>{awayScore}</span>
+                    </div>
+                </div>
+            </motion.div>
+        </div>
     );
 };
 
@@ -336,7 +387,11 @@ export default function TournamentDetailClient({ initialData, id }: { initialDat
 
     const bracketRounds = Object.entries(bracketMap)
         .sort(([, a], [, b]) => (a[0]?.round ?? 0) - (b[0]?.round ?? 0))
-        .map(([name, roundMatches]) => ({ name, matches: roundMatches }));
+        .map(([name, roundMatches]) => ({
+            name,
+            matches: roundMatches.filter(m => m.status !== "walkover")
+        }))
+        .filter(round => round.matches.length > 0);
 
     return (
         <>
@@ -419,37 +474,59 @@ export default function TournamentDetailClient({ initialData, id }: { initialDat
                                 <div className="absolute inset-0 opacity-[0.4] pointer-events-none" style={{ backgroundImage: `radial-gradient(#E2E8F0 1.2px, transparent 1.2px)`, backgroundSize: '32px 32px' }} />
                                 <div className="inline-flex p-12 min-w-full relative z-10">
                                     {bracketRounds.map((round, rIndex) => {
-                                        const cellHeight = UNIT_HEIGHT * Math.pow(2, rIndex);
-                                        const isLastRound = rIndex === bracketRounds.length - 1;
-
                                         return (
                                             <div key={rIndex} className="flex">
                                                 <div className="flex flex-col w-[180px]">
                                                     <div className="h-10 flex items-center justify-center mb-12">
-                                                        <div className="px-4 py-1.5 rounded-[10px] bg-white border border-gray-100 shadow-sm">
-                                                            <span className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em]">{round.name}</span>
+                                                        <div className="w-[140px] py-1.5 rounded-sm bg-[#FEEBDB] flex items-center justify-center">
+                                                            <span className="text-[12px] font-bold text-gray-800">{round.name}</span>
                                                         </div>
                                                     </div>
-                                                    {round.matches.map((match: any) => (
-                                                        <div key={match._id || match.id} className="flex items-center justify-center relative" style={{ height: cellHeight }}>
-                                                            <MatchCard match={match} onClick={() => setSelectedMatch(match)} />
-                                                            {rIndex > 0 && <div className="absolute -left-16 w-16 h-[2px] bg-[#E2E8F0]" />}
-                                                        </div>
-                                                    ))}
+                                                    <div className="relative flex-1">
+                                                        {round.matches.map((match: any, mIdx: any) => {
+                                                            const scale = Math.pow(2, rIndex);
+                                                            const topPadding = (scale - 1) * (UNIT_HEIGHT / 2);
+                                                            const yOffset = topPadding + (match.bracketPosition?.y || 0) * UNIT_HEIGHT * scale;
+
+                                                            return (
+                                                                <div
+                                                                    key={match._id || match.id}
+                                                                    className="absolute left-0 flex items-center"
+                                                                    style={{
+                                                                        top: `${yOffset}px`,
+                                                                        height: `${UNIT_HEIGHT}px`,
+                                                                        width: '100%'
+                                                                    }}
+                                                                >
+                                                                    <MatchCard match={match} onClick={() => setSelectedMatch(match)} />
+
+                                                                    {match.nextMatch && (
+                                                                        <>
+                                                                            <div className="absolute right-[-40px] w-[40px] h-px bg-[#CBD5E1]" />
+                                                                            <div
+                                                                                className="absolute right-[-40px] w-px bg-[#CBD5E1]"
+                                                                                style={{
+                                                                                    height: `${(UNIT_HEIGHT * scale) / 2}px`,
+                                                                                    top: (match.bracketPosition?.y % 2 === 0) ? '50%' : 'auto',
+                                                                                    bottom: (match.bracketPosition?.y % 2 !== 0) ? '50%' : 'auto'
+                                                                                }}
+                                                                            />
+                                                                            {(match.bracketPosition?.y % 2 === 0) && (
+                                                                                <div
+                                                                                    className="absolute right-[-128px] w-[88px] h-px bg-[#CBD5E1]"
+                                                                                    style={{ top: 'calc(50% + ' + ((UNIT_HEIGHT * scale) / 2) + 'px)' }}
+                                                                                />
+                                                                            )}
+                                                                        </>
+                                                                    )}
+                                                                    {/* Left connector for Round 2+ (to catch Byes) */}
+                                                                    {rIndex > 0 && <div className="absolute left-[-40px] w-[40px] h-px bg-[#CBD5E1]" />}
+                                                                </div>
+                                                            );
+                                                        })}
+                                                    </div>
                                                 </div>
-                                                {!isLastRound && (
-                                                    <div className="w-[128px] flex flex-col pt-[92px]">
-                                                        {Array.from({ length: Math.floor(round.matches.length / 2) }).map((_, i) => (
-                                                            <div key={i} className="relative" style={{ height: cellHeight * 2 }}>
-                                                                <div className="absolute left-0 top-1/4 w-1/2 h-[2px] bg-[#E2E8F0]" />
-                                                                <div className="absolute left-0 top-3/4 w-1/2 h-[2px] bg-[#E2E8F0]" />
-                                                                <div className="absolute left-1/2 top-1/4 w-[2px] bg-[#E2E8F0]" style={{ height: '50%' }} />
-                                                                <div className="absolute left-1/2 top-1/2 w-1/2 h-[2px] bg-[#E2E8F0]" />
-                                                            </div>
-                                                        ))}
-                                                        {/* Handle odd number of matches if needed, but bracket usually even */}
-                                                    </div>
-                                                )}
+                                                <div className="w-[128px]" />
                                             </div>
                                         );
                                     })}
@@ -502,7 +579,7 @@ export default function TournamentDetailClient({ initialData, id }: { initialDat
 
                         {activeTab === "schedule" && (
                             <div className="space-y-3">
-                                {matches.map((m: any) => (
+                                {matches.filter((m: any) => m.status !== 'walkover').map((m: any) => (
                                     <div key={m._id} className="flex items-center gap-4 p-4 bg-white border rounded-xl hover:shadow-sm transition-all" onClick={() => setSelectedMatch(m)}>
                                         <div className="w-20 text-center"><div className="font-bold text-sm">{m.scheduledDate ? formatDate(m.scheduledDate) : "TBD"}</div><div className="text-[10px] text-gray-400">{m.roundName || `Vòng ${m.round}`}</div></div>
                                         <div className="flex-1 font-medium">{m.homeTeam?.name || "TBD"} vs {m.awayTeam?.name || "TBD"}</div>
