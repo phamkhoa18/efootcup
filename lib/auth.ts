@@ -9,7 +9,7 @@ export interface AuthUser {
     _id: string;
     name: string;
     email: string;
-    role: "manager" | "user";
+    role: "admin" | "manager" | "user";
 }
 
 // Generate JWT token
@@ -84,9 +84,27 @@ export async function requireManager(
 
     if (result instanceof NextResponse) return result;
 
-    if (result.user.role !== "manager") {
+    if (result.user.role !== "manager" && result.user.role !== "admin") {
         return NextResponse.json(
             { success: false, message: "Bạn không có quyền thực hiện thao tác này" },
+            { status: 403 }
+        );
+    }
+
+    return result;
+}
+
+// Middleware: require admin role
+export async function requireAdmin(
+    req: NextRequest
+): Promise<{ user: AuthUser } | NextResponse> {
+    const result = await requireAuth(req);
+
+    if (result instanceof NextResponse) return result;
+
+    if (result.user.role !== "admin") {
+        return NextResponse.json(
+            { success: false, message: "Chỉ Admin mới có quyền truy cập" },
             { status: 403 }
         );
     }

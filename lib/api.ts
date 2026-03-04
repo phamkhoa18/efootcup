@@ -202,4 +202,213 @@ export const notificationsAPI = {
     markAllRead: () => apiFetch("/notifications", { method: "PUT" }),
 };
 
+// ====== Admin ======
+export const adminAPI = {
+    // Users
+    getUsers: (params?: Record<string, string>) => {
+        const searchParams = new URLSearchParams(params || {});
+        return apiFetch(`/admin/users?${searchParams.toString()}`);
+    },
+    updateUser: (userId: string, data: any) =>
+        apiFetch(`/admin/users`, {
+            method: "PUT",
+            body: JSON.stringify({ userId, ...data }),
+        }),
+    deleteUser: (userId: string) =>
+        apiFetch(`/admin/users`, {
+            method: "DELETE",
+            body: JSON.stringify({ userId }),
+        }),
+
+    // Stats
+    getStats: () => apiFetch("/admin/stats"),
+
+    // Tournaments (admin can manage all)
+    getAllTournaments: (params?: Record<string, string>) => {
+        const searchParams = new URLSearchParams(params || {});
+        return apiFetch(`/admin/tournaments?${searchParams.toString()}`);
+    },
+    updateTournament: (id: string, data: any) =>
+        apiFetch(`/admin/tournaments`, {
+            method: "PUT",
+            body: JSON.stringify({ tournamentId: id, ...data }),
+        }),
+    deleteTournament: (id: string) =>
+        apiFetch(`/admin/tournaments`, {
+            method: "DELETE",
+            body: JSON.stringify({ tournamentId: id }),
+        }),
+
+    // Content/Posts
+    getPosts: (params?: Record<string, string>) => {
+        const searchParams = new URLSearchParams(params || {});
+        return apiFetch(`/admin/content?${searchParams.toString()}`);
+    },
+    getPost: (id: string) => apiFetch(`/admin/content/${id}`),
+    createPost: (data: any) =>
+        apiFetch("/admin/content", {
+            method: "POST",
+            body: JSON.stringify(data),
+        }),
+    updatePost: (postId: string, data: any) =>
+        apiFetch(`/admin/content/${postId}`, {
+            method: "PUT",
+            body: JSON.stringify(data),
+        }),
+    deletePost: (postId: string) =>
+        apiFetch(`/admin/content/${postId}`, {
+            method: "DELETE",
+        }),
+    uploadContentImage: async (file: File, type: string = "content") => {
+        const formData = new FormData();
+        formData.append("file", file);
+        formData.append("type", type);
+
+        const headers: Record<string, string> = {};
+        if (typeof window !== "undefined") {
+            const savedToken = localStorage.getItem("efootcup_token");
+            if (savedToken) headers.Authorization = `Bearer ${savedToken}`;
+        }
+
+        const res = await fetch("/api/admin/content/upload", {
+            method: "POST",
+            headers,
+            body: formData,
+        });
+        return res.json();
+    },
+
+    // Menu management
+    getMenus: () => apiFetch("/admin/menus"),
+    updateMenu: (location: string, items: any[]) =>
+        apiFetch("/admin/menus", {
+            method: "PUT",
+            body: JSON.stringify({ location, items }),
+        }),
+
+    // Categories
+    getCategories: () => apiFetch("/admin/categories"),
+    createCategory: (data: any) =>
+        apiFetch("/admin/categories", {
+            method: "POST",
+            body: JSON.stringify(data),
+        }),
+    updateCategory: (categoryId: string, data: any) =>
+        apiFetch("/admin/categories", {
+            method: "PUT",
+            body: JSON.stringify({ categoryId, ...data }),
+        }),
+    deleteCategory: (categoryId: string) =>
+        apiFetch("/admin/categories", {
+            method: "DELETE",
+            body: JSON.stringify({ categoryId }),
+        }),
+
+    // Site Settings
+    getSettings: () => apiFetch("/admin/settings"),
+    updateSettings: (data: any) =>
+        apiFetch("/admin/settings", {
+            method: "PUT",
+            body: JSON.stringify(data),
+        }),
+    uploadSettingsImage: async (file: File, type: string) => {
+        const formData = new FormData();
+        formData.append("file", file);
+        formData.append("type", type);
+
+        const headers: Record<string, string> = {};
+        if (typeof window !== "undefined") {
+            const savedToken = localStorage.getItem("efootcup_token");
+            if (savedToken) headers.Authorization = `Bearer ${savedToken}`;
+        }
+
+        const res = await fetch("/api/admin/settings/upload", {
+            method: "POST",
+            headers,
+            body: formData,
+        });
+        return res.json();
+    },
+};
+
+// Public posts API
+export const postsAPI = {
+    getAll: (params?: Record<string, string>) => {
+        const searchParams = new URLSearchParams(params || {});
+        return apiFetch(`/posts?${searchParams.toString()}`);
+    },
+    getBySlug: (slug: string) => apiFetch(`/posts/${slug}`),
+};
+
+// Public categories API
+export const categoriesAPI = {
+    getAll: () => apiFetch("/categories"),
+};
+
+// ====== Payment Config ======
+export const paymentConfigAPI = {
+    // Admin endpoints
+    getConfig: () => apiFetch("/admin/payment-config"),
+    updateConfig: (data: any) =>
+        apiFetch("/admin/payment-config", {
+            method: "PUT",
+            body: JSON.stringify(data),
+        }),
+
+    // Public endpoint (only enabled methods)
+    getPublicConfig: () => apiFetch("/payment-config"),
+
+    // Upload QR image for payment method
+    uploadQR: async (file: File) => {
+        const formData = new FormData();
+        formData.append("file", file);
+        formData.append("type", "payment_qr");
+
+        const headers: Record<string, string> = {};
+        if (typeof window !== "undefined") {
+            const savedToken = localStorage.getItem("efootcup_token");
+            if (savedToken) headers.Authorization = `Bearer ${savedToken}`;
+        }
+
+        const res = await fetch("/api/admin/settings/upload", {
+            method: "POST",
+            headers,
+            body: formData,
+        });
+        return res.json();
+    },
+};
+
+// ====== Tournament Payment ======
+export const tournamentPaymentAPI = {
+    // Create payment (auto or manual) — returns payUrl for MoMo or manual info
+    createPayment: (tournamentId: string, methodId: string) =>
+        apiFetch(`/tournaments/${tournamentId}/pay`, {
+            method: "POST",
+            body: JSON.stringify({ methodId }),
+        }),
+
+    // User submits payment proof (manual mode)
+    submitProof: (tournamentId: string, data: any) =>
+        apiFetch(`/tournaments/${tournamentId}/registrations/payment`, {
+            method: "PUT",
+            body: JSON.stringify({ action: "submit_proof", ...data }),
+        }),
+
+    // Manager confirms payment
+    confirmPayment: (tournamentId: string, registrationId: string, paymentAmount?: number) =>
+        apiFetch(`/tournaments/${tournamentId}/registrations/payment`, {
+            method: "PUT",
+            body: JSON.stringify({ action: "confirm_payment", registrationId, paymentAmount }),
+        }),
+
+    // Manager rejects payment
+    rejectPayment: (tournamentId: string, registrationId: string) =>
+        apiFetch(`/tournaments/${tournamentId}/registrations/payment`, {
+            method: "PUT",
+            body: JSON.stringify({ action: "reject_payment", registrationId }),
+        }),
+};
+
 export default apiFetch;
+

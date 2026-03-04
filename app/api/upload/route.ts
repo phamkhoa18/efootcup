@@ -3,7 +3,7 @@ import { writeFile, mkdir } from "fs/promises";
 import path from "path";
 import { requireAuth, apiResponse, apiError } from "@/lib/auth";
 
-// POST /api/upload — Upload an image (avatar, etc.)
+// POST /api/upload — Upload an image (avatar, payment_proof, etc.)
 export async function POST(req: NextRequest) {
     try {
         const authResult = await requireAuth(req);
@@ -11,14 +11,21 @@ export async function POST(req: NextRequest) {
 
         const formData = await req.formData();
         const file = formData.get("file") as File | null;
+        const type = (formData.get("type") as string) || "general";
 
         if (!file) {
             return apiError("Vui lòng chọn file", 400);
         }
 
+        // Allowed types for authenticated users
+        const allowedTypes = ["general", "avatar", "payment_proof"];
+        if (!allowedTypes.includes(type)) {
+            return apiError("Loại file không hợp lệ", 400);
+        }
+
         // Validate file type
-        const allowedTypes = ["image/jpeg", "image/png", "image/webp", "image/gif"];
-        if (!allowedTypes.includes(file.type)) {
+        const allowedMimeTypes = ["image/jpeg", "image/png", "image/webp", "image/gif"];
+        if (!allowedMimeTypes.includes(file.type)) {
             return apiError("Chỉ chấp nhận file ảnh (JPG, PNG, WebP, GIF)", 400);
         }
 
@@ -28,8 +35,13 @@ export async function POST(req: NextRequest) {
             return apiError("File quá lớn (tối đa 5MB)", 400);
         }
 
+        // Determine upload subdirectory based on type
+        const subDir = type === "avatar" ? "avatars"
+            : type === "payment_proof" ? "payment_proof"
+                : "general";
+
         // Create uploads directory
-        const uploadsDir = path.join(process.cwd(), "public", "uploads", "avatars");
+        const uploadsDir = path.join(process.cwd(), "public", "uploads", subDir);
         await mkdir(uploadsDir, { recursive: true });
 
         // Generate unique filename
@@ -42,9 +54,9 @@ export async function POST(req: NextRequest) {
         await writeFile(filepath, Buffer.from(bytes));
 
         // Return the public URL
-        const url = `/uploads/avatars/${filename}`;
+        const url = `/uploads/${subDir}/${filename}`;
 
-        return apiResponse({ url }, 200, "Upload thành công");
+        return apiResponse({ url, type }, 200, "Upload thành công");
     } catch (error) {
         console.error("Upload error:", error);
         return apiError("Có lỗi xảy ra khi upload", 500);

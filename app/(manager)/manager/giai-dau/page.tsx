@@ -12,6 +12,7 @@ import {
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { tournamentAPI } from "@/lib/api";
+import { useConfirmDialog } from "@/components/ui/confirm-dialog";
 
 const statusStyles: Record<string, { label: string; bg: string; icon: typeof Flame }> = {
     draft: { label: "Nháp", bg: "bg-gray-200 text-gray-600 border-transparent", icon: Clock },
@@ -28,6 +29,7 @@ export default function ManagerGiaiDauPage() {
     const [search, setSearch] = useState("");
     const [statusFilter, setStatusFilter] = useState<string>("");
     const [pagination, setPagination] = useState<any>({ page: 1, total: 0 });
+    const { confirm } = useConfirmDialog();
 
     useEffect(() => {
         if (user) loadTournaments();
@@ -55,7 +57,13 @@ export default function ManagerGiaiDauPage() {
     };
 
     const handleDelete = async (id: string) => {
-        if (!confirm("Bạn có chắc muốn xóa giải đấu này?")) return;
+        const ok = await confirm({
+            title: "Xóa giải đấu?",
+            description: "Bạn có chắc muốn xóa giải đấu này?",
+            variant: "danger",
+            confirmText: "Xóa giải đấu",
+        });
+        if (!ok) return;
 
         try {
             const res = await tournamentAPI.delete(id);
@@ -110,8 +118,8 @@ export default function ManagerGiaiDauPage() {
                                 key={s}
                                 onClick={() => setStatusFilter(s)}
                                 className={`whitespace-nowrap px-3.5 py-2 rounded-xl text-sm font-medium transition-all border ${statusFilter === s
-                                        ? "bg-efb-blue text-white border-efb-blue"
-                                        : "bg-white text-efb-text-secondary border-gray-200 hover:border-gray-300"
+                                    ? "bg-efb-blue text-white border-efb-blue"
+                                    : "bg-white text-efb-text-secondary border-gray-200 hover:border-gray-300"
                                     }`}
                             >
                                 {s === "" ? "Tất cả" : sty?.label || s}

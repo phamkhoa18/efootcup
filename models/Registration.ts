@@ -14,8 +14,16 @@ export interface IRegistration extends Document {
     notes?: string;
     status: "pending" | "approved" | "rejected" | "cancelled";
     rejectionReason?: string;
-    paymentStatus: "unpaid" | "paid" | "refunded";
+    // Payment fields
+    paymentStatus: "unpaid" | "pending_verification" | "paid" | "refunded";
     paymentProof?: string;
+    paymentAmount?: number;
+    paymentMethod?: string; // momo, bank_transfer, zalopay, etc.
+    paymentDate?: Date;
+    paymentNote?: string; // Nội dung chuyển khoản
+    paymentConfirmedBy?: mongoose.Types.ObjectId;
+    paymentConfirmedAt?: Date;
+    // Approval
     approvedBy?: mongoose.Types.ObjectId;
     approvedAt?: Date;
     createdAt: Date;
@@ -75,12 +83,20 @@ const RegistrationSchema = new Schema<IRegistration>(
             default: "pending",
         },
         rejectionReason: { type: String },
+        // Payment fields
         paymentStatus: {
             type: String,
-            enum: ["unpaid", "paid", "refunded"],
+            enum: ["unpaid", "pending_verification", "paid", "refunded"],
             default: "unpaid",
         },
         paymentProof: { type: String },
+        paymentAmount: { type: Number, default: 0 },
+        paymentMethod: { type: String, default: "" },
+        paymentDate: { type: Date },
+        paymentNote: { type: String, default: "" },
+        paymentConfirmedBy: { type: Schema.Types.ObjectId, ref: "User" },
+        paymentConfirmedAt: { type: Date },
+        // Approval
         approvedBy: { type: Schema.Types.ObjectId, ref: "User" },
         approvedAt: { type: Date },
     },

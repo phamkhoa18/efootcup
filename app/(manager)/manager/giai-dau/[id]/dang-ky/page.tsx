@@ -2,22 +2,33 @@
 
 import { useState, useEffect } from "react";
 import { useParams } from "next/navigation";
-import { motion } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import {
     Plus, UserCheck, Search, Download, Loader2, Check, X,
-    Users, Clock, CheckCircle2, XCircle, AlertCircle, RefreshCw, UserPlus, Upload
+    Users, Clock, CheckCircle2, XCircle, AlertCircle, RefreshCw, UserPlus, Upload,
+    CreditCard, Eye, Banknote, ImageIcon, DollarSign, AlertTriangle
 } from "lucide-react";
-import { tournamentAPI } from "@/lib/api";
+import { tournamentAPI, tournamentPaymentAPI } from "@/lib/api";
+import { toast } from "sonner";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+
+// Payment status config
+const paymentStatusConfig: Record<string, { label: string; color: string; icon: typeof Clock }> = {
+    unpaid: { label: "Chưa thanh toán", color: "bg-red-50 text-red-600 border-red-100", icon: AlertCircle },
+    pending_verification: { label: "Chờ xác nhận", color: "bg-amber-50 text-amber-600 border-amber-100", icon: Clock },
+    paid: { label: "Đã thanh toán", color: "bg-emerald-50 text-emerald-600 border-emerald-100", icon: CheckCircle2 },
+    refunded: { label: "Đã hoàn tiền", color: "bg-blue-50 text-blue-600 border-blue-100", icon: CreditCard },
+};
 
 export default function DangKyPage() {
     const params = useParams();
     const id = params.id as string;
 
     const [registrations, setRegistrations] = useState<any[]>([]);
+    const [tournament, setTournament] = useState<any>(null);
     const [isLoading, setIsLoading] = useState(true);
     const [search, setSearch] = useState("");
     const [filter, setFilter] = useState("all");
@@ -31,7 +42,25 @@ export default function DangKyPage() {
         { clb: "", vdv1: "", vdv2: "", phone: "", seed: "", fee: false }
     ]);
 
-    useEffect(() => { loadRegistrations(); }, [id]);
+    // Payment proof viewer
+    const [paymentProofView, setPaymentProofView] = useState<string | null>(null);
+    const [paymentDetailView, setPaymentDetailView] = useState<any>(null);
+
+    useEffect(() => {
+        loadRegistrations();
+        loadTournament();
+    }, [id]);
+
+    const loadTournament = async () => {
+        try {
+            const res = await tournamentAPI.getById(id);
+            if (res.success) {
+                setTournament(res.data?.tournament || res.data);
+            }
+        } catch (e) {
+            console.error("Load tournament error:", e);
+        }
+    };
 
     const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
@@ -51,12 +80,11 @@ export default function DangKyPage() {
                     const data = xlsx.utils.sheet_to_json(ws);
 
                     if (data.length === 0) {
-                        alert("File excel trống");
+                        toast.error("File excel trống");
                         setIsUploading(false);
                         return;
                     }
 
-                    // Format names if enabled
                     const formattedData = data.map((row: any) => {
                         if (isAutoFormat) {
                             if (row['Tên Đội Trưởng']) row['Tên Đội Trưởng'] = autoFormatName(row['Tên Đội Trưởng']);
@@ -69,24 +97,24 @@ export default function DangKyPage() {
 
                     const res = await tournamentAPI.importRegistrations(id, formattedData);
                     if (res.success) {
-                        alert(res.message || `Đã import thành công`);
+                        toast.success(res.message || `Đã import thành công`);
                         loadRegistrations();
                         setIsAddModalOpen(false);
                     } else {
-                        alert(res.message || "Import thất bại");
+                        toast.error(res.message || "Import thất bại");
                     }
                 } catch (err) {
                     console.error(err);
-                    alert("Lỗi khi đọc file");
+                    toast.error("Lỗi khi đọc file");
                 } finally {
                     setIsUploading(false);
-                    e.target.value = ""; // reset input
+                    e.target.value = "";
                 }
             };
             reader.readAsBinaryString(file);
         } catch (error) {
             console.error(error);
-            alert("Lỗi khi import file");
+            toast.error("Lỗi khi import file");
             setIsUploading(false);
         }
     };
@@ -104,7 +132,7 @@ export default function DangKyPage() {
     const handleSaveManual = async () => {
         const validRows = manualRows.filter(r => r.vdv1.length >= 2);
         if (validRows.length === 0) {
-            return alert("Vui lòng nhập VĐV hợp lệ (VĐV 1 tối thiểu 2 ký tự)");
+            return toast.error("Vui lòng nhập VĐV hợp lệ (VĐV 1 tối thiểu 2 ký tự)");
         }
 
         setIsUploading(true);
@@ -118,16 +146,16 @@ export default function DangKyPage() {
         try {
             const res = await tournamentAPI.importRegistrations(id, data);
             if (res.success) {
-                alert(res.message || "Đã thêm thành công");
+                toast.success(res.message || "Đã thêm thành công");
                 loadRegistrations();
                 setIsAddModalOpen(false);
                 setManualRows([{ clb: "", vdv1: "", vdv2: "", phone: "", seed: "", fee: false }]);
             } else {
-                alert(res.message || "Thêm thất bại");
+                toast.error(res.message || "Thêm thất bại");
             }
         } catch (err) {
             console.error(err);
-            alert("Có lỗi xảy ra");
+            toast.error("Có lỗi xảy ra");
         } finally {
             setIsUploading(false);
         }
@@ -155,6 +183,7 @@ export default function DangKyPage() {
                 action,
             });
             if (res.success) {
+                toast.success(action === "approve" ? "Đã duyệt đăng ký" : "Đã từ chối đăng ký");
                 setRegistrations((prev) =>
                     prev.map((r) =>
                         r._id === regId
@@ -162,13 +191,59 @@ export default function DangKyPage() {
                             : r
                     )
                 );
+            } else {
+                toast.error(res.message || "Thao tác thất bại");
             }
         } catch (e) {
             console.error("Handle registration error:", e);
+            toast.error("Có lỗi xảy ra");
         } finally {
             setProcessing(null);
         }
     };
+
+    // Payment actions
+    const handleConfirmPayment = async (regId: string) => {
+        setProcessing(regId);
+        try {
+            const res = await tournamentPaymentAPI.confirmPayment(id, regId);
+            if (res.success) {
+                toast.success("✅ Đã xác nhận thanh toán");
+                setRegistrations(prev =>
+                    prev.map(r => r._id === regId ? { ...r, paymentStatus: "paid" } : r)
+                );
+            } else {
+                toast.error(res.message || "Xác nhận thất bại");
+            }
+        } catch (e) {
+            console.error(e);
+            toast.error("Có lỗi xảy ra");
+        } finally {
+            setProcessing(null);
+        }
+    };
+
+    const handleRejectPayment = async (regId: string) => {
+        setProcessing(regId);
+        try {
+            const res = await tournamentPaymentAPI.rejectPayment(id, regId);
+            if (res.success) {
+                toast.success("Đã từ chối thanh toán");
+                setRegistrations(prev =>
+                    prev.map(r => r._id === regId ? { ...r, paymentStatus: "unpaid", paymentProof: "" } : r)
+                );
+            } else {
+                toast.error(res.message || "Thao tác thất bại");
+            }
+        } catch (e) {
+            console.error(e);
+            toast.error("Có lỗi xảy ra");
+        } finally {
+            setProcessing(null);
+        }
+    };
+
+    const hasFee = tournament?.entryFee > 0;
 
     const filtered = registrations.filter((r) => {
         if (filter !== "all" && r.status !== filter) return false;
@@ -178,7 +253,9 @@ export default function DangKyPage() {
                 r.name?.toLowerCase().includes(q) ||
                 r.teamName?.toLowerCase().includes(q) ||
                 r.ingameId?.toLowerCase().includes(q) ||
-                r.email?.toLowerCase().includes(q)
+                r.email?.toLowerCase().includes(q) ||
+                r.playerName?.toLowerCase().includes(q) ||
+                r.gamerId?.toLowerCase().includes(q)
             );
         }
         return true;
@@ -189,6 +266,8 @@ export default function DangKyPage() {
         pending: registrations.filter((r) => r.status === "pending").length,
         approved: registrations.filter((r) => r.status === "approved").length,
         rejected: registrations.filter((r) => r.status === "rejected").length,
+        paid: registrations.filter((r) => r.paymentStatus === "paid").length,
+        pendingPayment: registrations.filter((r) => r.paymentStatus === "pending_verification").length,
     };
 
     return (
@@ -196,7 +275,15 @@ export default function DangKyPage() {
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                 <div>
                     <h1 className="text-[22px] font-semibold text-efb-dark tracking-tight">Đăng ký thi đấu</h1>
-                    <p className="text-sm text-efb-text-muted mt-0.5">Quản lý danh sách đăng ký tham gia giải đấu</p>
+                    <p className="text-sm text-efb-text-muted mt-0.5">
+                        Quản lý danh sách đăng ký tham gia giải đấu
+                        {hasFee && (
+                            <span className="ml-2 inline-flex items-center gap-1 text-amber-600 font-medium">
+                                <DollarSign className="w-3.5 h-3.5" />
+                                Lệ phí: {tournament?.entryFee?.toLocaleString("vi-VN")} {tournament?.currency || "VNĐ"}
+                            </span>
+                        )}
+                    </p>
                 </div>
                 <div className="flex items-center gap-2">
                     <Button
@@ -214,12 +301,16 @@ export default function DangKyPage() {
             </div>
 
             {/* Stats */}
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+            <div className={`grid ${hasFee ? "grid-cols-2 sm:grid-cols-3 lg:grid-cols-6" : "grid-cols-2 sm:grid-cols-4"} gap-3`}>
                 {[
                     { label: "Tổng đăng ký", value: counts.total, icon: Users, color: "text-blue-600 bg-blue-50" },
                     { label: "Chờ duyệt", value: counts.pending, icon: Clock, color: "text-amber-600 bg-amber-50" },
                     { label: "Đã duyệt", value: counts.approved, icon: CheckCircle2, color: "text-emerald-600 bg-emerald-50" },
                     { label: "Đã từ chối", value: counts.rejected, icon: XCircle, color: "text-red-600 bg-red-50" },
+                    ...(hasFee ? [
+                        { label: "Đã thanh toán", value: counts.paid, icon: CreditCard, color: "text-teal-600 bg-teal-50" },
+                        { label: "Chờ xác nhận TT", value: counts.pendingPayment, icon: Banknote, color: "text-orange-600 bg-orange-50" },
+                    ] : []),
                 ].map((s) => (
                     <div key={s.label} className="bg-white rounded-xl border border-gray-100 p-4 shadow-sm hover:shadow-md transition-shadow duration-300">
                         <div className={`w-8 h-8 rounded-lg ${s.color} flex items-center justify-center mb-3`}>
@@ -230,6 +321,27 @@ export default function DangKyPage() {
                     </div>
                 ))}
             </div>
+
+            {/* Payment Warning Banner */}
+            {hasFee && counts.pendingPayment > 0 && (
+                <motion.div
+                    initial={{ opacity: 0, y: -8 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    className="bg-gradient-to-r from-amber-50 to-orange-50 border border-amber-200 rounded-xl p-4 flex items-start gap-3"
+                >
+                    <div className="w-9 h-9 rounded-lg bg-amber-100 flex items-center justify-center flex-shrink-0">
+                        <AlertTriangle className="w-5 h-5 text-amber-600" />
+                    </div>
+                    <div>
+                        <h4 className="text-sm font-bold text-amber-800">
+                            Có {counts.pendingPayment} đăng ký chờ xác nhận thanh toán
+                        </h4>
+                        <p className="text-xs text-amber-600/80 mt-0.5">
+                            Vui lòng kiểm tra minh chứng thanh toán và xác nhận để VĐV có thể được duyệt vào giải
+                        </p>
+                    </div>
+                </motion.div>
+            )}
 
             {/* Filters */}
             <div className="flex flex-col sm:flex-row gap-3">
@@ -284,75 +396,234 @@ export default function DangKyPage() {
                                     <th className="text-left px-4 py-4 text-[10px] font-bold text-gray-400 uppercase tracking-widest">Nhân sự / CLB</th>
                                     <th className="text-left px-4 py-4 text-[10px] font-bold text-gray-400 uppercase tracking-widest hidden md:table-cell">In-game ID</th>
                                     <th className="text-left px-4 py-4 text-[10px] font-bold text-gray-400 uppercase tracking-widest hidden lg:table-cell">Ngày ĐK</th>
+                                    {hasFee && (
+                                        <th className="text-center px-4 py-4 text-[10px] font-bold text-gray-400 uppercase tracking-widest">
+                                            <span className="flex items-center justify-center gap-1">
+                                                <CreditCard className="w-3 h-3" />
+                                                Thanh toán
+                                            </span>
+                                        </th>
+                                    )}
                                     <th className="text-center px-4 py-4 text-[10px] font-bold text-gray-400 uppercase tracking-widest">Trạng thái</th>
                                     <th className="text-center px-4 py-4 text-[10px] font-bold text-gray-400 uppercase tracking-widest">Hành động</th>
                                 </tr>
                             </thead>
                             <tbody>
-                                {filtered.map((r, i) => (
-                                    <motion.tr
-                                        initial={{ opacity: 0, x: -4 }}
-                                        animate={{ opacity: 1, x: 0 }}
-                                        transition={{ delay: i * 0.03 }}
-                                        key={r._id || i}
-                                        className="border-b border-gray-50 hover:bg-gray-50/50 transition-colors"
-                                    >
-                                        <td className="px-4 py-4 text-sm text-gray-400 font-medium">{i + 1}</td>
-                                        <td className="px-4 py-4">
-                                            <div className="text-sm font-bold text-gray-900">{r.playerName || r.teamName || r.name || "—"}</div>
-                                            <div className="text-[11px] text-gray-400 font-medium flex items-center gap-1.5 mt-0.5">
-                                                <span className="text-efb-blue">{r.teamName || "Tự do"}</span>
-                                                <span className="w-1 h-1 rounded-full bg-gray-200" />
-                                                <span>{r.phone || r.email || ""}</span>
-                                            </div>
-                                        </td>
-                                        <td className="px-4 py-4 text-sm text-gray-600 hidden md:table-cell font-medium">{r.gamerId || r.ingameId || "—"}</td>
-                                        <td className="px-4 py-4 text-sm text-gray-400 hidden lg:table-cell">
-                                            {r.createdAt ? new Date(r.createdAt).toLocaleDateString("vi-VN") : "—"}
-                                        </td>
-                                        <td className="px-4 py-4 text-center">
-                                            <Badge
-                                                variant="outline"
-                                                className={
-                                                    r.status === "approved"
-                                                        ? "bg-emerald-50 text-emerald-600 border-emerald-100 font-medium"
-                                                        : r.status === "rejected"
-                                                            ? "bg-red-50 text-red-500 border-red-100 font-medium"
-                                                            : "bg-amber-50 text-amber-600 border-amber-100 font-medium"
-                                                }
-                                            >
-                                                {r.status === "approved" ? "Đã xác nhận" : r.status === "rejected" ? "Từ chối" : "Chờ duyệt"}
-                                            </Badge>
-                                        </td>
-                                        <td className="px-4 py-4 text-center">
-                                            {r.status === "pending" && (
-                                                <div className="flex items-center justify-center gap-2">
-                                                    <button
-                                                        onClick={() => handleAction(r._id, "approve")}
-                                                        disabled={processing === r._id}
-                                                        className="w-8 h-8 rounded-full bg-emerald-50 text-emerald-600 hover:bg-emerald-500 hover:text-white flex items-center justify-center transition-all duration-200 disabled:opacity-50 shadow-sm"
-                                                        title="Duyệt"
-                                                    >
-                                                        <Check className="w-4 h-4" />
-                                                    </button>
-                                                    <button
-                                                        onClick={() => handleAction(r._id, "reject")}
-                                                        disabled={processing === r._id}
-                                                        className="w-8 h-8 rounded-full bg-red-50 text-red-500 hover:bg-red-500 hover:text-white flex items-center justify-center transition-all duration-200 disabled:opacity-50 shadow-sm"
-                                                        title="Từ chối"
-                                                    >
-                                                        <X className="w-4 h-4" />
-                                                    </button>
+                                {filtered.map((r, i) => {
+                                    const payConfig = paymentStatusConfig[r.paymentStatus] || paymentStatusConfig.unpaid;
+                                    const PayIcon = payConfig.icon;
+
+                                    return (
+                                        <motion.tr
+                                            initial={{ opacity: 0, x: -4 }}
+                                            animate={{ opacity: 1, x: 0 }}
+                                            transition={{ delay: i * 0.03 }}
+                                            key={r._id || i}
+                                            className="border-b border-gray-50 hover:bg-gray-50/50 transition-colors"
+                                        >
+                                            <td className="px-4 py-4 text-sm text-gray-400 font-medium">{i + 1}</td>
+                                            <td className="px-4 py-4">
+                                                <div className="text-sm font-bold text-gray-900">{r.playerName || r.teamName || r.name || "—"}</div>
+                                                <div className="text-[11px] text-gray-400 font-medium flex items-center gap-1.5 mt-0.5">
+                                                    <span className="text-efb-blue">{r.teamName || "Tự do"}</span>
+                                                    <span className="w-1 h-1 rounded-full bg-gray-200" />
+                                                    <span>{r.phone || r.email || ""}</span>
                                                 </div>
+                                            </td>
+                                            <td className="px-4 py-4 text-sm text-gray-600 hidden md:table-cell font-medium">{r.gamerId || r.ingameId || "—"}</td>
+                                            <td className="px-4 py-4 text-sm text-gray-400 hidden lg:table-cell">
+                                                {r.createdAt ? new Date(r.createdAt).toLocaleDateString("vi-VN") : "—"}
+                                            </td>
+                                            {hasFee && (
+                                                <td className="px-4 py-4 text-center">
+                                                    <div className="flex flex-col items-center gap-1.5">
+                                                        <Badge
+                                                            variant="outline"
+                                                            className={`${payConfig.color} font-medium text-[10px] inline-flex items-center gap-1`}
+                                                        >
+                                                            <PayIcon className="w-3 h-3" />
+                                                            {payConfig.label}
+                                                        </Badge>
+                                                        {/* Payment proof button */}
+                                                        {r.paymentProof && (
+                                                            <button
+                                                                onClick={() => setPaymentDetailView(r)}
+                                                                className="text-[10px] text-blue-500 hover:text-blue-700 font-medium flex items-center gap-0.5 transition-colors"
+                                                            >
+                                                                <Eye className="w-3 h-3" /> Xem minh chứng
+                                                            </button>
+                                                        )}
+                                                        {/* Payment actions for pending_verification */}
+                                                        {r.paymentStatus === "pending_verification" && (
+                                                            <div className="flex items-center gap-1 mt-1">
+                                                                <button
+                                                                    onClick={() => handleConfirmPayment(r._id)}
+                                                                    disabled={processing === r._id}
+                                                                    className="px-2 py-1 rounded-md bg-emerald-500 text-white text-[10px] font-bold hover:bg-emerald-600 transition-all disabled:opacity-50 flex items-center gap-0.5"
+                                                                >
+                                                                    <Check className="w-3 h-3" /> Xác nhận
+                                                                </button>
+                                                                <button
+                                                                    onClick={() => handleRejectPayment(r._id)}
+                                                                    disabled={processing === r._id}
+                                                                    className="px-2 py-1 rounded-md bg-red-50 text-red-500 text-[10px] font-bold hover:bg-red-100 transition-all disabled:opacity-50 flex items-center gap-0.5"
+                                                                >
+                                                                    <X className="w-3 h-3" /> Từ chối
+                                                                </button>
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                </td>
                                             )}
-                                        </td>
-                                    </motion.tr>
-                                ))}
+                                            <td className="px-4 py-4 text-center">
+                                                <Badge
+                                                    variant="outline"
+                                                    className={
+                                                        r.status === "approved"
+                                                            ? "bg-emerald-50 text-emerald-600 border-emerald-100 font-medium"
+                                                            : r.status === "rejected"
+                                                                ? "bg-red-50 text-red-500 border-red-100 font-medium"
+                                                                : "bg-amber-50 text-amber-600 border-amber-100 font-medium"
+                                                    }
+                                                >
+                                                    {r.status === "approved" ? "Đã xác nhận" : r.status === "rejected" ? "Từ chối" : "Chờ duyệt"}
+                                                </Badge>
+                                            </td>
+                                            <td className="px-4 py-4 text-center">
+                                                {r.status === "pending" && (
+                                                    <div className="flex items-center justify-center gap-2">
+                                                        <button
+                                                            onClick={() => handleAction(r._id, "approve")}
+                                                            disabled={processing === r._id || (hasFee && r.paymentStatus !== "paid")}
+                                                            className="w-8 h-8 rounded-full bg-emerald-50 text-emerald-600 hover:bg-emerald-500 hover:text-white flex items-center justify-center transition-all duration-200 disabled:opacity-50 shadow-sm"
+                                                            title={hasFee && r.paymentStatus !== "paid" ? "Phải xác nhận thanh toán trước" : "Duyệt"}
+                                                        >
+                                                            <Check className="w-4 h-4" />
+                                                        </button>
+                                                        <button
+                                                            onClick={() => handleAction(r._id, "reject")}
+                                                            disabled={processing === r._id}
+                                                            className="w-8 h-8 rounded-full bg-red-50 text-red-500 hover:bg-red-500 hover:text-white flex items-center justify-center transition-all duration-200 disabled:opacity-50 shadow-sm"
+                                                            title="Từ chối"
+                                                        >
+                                                            <X className="w-4 h-4" />
+                                                        </button>
+                                                    </div>
+                                                )}
+                                            </td>
+                                        </motion.tr>
+                                    );
+                                })}
                             </tbody>
                         </table>
                     </div>
                 </motion.div>
             )}
+
+            {/* Payment Detail Modal */}
+            <Dialog open={!!paymentDetailView} onOpenChange={(open) => !open && setPaymentDetailView(null)}>
+                <DialogContent className="max-w-lg bg-white rounded-2xl border-0 shadow-xl p-0 overflow-hidden">
+                    <div className="p-6 border-b border-gray-100">
+                        <DialogTitle className="text-lg font-bold text-gray-900 flex items-center gap-2">
+                            <CreditCard className="w-5 h-5 text-efb-blue" />
+                            Chi tiết thanh toán
+                        </DialogTitle>
+                    </div>
+                    {paymentDetailView && (
+                        <div className="p-6 space-y-5">
+                            {/* Player Info */}
+                            <div className="flex items-center gap-3 p-3 rounded-xl bg-gray-50">
+                                <div className="w-10 h-10 rounded-lg bg-efb-blue/10 flex items-center justify-center">
+                                    <Users className="w-5 h-5 text-efb-blue" />
+                                </div>
+                                <div>
+                                    <div className="text-sm font-bold text-gray-900">{paymentDetailView.playerName}</div>
+                                    <div className="text-xs text-gray-400">{paymentDetailView.teamName}</div>
+                                </div>
+                            </div>
+
+                            {/* Payment Info */}
+                            <div className="grid grid-cols-2 gap-3">
+                                <div className="p-3 rounded-xl bg-gray-50">
+                                    <div className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Trạng thái</div>
+                                    <Badge
+                                        variant="outline"
+                                        className={`mt-1.5 ${paymentStatusConfig[paymentDetailView.paymentStatus]?.color || ""}`}
+                                    >
+                                        {paymentStatusConfig[paymentDetailView.paymentStatus]?.label || "N/A"}
+                                    </Badge>
+                                </div>
+                                <div className="p-3 rounded-xl bg-gray-50">
+                                    <div className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Phương thức</div>
+                                    <div className="text-sm font-medium text-gray-800 mt-1.5">{paymentDetailView.paymentMethod || "N/A"}</div>
+                                </div>
+                                {paymentDetailView.paymentDate && (
+                                    <div className="p-3 rounded-xl bg-gray-50">
+                                        <div className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Ngày thanh toán</div>
+                                        <div className="text-sm font-medium text-gray-800 mt-1.5">
+                                            {new Date(paymentDetailView.paymentDate).toLocaleString("vi-VN")}
+                                        </div>
+                                    </div>
+                                )}
+                                {paymentDetailView.paymentNote && (
+                                    <div className="p-3 rounded-xl bg-gray-50">
+                                        <div className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Ghi chú</div>
+                                        <div className="text-sm text-gray-800 mt-1.5">{paymentDetailView.paymentNote}</div>
+                                    </div>
+                                )}
+                            </div>
+
+                            {/* Payment Proof Image */}
+                            {paymentDetailView.paymentProof && (
+                                <div>
+                                    <div className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-2">Minh chứng thanh toán</div>
+                                    <div className="rounded-xl overflow-hidden border border-gray-200 bg-gray-50">
+                                        <img
+                                            src={paymentDetailView.paymentProof}
+                                            alt="Payment proof"
+                                            className="w-full max-h-[400px] object-contain cursor-pointer"
+                                            onClick={() => window.open(paymentDetailView.paymentProof, "_blank")}
+                                        />
+                                    </div>
+                                    <button
+                                        onClick={() => window.open(paymentDetailView.paymentProof, "_blank")}
+                                        className="text-xs text-blue-500 hover:text-blue-700 font-medium flex items-center gap-1 mt-2 transition-colors"
+                                    >
+                                        <Eye className="w-3.5 h-3.5" /> Xem ảnh gốc
+                                    </button>
+                                </div>
+                            )}
+
+                            {/* Actions */}
+                            {paymentDetailView.paymentStatus === "pending_verification" && (
+                                <div className="flex gap-3 pt-2">
+                                    <Button
+                                        onClick={() => {
+                                            handleConfirmPayment(paymentDetailView._id);
+                                            setPaymentDetailView(null);
+                                        }}
+                                        className="flex-1 bg-emerald-500 text-white hover:bg-emerald-600 rounded-xl h-11 font-bold"
+                                    >
+                                        <CheckCircle2 className="w-4 h-4 mr-2" />
+                                        Xác nhận thanh toán
+                                    </Button>
+                                    <Button
+                                        variant="outline"
+                                        onClick={() => {
+                                            handleRejectPayment(paymentDetailView._id);
+                                            setPaymentDetailView(null);
+                                        }}
+                                        className="flex-1 rounded-xl h-11 font-bold text-red-500 hover:text-red-600 hover:bg-red-50"
+                                    >
+                                        <XCircle className="w-4 h-4 mr-2" />
+                                        Từ chối
+                                    </Button>
+                                </div>
+                            )}
+                        </div>
+                    )}
+                </DialogContent>
+            </Dialog>
 
             {/* Modal Thêm VĐV */}
             <Dialog open={isAddModalOpen} onOpenChange={setIsAddModalOpen}>
@@ -454,7 +725,7 @@ export default function DangKyPage() {
                                         />
                                         <div className="text-sm font-semibold text-gray-800">
                                             Tự động định dạng tên VĐV khi nhập từ Excel
-                                            <span className="text-gray-400 font-normal ml-1">Vd: NGUYỄN văn A {'=>'} Nguyễn Văn A</span>
+                                            <span className="text-gray-400 font-normal ml-1">Vd: NGUYỄN văn A {'=> '} Nguyễn Văn A</span>
                                         </div>
                                     </label>
                                     <a href="https://vntournament.com/assets/excel/example.xlsx" className="text-blue-500 text-sm font-semibold hover:underline flex items-center gap-1.5">
@@ -467,9 +738,9 @@ export default function DangKyPage() {
                                     <ul className="list-disc pl-5 space-y-1.5 text-sm text-gray-700">
                                         <li>Bạn được phép thêm tối đa <span className="text-red-500">128</span> đội cho nội dung này</li>
                                         <li>Số lượng hạt giống tối đa bằng 1/4 tổng số đội tham gia</li>
-                                        <li>Cột "VĐV 1" <span className="text-red-500">tối thiểu 2 ký tự</span> (tải file mẫu để tham khảo thêm)</li>
-                                        <li>Cột "Số điện thoại" chỉ bao gồm số (0-9), không bao gồm ký tự đặc biệt hoặc chữ cái</li>
-                                        <li>Cột "Hạt giống" phải là số nguyên dương (1,2,3,4...)</li>
+                                        <li>Cột &quot;VĐV 1&quot; <span className="text-red-500">tối thiểu 2 ký tự</span> (tải file mẫu để tham khảo thêm)</li>
+                                        <li>Cột &quot;Số điện thoại&quot; chỉ bao gồm số (0-9), không bao gồm ký tự đặc biệt hoặc chữ cái</li>
+                                        <li>Cột &quot;Hạt giống&quot; phải là số nguyên dương (1,2,3,4...)</li>
                                         <li>Sau khi import, những dòng có <span className="bg-red-100 text-red-700 px-1 rounded">màu nền đỏ</span> sẽ không được thêm do dữ liệu không hợp lệ</li>
                                     </ul>
                                 </div>

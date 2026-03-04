@@ -26,6 +26,7 @@ import {
     Globe,
     MapPin,
     Ban,
+    Wallet,
 } from "lucide-react";
 import { tournamentAPI } from "@/lib/api";
 
@@ -222,6 +223,14 @@ function TournamentListContent() {
                                                     <div className="flex justify-between"><span>Thể thức</span><span className="font-medium text-gray-700">{formatLabels[t.format] || t.format}</span></div>
                                                     <div className="flex justify-between"><span>Đội</span><span className="font-medium text-gray-700">{t.currentTeams || 0}/{t.maxTeams}</span></div>
                                                     <div className="flex justify-between"><span>Giải thưởng</span><span className="font-bold text-gradient">{t.prize?.total || "0 VNĐ"}</span></div>
+                                                    <div className="flex justify-between items-center border-t border-dashed border-gray-100 pt-2 mt-1">
+                                                        <span className="flex items-center gap-1.5"><Wallet className="w-3.5 h-3.5 text-gray-400" />Phí tham gia</span>
+                                                        {t.entryFee > 0 ? (
+                                                            <span className="font-bold text-amber-600">{Number(t.entryFee).toLocaleString("vi-VN")} {t.currency || "VNĐ"}</span>
+                                                        ) : (
+                                                            <span className="font-bold text-emerald-500">Miễn phí</span>
+                                                        )}
+                                                    </div>
                                                 </div>
                                             </div>
                                         </Link>

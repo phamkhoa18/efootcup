@@ -22,10 +22,23 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { useAuth } from "@/contexts/AuthContext";
 
-const navLinks = [
+const defaultNavLinks = [
     { label: "Giải đấu", href: "/giai-dau", icon: Trophy },
+    { label: "Tin tức", href: "/tin-tuc", icon: Newspaper },
     { label: "Bảng xếp hạng", href: "/bxh", icon: Users },
 ];
+
+const iconMap: Record<string, any> = {
+    trophy: Trophy,
+    newspaper: Newspaper,
+    users: Users,
+    gamepad: Gamepad2,
+    settings: Settings,
+    dashboard: LayoutDashboard,
+    bell: Bell,
+    shield: Shield,
+    globe: ExternalLink,
+};
 
 export function Navbar() {
     const [scrolled, setScrolled] = useState(false);
@@ -34,6 +47,25 @@ export function Navbar() {
     const [notifications, setNotifications] = useState<any[]>([]);
     const [unreadCount, setUnreadCount] = useState(0);
     const [isNotifOpen, setIsNotifOpen] = useState(false);
+    const [navLinks, setNavLinks] = useState(defaultNavLinks);
+
+    // Fetch dynamic menu from admin settings
+    useEffect(() => {
+        fetch("/api/menus?location=navbar")
+            .then(r => r.json())
+            .then(data => {
+                if (data.success && data.data.items && data.data.items.length > 0) {
+                    setNavLinks(data.data.items.map((item: any) => ({
+                        label: item.label,
+                        href: item.href,
+                        icon: iconMap[item.icon?.toLowerCase()] || Newspaper,
+                        openInNewTab: item.openInNewTab || false,
+                        children: item.children || [],
+                    })));
+                }
+            })
+            .catch(() => { /* keep defaults */ });
+    }, []);
 
     useEffect(() => {
         if (isAuthenticated && token) {

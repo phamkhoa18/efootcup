@@ -4,6 +4,7 @@ import { useState, useEffect, useRef } from "react";
 import { Plus, Search, Trophy, Medal, Edit, Trash2, Loader2, Award, Upload, FileSpreadsheet, Download } from "lucide-react";
 import * as XLSX from "xlsx";
 import { toast } from "sonner";
+import { useConfirmDialog } from "@/components/ui/confirm-dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -20,6 +21,7 @@ export default function ManagerBxhPage() {
     const [isEditModalOpen, setIsEditModalOpen] = useState(false);
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [selectedPlayer, setSelectedPlayer] = useState<any>(null);
+    const { confirm } = useConfirmDialog();
 
     // New Excel states
     const [addMode, setAddMode] = useState<"manual" | "excel">("manual");
@@ -94,7 +96,13 @@ export default function ManagerBxhPage() {
     };
 
     const handleDelete = async (p: any) => {
-        if (!confirm(`Bạn có chắc muốn xóa VĐV ${p.name} khỏi bảng xếp hạng?`)) return;
+        const ok = await confirm({
+            title: "Xóa VĐV?",
+            description: `Bạn có chắc muốn xóa VĐV ${p.name} khỏi bảng xếp hạng?`,
+            variant: "danger",
+            confirmText: "Xóa VĐV",
+        });
+        if (!ok) return;
 
         try {
             const res = await fetch(`/api/bxh/${p._id}`, { method: "DELETE" });
@@ -109,7 +117,13 @@ export default function ManagerBxhPage() {
     };
 
     const handleDeleteAll = async () => {
-        if (!confirm(`CẢNH BÁO: BẠN SẼ XÓA TOÀN BỘ VĐV KHỎI BẢNG XẾP HẠNG!\n\nHành động này không thể hoàn tác. Bạn có chắc chắn muốn tiếp tục?`)) return;
+        const ok = await confirm({
+            title: "⚠️ Xóa toàn bộ VĐV?",
+            description: "CẢNH BÁO: Bạn sẽ xóa TOÀN BỘ VĐV khỏi bảng xếp hạng! Hành động này không thể hoàn tác.",
+            variant: "danger",
+            confirmText: "Xóa toàn bộ",
+        });
+        if (!ok) return;
 
         try {
             const res = await fetch(`/api/bxh`, { method: "DELETE" });

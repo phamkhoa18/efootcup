@@ -9,6 +9,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { Calendar, Download, Edit3, Filter, Settings2, Share2, Play, Users, X, Info, ChevronDown, CheckCircle2, Bone, Hexagon, SplitSquareHorizontal, Loader2, ArrowLeftRight, FileBarChart } from "lucide-react";
 import { tournamentAPI } from "@/lib/api";
+import { toast } from "sonner";
+import { useConfirmDialog } from "@/components/ui/confirm-dialog";
 import { toCanvas } from "html-to-image";
 import { jsPDF } from "jspdf";
 import autoTable from "jspdf-autotable";
@@ -37,6 +39,7 @@ export default function LichThiDauPage() {
     const [team2Id, setTeam2Id] = useState("");
     const [selectedFormatType, setSelectedFormatType] = useState('standard');
     const [editingMatch, setEditingMatch] = useState<any>(null);
+    const { confirm, alert: showAlert } = useConfirmDialog();
 
     const handleDownloadPDF = async () => {
         const element = document.getElementById("schedule-container");
@@ -92,7 +95,7 @@ export default function LichThiDauPage() {
                 pdf.save(`Lich_Thi_Dau_${id}.pdf`);
             } catch (fallbackError) {
                 console.error("Fallback PDF failed:", fallbackError);
-                alert("Không thể tạo file PDF. Vui lòng thử lại sau.");
+                toast.error("Không thể tạo file PDF. Vui lòng thử lại sau.");
             }
         } finally {
             setIsUpdating(false);
@@ -142,7 +145,7 @@ export default function LichThiDauPage() {
             if (res.success) {
                 loadData();
             } else {
-                alert(`❌ ${res.message}`);
+                toast.error(`❌ ${res.message}`);
             }
         } catch (error) {
             console.error("Failed to generate brackets:", error);
@@ -161,7 +164,7 @@ export default function LichThiDauPage() {
                 setTeam2Id("");
                 loadData();
             } else {
-                alert(`❌ ${res.message}`);
+                toast.error(`❌ ${res.message}`);
             }
         } catch (error) {
             console.error(error);
@@ -171,14 +174,20 @@ export default function LichThiDauPage() {
     };
 
     const handleSetMatchLive = async (matchId: string) => {
-        if (!confirm("Bạn muốn chuyển trạng thái trận đấu này sang Đang trực tiếp (LIVE)?")) return;
+        const ok = await confirm({
+            title: "Chuyển trạng thái LIVE?",
+            description: "Bạn muốn chuyển trạng thái trận đấu này sang Đang trực tiếp (LIVE)?",
+            variant: "warning",
+            confirmText: "Chuyển LIVE",
+        });
+        if (!ok) return;
         setIsUpdating(true);
         try {
             const res = await tournamentAPI.updateMatch(id, { matchId, status: "live" });
             if (res.success) {
                 loadData();
             } else {
-                alert(res.message);
+                toast.error(res.message);
             }
         } catch (e) {
             console.error(e);
@@ -586,7 +595,7 @@ function EditMatchModal({ match, tournament, onClose, onSaved }: { match: any; t
                 onSaved();
                 onClose();
             } else {
-                alert(res.message);
+                toast.error(res.message);
             }
         } catch (e) {
             console.error(e);

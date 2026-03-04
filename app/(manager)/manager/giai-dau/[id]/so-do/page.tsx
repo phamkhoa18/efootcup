@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { tournamentAPI } from "@/lib/api";
+import { toast } from "sonner";
 import { toCanvas } from "html-to-image";
 import { jsPDF } from "jspdf";
 
@@ -174,7 +175,7 @@ const MatchDetailModal = ({ match, tournament, onClose, onSaved }: { match: any;
                 onSaved();
                 onClose();
             } else {
-                alert(res.message);
+                toast.error(res.message);
             }
         } catch (e) {
             console.error(e);
@@ -446,7 +447,7 @@ export default function SoDoThiDauPage() {
             pdf.save(`So_do_thi_dau_${tournament?.title?.replace(/\s+/g, '_') || id}.pdf`);
         } catch (error) {
             console.error("Bracket PDF error:", error);
-            alert("Lỗi khi tạo PDF sơ đồ.");
+            toast.error("Lỗi khi tạo PDF sơ đồ.");
         } finally {
             setIsLoading(false);
         }

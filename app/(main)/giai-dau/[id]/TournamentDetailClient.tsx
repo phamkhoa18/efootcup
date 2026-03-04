@@ -13,9 +13,9 @@ import {
     Trophy, Users, Calendar, MapPin, Flame, Share2, ChevronRight,
     Gamepad2, Award, FileText, UserPlus, Clock, Shield, Swords,
     Loader2, Globe, CheckCircle2, Eye, Ban, DollarSign, Phone, Mail, MessageCircle,
-    LogIn, AlertCircle, Info, X, Watch
+    LogIn, AlertCircle, Info, X, Watch, CreditCard, Upload, ExternalLink, Wallet
 } from "lucide-react";
-import { tournamentAPI } from "@/lib/api";
+import { tournamentAPI, tournamentPaymentAPI, paymentConfigAPI } from "@/lib/api";
 import { useAuth } from "@/contexts/AuthContext";
 
 /* ===== Config ===== */
@@ -249,6 +249,14 @@ export default function TournamentDetailClient({ initialData, id }: { initialDat
     const [startX, setStartX] = useState(0);
     const [scrollLeft, setScrollLeft] = useState(0);
 
+    // Payment state
+    const [paymentMethods, setPaymentMethods] = useState<any[]>([]);
+    const [isPaymentLoading, setIsPaymentLoading] = useState(false);
+    const [selectedPayMethod, setSelectedPayMethod] = useState<string | null>(null);
+    const [paymentProofFile, setPaymentProofFile] = useState<File | null>(null);
+    const [isSubmittingProof, setIsSubmittingProof] = useState(false);
+    const [showPaymentSection, setShowPaymentSection] = useState(false);
+
     const onMouseDown = (e: React.MouseEvent) => {
         setIsDragging(true);
         if (scrollContainerRef.current) {
@@ -331,6 +339,127 @@ export default function TournamentDetailClient({ initialData, id }: { initialDat
     useEffect(() => {
         if (activeTab === "bracket" && !brackets) loadBrackets();
     }, [activeTab]);
+
+    // Load payment methods when needed
+    useEffect(() => {
+        if (myRegistration && data?.tournament?.entryFee > 0 && myRegistration.paymentStatus !== "paid"
+            && myRegistration.status !== "rejected" && myRegistration.status !== "cancelled") {
+            loadPaymentMethods();
+            setShowPaymentSection(true);
+        }
+    }, [myRegistration, data]);
+
+    const loadPaymentMethods = async () => {
+        try {
+            const res = await paymentConfigAPI.getPublicConfig();
+            if (res.success) {
+                setPaymentMethods(res.data?.methods || []);
+            }
+        } catch (e) {
+            console.error("Load payment methods error:", e);
+        }
+    };
+
+    const handleSelectPaymentMethod = async (method: any) => {
+        if (method.mode === "auto") {
+            // Auto mode: redirect to PayOS payment gateway
+            setIsPaymentLoading(true);
+            try {
+                const res = await tournamentPaymentAPI.createPayment(id, method.id);
+                if (res.success && res.data?.payUrl) {
+                    window.location.href = res.data.payUrl;
+                } else {
+                    setRegisterMsg({ type: "error", text: res.message || "Lỗi tạo thanh toán" });
+                }
+            } catch (e) {
+                setRegisterMsg({ type: "error", text: "Có lỗi xảy ra khi tạo thanh toán" });
+            } finally {
+                setIsPaymentLoading(false);
+            }
+        } else {
+            // Manual mode: show bank info + VietQR + upload section
+            setSelectedPayMethod(method.id);
+        }
+    };
+
+    // Generate VietQR URL for quick payment
+    const getVietQRUrl = (method: any) => {
+        if (!method?.accountNumber || !method?.bankName) return null;
+        const t = data?.tournament;
+        if (!t) return null;
+        // VietQR format: https://img.vietqr.io/image/{bankId}-{accountNo}-compact.png?amount=X&addInfo=Y&accountName=Z
+        const bankMapping: Record<string, string> = {
+            'Vietcombank': 'VCB', 'vietcombank': 'VCB',
+            'Techcombank': 'TCB', 'techcombank': 'TCB',
+            'MB Bank': 'MB', 'mbbank': 'MB', 'MB': 'MB',
+            'VPBank': 'VPB', 'vpbank': 'VPB',
+            'ACB': 'ACB', 'acb': 'ACB',
+            'Sacombank': 'STB', 'sacombank': 'STB',
+            'BIDV': 'BIDV', 'bidv': 'BIDV',
+            'Agribank': 'VBA', 'agribank': 'VBA',
+            'VietinBank': 'ICB', 'vietinbank': 'ICB',
+            'TPBank': 'TPB', 'tpbank': 'TPB',
+            'Momo': 'MOMO', 'momo': 'MOMO',
+            'VIB': 'VIB', 'vib': 'VIB',
+            'SHB': 'SHB', 'shb': 'SHB',
+            'HDBank': 'HDB', 'hdbank': 'HDB',
+            'OCB': 'OCB', 'ocb': 'OCB',
+            'MSB': 'MSB', 'msb': 'MSB',
+            'Eximbank': 'EIB', 'eximbank': 'EIB',
+            'LienVietPostBank': 'LPB', 'lienvietpostbank': 'LPB',
+            'DongA Bank': 'DAB', 'donga bank': 'DAB',
+            'NamA Bank': 'NAB', 'nama bank': 'NAB',
+            'BaoViet Bank': 'BVB', 'baoviet bank': 'BVB',
+        };
+        const bankId = bankMapping[method.bankName] || method.bankName;
+        const amount = t.entryFee || 0;
+        const addInfo = encodeURIComponent(`${t.title} - ${myRegistration?.playerName || user?.name || ''}`);
+        const accountName = encodeURIComponent(method.accountName || '');
+        return `https://img.vietqr.io/image/${bankId}-${method.accountNumber}-compact2.png?amount=${amount}&addInfo=${addInfo}&accountName=${accountName}`;
+    };
+
+    const handleSubmitPaymentProof = async () => {
+        if (!paymentProofFile) return;
+        setIsSubmittingProof(true);
+        try {
+            // Upload image first
+            const formData = new FormData();
+            formData.append("file", paymentProofFile);
+            formData.append("type", "payment_proof");
+            const headers: Record<string, string> = {};
+            const savedToken = localStorage.getItem("efootcup_token");
+            if (savedToken) headers.Authorization = `Bearer ${savedToken}`;
+
+            const uploadRes = await fetch("/api/upload", {
+                method: "POST",
+                headers,
+                body: formData,
+            });
+            const uploadData = await uploadRes.json();
+
+            if (!uploadData.success) {
+                setRegisterMsg({ type: "error", text: "Lỗi upload ảnh" });
+                return;
+            }
+
+            // Submit proof
+            const res = await tournamentPaymentAPI.submitProof(id, {
+                paymentProof: uploadData.data.url,
+                paymentMethod: selectedPayMethod || "bank_transfer",
+            });
+            if (res.success) {
+                setRegisterMsg({ type: "success", text: "Đã gửi minh chứng thành công! Đợi xác nhận." });
+                setMyRegistration({ ...myRegistration, paymentStatus: "pending_verification" });
+                setPaymentProofFile(null);
+            } else {
+                setRegisterMsg({ type: "error", text: res.message || "Gửi minh chứng thất bại" });
+            }
+        } catch (e) {
+            setRegisterMsg({ type: "error", text: "Có lỗi xảy ra" });
+        } finally {
+            setIsSubmittingProof(false);
+        }
+    };
 
     const handleRegister = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -667,17 +796,264 @@ export default function TournamentDetailClient({ initialData, id }: { initialDat
                                                         Đăng nhập ngay
                                                     </Button>
                                                 </div>
-                                            ) : myRegistration ? (
-                                                <div className="h-full flex flex-col items-center justify-center py-12 text-center">
-                                                    <div className="w-20 h-20 rounded-full bg-emerald-50 flex items-center justify-center mb-6">
-                                                        <CheckCircle2 className="w-10 h-10 text-emerald-500 animate-in zoom-in duration-500" />
+                                            ) : myRegistration && myRegistration.status !== 'rejected' && myRegistration.status !== 'cancelled' ? (
+                                                <div className="h-full flex flex-col py-8 overflow-y-auto">
+                                                    {/* Registration confirmed */}
+                                                    <div className="text-center mb-6">
+                                                        <div className={`w-16 h-16 rounded-full ${myRegistration.paymentStatus === 'paid' ? 'bg-emerald-50' : t.entryFee > 0 ? 'bg-amber-50' : 'bg-emerald-50'} flex items-center justify-center mx-auto mb-4`}>
+                                                            {myRegistration.paymentStatus === 'paid' || !t.entryFee || t.entryFee <= 0 ? (
+                                                                <CheckCircle2 className="w-8 h-8 text-emerald-500" />
+                                                            ) : (
+                                                                <CreditCard className="w-8 h-8 text-amber-500" />
+                                                            )}
+                                                        </div>
+                                                        <h4 className="text-lg font-bold text-efb-dark">
+                                                            {myRegistration.paymentStatus === 'paid' || !t.entryFee || t.entryFee <= 0
+                                                                ? 'Đăng ký thành công!'
+                                                                : 'Cần thanh toán lệ phí'
+                                                            }
+                                                        </h4>
+                                                        <p className="text-sm text-gray-500 mt-2">
+                                                            Trạng thái: <span className="font-bold text-efb-blue uppercase">{myRegistration.status}</span>
+                                                            {t.entryFee > 0 && (
+                                                                <> • Thanh toán: <span className={`font-bold uppercase ${myRegistration.paymentStatus === 'paid' ? 'text-emerald-600' :
+                                                                    myRegistration.paymentStatus === 'pending_verification' ? 'text-amber-600' :
+                                                                        'text-red-500'
+                                                                    }`}>
+                                                                    {myRegistration.paymentStatus === 'paid' ? 'Đã thanh toán' :
+                                                                        myRegistration.paymentStatus === 'pending_verification' ? 'Chờ xác nhận' :
+                                                                            'Chưa thanh toán'}
+                                                                </span></>
+                                                            )}
+                                                        </p>
                                                     </div>
-                                                    <h4 className="text-xl font-bold text-efb-dark">Bạn đã đăng ký thành công!</h4>
-                                                    <p className="text-sm text-gray-500 mt-3 max-w-xs mx-auto">Trạng thái hiện tại: <span className="font-bold text-efb-blue uppercase">{myRegistration.status}</span>. Vui lòng kiểm tra thông báo để cập nhật lịch đấu.</p>
-                                                    <div className="mt-8 flex gap-3">
-                                                        <Button variant="outline" className="rounded-xl border-gray-200" onClick={() => router.push('/trang-ca-nhan')}>Quản lý của tôi</Button>
-                                                        <Button className="rounded-xl bg-efb-blue text-white" onClick={() => setActiveTab('players')}>Xem danh sách</Button>
-                                                    </div>
+
+                                                    {/* === PAYMENT SECTION === */}
+                                                    {t.entryFee > 0 && myRegistration.paymentStatus !== 'paid' && showPaymentSection && (
+                                                        <div className="space-y-4 px-2">
+                                                            {/* Fee info */}
+                                                            <div className="p-4 rounded-2xl bg-gradient-to-r from-amber-50 to-orange-50 border border-amber-200">
+                                                                <div className="flex items-center gap-3">
+                                                                    <div className="w-10 h-10 rounded-xl bg-amber-100 flex items-center justify-center">
+                                                                        <DollarSign className="w-5 h-5 text-amber-600" />
+                                                                    </div>
+                                                                    <div>
+                                                                        <div className="text-sm font-bold text-amber-900">Lệ phí tham gia</div>
+                                                                        <div className="text-xl font-black text-amber-700">
+                                                                            {t.entryFee?.toLocaleString('vi-VN')} {t.currency || 'VNĐ'}
+                                                                        </div>
+                                                                    </div>
+                                                                </div>
+                                                            </div>
+
+                                                            {/* Pending verification */}
+                                                            {myRegistration.paymentStatus === 'pending_verification' ? (
+                                                                <div className="p-4 rounded-2xl bg-blue-50 border border-blue-100 text-center">
+                                                                    <Clock className="w-8 h-8 text-blue-500 mx-auto mb-2" />
+                                                                    <p className="text-sm font-bold text-blue-800">Đang chờ xác nhận thanh toán</p>
+                                                                    <p className="text-xs text-blue-600/70 mt-1">Hệ thống hoặc Manager sẽ xác nhận thanh toán của bạn</p>
+                                                                </div>
+                                                            ) : !selectedPayMethod ? (
+                                                                <>
+                                                                    {/* Payment Methods */}
+                                                                    <p className="text-xs font-bold text-gray-500 uppercase tracking-wider">Chọn phương thức thanh toán</p>
+                                                                    <div className="space-y-2">
+                                                                        {paymentMethods.map((method: any) => {
+                                                                            const typeIcons: Record<string, string> = {
+                                                                                bank_transfer: '🏦', payos: '⚡', other: '💵'
+                                                                            };
+                                                                            const isAuto = method.mode === 'auto';
+                                                                            return (
+                                                                                <button
+                                                                                    key={method.id}
+                                                                                    onClick={() => handleSelectPaymentMethod(method)}
+                                                                                    disabled={isPaymentLoading}
+                                                                                    className="w-full p-4 rounded-2xl border-2 border-gray-100 hover:border-efb-blue hover:shadow-lg transition-all flex items-center gap-4 group text-left disabled:opacity-50"
+                                                                                >
+                                                                                    <span className="text-2xl">{typeIcons[method.type] || '💵'}</span>
+                                                                                    <div className="flex-1">
+                                                                                        <div className="flex items-center gap-2">
+                                                                                            <span className="text-sm font-bold text-gray-900">{method.name}</span>
+                                                                                            {isAuto && (
+                                                                                                <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-emerald-50 text-emerald-600 font-bold">⚡ TỰ ĐỘNG</span>
+                                                                                            )}
+                                                                                        </div>
+                                                                                        <p className="text-xs text-gray-400 mt-0.5">
+                                                                                            {isAuto ? 'Thanh toán tức thì — tự động xác nhận' :
+                                                                                                `${method.accountName} • ${method.bankName || 'Chuyển khoản thủ công'}`}
+                                                                                        </p>
+                                                                                    </div>
+                                                                                    {isPaymentLoading ? (
+                                                                                        <Loader2 className="w-5 h-5 animate-spin text-gray-300" />
+                                                                                    ) : (
+                                                                                        <ChevronRight className="w-5 h-5 text-gray-300 group-hover:text-efb-blue transition-colors" />
+                                                                                    )}
+                                                                                </button>
+                                                                            );
+                                                                        })}
+
+                                                                        {paymentMethods.length === 0 && (
+                                                                            <div className="text-center py-6">
+                                                                                <Wallet className="w-8 h-8 text-gray-200 mx-auto mb-2" />
+                                                                                <p className="text-sm text-gray-400">Chưa có phương thức thanh toán nào</p>
+                                                                                <p className="text-xs text-gray-400 mt-1">Vui lòng liên hệ BTC</p>
+                                                                            </div>
+                                                                        )}
+                                                                    </div>
+                                                                </>
+                                                            ) : (
+                                                                <>
+                                                                    {/* Selected Manual Payment Method Details */}
+                                                                    {(() => {
+                                                                        const method = paymentMethods.find((m: any) => m.id === selectedPayMethod);
+                                                                        if (!method) return null;
+                                                                        const vietQRUrl = getVietQRUrl(method);
+                                                                        return (
+                                                                            <div className="space-y-4">
+                                                                                {/* Back button */}
+                                                                                <button
+                                                                                    onClick={() => { setSelectedPayMethod(null); setPaymentProofFile(null); }}
+                                                                                    className="flex items-center gap-1.5 text-xs font-bold text-gray-500 hover:text-efb-blue transition-colors"
+                                                                                >
+                                                                                    <ChevronRight className="w-3.5 h-3.5 rotate-180" />
+                                                                                    Chọn phương thức khác
+                                                                                </button>
+
+                                                                                {/* Bank info */}
+                                                                                <div className="p-4 rounded-2xl bg-gradient-to-br from-blue-50 to-indigo-50 border border-blue-100 space-y-3">
+                                                                                    <div className="flex items-center gap-2">
+                                                                                        <span className="text-lg">🏦</span>
+                                                                                        <span className="text-sm font-bold text-blue-800">{method.name}</span>
+                                                                                    </div>
+                                                                                    <div className="grid grid-cols-2 gap-3 text-sm">
+                                                                                        {method.bankName && (
+                                                                                            <div>
+                                                                                                <div className="text-[10px] font-bold text-blue-400 uppercase">Ngân hàng</div>
+                                                                                                <div className="font-bold text-blue-900 mt-0.5">{method.bankName}</div>
+                                                                                            </div>
+                                                                                        )}
+                                                                                        {method.accountNumber && (
+                                                                                            <div>
+                                                                                                <div className="text-[10px] font-bold text-blue-400 uppercase">{method.type === 'momo' ? 'SĐT MoMo' : 'Số tài khoản'}</div>
+                                                                                                <div className="font-mono font-bold text-blue-900 mt-0.5">{method.accountNumber}</div>
+                                                                                            </div>
+                                                                                        )}
+                                                                                        {method.accountName && (
+                                                                                            <div className="col-span-2">
+                                                                                                <div className="text-[10px] font-bold text-blue-400 uppercase">Chủ tài khoản</div>
+                                                                                                <div className="font-bold text-blue-900 mt-0.5">{method.accountName}</div>
+                                                                                            </div>
+                                                                                        )}
+                                                                                    </div>
+                                                                                    <div className="p-3 rounded-xl bg-white/60 border border-blue-100">
+                                                                                        <div className="text-[10px] font-bold text-blue-400 uppercase">Nội dung chuyển khoản</div>
+                                                                                        <div className="font-mono text-sm font-bold text-blue-900 mt-0.5">
+                                                                                            {t.title} - {myRegistration?.playerName || user?.name || ''}
+                                                                                        </div>
+                                                                                    </div>
+                                                                                    {method.instructions && (
+                                                                                        <p className="text-xs text-blue-600/70 italic">{method.instructions}</p>
+                                                                                    )}
+                                                                                </div>
+
+                                                                                {/* VietQR Code */}
+                                                                                {vietQRUrl && (
+                                                                                    <div className="p-4 rounded-2xl bg-white border border-gray-200 text-center space-y-3">
+                                                                                        <p className="text-xs font-bold text-gray-600 uppercase tracking-wider">Quét mã QR để thanh toán nhanh</p>
+                                                                                        <div className="inline-block p-2 bg-white rounded-xl border border-gray-100 shadow-sm">
+                                                                                            <img
+                                                                                                src={vietQRUrl}
+                                                                                                alt="VietQR Payment"
+                                                                                                className="w-56 h-auto mx-auto rounded-lg"
+                                                                                                onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+                                                                                            />
+                                                                                        </div>
+                                                                                        <p className="text-[10px] text-gray-400">Mở app ngân hàng → Quét QR → Xác nhận thanh toán</p>
+                                                                                    </div>
+                                                                                )}
+
+                                                                                {/* QR image from admin */}
+                                                                                {method.qrImage && !vietQRUrl && (
+                                                                                    <div className="p-4 rounded-2xl bg-white border border-gray-200 text-center space-y-3">
+                                                                                        <p className="text-xs font-bold text-gray-600 uppercase tracking-wider">Mã QR thanh toán</p>
+                                                                                        <img
+                                                                                            src={method.qrImage}
+                                                                                            alt="QR Code"
+                                                                                            className="w-48 h-48 mx-auto object-contain rounded-xl border border-gray-100"
+                                                                                        />
+                                                                                    </div>
+                                                                                )}
+
+                                                                                {/* Upload payment proof */}
+                                                                                <div className="p-4 rounded-2xl bg-amber-50 border border-amber-200 space-y-3">
+                                                                                    <p className="text-xs font-bold text-amber-800">📸 Upload minh chứng sau khi chuyển khoản</p>
+                                                                                    <p className="text-[11px] text-amber-600/80">Chụp màn hình giao dịch thành công và gửi lên để BTC duyệt nhanh</p>
+                                                                                    <div className="flex items-center gap-3">
+                                                                                        <label className="flex-1 cursor-pointer">
+                                                                                            <div className="flex items-center gap-2 px-4 py-3 rounded-xl border-2 border-dashed border-amber-300 hover:border-amber-400 bg-white transition-colors">
+                                                                                                <Upload className="w-4 h-4 text-amber-500" />
+                                                                                                <span className="text-sm text-amber-700">
+                                                                                                    {paymentProofFile ? paymentProofFile.name : 'Chọn ảnh chụp GD...'}
+                                                                                                </span>
+                                                                                            </div>
+                                                                                            <input
+                                                                                                type="file"
+                                                                                                accept="image/*"
+                                                                                                className="hidden"
+                                                                                                onChange={(e) => setPaymentProofFile(e.target.files?.[0] || null)}
+                                                                                            />
+                                                                                        </label>
+                                                                                        <Button
+                                                                                            onClick={handleSubmitPaymentProof}
+                                                                                            disabled={!paymentProofFile || isSubmittingProof}
+                                                                                            className="bg-amber-500 hover:bg-amber-600 text-white rounded-xl h-12 px-6 font-bold"
+                                                                                        >
+                                                                                            {isSubmittingProof ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Gửi'}
+                                                                                        </Button>
+                                                                                    </div>
+                                                                                </div>
+                                                                            </div>
+                                                                        );
+                                                                    })()}
+                                                                </>
+                                                            )}
+
+                                                            {registerMsg && (
+                                                                <motion.div
+                                                                    initial={{ opacity: 0, y: 10 }}
+                                                                    animate={{ opacity: 1, y: 0 }}
+                                                                    className={`flex items-center gap-3 p-4 rounded-xl text-sm font-medium ${registerMsg.type === 'success' ? 'bg-emerald-50 text-emerald-600 border border-emerald-100' : 'bg-rose-50 text-rose-600 border border-rose-100'}`}
+                                                                >
+                                                                    {registerMsg.type === 'success' ? <CheckCircle2 className="w-5 h-5" /> : <Ban className="w-5 h-5" />}
+                                                                    {registerMsg.text}
+                                                                </motion.div>
+                                                            )}
+                                                        </div>
+                                                    )}
+
+                                                    {/* Actions for paid or free tournaments */}
+                                                    {(myRegistration.paymentStatus === 'paid' || !t.entryFee || t.entryFee <= 0) && (
+                                                        <div className="mt-6 flex gap-3 justify-center">
+                                                            <Button variant="outline" className="rounded-xl border-gray-200" onClick={() => router.push('/trang-ca-nhan')}>Quản lý của tôi</Button>
+                                                            <Button className="rounded-xl bg-efb-blue text-white" onClick={() => setActiveTab('players')}>Xem danh sách</Button>
+                                                        </div>
+                                                    )}
+                                                    {/* Cancel & re-register for pending + unpaid */}
+                                                    {myRegistration.status === 'pending' && myRegistration.paymentStatus === 'unpaid' && t.entryFee > 0 && (
+                                                        <div className="mt-4 pt-4 border-t border-gray-100 text-center">
+                                                            <button
+                                                                onClick={() => {
+                                                                    setMyRegistration(null);
+                                                                    setShowPaymentSection(false);
+                                                                    setSelectedPayMethod(null);
+                                                                    setPaymentProofFile(null);
+                                                                }}
+                                                                className="text-xs text-gray-400 hover:text-red-500 font-medium transition-colors"
+                                                            >
+                                                                Huỷ đăng ký & đăng ký lại với thông tin khác
+                                                            </button>
+                                                        </div>
+                                                    )}
                                                 </div>
                                             ) : (
                                                 <div className="space-y-8">

@@ -72,13 +72,26 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
             return apiError("Giải đấu đã đủ đội", 400);
         }
 
-        // Check duplicate
+        // Check duplicate - allow re-registration in certain cases
         const existing = await Registration.findOne({
             tournament: id,
             user: authResult.user._id,
         });
         if (existing) {
-            return apiError("Bạn đã đăng ký giải đấu này rồi", 409);
+            // Already approved → can never re-register
+            if (existing.status === "approved") {
+                return apiError("Bạn đã được duyệt vào giải đấu này rồi", 409);
+            }
+            // Pending but already paid → can't re-register (wait for approval)
+            if (existing.status === "pending" && existing.paymentStatus === "paid") {
+                return apiError("Đăng ký của bạn đang chờ duyệt và đã thanh toán. Vui lòng chờ Manager xét duyệt.", 409);
+            }
+            // Pending with pending_verification → can't re-register (payment being verified)
+            if (existing.status === "pending" && existing.paymentStatus === "pending_verification") {
+                return apiError("Đăng ký của bạn đang chờ xác nhận thanh toán. Vui lòng chờ.", 409);
+            }
+            // Rejected, cancelled, or pending+unpaid → allow re-registration by removing old record
+            await Registration.deleteOne({ _id: existing._id });
         }
 
         const body = await req.json();
@@ -146,6 +159,14 @@ export async function PUT(req: NextRequest, { params }: RouteParams) {
         if (action === "approve") {
             if (tournament.currentTeams >= tournament.maxTeams) {
                 return apiError("Giải đấu đã đủ đội", 400);
+            }
+
+            // Check payment status for paid tournaments
+            if (tournament.entryFee > 0 && registration.paymentStatus !== "paid") {
+                return apiError(
+                    "VĐV chưa thanh toán lệ phí. Vui lòng xác nhận thanh toán trước khi duyệt.",
+                    400
+                );
             }
 
             // Create team

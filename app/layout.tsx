@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import "./globals.css";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { Toaster } from "sonner";
+import { ConfirmDialogProvider } from "@/components/ui/confirm-dialog";
 
 export const viewport: Viewport = {
   themeColor: "#0A3D91",
@@ -79,7 +80,9 @@ export default function RootLayout({
     <html lang="vi">
       <body className="antialiased">
         <AuthProvider>
-          {children}
+          <ConfirmDialogProvider>
+            {children}
+          </ConfirmDialogProvider>
           <Toaster position="top-right" richColors />
         </AuthProvider>
       </body>

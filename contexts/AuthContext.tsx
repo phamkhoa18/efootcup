@@ -7,7 +7,7 @@ interface User {
     _id: string;
     name: string;
     email: string;
-    role: "manager" | "user";
+    role: "admin" | "manager" | "user";
     avatar?: string;
     phone?: string;
     bio?: string;
@@ -32,6 +32,7 @@ interface AuthContextType {
     isLoading: boolean;
     isAuthenticated: boolean;
     isManager: boolean;
+    isAdmin: boolean;
     login: (email: string, password: string) => Promise<{ success: boolean; message: string; requiresVerification?: boolean; email?: string }>;
     register: (data: RegisterData) => Promise<{ success: boolean; message: string; requiresVerification?: boolean; email?: string }>;
     verifyEmail: (email: string, code: string) => Promise<{ success: boolean; message: string }>;
@@ -45,7 +46,7 @@ interface RegisterData {
     email: string;
     password: string;
     confirmPassword: string;
-    role?: "manager" | "user";
+    role?: "admin" | "manager" | "user";
 }
 
 const AuthContext = createContext<AuthContextType | null>(null);
@@ -233,7 +234,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                 token,
                 isLoading,
                 isAuthenticated: !!user,
-                isManager: user?.role === "manager",
+                isManager: user?.role === "manager" || user?.role === "admin",
+                isAdmin: user?.role === "admin",
                 login,
                 register,
                 verifyEmail,

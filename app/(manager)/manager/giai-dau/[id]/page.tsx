@@ -9,6 +9,7 @@ import { ArrowLeft, CheckCircle2, Clock, Edit3, Flame, Loader2, Pause, Play, Set
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useAuth } from "@/contexts/AuthContext";
 import { tournamentAPI } from "@/lib/api";
+import { toast } from "sonner";
 
 const statusConfig: Record<string, { label: string; color: string; icon: typeof Flame }> = {
     draft: { label: "Nháp", color: "bg-gray-200 text-gray-600", icon: Clock },
@@ -84,10 +85,10 @@ export default function TournamentDetailPage() {
         try {
             const res = await tournamentAPI.generateBrackets(id, { formatType: selectedFormatType });
             if (res.success) {
-                alert(`✅ Đã tạo ${res.data.totalMatches} trận đấu!`);
+                toast.success(`✅ Đã tạo ${res.data.totalMatches} trận đấu!`);
                 loadTournament();
             } else {
-                alert(`❌ ${res.message}`);
+                toast.error(`❌ ${res.message}`);
             }
         } catch (error) {
             console.error("Failed to generate brackets:", error);
