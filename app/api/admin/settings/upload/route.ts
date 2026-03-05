@@ -36,7 +36,7 @@ export async function POST(req: NextRequest) {
         }
 
         // Create uploads directory
-        const uploadsDir = path.join(process.cwd(), "public", "uploads", "site");
+        const uploadsDir = path.join(process.cwd(), "uploads", "site");
         await mkdir(uploadsDir, { recursive: true });
 
         // Generate filename based on type
@@ -49,7 +49,7 @@ export async function POST(req: NextRequest) {
         await writeFile(filepath, Buffer.from(bytes));
 
         // Return the public URL
-        const url = `/uploads/site/${filename}`;
+        const url = `/api/files/site/${filename}`;
 
         return apiResponse({ url, type }, 200, "Upload thành công");
     } catch (error) {

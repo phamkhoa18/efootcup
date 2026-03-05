@@ -26,6 +26,7 @@ const settingSections = [
     { id: "seo", label: "SEO", icon: SearchIcon, description: "Meta tags, Keywords, Robots" },
     { id: "social", label: "Mạng xã hội", icon: Share2, description: "Facebook, Youtube, Discord..." },
     { id: "contact", label: "Liên hệ", icon: Mail, description: "Email, SĐT, Địa chỉ" },
+    { id: "email", label: "Email / SMTP", icon: Send, description: "Cấu hình gửi email" },
     { id: "advanced", label: "Nâng cao", icon: Code2, description: "Analytics, Custom code..." },
     { id: "system", label: "Hệ thống", icon: Database, description: "Bảo trì, CSDL, Bảo mật" },
 ];
@@ -260,9 +261,20 @@ export default function AdminSettingsPage() {
         maintenanceMode: false,
         registrationEnabled: true,
         copyrightText: "",
+        // Email / SMTP
+        smtpHost: "",
+        smtpPort: 587,
+        smtpSecure: false,
+        smtpUser: "",
+        smtpPass: "",
+        smtpFromName: "eFootCup VN",
+        smtpFromEmail: "",
+        emailEnabled: false,
     });
 
     const [keywordsInput, setKeywordsInput] = useState("");
+    const [testEmailAddress, setTestEmailAddress] = useState("");
+    const [isSendingTest, setIsSendingTest] = useState(false);
 
     useEffect(() => {
         loadSettings();
@@ -285,6 +297,34 @@ export default function AdminSettingsPage() {
 
     const updateField = (key: string, value: any) => {
         setForm(prev => ({ ...prev, [key]: value }));
+    };
+
+    const handleSendTestEmail = async () => {
+        if (!testEmailAddress) {
+            toast.error("Vui long nhap email nhan test");
+            return;
+        }
+        setIsSendingTest(true);
+        try {
+            // Save SMTP settings first
+            await handleSave();
+            // Then send test
+            const res = await fetch("/api/admin/email/test", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ email: testEmailAddress }),
+            });
+            const data = await res.json();
+            if (data.success) {
+                toast.success(data.message || "Da gui email test thanh cong!");
+            } else {
+                toast.error(data.message || "Gui email that bai");
+            }
+        } catch (err) {
+            toast.error("Loi khi gui email test");
+        } finally {
+            setIsSendingTest(false);
+        }
     };
 
     const handleSave = async () => {
@@ -642,6 +682,194 @@ export default function AdminSettingsPage() {
                                         <div className="flex-1 space-y-1">
                                             <Label className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Địa chỉ</Label>
                                             <Input value={form.contactAddress} onChange={(e) => updateField("contactAddress", e.target.value)} className="h-10 rounded-lg" placeholder="123 Đường ABC, Quận 1, TP.HCM" />
+                                        </div>
+                                    </div>
+                                </div>
+                            </SettingsCard>
+                        </motion.div>
+                    )}
+
+                    {/* ====== EMAIL / SMTP ====== */}
+                    {activeSection === "email" && (
+                        <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="space-y-6">
+                            <SettingsCard
+                                icon={Mail}
+                                iconColor="bg-sky-50 text-sky-600"
+                                title="Cấu hình Email (SMTP)"
+                                subtitle="Thiết lập máy chủ gửi email để hệ thống gửi thông báo, hóa đơn tự động"
+                            >
+                                <ToggleSwitch
+                                    label="Bật gửi email"
+                                    description="Khi bật, hệ thống sẽ gửi email tự động (xác minh, hóa đơn, thông báo)"
+                                    checked={form.emailEnabled}
+                                    onChange={(v) => updateField("emailEnabled", v)}
+                                    icon={Mail}
+                                    color="emerald"
+                                />
+
+                                <div className="grid sm:grid-cols-2 gap-5 pt-2">
+                                    <div className="space-y-2">
+                                        <Label className="text-sm font-semibold text-gray-700">SMTP Host</Label>
+                                        <Input
+                                            value={form.smtpHost}
+                                            onChange={(e) => updateField("smtpHost", e.target.value)}
+                                            className="h-11 rounded-xl font-mono"
+                                            placeholder="smtp.gmail.com"
+                                        />
+                                        <p className="text-[11px] text-gray-400">Ví dụ: smtp.gmail.com, smtp.zoho.com, smtp.mail.yahoo.com</p>
+                                    </div>
+                                    <div className="space-y-2">
+                                        <Label className="text-sm font-semibold text-gray-700">SMTP Port</Label>
+                                        <Input
+                                            type="number"
+                                            value={form.smtpPort}
+                                            onChange={(e) => updateField("smtpPort", parseInt(e.target.value) || 587)}
+                                            className="h-11 rounded-xl font-mono"
+                                            placeholder="587"
+                                        />
+                                        <p className="text-[11px] text-gray-400">587 (TLS) hoặc 465 (SSL)</p>
+                                    </div>
+                                </div>
+
+                                <ToggleSwitch
+                                    label="SSL/TLS"
+                                    description="Bật nếu dùng port 465 (SSL). Tắt nếu dùng port 587 (STARTTLS)"
+                                    checked={form.smtpSecure}
+                                    onChange={(v) => updateField("smtpSecure", v)}
+                                    icon={Lock}
+                                    color="blue"
+                                />
+
+                                <div className="grid sm:grid-cols-2 gap-5">
+                                    <div className="space-y-2">
+                                        <Label className="text-sm font-semibold text-gray-700">SMTP Username</Label>
+                                        <Input
+                                            value={form.smtpUser}
+                                            onChange={(e) => updateField("smtpUser", e.target.value)}
+                                            className="h-11 rounded-xl"
+                                            placeholder="your-email@gmail.com"
+                                        />
+                                    </div>
+                                    <div className="space-y-2">
+                                        <Label className="text-sm font-semibold text-gray-700">SMTP Password</Label>
+                                        <Input
+                                            type="password"
+                                            value={form.smtpPass}
+                                            onChange={(e) => updateField("smtpPass", e.target.value)}
+                                            className="h-11 rounded-xl"
+                                            placeholder="App password..."
+                                        />
+                                        <p className="text-[11px] text-gray-400">Nếu dùng Gmail, tạo App Password trong Google Account</p>
+                                    </div>
+                                </div>
+                            </SettingsCard>
+
+                            <SettingsCard
+                                icon={Send}
+                                iconColor="bg-emerald-50 text-emerald-600"
+                                title="Thông tin người gửi"
+                                subtitle="Tên và email hiển thị khi gửi email"
+                            >
+                                <div className="grid sm:grid-cols-2 gap-5">
+                                    <div className="space-y-2">
+                                        <Label className="text-sm font-semibold text-gray-700">Tên người gửi</Label>
+                                        <Input
+                                            value={form.smtpFromName}
+                                            onChange={(e) => updateField("smtpFromName", e.target.value)}
+                                            className="h-11 rounded-xl"
+                                            placeholder="eFootCup VN"
+                                        />
+                                    </div>
+                                    <div className="space-y-2">
+                                        <Label className="text-sm font-semibold text-gray-700">Email người gửi</Label>
+                                        <Input
+                                            value={form.smtpFromEmail}
+                                            onChange={(e) => updateField("smtpFromEmail", e.target.value)}
+                                            className="h-11 rounded-xl"
+                                            placeholder="noreply@efootcup.vn"
+                                        />
+                                        <p className="text-[11px] text-gray-400">Để trống sẽ dùng SMTP Username làm email gửi</p>
+                                    </div>
+                                </div>
+                            </SettingsCard>
+
+                            <SettingsCard
+                                icon={Zap}
+                                iconColor="bg-amber-50 text-amber-600"
+                                title="Kiểm tra cấu hình"
+                                subtitle="Gửi email thử để xác nhận cấu hình SMTP hoạt động"
+                            >
+                                <div className="flex items-end gap-3">
+                                    <div className="flex-1 space-y-2">
+                                        <Label className="text-sm font-semibold text-gray-700">Email nhận test</Label>
+                                        <Input
+                                            type="email"
+                                            value={testEmailAddress}
+                                            onChange={(e) => setTestEmailAddress(e.target.value)}
+                                            className="h-11 rounded-xl"
+                                            placeholder="your-email@gmail.com"
+                                        />
+                                    </div>
+                                    <Button
+                                        onClick={handleSendTestEmail}
+                                        disabled={isSendingTest || !testEmailAddress}
+                                        className="bg-emerald-600 text-white hover:bg-emerald-700 rounded-xl h-11 px-6"
+                                    >
+                                        {isSendingTest ? (
+                                            <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                                        ) : (
+                                            <Send className="w-4 h-4 mr-2" />
+                                        )}
+                                        Gửi test
+                                    </Button>
+                                </div>
+
+                                <div className="space-y-3 mt-2">
+                                    {/* Outlook / Microsoft 365 */}
+                                    <div className="p-4 rounded-xl bg-blue-50 border border-blue-200">
+                                        <div className="flex items-start gap-3">
+                                            <Mail className="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5" />
+                                            <div>
+                                                <h4 className="text-sm font-semibold text-blue-800">Outlook / Microsoft 365 (Doanh nghiệp)</h4>
+                                                <ul className="text-xs text-blue-700/70 mt-1 space-y-1 list-disc pl-4">
+                                                    <li>Host: <code className="bg-blue-100 px-1 rounded">smtp.office365.com</code>, Port: <code className="bg-blue-100 px-1 rounded">587</code></li>
+                                                    <li>SSL/TLS: <strong>Tắt</strong> (dùng STARTTLS tự động)</li>
+                                                    <li>Username: Email đầy đủ, vd: <code className="bg-blue-100 px-1 rounded">tenban@congty.com</code></li>
+                                                    <li>Password: Mật khẩu tài khoản hoặc App Password (nếu bật 2FA)</li>
+                                                    <li>Email người gửi: <strong>phải trùng</strong> với SMTP Username</li>
+                                                </ul>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    {/* Gmail */}
+                                    <div className="p-4 rounded-xl bg-emerald-50 border border-emerald-200">
+                                        <div className="flex items-start gap-3">
+                                            <Info className="w-5 h-5 text-emerald-600 flex-shrink-0 mt-0.5" />
+                                            <div>
+                                                <h4 className="text-sm font-semibold text-emerald-800">Gmail / Google Workspace</h4>
+                                                <ul className="text-xs text-emerald-700/70 mt-1 space-y-1 list-disc pl-4">
+                                                    <li>Host: <code className="bg-emerald-100 px-1 rounded">smtp.gmail.com</code>, Port: <code className="bg-emerald-100 px-1 rounded">587</code></li>
+                                                    <li>Bật xác thực 2 bước trong Google Account</li>
+                                                    <li>Tạo App Password: Google Account &rarr; Security &rarr; App passwords</li>
+                                                    <li>Dùng App Password làm SMTP Password (không phải mật khẩu tài khoản)</li>
+                                                </ul>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    {/* Zoho */}
+                                    <div className="p-4 rounded-xl bg-gray-50 border border-gray-200">
+                                        <div className="flex items-start gap-3">
+                                            <Info className="w-5 h-5 text-gray-500 flex-shrink-0 mt-0.5" />
+                                            <div>
+                                                <h4 className="text-sm font-semibold text-gray-700">Các dịch vụ khác</h4>
+                                                <ul className="text-xs text-gray-500 mt-1 space-y-1 list-disc pl-4">
+                                                    <li>Zoho Mail: <code className="bg-gray-100 px-1 rounded">smtp.zoho.com</code>, Port 587</li>
+                                                    <li>Yahoo: <code className="bg-gray-100 px-1 rounded">smtp.mail.yahoo.com</code>, Port 587</li>
+                                                    <li>SendGrid: <code className="bg-gray-100 px-1 rounded">smtp.sendgrid.net</code>, Port 587, Username: <code className="bg-gray-100 px-1 rounded">apikey</code></li>
+                                                </ul>
+                                            </div>
                                         </div>
                                     </div>
                                 </div>

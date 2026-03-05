@@ -23,6 +23,7 @@ export async function GET(req: NextRequest) {
                 { name: { $regex: search, $options: "i" } },
                 { email: { $regex: search, $options: "i" } },
                 { gamerId: { $regex: search, $options: "i" } },
+                { efvId: { $regex: search, $options: "i" } },
             ];
         }
         if (role) query.role = role;

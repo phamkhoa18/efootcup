@@ -21,6 +21,7 @@ import {
     DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { useAuth } from "@/contexts/AuthContext";
+import { useSiteSettings } from "@/hooks/useSiteSettings";
 
 const defaultNavLinks = [
     { label: "Giải đấu", href: "/giai-dau", icon: Trophy },
@@ -48,6 +49,7 @@ export function Navbar() {
     const [unreadCount, setUnreadCount] = useState(0);
     const [isNotifOpen, setIsNotifOpen] = useState(false);
     const [navLinks, setNavLinks] = useState(defaultNavLinks);
+    const { settings: siteSettings } = useSiteSettings();
 
     // Fetch dynamic menu from admin settings
     useEffect(() => {
@@ -133,19 +135,19 @@ export function Navbar() {
                 <nav className="flex items-center justify-between h-16">
                     {/* Logo */}
                     <Link href="/" className="flex items-center gap-3 group">
-                        <div className="bg-efb-blue rounded-lg p-1.5">
+                        <div className={siteSettings.logo ? "" : "bg-efb-blue rounded-lg p-1.5"}>
                             <Image
-                                src="/assets/logo.svg"
-                                alt="eFootball Cup VN"
+                                src={siteSettings.logo || "/assets/logo.svg"}
+                                alt={siteSettings.siteName || "eFootCup VN"}
                                 width={100}
                                 height={24}
-                                className="h-5 w-auto"
+                                className={siteSettings.logo ? "h-8 w-auto object-contain" : "h-5 w-auto"}
                                 priority
                             />
                         </div>
                         <div className="hidden sm:flex flex-col">
-                            <span className="text-sm font-bold text-efb-dark leading-tight">eFootCup</span>
-                            <span className="text-[10px] text-efb-text-muted">Việt Nam</span>
+                            <span className="text-sm font-bold text-efb-dark leading-tight">{siteSettings.siteName || "eFootCup"}</span>
+                            <span className="text-[10px] text-efb-text-muted">{siteSettings.siteTagline ? siteSettings.siteTagline.slice(0, 30) : "Việt Nam"}</span>
                         </div>
                     </Link>
 
@@ -387,16 +389,16 @@ export function Navbar() {
                             <div className="flex flex-col h-full">
                                 {/* Mobile header */}
                                 <div className="flex items-center p-5 border-b border-efb-border">
-                                    <div className="bg-efb-blue rounded-lg p-1.5">
+                                    <div className={siteSettings.logo ? "" : "bg-efb-blue rounded-lg p-1.5"}>
                                         <Image
-                                            src="/assets/logo.svg"
-                                            alt="eFootball Cup VN"
+                                            src={siteSettings.logo || "/assets/logo.svg"}
+                                            alt={siteSettings.siteName || "eFootCup VN"}
                                             width={80}
                                             height={20}
-                                            className="h-4 w-auto"
+                                            className={siteSettings.logo ? "h-6 w-auto object-contain" : "h-4 w-auto"}
                                         />
                                     </div>
-                                    <span className="ml-2.5 text-sm font-bold text-efb-dark">eFootCup VN</span>
+                                    <span className="ml-2.5 text-sm font-bold text-efb-dark">{siteSettings.siteName || "eFootCup VN"}</span>
                                 </div>
 
                                 {/* Mobile user info (if logged in) */}

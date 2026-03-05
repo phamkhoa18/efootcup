@@ -6,12 +6,22 @@ import { motion, AnimatePresence } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Switch } from "@/components/ui/switch";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { Separator } from "@/components/ui/separator";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { Card, CardContent } from "@/components/ui/card";
 import {
     Plus, UserCheck, Search, Download, Loader2, Check, X,
     Users, Clock, CheckCircle2, XCircle, AlertCircle, RefreshCw, UserPlus, Upload,
-    CreditCard, Eye, Banknote, ImageIcon, DollarSign, AlertTriangle
+    CreditCard, Eye, Banknote, ImageIcon, DollarSign, AlertTriangle,
+    Phone, Mail, Facebook, ExternalLink, MapPin, Calendar as CalendarIcon, Gamepad2, User,
+    FileSpreadsheet, Hash, Shield, Sparkles, Trophy
 } from "lucide-react";
 import { tournamentAPI, tournamentPaymentAPI } from "@/lib/api";
+import * as XLSX from "xlsx";
 import { toast } from "sonner";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 
@@ -45,6 +55,7 @@ export default function DangKyPage() {
     // Payment proof viewer
     const [paymentProofView, setPaymentProofView] = useState<string | null>(null);
     const [paymentDetailView, setPaymentDetailView] = useState<any>(null);
+    const [playerDetailView, setPlayerDetailView] = useState<any>(null);
 
     useEffect(() => {
         loadRegistrations();
@@ -245,6 +256,64 @@ export default function DangKyPage() {
 
     const hasFee = tournament?.entryFee > 0;
 
+    const handleExportExcel = () => {
+        if (registrations.length === 0) {
+            toast.error("Không có dữ liệu để xuất");
+            return;
+        }
+
+        const data = registrations.map((r: any, idx: number) => {
+            const row: Record<string, any> = {
+                "STT": idx + 1,
+                "EFV-ID": r.user?.efvId || "",
+                "Tên VĐV": r.playerName || "",
+                "Nickname": r.nickname || "",
+                "ID Game": r.gamerId || "",
+                "Tên đội": r.teamName || "",
+                "Viết tắt": r.teamShortName || "",
+                "Số điện thoại": r.phone || "",
+                "Email": r.email || "",
+                "Ngày sinh": r.dateOfBirth ? new Date(r.dateOfBirth).toLocaleDateString('vi-VN') : "",
+                "Tỉnh/TP": r.province || "",
+                "Facebook": r.facebookName || "",
+                "Link Facebook": r.facebookLink || "",
+                "Ảnh cá nhân": r.personalPhoto ? `${window.location.origin}${r.personalPhoto}` : "",
+                "Ảnh đội hình": r.teamLineupPhoto ? `${window.location.origin}${r.teamLineupPhoto}` : "",
+                "Ghi chú": r.notes || "",
+                "Trạng thái": r.status === 'approved' ? 'Đã duyệt' : r.status === 'rejected' ? 'Từ chối' : r.status === 'cancelled' ? 'Đã hủy' : 'Chờ duyệt',
+                "Thanh toán": r.paymentStatus === 'paid' ? 'Đã thanh toán' : r.paymentStatus === 'pending_verification' ? 'Chờ xác nhận' : r.paymentStatus === 'refunded' ? 'Đã hoàn tiền' : 'Chưa thanh toán',
+                "Số tiền (VNĐ)": r.paymentAmount || 0,
+                "Phương thức TT": r.paymentMethod || "",
+                "Ngày TT": r.paymentDate ? new Date(r.paymentDate).toLocaleString('vi-VN') : "",
+                "Xác nhận TT lúc": r.paymentConfirmedAt ? new Date(r.paymentConfirmedAt).toLocaleString('vi-VN') : "",
+                "Minh chứng TT": r.paymentProof ? `${window.location.origin}${r.paymentProof}` : "",
+                "Duyệt bởi": r.approvedBy?.name || "",
+                "Duyệt lúc": r.approvedAt ? new Date(r.approvedAt).toLocaleString('vi-VN') : "",
+                "Lý do từ chối": r.rejectionReason || "",
+                "Ngày đăng ký": r.createdAt ? new Date(r.createdAt).toLocaleString('vi-VN') : "",
+            };
+            return row;
+        });
+
+        const ws = XLSX.utils.json_to_sheet(data);
+
+        // Auto-width columns
+        const colWidths = Object.keys(data[0] || {}).map(key => ({
+            wch: Math.max(
+                key.length + 2,
+                ...data.map(row => String(row[key] || "").length)
+            )
+        }));
+        ws["!cols"] = colWidths.map(w => ({ wch: Math.min(w.wch, 50) }));
+
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, "Danh sách đăng ký");
+
+        const fileName = `DangKy_${tournament?.title?.replace(/[^a-zA-Z0-9\u00C0-\u024F\u1E00-\u1EFF]/g, '_') || 'GiaiDau'}_${new Date().toISOString().slice(0, 10)}.xlsx`;
+        XLSX.writeFile(wb, fileName);
+        toast.success(`Đã xuất ${data.length} bản đăng ký ra Excel`);
+    };
+
     const filtered = registrations.filter((r) => {
         if (filter !== "all" && r.status !== filter) return false;
         if (search.trim()) {
@@ -255,7 +324,11 @@ export default function DangKyPage() {
                 r.ingameId?.toLowerCase().includes(q) ||
                 r.email?.toLowerCase().includes(q) ||
                 r.playerName?.toLowerCase().includes(q) ||
-                r.gamerId?.toLowerCase().includes(q)
+                r.gamerId?.toLowerCase().includes(q) ||
+                r.nickname?.toLowerCase().includes(q) ||
+                r.facebookName?.toLowerCase().includes(q) ||
+                r.province?.toLowerCase().includes(q) ||
+                r.phone?.toLowerCase().includes(q)
             );
         }
         return true;
@@ -272,29 +345,46 @@ export default function DangKyPage() {
 
     return (
         <div className="space-y-6">
+            {/* Header */}
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                 <div>
-                    <h1 className="text-[22px] font-semibold text-efb-dark tracking-tight">Đăng ký thi đấu</h1>
-                    <p className="text-sm text-efb-text-muted mt-0.5">
-                        Quản lý danh sách đăng ký tham gia giải đấu
-                        {hasFee && (
-                            <span className="ml-2 inline-flex items-center gap-1 text-amber-600 font-medium">
-                                <DollarSign className="w-3.5 h-3.5" />
-                                Lệ phí: {tournament?.entryFee?.toLocaleString("vi-VN")} {tournament?.currency || "VNĐ"}
-                            </span>
-                        )}
-                    </p>
+                    <div className="flex items-center gap-2.5">
+                        <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center shadow-lg shadow-blue-500/20">
+                            <Trophy className="w-4.5 h-4.5 text-white" />
+                        </div>
+                        <div>
+                            <h1 className="text-[22px] font-bold text-efb-dark tracking-tight">Đăng ký thi đấu</h1>
+                            <p className="text-sm text-efb-text-muted mt-0.5">
+                                Quản lý danh sách đăng ký tham gia giải đấu
+                                {hasFee && (
+                                    <span className="ml-2 inline-flex items-center gap-1 text-amber-600 font-medium">
+                                        <DollarSign className="w-3.5 h-3.5" />
+                                        Lệ phí: {tournament?.entryFee?.toLocaleString("vi-VN")} {tournament?.currency || "VNĐ"}
+                                    </span>
+                                )}
+                            </p>
+                        </div>
+                    </div>
                 </div>
                 <div className="flex items-center gap-2">
                     <Button
                         variant="default"
                         size="sm"
-                        className="rounded-lg h-9 text-xs bg-efb-blue text-white hover:bg-efb-blue/90"
+                        className="rounded-xl h-9 text-xs bg-gradient-to-r from-blue-500 to-indigo-600 text-white hover:from-blue-600 hover:to-indigo-700 shadow-md shadow-blue-500/20 transition-all duration-300 hover:shadow-lg hover:shadow-blue-500/30"
                         onClick={() => setIsAddModalOpen(true)}
                     >
                         <UserPlus className="w-3.5 h-3.5 mr-1.5" /> Thêm VĐV
                     </Button>
-                    <Button variant="outline" size="sm" className="rounded-lg h-9 text-xs" onClick={loadRegistrations}>
+                    <Button
+                        variant="outline"
+                        size="sm"
+                        className="rounded-xl h-9 text-xs border-emerald-200 text-emerald-700 hover:bg-emerald-50"
+                        onClick={handleExportExcel}
+                        disabled={registrations.length === 0}
+                    >
+                        <Download className="w-3.5 h-3.5 mr-1.5" /> Xuất Excel
+                    </Button>
+                    <Button variant="outline" size="sm" className="rounded-xl h-9 text-xs border-gray-200 hover:bg-gray-50" onClick={loadRegistrations}>
                         <RefreshCw className="w-3.5 h-3.5 mr-1.5" /> Làm mới
                     </Button>
                 </div>
@@ -303,22 +393,26 @@ export default function DangKyPage() {
             {/* Stats */}
             <div className={`grid ${hasFee ? "grid-cols-2 sm:grid-cols-3 lg:grid-cols-6" : "grid-cols-2 sm:grid-cols-4"} gap-3`}>
                 {[
-                    { label: "Tổng đăng ký", value: counts.total, icon: Users, color: "text-blue-600 bg-blue-50" },
-                    { label: "Chờ duyệt", value: counts.pending, icon: Clock, color: "text-amber-600 bg-amber-50" },
-                    { label: "Đã duyệt", value: counts.approved, icon: CheckCircle2, color: "text-emerald-600 bg-emerald-50" },
-                    { label: "Đã từ chối", value: counts.rejected, icon: XCircle, color: "text-red-600 bg-red-50" },
+                    { label: "Tổng đăng ký", value: counts.total, icon: Users, gradient: "from-blue-500 to-blue-600", bg: "bg-blue-50", text: "text-blue-600" },
+                    { label: "Chờ duyệt", value: counts.pending, icon: Clock, gradient: "from-amber-500 to-amber-600", bg: "bg-amber-50", text: "text-amber-600" },
+                    { label: "Đã duyệt", value: counts.approved, icon: CheckCircle2, gradient: "from-emerald-500 to-emerald-600", bg: "bg-emerald-50", text: "text-emerald-600" },
+                    { label: "Đã từ chối", value: counts.rejected, icon: XCircle, gradient: "from-red-500 to-red-600", bg: "bg-red-50", text: "text-red-600" },
                     ...(hasFee ? [
-                        { label: "Đã thanh toán", value: counts.paid, icon: CreditCard, color: "text-teal-600 bg-teal-50" },
-                        { label: "Chờ xác nhận TT", value: counts.pendingPayment, icon: Banknote, color: "text-orange-600 bg-orange-50" },
+                        { label: "Đã thanh toán", value: counts.paid, icon: CreditCard, gradient: "from-teal-500 to-teal-600", bg: "bg-teal-50", text: "text-teal-600" },
+                        { label: "Chờ xác nhận TT", value: counts.pendingPayment, icon: Banknote, gradient: "from-orange-500 to-orange-600", bg: "bg-orange-50", text: "text-orange-600" },
                     ] : []),
-                ].map((s) => (
-                    <div key={s.label} className="bg-white rounded-xl border border-gray-100 p-4 shadow-sm hover:shadow-md transition-shadow duration-300">
-                        <div className={`w-8 h-8 rounded-lg ${s.color} flex items-center justify-center mb-3`}>
-                            <s.icon className="w-4 h-4" />
-                        </div>
-                        <div className="text-2xl font-bold text-gray-900 tracking-tight">{s.value}</div>
-                        <div className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider mt-1">{s.label}</div>
-                    </div>
+                ].map((s, idx) => (
+                    <Card key={s.label} className="py-0 border-gray-100/80 hover:shadow-md transition-all duration-300 group cursor-default overflow-hidden">
+                        <CardContent className="p-4 px-4">
+                            <div className="flex items-center justify-between mb-3">
+                                <div className={`w-9 h-9 rounded-xl bg-gradient-to-br ${s.gradient} flex items-center justify-center shadow-sm group-hover:scale-105 transition-transform duration-300`}>
+                                    <s.icon className="w-4 h-4 text-white" />
+                                </div>
+                                <div className={`text-2xl font-extrabold ${s.text} tracking-tight tabular-nums`}>{s.value}</div>
+                            </div>
+                            <div className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider">{s.label}</div>
+                        </CardContent>
+                    </Card>
                 ))}
             </div>
 
@@ -327,10 +421,10 @@ export default function DangKyPage() {
                 <motion.div
                     initial={{ opacity: 0, y: -8 }}
                     animate={{ opacity: 1, y: 0 }}
-                    className="bg-gradient-to-r from-amber-50 to-orange-50 border border-amber-200 rounded-xl p-4 flex items-start gap-3"
+                    className="bg-gradient-to-r from-amber-50 via-orange-50 to-amber-50 border border-amber-200/60 rounded-2xl p-4 flex items-start gap-3 shadow-sm"
                 >
-                    <div className="w-9 h-9 rounded-lg bg-amber-100 flex items-center justify-center flex-shrink-0">
-                        <AlertTriangle className="w-5 h-5 text-amber-600" />
+                    <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-amber-400 to-orange-500 flex items-center justify-center flex-shrink-0 shadow-md shadow-amber-500/20">
+                        <AlertTriangle className="w-5 h-5 text-white" />
                     </div>
                     <div>
                         <h4 className="text-sm font-bold text-amber-800">
@@ -344,54 +438,48 @@ export default function DangKyPage() {
             )}
 
             {/* Filters */}
-            <div className="flex flex-col sm:flex-row gap-3">
+            <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center">
                 <div className="relative flex-1 max-w-sm">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-efb-text-muted" />
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
                     <Input
-                        placeholder="Tìm VĐV..."
+                        placeholder="Tìm VĐV theo tên, SĐT, email..."
                         value={search}
                         onChange={(e) => setSearch(e.target.value)}
-                        className="pl-9 h-10 rounded-lg"
+                        className="pl-9 h-10 rounded-xl border-gray-200 focus-visible:ring-blue-500/30 focus-visible:border-blue-400"
                     />
                 </div>
-                <div className="flex items-center bg-gray-100 rounded-xl p-1 gap-0.5">
-                    {[
-                        { key: "all", label: "Tất cả" },
-                        { key: "pending", label: "Chờ duyệt" },
-                        { key: "approved", label: "Đã duyệt" },
-                        { key: "rejected", label: "Từ chối" },
-                    ].map((f) => (
-                        <button
-                            key={f.key}
-                            onClick={() => setFilter(f.key)}
-                            className={`px-3 py-1.5 text-xs font-medium rounded-lg transition-all ${filter === f.key
-                                ? "bg-white text-efb-blue shadow-sm"
-                                : "text-efb-text-muted hover:text-efb-text-secondary"
-                                }`}
-                        >
-                            {f.label}
-                        </button>
-                    ))}
-                </div>
+                <Tabs value={filter} onValueChange={setFilter} className="w-auto">
+                    <TabsList className="h-10 rounded-xl bg-gray-100/80 p-1 gap-0.5">
+                        <TabsTrigger value="all" className="rounded-lg text-xs font-semibold px-4 data-[state=active]:bg-white data-[state=active]:text-blue-600 data-[state=active]:shadow-sm">Tất cả</TabsTrigger>
+                        <TabsTrigger value="pending" className="rounded-lg text-xs font-semibold px-3 data-[state=active]:bg-white data-[state=active]:text-amber-600 data-[state=active]:shadow-sm">Chờ duyệt</TabsTrigger>
+                        <TabsTrigger value="approved" className="rounded-lg text-xs font-semibold px-3 data-[state=active]:bg-white data-[state=active]:text-emerald-600 data-[state=active]:shadow-sm">Đã duyệt</TabsTrigger>
+                        <TabsTrigger value="rejected" className="rounded-lg text-xs font-semibold px-3 data-[state=active]:bg-white data-[state=active]:text-red-500 data-[state=active]:shadow-sm">Từ chối</TabsTrigger>
+                    </TabsList>
+                </Tabs>
             </div>
 
             {/* Table */}
             {isLoading ? (
-                <div className="flex items-center justify-center py-16">
-                    <Loader2 className="w-6 h-6 animate-spin text-efb-blue" />
+                <div className="flex flex-col items-center justify-center py-20">
+                    <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center shadow-lg shadow-blue-500/20 mb-4">
+                        <Loader2 className="w-5 h-5 animate-spin text-white" />
+                    </div>
+                    <p className="text-sm text-gray-400 font-medium">Đang tải dữ liệu...</p>
                 </div>
             ) : filtered.length === 0 ? (
-                <div className="text-center py-16">
-                    <Users className="w-12 h-12 text-gray-200 mx-auto mb-3" />
-                    <h3 className="text-base font-semibold text-efb-dark">Chưa có đăng ký nào</h3>
-                    <p className="text-sm text-efb-text-muted mt-1">Đăng ký sẽ hiển thị khi có người đăng ký tham gia</p>
+                <div className="text-center py-20">
+                    <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-gray-100 to-gray-50 flex items-center justify-center mx-auto mb-4 shadow-inner">
+                        <Users className="w-7 h-7 text-gray-300" />
+                    </div>
+                    <h3 className="text-base font-bold text-gray-700">Chưa có đăng ký nào</h3>
+                    <p className="text-sm text-gray-400 mt-1.5 max-w-xs mx-auto">Đăng ký sẽ hiển thị khi có người đăng ký tham gia giải đấu</p>
                 </div>
             ) : (
-                <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} className="bg-white rounded-2xl border border-gray-100 overflow-hidden">
+                <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} className="bg-white rounded-2xl border border-gray-100 overflow-hidden shadow-sm">
                     <div className="overflow-x-auto">
                         <table className="w-full">
                             <thead>
-                                <tr className="border-b border-gray-100 bg-gray-50/30">
+                                <tr className="border-b border-gray-100 bg-gradient-to-r from-gray-50/50 to-slate-50/50">
                                     <th className="text-left px-4 py-4 text-[10px] font-bold text-gray-400 uppercase tracking-widest">#</th>
                                     <th className="text-left px-4 py-4 text-[10px] font-bold text-gray-400 uppercase tracking-widest">Nhân sự / CLB</th>
                                     <th className="text-left px-4 py-4 text-[10px] font-bold text-gray-400 uppercase tracking-widest hidden md:table-cell">In-game ID</th>
@@ -423,11 +511,22 @@ export default function DangKyPage() {
                                         >
                                             <td className="px-4 py-4 text-sm text-gray-400 font-medium">{i + 1}</td>
                                             <td className="px-4 py-4">
-                                                <div className="text-sm font-bold text-gray-900">{r.playerName || r.teamName || r.name || "—"}</div>
-                                                <div className="text-[11px] text-gray-400 font-medium flex items-center gap-1.5 mt-0.5">
-                                                    <span className="text-efb-blue">{r.teamName || "Tự do"}</span>
-                                                    <span className="w-1 h-1 rounded-full bg-gray-200" />
-                                                    <span>{r.phone || r.email || ""}</span>
+                                                <div className="flex items-center gap-2">
+                                                    <div>
+                                                        <div className="text-sm font-bold text-gray-900">{r.playerName || r.teamName || r.name || "—"}</div>
+                                                        <div className="text-[11px] text-gray-400 font-medium flex items-center gap-1.5 mt-0.5">
+                                                            <span className="text-efb-blue">{r.teamName || "Tự do"}</span>
+                                                            <span className="w-1 h-1 rounded-full bg-gray-200" />
+                                                            <span>{r.phone || r.email || ""}</span>
+                                                        </div>
+                                                    </div>
+                                                    <button
+                                                        onClick={() => setPlayerDetailView(r)}
+                                                        className="ml-1 w-7 h-7 rounded-lg bg-blue-50 text-efb-blue hover:bg-efb-blue hover:text-white flex items-center justify-center transition-all flex-shrink-0"
+                                                        title="Xem chi tiết"
+                                                    >
+                                                        <Eye className="w-3.5 h-3.5" />
+                                                    </button>
                                                 </div>
                                             </td>
                                             <td className="px-4 py-4 text-sm text-gray-600 hidden md:table-cell font-medium">{r.gamerId || r.ingameId || "—"}</td>
@@ -625,133 +724,478 @@ export default function DangKyPage() {
                 </DialogContent>
             </Dialog>
 
+            {/* Player Detail Modal */}
+            <Dialog open={!!playerDetailView} onOpenChange={(open) => !open && setPlayerDetailView(null)}>
+                <DialogContent className="max-w-lg bg-white rounded-2xl border-0 shadow-2xl p-0 overflow-hidden max-h-[90vh]">
+                    <div className="p-6 bg-gradient-to-br from-gray-50 to-white border-b border-gray-100/80">
+                        <DialogTitle className="text-base font-medium text-gray-900 tracking-tight">Chi tiết đăng ký</DialogTitle>
+                    </div>
+                    {playerDetailView && (
+                        <div className="overflow-y-auto" style={{ maxHeight: 'calc(90vh - 72px)' }}>
+                            {/* Profile Header */}
+                            <div className="px-6 py-5 flex items-center gap-4">
+                                {playerDetailView.personalPhoto ? (
+                                    <img
+                                        src={playerDetailView.personalPhoto}
+                                        alt="Ảnh cá nhân"
+                                        className="w-14 h-14 rounded-full object-cover ring-2 ring-gray-100 cursor-pointer hover:ring-efb-blue/30 transition-all"
+                                        onClick={() => window.open(playerDetailView.personalPhoto, '_blank')}
+                                    />
+                                ) : (
+                                    <div className="w-14 h-14 rounded-full bg-gray-100 flex items-center justify-center">
+                                        <User className="w-6 h-6 text-gray-300" />
+                                    </div>
+                                )}
+                                <div className="flex-1 min-w-0">
+                                    <h3 className="text-lg font-medium text-gray-900 tracking-tight">{playerDetailView.playerName || '—'}</h3>
+                                    <p className="text-[13px] text-gray-500 font-light">{playerDetailView.teamName} {playerDetailView.teamShortName ? `· ${playerDetailView.teamShortName}` : ''}</p>
+                                    <div className="flex items-center gap-2 mt-1.5">
+                                        <Badge
+                                            variant="outline"
+                                            className={`text-[10px] font-normal ${playerDetailView.status === 'approved' ? 'bg-emerald-50 text-emerald-600 border-emerald-200'
+                                                : playerDetailView.status === 'rejected' ? 'bg-red-50 text-red-500 border-red-200'
+                                                    : 'bg-amber-50 text-amber-600 border-amber-200'
+                                                }`}
+                                        >
+                                            {playerDetailView.status === 'approved' ? 'Đã duyệt' : playerDetailView.status === 'rejected' ? 'Từ chối' : 'Chờ duyệt'}
+                                        </Badge>
+                                        {playerDetailView.user?.efvId && (
+                                            <span className="text-[10px] font-mono text-gray-400">{playerDetailView.user.efvId}</span>
+                                        )}
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Info Rows — clean Apple list style */}
+                            <div className="border-t border-gray-100/80">
+                                <div className="px-6 py-3 flex items-center justify-between border-b border-gray-50">
+                                    <span className="text-[13px] text-gray-400 font-light">ID Game</span>
+                                    <span className="text-[13px] text-gray-900 font-normal">{playerDetailView.gamerId || '—'}</span>
+                                </div>
+                                <div className="px-6 py-3 flex items-center justify-between border-b border-gray-50">
+                                    <span className="text-[13px] text-gray-400 font-light">Nickname</span>
+                                    <span className="text-[13px] text-gray-900 font-normal">{playerDetailView.nickname || '—'}</span>
+                                </div>
+                                <div className="px-6 py-3 flex items-center justify-between border-b border-gray-50">
+                                    <span className="text-[13px] text-gray-400 font-light">Tên đội</span>
+                                    <span className="text-[13px] text-gray-900 font-normal">{playerDetailView.teamName} ({playerDetailView.teamShortName})</span>
+                                </div>
+                                <div className="px-6 py-3 flex items-center justify-between border-b border-gray-50">
+                                    <span className="text-[13px] text-gray-400 font-light">Số điện thoại</span>
+                                    <a href={`tel:${playerDetailView.phone}`} className="text-[13px] text-efb-blue font-normal">{playerDetailView.phone || '—'}</a>
+                                </div>
+                                <div className="px-6 py-3 flex items-center justify-between border-b border-gray-50">
+                                    <span className="text-[13px] text-gray-400 font-light">Email</span>
+                                    <a href={`mailto:${playerDetailView.email}`} className="text-[13px] text-efb-blue font-normal truncate max-w-[220px]">{playerDetailView.email || '—'}</a>
+                                </div>
+                                <div className="px-6 py-3 flex items-center justify-between border-b border-gray-50">
+                                    <span className="text-[13px] text-gray-400 font-light">Ngày sinh</span>
+                                    <span className="text-[13px] text-gray-900 font-normal">
+                                        {playerDetailView.dateOfBirth ? new Date(playerDetailView.dateOfBirth).toLocaleDateString('vi-VN') : '—'}
+                                    </span>
+                                </div>
+                                <div className="px-6 py-3 flex items-center justify-between border-b border-gray-50">
+                                    <span className="text-[13px] text-gray-400 font-light">Tỉnh / Thành phố</span>
+                                    <span className="text-[13px] text-gray-900 font-normal">{playerDetailView.province || '—'}</span>
+                                </div>
+                                {playerDetailView.facebookName && (
+                                    <div className="px-6 py-3 flex items-center justify-between border-b border-gray-50">
+                                        <span className="text-[13px] text-gray-400 font-light">Facebook</span>
+                                        <span className="text-[13px] text-gray-900 font-normal">{playerDetailView.facebookName}</span>
+                                    </div>
+                                )}
+                                {playerDetailView.facebookLink && (
+                                    <div className="px-6 py-3 border-b border-gray-50">
+                                        <span className="text-[13px] text-gray-400 font-light block mb-1">Link Facebook</span>
+                                        <a href={playerDetailView.facebookLink} target="_blank" rel="noopener noreferrer" className="text-[12px] text-efb-blue hover:underline break-all flex items-center gap-1">
+                                            <ExternalLink className="w-3 h-3 flex-shrink-0" /> {playerDetailView.facebookLink}
+                                        </a>
+                                    </div>
+                                )}
+                                {playerDetailView.notes && (
+                                    <div className="px-6 py-3 border-b border-gray-50">
+                                        <span className="text-[13px] text-gray-400 font-light block mb-1">Ghi chú</span>
+                                        <p className="text-[13px] text-gray-700 font-light">{playerDetailView.notes}</p>
+                                    </div>
+                                )}
+                            </div>
+
+                            {/* Photos section */}
+                            {(playerDetailView.teamLineupPhoto || playerDetailView.personalPhoto) && (
+                                <div className="px-6 py-4 border-t border-gray-100/80">
+                                    <p className="text-[11px] text-gray-400 font-medium uppercase tracking-wider mb-3">Hình ảnh</p>
+                                    <div className="grid grid-cols-2 gap-3">
+                                        {playerDetailView.personalPhoto && (
+                                            <div>
+                                                <p className="text-[11px] text-gray-400 font-light mb-1.5">Ảnh cá nhân</p>
+                                                <div className="rounded-xl overflow-hidden border border-gray-100 bg-gray-50 aspect-square">
+                                                    <img
+                                                        src={playerDetailView.personalPhoto}
+                                                        alt="Ảnh cá nhân"
+                                                        className="w-full h-full object-cover cursor-pointer hover:scale-105 transition-transform"
+                                                        onClick={() => window.open(playerDetailView.personalPhoto, '_blank')}
+                                                    />
+                                                </div>
+                                            </div>
+                                        )}
+                                        {playerDetailView.teamLineupPhoto && (
+                                            <div>
+                                                <p className="text-[11px] text-gray-400 font-light mb-1.5">Đội hình thi đấu</p>
+                                                <div className="rounded-xl overflow-hidden border border-gray-100 bg-gray-50 aspect-square">
+                                                    <img
+                                                        src={playerDetailView.teamLineupPhoto}
+                                                        alt="Đội hình"
+                                                        className="w-full h-full object-cover cursor-pointer hover:scale-105 transition-transform"
+                                                        onClick={() => window.open(playerDetailView.teamLineupPhoto, '_blank')}
+                                                    />
+                                                </div>
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* Payment Section */}
+                            {hasFee && (
+                                <div className="px-6 py-4 border-t border-gray-100/80">
+                                    <p className="text-[11px] text-gray-400 font-medium uppercase tracking-wider mb-3">Thanh toán</p>
+                                    <div className="space-y-0">
+                                        <div className="flex items-center justify-between py-2.5 border-b border-gray-50">
+                                            <span className="text-[13px] text-gray-400 font-light">Trạng thái</span>
+                                            <Badge variant="outline" className={`${paymentStatusConfig[playerDetailView.paymentStatus]?.color || ''} text-[10px] font-normal`}>
+                                                {paymentStatusConfig[playerDetailView.paymentStatus]?.label || 'N/A'}
+                                            </Badge>
+                                        </div>
+                                        <div className="flex items-center justify-between py-2.5 border-b border-gray-50">
+                                            <span className="text-[13px] text-gray-400 font-light">Số tiền</span>
+                                            <span className="text-[13px] text-gray-900 font-medium">{(playerDetailView.paymentAmount || tournament?.entryFee || 0)?.toLocaleString('vi-VN')} VNĐ</span>
+                                        </div>
+                                        {playerDetailView.paymentMethod && (
+                                            <div className="flex items-center justify-between py-2.5 border-b border-gray-50">
+                                                <span className="text-[13px] text-gray-400 font-light">Phương thức</span>
+                                                <span className="text-[13px] text-gray-900 font-normal capitalize">{playerDetailView.paymentMethod}</span>
+                                            </div>
+                                        )}
+                                        {playerDetailView.paymentDate && (
+                                            <div className="flex items-center justify-between py-2.5 border-b border-gray-50">
+                                                <span className="text-[13px] text-gray-400 font-light">Ngày TT</span>
+                                                <span className="text-[13px] text-gray-900 font-normal">{new Date(playerDetailView.paymentDate).toLocaleString('vi-VN')}</span>
+                                            </div>
+                                        )}
+                                        {playerDetailView.paymentConfirmedAt && (
+                                            <div className="flex items-center justify-between py-2.5 border-b border-gray-50">
+                                                <span className="text-[13px] text-gray-400 font-light">Xác nhận lúc</span>
+                                                <span className="text-[13px] text-gray-900 font-normal">{new Date(playerDetailView.paymentConfirmedAt).toLocaleString('vi-VN')}</span>
+                                            </div>
+                                        )}
+                                        {playerDetailView.paymentProof && (
+                                            <div className="pt-3">
+                                                <p className="text-[11px] text-gray-400 font-light mb-2">Minh chứng thanh toán</p>
+                                                <div className="rounded-xl overflow-hidden border border-gray-100 bg-gray-50">
+                                                    <img
+                                                        src={playerDetailView.paymentProof}
+                                                        alt="Minh chứng TT"
+                                                        className="w-full max-h-[240px] object-contain cursor-pointer hover:scale-[1.02] transition-transform"
+                                                        onClick={() => window.open(playerDetailView.paymentProof, '_blank')}
+                                                    />
+                                                </div>
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* Meta info */}
+                            <div className="px-6 py-3 border-t border-gray-100/80 flex items-center justify-between">
+                                <span className="text-[11px] text-gray-300 font-light">Đăng ký lúc</span>
+                                <span className="text-[11px] text-gray-400 font-light">{playerDetailView.createdAt ? new Date(playerDetailView.createdAt).toLocaleString('vi-VN') : '—'}</span>
+                            </div>
+                            {playerDetailView.approvedAt && (
+                                <div className="px-6 py-2 pb-3 flex items-center justify-between">
+                                    <span className="text-[11px] text-gray-300 font-light">Duyệt lúc</span>
+                                    <span className="text-[11px] text-gray-400 font-light">{new Date(playerDetailView.approvedAt).toLocaleString('vi-VN')}</span>
+                                </div>
+                            )}
+
+                            {/* Actions */}
+                            {playerDetailView.status === 'pending' && (
+                                <div className="px-6 pb-5 pt-2 flex gap-3">
+                                    <Button
+                                        onClick={() => {
+                                            handleAction(playerDetailView._id, 'approve');
+                                            setPlayerDetailView(null);
+                                        }}
+                                        disabled={hasFee && playerDetailView.paymentStatus !== 'paid'}
+                                        className="flex-1 bg-gray-900 text-white hover:bg-gray-800 rounded-xl h-10 font-normal text-[13px]"
+                                    >
+                                        Duyệt VĐV
+                                    </Button>
+                                    <Button
+                                        variant="outline"
+                                        onClick={() => {
+                                            handleAction(playerDetailView._id, 'reject');
+                                            setPlayerDetailView(null);
+                                        }}
+                                        className="flex-1 rounded-xl h-10 font-normal text-[13px] text-red-500 border-gray-200 hover:bg-red-50 hover:border-red-200"
+                                    >
+                                        Từ chối
+                                    </Button>
+                                </div>
+                            )}
+                        </div>
+                    )}
+                </DialogContent>
+            </Dialog>
+
             {/* Modal Thêm VĐV */}
             <Dialog open={isAddModalOpen} onOpenChange={setIsAddModalOpen}>
-                <DialogContent className="max-w-[95vw] sm:max-w-4xl w-full bg-white border shadow-lg p-0 gap-0 rounded-lg overflow-hidden">
-                    <div className="p-5 flex items-center justify-between border-b border-gray-100 bg-white">
-                        <DialogTitle className="text-xl font-bold text-gray-900">Thêm VĐV</DialogTitle>
+                <DialogContent className="max-w-[95vw] sm:max-w-4xl w-full bg-white border-0 shadow-2xl p-0 gap-0 rounded-2xl overflow-hidden">
+                    {/* Modal Header with gradient */}
+                    <div className="p-5 px-6 flex items-center gap-3 border-b border-gray-100 bg-gradient-to-r from-slate-50 via-blue-50/30 to-indigo-50/50">
+                        <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center shadow-md shadow-blue-500/20">
+                            <UserPlus className="w-5 h-5 text-white" />
+                        </div>
+                        <div>
+                            <DialogTitle className="text-lg font-bold text-gray-900">Thêm VĐV</DialogTitle>
+                            <p className="text-xs text-gray-400 mt-0.5">Thêm vận động viên mới vào giải đấu</p>
+                        </div>
                     </div>
 
-                    <div className="px-6 py-6 pb-2">
-                        {/* Tabs */}
-                        <div className="flex bg-gray-50/50 border border-gray-200 p-1 rounded-md w-max mx-auto mb-6">
-                            <button
-                                onClick={() => setAddMode("manual")}
-                                className={`px-10 py-2 text-sm font-semibold rounded-md transition-all ${addMode === "manual" ? "bg-white text-gray-900 shadow-sm border border-gray-200" : "text-gray-500 hover:text-gray-700 border border-transparent"}`}
-                            >
-                                Thêm VĐV
-                            </button>
-                            <button
-                                onClick={() => setAddMode("excel")}
-                                className={`px-10 py-2 text-sm font-semibold rounded-md transition-all flex items-center gap-2 ${addMode === "excel" ? "bg-white text-gray-900 shadow-sm border border-gray-200" : "text-gray-500 hover:text-gray-700 border border-transparent"}`}
-                            >
-                                <Upload className="w-4 h-4" /> Tải lên file Excel
-                            </button>
-                        </div>
+                    <div className="px-6 py-5 pb-2">
+                        {/* Tabs using shadcn */}
+                        <Tabs value={addMode} onValueChange={(v) => setAddMode(v as "manual" | "excel")} className="w-full">
+                            <TabsList className="w-full h-11 rounded-xl bg-gray-100/70 p-1 mb-6">
+                                <TabsTrigger
+                                    value="manual"
+                                    className="flex-1 rounded-lg text-sm font-semibold gap-2 data-[state=active]:bg-white data-[state=active]:text-gray-900 data-[state=active]:shadow-sm transition-all"
+                                >
+                                    <UserPlus className="w-4 h-4" />
+                                    Nhập thủ công
+                                </TabsTrigger>
+                                <TabsTrigger
+                                    value="excel"
+                                    className="flex-1 rounded-lg text-sm font-semibold gap-2 data-[state=active]:bg-white data-[state=active]:text-gray-900 data-[state=active]:shadow-sm transition-all"
+                                >
+                                    <FileSpreadsheet className="w-4 h-4" />
+                                    Tải lên Excel
+                                </TabsTrigger>
+                            </TabsList>
 
-                        {addMode === "manual" && (
-                            <div className="space-y-4">
-                                <div className="overflow-x-auto custom-scrollbar">
-                                    <div className="min-w-[700px]">
-                                        <div className="grid grid-cols-[40px_minmax(120px,1fr)_minmax(120px,1fr)_minmax(120px,1fr)_minmax(100px,1fr)_80px_60px] gap-4 items-center font-medium text-sm text-gray-600 mb-2 px-2">
-                                            <div className="text-center">#</div>
-                                            <div>CLB</div>
-                                            <div>* VĐV 1</div>
-                                            <div>VĐV 2</div>
-                                            <div>Số điện thoại</div>
-                                            <div className="text-center">Hạt giống</div>
-                                            <div className="text-center">Lệ phí</div>
-                                        </div>
-                                        <div className="space-y-3 max-h-[40vh] overflow-y-auto px-2 custom-scrollbar pb-2">
-                                            {manualRows.map((row, index) => (
-                                                <div key={index} className="grid grid-cols-[40px_minmax(120px,1fr)_minmax(120px,1fr)_minmax(120px,1fr)_minmax(100px,1fr)_80px_60px] gap-4 items-center">
-                                                    <div className="text-sm font-medium text-gray-600 text-center">{index + 1}</div>
-                                                    <Input value={row.clb} onChange={(e) => { const newRows = [...manualRows]; newRows[index].clb = e.target.value; setManualRows(newRows); }} className="h-10 rounded-md text-sm border-gray-200 focus-visible:ring-blue-500" />
-                                                    <Input value={row.vdv1} onChange={(e) => { const newRows = [...manualRows]; newRows[index].vdv1 = e.target.value; setManualRows(newRows); }} className="h-10 rounded-md text-sm border-gray-200 focus-visible:ring-blue-500" />
-                                                    <Input value={row.vdv2} onChange={(e) => { const newRows = [...manualRows]; newRows[index].vdv2 = e.target.value; setManualRows(newRows); }} className="h-10 rounded-md text-sm border-gray-200 focus-visible:ring-blue-500" />
-                                                    <Input value={row.phone} onChange={(e) => { const newRows = [...manualRows]; newRows[index].phone = e.target.value; setManualRows(newRows); }} className="h-10 rounded-md text-sm border-gray-200 focus-visible:ring-blue-500" />
-                                                    <Input value={row.seed} onChange={(e) => { const newRows = [...manualRows]; newRows[index].seed = e.target.value; setManualRows(newRows); }} className="h-10 rounded-md text-sm border-gray-200 focus-visible:ring-blue-500 text-center" />
-                                                    <div className="flex justify-center">
-                                                        <input type="checkbox" checked={row.fee} onChange={(e) => { const newRows = [...manualRows]; newRows[index].fee = e.target.checked; setManualRows(newRows); }} className="w-5 h-5 rounded border-gray-300 text-blue-600 focus:ring-blue-500 cursor-pointer" />
-                                                    </div>
+                            {/* Manual Tab */}
+                            <TabsContent value="manual" className="mt-0">
+                                <div className="space-y-4">
+                                    <div className="overflow-x-auto custom-scrollbar">
+                                        <div className="min-w-[700px]">
+                                            {/* Table Header */}
+                                            <div className="grid grid-cols-[40px_minmax(120px,1fr)_minmax(120px,1fr)_minmax(120px,1fr)_minmax(100px,1fr)_80px_60px] gap-3 items-center mb-3 px-2">
+                                                <Label className="text-center text-[10px] font-bold text-gray-400 uppercase tracking-widest justify-center">
+                                                    <Hash className="w-3 h-3" />
+                                                </Label>
+                                                <Label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">
+                                                    <Shield className="w-3 h-3 mr-1" /> CLB
+                                                </Label>
+                                                <Label className="text-[10px] font-bold text-blue-500 uppercase tracking-widest">
+                                                    <User className="w-3 h-3 mr-1" /> VĐV 1 *
+                                                </Label>
+                                                <Label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">
+                                                    <User className="w-3 h-3 mr-1" /> VĐV 2
+                                                </Label>
+                                                <Label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">
+                                                    <Phone className="w-3 h-3 mr-1" /> SĐT
+                                                </Label>
+                                                <Label className="text-center text-[10px] font-bold text-gray-400 uppercase tracking-widest justify-center">
+                                                    <Sparkles className="w-3 h-3" /> Seed
+                                                </Label>
+                                                <Label className="text-center text-[10px] font-bold text-gray-400 uppercase tracking-widest justify-center">
+                                                    Phí
+                                                </Label>
+                                            </div>
+
+                                            <Separator className="mb-3" />
+
+                                            {/* Scrollable Rows */}
+                                            <ScrollArea className="max-h-[40vh]">
+                                                <div className="space-y-2.5 px-2 pb-2">
+                                                    {manualRows.map((row, index) => (
+                                                        <motion.div
+                                                            key={index}
+                                                            initial={{ opacity: 0, y: 8 }}
+                                                            animate={{ opacity: 1, y: 0 }}
+                                                            transition={{ delay: index * 0.03 }}
+                                                            className="grid grid-cols-[40px_minmax(120px,1fr)_minmax(120px,1fr)_minmax(120px,1fr)_minmax(100px,1fr)_80px_60px] gap-3 items-center group/row"
+                                                        >
+                                                            <div className="text-xs font-bold text-gray-300 text-center tabular-nums group-hover/row:text-blue-400 transition-colors">{index + 1}</div>
+                                                            <Input
+                                                                value={row.clb}
+                                                                placeholder="Tên CLB"
+                                                                onChange={(e) => { const newRows = [...manualRows]; newRows[index].clb = e.target.value; setManualRows(newRows); }}
+                                                                className="h-10 rounded-xl text-sm border-gray-200 focus-visible:ring-blue-500/30 focus-visible:border-blue-400 transition-all placeholder:text-gray-300"
+                                                            />
+                                                            <Input
+                                                                value={row.vdv1}
+                                                                placeholder="Họ tên VĐV 1"
+                                                                onChange={(e) => { const newRows = [...manualRows]; newRows[index].vdv1 = e.target.value; setManualRows(newRows); }}
+                                                                className="h-10 rounded-xl text-sm border-blue-200 bg-blue-50/30 focus-visible:ring-blue-500/30 focus-visible:border-blue-400 transition-all placeholder:text-blue-300 font-medium"
+                                                            />
+                                                            <Input
+                                                                value={row.vdv2}
+                                                                placeholder="Họ tên VĐV 2"
+                                                                onChange={(e) => { const newRows = [...manualRows]; newRows[index].vdv2 = e.target.value; setManualRows(newRows); }}
+                                                                className="h-10 rounded-xl text-sm border-gray-200 focus-visible:ring-blue-500/30 focus-visible:border-blue-400 transition-all placeholder:text-gray-300"
+                                                            />
+                                                            <Input
+                                                                value={row.phone}
+                                                                placeholder="0912..."
+                                                                onChange={(e) => { const newRows = [...manualRows]; newRows[index].phone = e.target.value; setManualRows(newRows); }}
+                                                                className="h-10 rounded-xl text-sm border-gray-200 focus-visible:ring-blue-500/30 focus-visible:border-blue-400 transition-all placeholder:text-gray-300"
+                                                            />
+                                                            <Input
+                                                                value={row.seed}
+                                                                placeholder="—"
+                                                                onChange={(e) => { const newRows = [...manualRows]; newRows[index].seed = e.target.value; setManualRows(newRows); }}
+                                                                className="h-10 rounded-xl text-sm border-gray-200 focus-visible:ring-blue-500/30 focus-visible:border-blue-400 transition-all text-center placeholder:text-gray-300"
+                                                            />
+                                                            <div className="flex justify-center">
+                                                                <Checkbox
+                                                                    checked={row.fee}
+                                                                    onCheckedChange={(checked) => { const newRows = [...manualRows]; newRows[index].fee = !!checked; setManualRows(newRows); }}
+                                                                    className="data-[state=checked]:bg-emerald-500 data-[state=checked]:border-emerald-500"
+                                                                />
+                                                            </div>
+                                                        </motion.div>
+                                                    ))}
                                                 </div>
-                                            ))}
+                                            </ScrollArea>
+                                        </div>
+                                    </div>
+
+                                    <Separator />
+
+                                    {/* Action Buttons */}
+                                    <div className="flex items-center gap-3 px-2">
+                                        <Button
+                                            onClick={() => handleAddManualRows(1)}
+                                            variant="outline"
+                                            className="h-10 px-5 rounded-xl text-sm border-gray-200 hover:bg-blue-50 hover:border-blue-200 hover:text-blue-600 text-gray-600 font-medium transition-all duration-200"
+                                        >
+                                            <Plus className="w-4 h-4 mr-2" /> Thêm 1 VĐV
+                                        </Button>
+                                        <Button
+                                            onClick={() => handleAddManualRows(10)}
+                                            variant="outline"
+                                            className="h-10 px-5 rounded-xl text-sm border-gray-200 hover:bg-indigo-50 hover:border-indigo-200 hover:text-indigo-600 text-gray-600 font-medium transition-all duration-200"
+                                        >
+                                            <Users className="w-4 h-4 mr-2" /> Tạo nhanh 10 đội
+                                        </Button>
+                                    </div>
+
+                                    {/* Info Notes */}
+                                    <div className="px-2 pb-3">
+                                        <div className="flex items-start gap-2 p-3 rounded-xl bg-blue-50/50 border border-blue-100/50">
+                                            <AlertCircle className="w-4 h-4 text-blue-400 mt-0.5 flex-shrink-0" />
+                                            <div className="text-xs text-blue-600/80 space-y-0.5">
+                                                <p>Mỗi lần tạo tối đa <span className="font-bold">20 đội</span>. VĐV 1 cần ít nhất <span className="font-bold">2 ký tự</span>.</p>
+                                            </div>
                                         </div>
                                     </div>
                                 </div>
-                                <div className="flex items-center justify-center mt-2 px-2">
-                                    <Button onClick={() => handleAddManualRows(1)} variant="outline" className="h-10 px-5 rounded-md text-sm border-gray-200 hover:bg-gray-50 text-gray-700 font-medium bg-white shadow-sm">
-                                        <Plus className="w-4 h-4 mr-2" /> Thêm VĐV
-                                    </Button>
-                                </div>
-                                <div className="mt-4 px-2">
-                                    <Button onClick={() => handleAddManualRows(10)} variant="outline" className="h-9 px-4 rounded-md text-sm border-gray-200 hover:bg-gray-50 text-gray-600 font-medium flex items-center gap-2">
-                                        <UserPlus className="w-4 h-4" /> Tạo nhanh 10 đội
-                                    </Button>
-                                </div>
+                            </TabsContent>
 
-                                <div className="px-2 mt-4 pb-4">
-                                    <ul className="list-disc pl-5 space-y-1 text-sm text-gray-600">
-                                        <li>Mỗi lần tạo tối đa 20 đội.</li>
-                                        <li>VĐV 1 ít nhất 2 ký tự.</li>
-                                    </ul>
-                                </div>
-                            </div>
-                        )}
+                            {/* Excel Tab */}
+                            <TabsContent value="excel" className="mt-0">
+                                <div className="space-y-5">
+                                    <input
+                                        type="file"
+                                        accept=".xlsx, .xls"
+                                        className="hidden"
+                                        id="excelUploadModal"
+                                        onChange={handleFileUpload}
+                                    />
 
-                        {addMode === "excel" && (
-                            <div className="space-y-4">
-                                <input
-                                    type="file"
-                                    accept=".xlsx, .xls"
-                                    className="hidden"
-                                    id="excelUploadModal"
-                                    onChange={handleFileUpload}
-                                />
-                                <div
-                                    className="border border-dashed border-orange-300 bg-orange-50/10 rounded-md p-10 text-center cursor-pointer hover:bg-orange-50 transition-all group"
-                                    onClick={() => document.getElementById("excelUploadModal")?.click()}
-                                >
-                                    <p className="text-gray-500">Kéo và thả file excel vào đây, hoặc nhấp để chọn file</p>
-                                </div>
-
-                                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-4">
-                                    <label className="flex items-center gap-2 cursor-pointer">
-                                        <input
-                                            type="checkbox"
-                                            checked={isAutoFormat}
-                                            onChange={(e) => setIsAutoFormat(e.target.checked)}
-                                            className="w-4 h-4 rounded border-blue-500 text-blue-500 focus:ring-blue-500 cursor-pointer"
-                                        />
-                                        <div className="text-sm font-semibold text-gray-800">
-                                            Tự động định dạng tên VĐV khi nhập từ Excel
-                                            <span className="text-gray-400 font-normal ml-1">Vd: NGUYỄN văn A {'=> '} Nguyễn Văn A</span>
+                                    {/* Upload Zone */}
+                                    <div
+                                        className="border-2 border-dashed border-blue-200 bg-gradient-to-br from-blue-50/50 to-indigo-50/30 rounded-2xl p-10 text-center cursor-pointer hover:bg-blue-50 hover:border-blue-300 transition-all duration-300 group"
+                                        onClick={() => document.getElementById("excelUploadModal")?.click()}
+                                    >
+                                        <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center mx-auto mb-4 shadow-lg shadow-blue-500/20 group-hover:scale-105 transition-transform duration-300">
+                                            <Upload className="w-6 h-6 text-white" />
                                         </div>
-                                    </label>
-                                    <a href="https://vntournament.com/assets/excel/example.xlsx" className="text-blue-500 text-sm font-semibold hover:underline flex items-center gap-1.5">
-                                        <Download className="w-4 h-4" /> Tải file mẫu tại đây
-                                    </a>
-                                </div>
+                                        <p className="text-sm font-semibold text-gray-700">Kéo và thả file Excel vào đây</p>
+                                        <p className="text-xs text-gray-400 mt-1">hoặc <span className="text-blue-500 font-medium">nhấp để chọn file</span> (.xlsx, .xls)</p>
+                                    </div>
 
-                                <div className="bg-gray-50/50 border border-gray-100 p-4 rounded-md mt-4">
-                                    <p className="font-bold text-blue-600 mb-2 text-sm">Lưu ý:</p>
-                                    <ul className="list-disc pl-5 space-y-1.5 text-sm text-gray-700">
-                                        <li>Bạn được phép thêm tối đa <span className="text-red-500">128</span> đội cho nội dung này</li>
-                                        <li>Số lượng hạt giống tối đa bằng 1/4 tổng số đội tham gia</li>
-                                        <li>Cột &quot;VĐV 1&quot; <span className="text-red-500">tối thiểu 2 ký tự</span> (tải file mẫu để tham khảo thêm)</li>
-                                        <li>Cột &quot;Số điện thoại&quot; chỉ bao gồm số (0-9), không bao gồm ký tự đặc biệt hoặc chữ cái</li>
-                                        <li>Cột &quot;Hạt giống&quot; phải là số nguyên dương (1,2,3,4...)</li>
-                                        <li>Sau khi import, những dòng có <span className="bg-red-100 text-red-700 px-1 rounded">màu nền đỏ</span> sẽ không được thêm do dữ liệu không hợp lệ</li>
-                                    </ul>
+                                    <Separator />
+
+                                    {/* Auto Format Switch */}
+                                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                                        <div className="flex items-center gap-3">
+                                            <Switch
+                                                checked={isAutoFormat}
+                                                onCheckedChange={setIsAutoFormat}
+                                            />
+                                            <div>
+                                                <Label className="text-sm font-semibold text-gray-800 cursor-pointer">
+                                                    <Sparkles className="w-3.5 h-3.5 text-amber-500 mr-1" />
+                                                    Tự động định dạng tên
+                                                </Label>
+                                                <p className="text-[11px] text-gray-400 mt-0.5">
+                                                    Vd: NGUYỄN văn A {'=> '} Nguyễn Văn A
+                                                </p>
+                                            </div>
+                                        </div>
+                                        <a
+                                            href="https://vntournament.com/assets/excel/example.xlsx"
+                                            className="inline-flex items-center gap-1.5 text-sm font-semibold text-blue-500 hover:text-blue-600 transition-colors px-4 py-2 rounded-xl hover:bg-blue-50 border border-blue-100"
+                                        >
+                                            <Download className="w-4 h-4" /> Tải file mẫu
+                                        </a>
+                                    </div>
+
+                                    {/* Notes Card */}
+                                    <Card className="py-0 border-amber-100 bg-gradient-to-br from-amber-50/50 to-orange-50/30">
+                                        <CardContent className="p-4">
+                                            <div className="flex items-center gap-2 mb-3">
+                                                <AlertTriangle className="w-4 h-4 text-amber-500" />
+                                                <Label className="text-sm font-bold text-amber-700">Lưu ý quan trọng</Label>
+                                            </div>
+                                            <ul className="space-y-2 text-sm text-gray-600">
+                                                {[
+                                                    <>Tối đa <span className="font-bold text-red-500">128</span> đội cho nội dung này</>,
+                                                    <>Số hạt giống tối đa = <span className="font-bold">1/4</span> tổng số đội</>,
+                                                    <>Cột &quot;VĐV 1&quot; <span className="text-red-500 font-medium">tối thiểu 2 ký tự</span></>,
+                                                    <>SĐT chỉ gồm số (0-9), không gồm ký tự đặc biệt</>,
+                                                    <>Cột &quot;Hạt giống&quot; phải là số nguyên dương</>,
+                                                    <>Dòng <Badge variant="outline" className="bg-red-50 text-red-600 border-red-100 text-[10px] mx-0.5">màu đỏ</Badge> = dữ liệu không hợp lệ</>,
+                                                ].map((note, i) => (
+                                                    <li key={i} className="flex items-start gap-2">
+                                                        <div className="w-1.5 h-1.5 rounded-full bg-amber-400 mt-1.5 flex-shrink-0" />
+                                                        <span>{note}</span>
+                                                    </li>
+                                                ))}
+                                            </ul>
+                                        </CardContent>
+                                    </Card>
                                 </div>
-                            </div>
-                        )}
+                            </TabsContent>
+                        </Tabs>
                     </div>
 
-                    <div className="p-4 px-6 border-t border-gray-100 bg-white flex justify-end gap-3 rounded-b-lg">
-                        <Button variant="outline" className="h-10 px-6 rounded-md font-semibold border-gray-200 text-gray-700 hover:bg-gray-50" onClick={() => setIsAddModalOpen(false)}>Hủy</Button>
-                        <Button onClick={addMode === "manual" ? handleSaveManual : () => document.getElementById("excelUploadModal")?.click()} disabled={isUploading} className="h-10 px-8 rounded-md font-semibold bg-blue-500 hover:bg-blue-600 text-white shadow-sm">
-                            {isUploading ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null} Lưu
+                    {/* Modal Footer */}
+                    <div className="p-4 px-6 border-t border-gray-100 bg-gradient-to-r from-gray-50/50 to-slate-50/50 flex justify-end gap-3">
+                        <Button
+                            variant="outline"
+                            className="h-10 px-6 rounded-xl font-semibold border-gray-200 text-gray-600 hover:bg-gray-100 transition-all"
+                            onClick={() => setIsAddModalOpen(false)}
+                        >
+                            Hủy
+                        </Button>
+                        <Button
+                            onClick={addMode === "manual" ? handleSaveManual : () => document.getElementById("excelUploadModal")?.click()}
+                            disabled={isUploading}
+                            className="h-10 px-8 rounded-xl font-semibold bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700 text-white shadow-md shadow-blue-500/20 transition-all duration-300 hover:shadow-lg"
+                        >
+                            {isUploading ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Check className="w-4 h-4 mr-2" />}
+                            {addMode === "manual" ? "Lưu danh sách" : "Tải lên"}
                         </Button>
                     </div>
                 </DialogContent>

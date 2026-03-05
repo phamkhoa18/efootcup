@@ -1,4 +1,5 @@
-"use client";
+﻿"use client";
+import { toast } from "sonner";
 
 import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
@@ -9,11 +10,17 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { DatePicker } from "@/components/ui/date-picker";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Command, CommandInput, CommandList, CommandEmpty, CommandGroup, CommandItem } from "@/components/ui/command";
 import {
-    Trophy, Users, Calendar, MapPin, Flame, Share2, ChevronRight,
-    Gamepad2, Award, FileText, UserPlus, Clock, Shield, Swords,
+    Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription,
+} from "@/components/ui/dialog";
+import {
+    Trophy, Users, Calendar, MapPin, Flame, Share2, ChevronRight, ChevronLeft, ChevronsUpDown, Check,
+    Gamepad2, Award, FileText, UserPlus, Clock, Shield, Swords, Camera, MapPinned, Facebook,
     Loader2, Globe, CheckCircle2, Eye, Ban, DollarSign, Phone, Mail, MessageCircle,
-    LogIn, AlertCircle, Info, X, Watch, CreditCard, Upload, ExternalLink, Wallet
+    LogIn, AlertCircle, Info, X, Watch, CreditCard, Upload, ExternalLink, Wallet, Image as ImageIcon, User
 } from "lucide-react";
 import { tournamentAPI, tournamentPaymentAPI, paymentConfigAPI } from "@/lib/api";
 import { useAuth } from "@/contexts/AuthContext";
@@ -40,7 +47,6 @@ const tabs = [
     { key: "bracket", label: "Sơ đồ thi đấu", icon: Swords },
     { key: "players", label: "Danh sách VĐV", icon: Users },
     { key: "schedule", label: "Lịch thi đấu", icon: Calendar },
-    { key: "register", label: "Đăng ký", icon: UserPlus },
 ];
 
 const UNIT_HEIGHT = 110;
@@ -149,9 +155,30 @@ const MatchCard = ({ match, onClick }: { match: any; onClick: () => void }) => {
     );
 };
 
-const MatchDetailViewModal = ({ match, tournament, onClose }: { match: any; tournament: any; onClose: () => void }) => {
+const MatchDetailViewModal = ({ match, tournament, onClose, user, myRegistration }: { match: any; tournament: any; onClose: () => void; user?: any; myRegistration?: any }) => {
     const homeScore = match.homeScore ?? "";
     const awayScore = match.awayScore ?? "";
+
+    const [showSubmitForm, setShowSubmitForm] = useState(false);
+    const [submitHomeScore, setSubmitHomeScore] = useState("");
+    const [submitAwayScore, setSubmitAwayScore] = useState("");
+    const [submitNotes, setSubmitNotes] = useState("");
+    const [submitScreenshots, setSubmitScreenshots] = useState<string[]>([]);
+    const [isSubmitting, setIsSubmitting] = useState(false);
+    const [isUploadingShot, setIsUploadingShot] = useState(false);
+
+    // Check if user is part of this match
+    const userTeamId = (myRegistration?.team?._id || myRegistration?.team)?.toString?.();
+    const isUserInMatch = userTeamId && (
+        (match.homeTeam?._id || match.homeTeam)?.toString?.() === userTeamId ||
+        (match.awayTeam?._id || match.awayTeam)?.toString?.() === userTeamId
+    );
+    const canSubmitResult = user && isUserInMatch && match.status !== "completed";
+
+    // Check if user already submitted
+    const mySubmission = match.resultSubmissions?.find(
+        (s: any) => s.user?.toString?.() === user?._id?.toString?.() || s.user?._id?.toString?.() === user?._id?.toString?.()
+    );
 
     const formatNameStr = (team: any, pFallback: any) => {
         const p1 = team?.player1 || pFallback?.name || "Tự do";
@@ -161,6 +188,62 @@ const MatchDetailViewModal = ({ match, tournament, onClose }: { match: any; tour
 
     const hName = formatNameStr(match.homeTeam, match.p1);
     const aName = formatNameStr(match.awayTeam, match.p2);
+
+    const handleUploadScreenshot = async (file: File) => {
+        setIsUploadingShot(true);
+        try {
+            const formData = new FormData();
+            formData.append("file", file);
+            formData.append("type", "registration");
+            const headers: Record<string, string> = {};
+            const savedToken = localStorage.getItem("efootcup_token");
+            if (savedToken) headers.Authorization = `Bearer ${savedToken}`;
+            const res = await fetch("/api/upload", { method: "POST", headers, body: formData });
+            const data = await res.json();
+            const url = data.data?.url || data.url;
+            if (url) setSubmitScreenshots(prev => [...prev, url]);
+        } catch (err) {
+            console.error("Upload error:", err);
+        } finally {
+            setIsUploadingShot(false);
+        }
+    };
+
+    const handleSubmitResult = async () => {
+        if (submitHomeScore === "" || submitAwayScore === "") {
+            toast.error("Vui lòng nhập tỉ số");
+            return;
+        }
+        setIsSubmitting(true);
+        try {
+            const savedToken = localStorage.getItem("efootcup_token");
+            const res = await fetch(`/api/tournaments/${tournament?._id || tournament?.slug}/matches/submit-result`, {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                    ...(savedToken ? { Authorization: `Bearer ${savedToken}` } : {}),
+                },
+                body: JSON.stringify({
+                    matchId: match._id,
+                    homeScore: Number(submitHomeScore),
+                    awayScore: Number(submitAwayScore),
+                    screenshots: submitScreenshots,
+                    notes: submitNotes,
+                }),
+            });
+            const data = await res.json();
+            if (data.success) {
+                toast.success("Gửi kết quả thành công! Quản lý sẽ xem xét.");
+                setShowSubmitForm(false);
+            } else {
+                toast.error(data.message || "Có lỗi xảy ra");
+            }
+        } catch {
+            toast.error("Có lỗi xảy ra");
+        } finally {
+            setIsSubmitting(false);
+        }
+    };
 
     return (
         <motion.div
@@ -200,6 +283,11 @@ const MatchDetailViewModal = ({ match, tournament, onClose }: { match: any; tour
                                 <span className="w-1.5 h-1.5 bg-white rounded-full animate-pulse" /> Đang diễn ra
                             </div>
                         )}
+                        {match.status === "scheduled" && (
+                            <div className="bg-amber-100 text-amber-700 px-3 py-1 rounded-full text-xs font-bold flex items-center gap-1.5 border border-amber-200">
+                                <Clock className="w-3.5 h-3.5" /> Chờ thi đấu
+                            </div>
+                        )}
                     </div>
                     <div className="border border-solid border-gray-100 rounded-xl p-4 sm:p-5 bg-gray-50/50 shadow-inner">
                         <div className="flex justify-between text-sm font-bold text-gray-900 mb-4 px-1">
@@ -223,6 +311,169 @@ const MatchDetailViewModal = ({ match, tournament, onClose }: { match: any; tour
                             </div>
                         </div>
                     </div>
+
+                    {/* Existing Result Submissions */}
+                    {match.resultSubmissions && match.resultSubmissions.length > 0 && (
+                        <div className="mt-5">
+                            <h4 className="text-sm font-bold text-gray-700 mb-3 flex items-center gap-2">
+                                <FileText className="w-4 h-4 text-efb-blue" />
+                                Kết quả đã nhận ({match.resultSubmissions.length})
+                            </h4>
+                            <div className="space-y-3">
+                                {match.resultSubmissions.map((sub: any, idx: number) => (
+                                    <div key={idx} className="p-3 rounded-xl bg-blue-50/50 border border-blue-100">
+                                        <div className="flex items-center justify-between mb-2">
+                                            <span className="text-xs font-semibold text-gray-600">
+                                                {sub.user === user?._id || sub.user?._id === user?._id ? "Bạn đã gửi" : "VĐV đã gửi"}
+                                            </span>
+                                            <span className="text-[10px] text-gray-400">
+                                                {sub.submittedAt ? new Date(sub.submittedAt).toLocaleString("vi-VN") : ""}
+                                            </span>
+                                        </div>
+                                        <div className="flex items-center gap-3 text-sm">
+                                            <span className="font-bold text-gray-800">{match.homeTeam?.shortName || "H"}</span>
+                                            <span className="text-lg font-black text-efb-blue">{sub.homeScore}</span>
+                                            <span className="text-gray-300">-</span>
+                                            <span className="text-lg font-black text-efb-blue">{sub.awayScore}</span>
+                                            <span className="font-bold text-gray-800">{match.awayTeam?.shortName || "A"}</span>
+                                        </div>
+                                        {sub.notes && <p className="text-xs text-gray-500 mt-2 italic">"{sub.notes}"</p>}
+                                        {sub.screenshots && sub.screenshots.length > 0 && (
+                                            <div className="flex gap-2 mt-2">
+                                                {sub.screenshots.map((s: string, si: number) => (
+                                                    <img key={si} src={s} alt="SS" className="w-16 h-16 rounded-lg object-cover border border-gray-200 cursor-pointer hover:opacity-80" onClick={() => window.open(s, "_blank")} />
+                                                ))}
+                                            </div>
+                                        )}
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Submit Result Button / Form */}
+                    {canSubmitResult && (
+                        <div className="mt-5">
+                            {!showSubmitForm ? (
+                                <button
+                                    onClick={() => {
+                                        if (mySubmission) {
+                                            setSubmitHomeScore(String(mySubmission.homeScore));
+                                            setSubmitAwayScore(String(mySubmission.awayScore));
+                                            setSubmitNotes(mySubmission.notes || "");
+                                            setSubmitScreenshots(mySubmission.screenshots || []);
+                                        }
+                                        setShowSubmitForm(true);
+                                    }}
+                                    className="w-full py-3 rounded-xl bg-gradient-to-r from-efb-blue to-indigo-600 text-white font-bold text-sm shadow-lg shadow-blue-500/20 hover:shadow-xl hover:shadow-blue-500/30 transition-all flex items-center justify-center gap-2"
+                                >
+                                    <Upload className="w-4 h-4" />
+                                    {mySubmission ? "Cập nhật kết quả" : "Gửi kết quả trận đấu"}
+                                </button>
+                            ) : (
+                                <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="p-5 rounded-xl border-2 border-efb-blue/30 bg-blue-50/30">
+                                    <h4 className="text-sm font-bold text-gray-800 mb-4 flex items-center gap-2">
+                                        <Upload className="w-4 h-4 text-efb-blue" />
+                                        {mySubmission ? "Cập nhật kết quả" : "Gửi kết quả trận đấu"}
+                                    </h4>
+
+                                    {/* Score inputs */}
+                                    <div className="flex items-center justify-center gap-4 mb-5">
+                                        <div className="text-center">
+                                            <p className="text-xs font-bold text-gray-500 mb-1.5">{match.homeTeam?.shortName || match.homeTeam?.name || "Home"}</p>
+                                            <input
+                                                type="number"
+                                                min="0"
+                                                max="99"
+                                                value={submitHomeScore}
+                                                onChange={e => setSubmitHomeScore(e.target.value)}
+                                                className="w-20 h-14 text-center text-2xl font-black rounded-xl border-2 border-gray-200 focus:border-efb-blue focus:ring-2 focus:ring-efb-blue/20 outline-none bg-white"
+                                                placeholder="0"
+                                            />
+                                        </div>
+                                        <span className="text-2xl font-light text-gray-300 mt-5">—</span>
+                                        <div className="text-center">
+                                            <p className="text-xs font-bold text-gray-500 mb-1.5">{match.awayTeam?.shortName || match.awayTeam?.name || "Away"}</p>
+                                            <input
+                                                type="number"
+                                                min="0"
+                                                max="99"
+                                                value={submitAwayScore}
+                                                onChange={e => setSubmitAwayScore(e.target.value)}
+                                                className="w-20 h-14 text-center text-2xl font-black rounded-xl border-2 border-gray-200 focus:border-efb-blue focus:ring-2 focus:ring-efb-blue/20 outline-none bg-white"
+                                                placeholder="0"
+                                            />
+                                        </div>
+                                    </div>
+
+                                    {/* Screenshots */}
+                                    <div className="mb-4">
+                                        <label className="text-xs font-semibold text-gray-500 mb-2 block">Hình ảnh minh chứng (tối đa 3)</label>
+                                        <div className="flex items-center gap-2 flex-wrap">
+                                            {submitScreenshots.map((s, i) => (
+                                                <div key={i} className="relative group">
+                                                    <img src={s} alt="SS" className="w-20 h-20 rounded-xl object-cover border-2 border-gray-200" />
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => setSubmitScreenshots(prev => prev.filter((_, idx) => idx !== i))}
+                                                        className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full bg-red-500 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity shadow-lg"
+                                                    >
+                                                        <X className="w-3 h-3" />
+                                                    </button>
+                                                </div>
+                                            ))}
+                                            {submitScreenshots.length < 3 && (
+                                                <label className="cursor-pointer">
+                                                    <div className="w-20 h-20 rounded-xl border-2 border-dashed border-gray-200 hover:border-efb-blue hover:bg-blue-50/30 flex flex-col items-center justify-center transition-all">
+                                                        {isUploadingShot ? (
+                                                            <Loader2 className="w-5 h-5 animate-spin text-efb-blue" />
+                                                        ) : (
+                                                            <>
+                                                                <Camera className="w-5 h-5 text-gray-400" />
+                                                                <span className="text-[9px] text-gray-400 mt-1">Thêm ảnh</span>
+                                                            </>
+                                                        )}
+                                                    </div>
+                                                    <input type="file" accept="image/*" className="hidden" disabled={isUploadingShot} onChange={e => { const f = e.target.files?.[0]; if (f) handleUploadScreenshot(f); e.target.value = ""; }} />
+                                                </label>
+                                            )}
+                                        </div>
+                                    </div>
+
+                                    {/* Notes */}
+                                    <div className="mb-4">
+                                        <label className="text-xs font-semibold text-gray-500 mb-1.5 block">Ghi chú</label>
+                                        <textarea
+                                            value={submitNotes}
+                                            onChange={e => setSubmitNotes(e.target.value)}
+                                            placeholder="Mô tả ngắn về trận đấu (tùy chọn)..."
+                                            maxLength={500}
+                                            rows={2}
+                                            className="w-full px-3 py-2.5 text-sm rounded-xl border border-gray-200 bg-white focus:border-efb-blue focus:ring-2 focus:ring-efb-blue/20 outline-none resize-none"
+                                        />
+                                    </div>
+
+                                    {/* Actions */}
+                                    <div className="flex items-center gap-3">
+                                        <button
+                                            onClick={() => setShowSubmitForm(false)}
+                                            className="flex-1 py-2.5 rounded-xl border border-gray-200 text-sm font-medium text-gray-600 hover:bg-gray-50 transition-colors"
+                                        >
+                                            Hủy
+                                        </button>
+                                        <button
+                                            onClick={handleSubmitResult}
+                                            disabled={isSubmitting || submitHomeScore === "" || submitAwayScore === ""}
+                                            className="flex-1 py-2.5 rounded-xl bg-gradient-to-r from-efb-blue to-indigo-600 text-white text-sm font-bold shadow-md disabled:opacity-50 disabled:cursor-not-allowed hover:shadow-lg transition-all flex items-center justify-center gap-2"
+                                        >
+                                            {isSubmitting ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle2 className="w-4 h-4" />}
+                                            {isSubmitting ? "Đang gửi..." : "Xác nhận gửi"}
+                                        </button>
+                                    </div>
+                                </motion.div>
+                            )}
+                        </div>
+                    )}
                 </div>
                 <div className="border-t border-gray-100 p-4 bg-gray-50/80 flex justify-end flex-shrink-0">
                     <button onClick={onClose} className="bg-white px-8 h-10 rounded-lg border border-gray-200 text-gray-700 font-bold hover:bg-gray-50 shadow-sm transition-colors">Đóng</button>
@@ -256,6 +507,7 @@ export default function TournamentDetailClient({ initialData, id }: { initialDat
     const [paymentProofFile, setPaymentProofFile] = useState<File | null>(null);
     const [isSubmittingProof, setIsSubmittingProof] = useState(false);
     const [showPaymentSection, setShowPaymentSection] = useState(false);
+    const [showPaymentDialog, setShowPaymentDialog] = useState(false);
 
     const onMouseDown = (e: React.MouseEvent) => {
         setIsDragging(true);
@@ -276,7 +528,18 @@ export default function TournamentDetailClient({ initialData, id }: { initialDat
 
     const [regForm, setRegForm] = useState({
         teamName: "", teamShortName: "", playerName: "", gamerId: "", phone: "", email: "", notes: "",
+        dateOfBirth: "", facebookName: "", facebookLink: "", nickname: "", province: "",
+        personalPhoto: "", teamLineupPhoto: "",
     });
+    const [regStep, setRegStep] = useState(1);
+    const [showRegDialog, setShowRegDialog] = useState(false);
+    const [uploadingPersonal, setUploadingPersonal] = useState(false);
+    const [uploadingLineup, setUploadingLineup] = useState(false);
+    const [regCountry, setRegCountry] = useState('Việt Nam');
+    const [vnProvinces, setVnProvinces] = useState<{ name: string; code: number }[]>([]);
+    const [provinceOpen, setProvinceOpen] = useState(false);
+    const [countries, setCountries] = useState<{ name: string; code: string }[]>([]);
+    const [countryOpen, setCountryOpen] = useState(false);
 
     useEffect(() => {
         if (user) {
@@ -298,8 +561,43 @@ export default function TournamentDetailClient({ initialData, id }: { initialDat
     }, [id]);
 
     useEffect(() => {
-        if (isAuthenticated && id && activeTab === "register") checkMyRegistration();
-    }, [isAuthenticated, id, activeTab]);
+        if (isAuthenticated && id) checkMyRegistration();
+    }, [isAuthenticated, id]);
+
+    const handleRegisterClick = () => {
+        if (!isAuthenticated) {
+            router.push(`/dang-nhap?redirect=/giai-dau/${id}`);
+            return;
+        }
+        if (myRegistration) {
+            if (myRegistration.status === 'approved') {
+                toast.info('Bạn đã được duyệt vào giải đấu này!');
+                return;
+            }
+            // Any non-approved state: open payment/status dialog
+            setShowPaymentDialog(true);
+            if (paymentMethods.length === 0 && t.entryFee > 0) loadPaymentMethods();
+            return;
+        }
+        setShowRegDialog(true);
+    };
+
+    const handleCancelRegistration = async () => {
+        if (!confirm('Bạn có chắc chắn muốn hủy đăng ký?')) return;
+        try {
+            const res = await tournamentAPI.cancelRegistration(id);
+            if (res.success) {
+                toast.success('Hủy đăng ký thành công!');
+                setMyRegistration(null);
+                setShowPaymentDialog(false);
+                setSelectedPayMethod(null);
+            } else {
+                toast.error(res.message || 'Hủy thất bại');
+            }
+        } catch {
+            toast.error('Có lỗi xảy ra');
+        }
+    };
 
     const loadTournament = async () => {
         try {
@@ -340,12 +638,14 @@ export default function TournamentDetailClient({ initialData, id }: { initialDat
         if (activeTab === "bracket" && !brackets) loadBrackets();
     }, [activeTab]);
 
-    // Load payment methods when needed
+    // Load payment methods and auto-show dialog when needed
     useEffect(() => {
         if (myRegistration && data?.tournament?.entryFee > 0 && myRegistration.paymentStatus !== "paid"
+            && myRegistration.paymentStatus !== "confirmed"
+            && myRegistration.paymentStatus !== "pending_verification"
             && myRegistration.status !== "rejected" && myRegistration.status !== "cancelled") {
             loadPaymentMethods();
-            setShowPaymentSection(true);
+            setShowPaymentDialog(true);
         }
     }, [myRegistration, data]);
 
@@ -362,22 +662,20 @@ export default function TournamentDetailClient({ initialData, id }: { initialDat
 
     const handleSelectPaymentMethod = async (method: any) => {
         if (method.mode === "auto") {
-            // Auto mode: redirect to PayOS payment gateway
             setIsPaymentLoading(true);
             try {
                 const res = await tournamentPaymentAPI.createPayment(id, method.id);
                 if (res.success && res.data?.payUrl) {
                     window.location.href = res.data.payUrl;
                 } else {
-                    setRegisterMsg({ type: "error", text: res.message || "Lỗi tạo thanh toán" });
+                    toast.error(res.message || "Lỗi tạo thanh toán");
                 }
             } catch (e) {
-                setRegisterMsg({ type: "error", text: "Có lỗi xảy ra khi tạo thanh toán" });
+                toast.error("Có lỗi xảy ra khi tạo thanh toán");
             } finally {
                 setIsPaymentLoading(false);
             }
         } else {
-            // Manual mode: show bank info + VietQR + upload section
             setSelectedPayMethod(method.id);
         }
     };
@@ -422,7 +720,6 @@ export default function TournamentDetailClient({ initialData, id }: { initialDat
         if (!paymentProofFile) return;
         setIsSubmittingProof(true);
         try {
-            // Upload image first
             const formData = new FormData();
             formData.append("file", paymentProofFile);
             formData.append("type", "payment_proof");
@@ -438,26 +735,52 @@ export default function TournamentDetailClient({ initialData, id }: { initialDat
             const uploadData = await uploadRes.json();
 
             if (!uploadData.success) {
-                setRegisterMsg({ type: "error", text: "Lỗi upload ảnh" });
+                toast.error("Lỗi upload ảnh minh chứng");
                 return;
             }
 
-            // Submit proof
             const res = await tournamentPaymentAPI.submitProof(id, {
                 paymentProof: uploadData.data.url,
                 paymentMethod: selectedPayMethod || "bank_transfer",
             });
             if (res.success) {
-                setRegisterMsg({ type: "success", text: "Đã gửi minh chứng thành công! Đợi xác nhận." });
+                toast.success("Đã gửi minh chứng thành công! Đợi xác nhận.");
                 setMyRegistration({ ...myRegistration, paymentStatus: "pending_verification" });
                 setPaymentProofFile(null);
+                setShowPaymentDialog(false);
             } else {
-                setRegisterMsg({ type: "error", text: res.message || "Gửi minh chứng thất bại" });
+                toast.error(res.message || "Gửi minh chứng thất bại");
             }
         } catch (e) {
-            setRegisterMsg({ type: "error", text: "Có lỗi xảy ra" });
+            toast.error("Có lỗi xảy ra");
         } finally {
             setIsSubmittingProof(false);
+        }
+    };
+
+    const handleUploadRegImage = async (file: File, field: 'personalPhoto' | 'teamLineupPhoto') => {
+        const setter = field === 'personalPhoto' ? setUploadingPersonal : setUploadingLineup;
+        setter(true);
+        try {
+            const formData = new FormData();
+            formData.append('file', file);
+            formData.append('type', 'registration');
+            const headers: Record<string, string> = {};
+            const savedToken = localStorage.getItem("efootcup_token");
+            if (savedToken) headers.Authorization = `Bearer ${savedToken}`;
+            const res = await fetch('/api/upload', { method: 'POST', headers, body: formData });
+            const data = await res.json();
+            const url = data.data?.url || data.url;
+            if (url) {
+                setRegForm(prev => ({ ...prev, [field]: url }));
+            } else {
+                toast.error(data.message || 'Upload thất bại');
+            }
+        } catch (err) {
+            console.error('Upload error:', err);
+            toast.error('Có lỗi khi tải ảnh lên');
+        } finally {
+            setter(false);
         }
     };
 
@@ -465,7 +788,6 @@ export default function TournamentDetailClient({ initialData, id }: { initialDat
         e.preventDefault();
         if (!isAuthenticated) return;
         setIsRegistering(true);
-        setRegisterMsg(null);
         try {
             const res = await tournamentAPI.register(id, {
                 ...regForm,
@@ -475,13 +797,20 @@ export default function TournamentDetailClient({ initialData, id }: { initialDat
                 email: regForm.email || user?.email,
             });
             if (res.success) {
-                setRegisterMsg({ type: "success", text: "Đăng ký thành công! Chờ phê duyệt." });
                 setMyRegistration(res.data);
+                setShowRegDialog(false);
+                if (t.entryFee > 0) {
+                    toast.success('Đăng ký thành công! Vui lòng thanh toán lệ phí.');
+                    loadPaymentMethods();
+                    setTimeout(() => setShowPaymentDialog(true), 300);
+                } else {
+                    toast.success('Đăng ký thành công! Chờ phê duyệt.');
+                }
             } else {
-                setRegisterMsg({ type: "error", text: res.message || "Đăng ký thất bại." });
+                toast.error(res.message || "Đăng ký thất bại.");
             }
         } catch {
-            setRegisterMsg({ type: "error", text: "Có lỗi xảy ra." });
+            toast.error("Có lỗi xảy ra.");
         } finally {
             setIsRegistering(false);
         }
@@ -554,7 +883,32 @@ export default function TournamentDetailClient({ initialData, id }: { initialDat
                             </div>
                         </div>
                         <div className="flex gap-3 mt-6 pt-5 border-t border-gray-100">
-                            {t.status === "registration" && <Button onClick={() => setActiveTab("register")} className="bg-efb-blue text-white rounded-xl"><UserPlus className="w-4 h-4 mr-2" /> Đăng ký ngay</Button>}
+                            {t.status === "registration" && (
+                                checkingRegistration ? (
+                                    <Button disabled className="bg-gray-300 text-white rounded-xl"><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Đang kiểm tra...</Button>
+                                ) : myRegistration ? (
+                                    myRegistration.status === 'approved' ? (
+                                        <Button disabled className="bg-green-500 text-white rounded-xl"><CheckCircle2 className="w-4 h-4 mr-2" /> Đã được duyệt</Button>
+                                    ) : (
+                                        <>
+                                            <Button onClick={handleRegisterClick} className="bg-amber-500 hover:bg-amber-600 text-white rounded-xl">
+                                                {myRegistration.paymentStatus === 'paid' || myRegistration.paymentStatus === 'confirmed' || t.entryFee <= 0 ? (
+                                                    <><Clock className="w-4 h-4 mr-2" /> Xem trạng thái đăng ký</>
+                                                ) : myRegistration.paymentStatus === 'pending_verification' ? (
+                                                    <><Clock className="w-4 h-4 mr-2" /> Xem trạng thái thanh toán</>
+                                                ) : (
+                                                    <><CreditCard className="w-4 h-4 mr-2" /> Thanh toán lệ phí</>
+                                                )}
+                                            </Button>
+                                            <Button variant="outline" onClick={handleCancelRegistration} className="rounded-xl text-red-500 border-red-200 hover:bg-red-50 hover:border-red-300">
+                                                <X className="w-4 h-4 mr-2" /> Hủy đăng ký
+                                            </Button>
+                                        </>
+                                    )
+                                ) : (
+                                    <Button onClick={handleRegisterClick} className="bg-efb-blue text-white rounded-xl"><UserPlus className="w-4 h-4 mr-2" /> Đăng ký ngay</Button>
+                                )
+                            )}
                             <Button variant="outline" className="rounded-xl"><Share2 className="w-4 h-4 mr-2" /> Chia sẻ</Button>
                         </div>
                     </motion.div>
@@ -718,453 +1072,331 @@ export default function TournamentDetailClient({ initialData, id }: { initialDat
                             </div>
                         )}
 
-                        {activeTab === "register" && (
-                            <div className="max-w-4xl mx-auto">
-                                <motion.div
-                                    initial={{ opacity: 0, y: 20 }}
-                                    animate={{ opacity: 1, y: 0 }}
-                                    className="bg-white rounded-3xl border border-gray-100 shadow-xl overflow-hidden"
-                                >
-                                    <div className="grid md:grid-cols-5 min-h-[500px]">
-                                        {/* Info Side */}
-                                        <div className="md:col-span-2 bg-[#0A3D91] p-8 text-white relative overflow-hidden flex flex-col justify-between">
-                                            <div className="relative z-10">
-                                                <Badge className="bg-white/20 text-white border-none mb-4 hover:bg-white/30 backdrop-blur-sm">
-                                                    Giải đấu chính thức
-                                                </Badge>
-                                                <h3 className="text-2xl font-bold mb-4 leading-tight">Ghi danh thi đấu ngay hôm nay</h3>
-                                                <div className="space-y-4 text-white/70">
-                                                    <div className="flex items-center gap-3 text-sm">
-                                                        <div className="w-8 h-8 rounded-lg bg-white/10 flex items-center justify-center">
-                                                            <Users className="w-4 h-4 text-efb-yellow" />
-                                                        </div>
-                                                        <span>{t.maxTeams} Suất thi đấu giới hạn</span>
-                                                    </div>
-                                                    <div className="flex items-center gap-3 text-sm">
-                                                        <div className="w-8 h-8 rounded-lg bg-white/10 flex items-center justify-center">
-                                                            <Gamepad2 className="w-4 h-4 text-efb-yellow" />
-                                                        </div>
-                                                        <span>Nền tảng {t.platform}</span>
-                                                    </div>
-                                                    <div className="flex items-center gap-3 text-sm">
-                                                        <div className="w-8 h-8 rounded-lg bg-white/10 flex items-center justify-center">
-                                                            <Award className="w-4 h-4 text-efb-yellow" />
-                                                        </div>
-                                                        <span>Giải thưởng {t.prize?.total || "Hấp dẫn"}</span>
-                                                    </div>
-                                                </div>
-                                            </div>
-
-                                            <div className="relative z-10 pt-8 mt-8 border-t border-white/10">
-                                                <div className="flex items-center justify-between mb-2">
-                                                    <span className="text-xs font-bold uppercase tracking-wider text-white/50">Số lượng đăng ký</span>
-                                                    <span className="text-xs font-bold text-efb-yellow">{teams.length} / {t.maxTeams}</span>
-                                                </div>
-                                                <div className="h-1.5 bg-white/10 rounded-full overflow-hidden">
-                                                    <motion.div
-                                                        initial={{ width: 0 }}
-                                                        animate={{ width: `${(teams.length / t.maxTeams) * 100}%` }}
-                                                        className="h-full bg-efb-yellow"
-                                                    />
-                                                </div>
-                                            </div>
-
-                                            {/* Decorative Background */}
-                                            <div className="absolute top-0 right-0 -translate-y-1/2 translate-x-1/2 w-64 h-64 bg-white/5 rounded-full blur-3xl pointer-events-none" />
-                                            <div className="absolute bottom-0 left-0 translate-y-1/2 -translate-x-1/2 w-48 h-48 bg-blue-400/10 rounded-full blur-2xl pointer-events-none" />
-                                        </div>
-
-                                        {/* Form Side */}
-                                        <div className="md:col-span-3 p-8 lg:p-12">
-                                            {t.status !== 'registration' ? (
-                                                <div className="h-full flex flex-col items-center justify-center py-12 text-center">
-                                                    <div className="w-16 h-16 rounded-full bg-gray-50 flex items-center justify-center mb-4">
-                                                        <Ban className="w-8 h-8 text-gray-300" />
-                                                    </div>
-                                                    <h4 className="text-lg font-bold text-efb-dark">Đăng ký đã kết thúc</h4>
-                                                    <p className="text-sm text-gray-400 mt-2">Giải đấu này đã chuyển sang giai đoạn thi đấu hoặc đã đủ người.</p>
-                                                    <Button variant="outline" className="mt-6 rounded-xl" onClick={() => setActiveTab('overview')}>Về trang chủ giải đấu</Button>
-                                                </div>
-                                            ) : !isAuthenticated ? (
-                                                <div className="h-full flex flex-col items-center justify-center py-12 text-center">
-                                                    <div className="w-16 h-16 rounded-full bg-blue-50 flex items-center justify-center mb-4">
-                                                        <Shield className="w-8 h-8 text-efb-blue" />
-                                                    </div>
-                                                    <h4 className="text-lg font-bold text-efb-dark">Yêu cầu đăng nhập</h4>
-                                                    <p className="text-sm text-gray-500 mt-2 mb-8">Vui lòng đăng nhập để hệ thống ghi nhận thông tin và quản lý đội của bạn.</p>
-                                                    <Button onClick={() => router.push('/dang-nhap')} className="bg-efb-blue px-8 h-12 rounded-xl text-white font-bold">
-                                                        Đăng nhập ngay
-                                                    </Button>
-                                                </div>
-                                            ) : myRegistration && myRegistration.status !== 'rejected' && myRegistration.status !== 'cancelled' ? (
-                                                <div className="h-full flex flex-col py-8 overflow-y-auto">
-                                                    {/* Registration confirmed */}
-                                                    <div className="text-center mb-6">
-                                                        <div className={`w-16 h-16 rounded-full ${myRegistration.paymentStatus === 'paid' ? 'bg-emerald-50' : t.entryFee > 0 ? 'bg-amber-50' : 'bg-emerald-50'} flex items-center justify-center mx-auto mb-4`}>
-                                                            {myRegistration.paymentStatus === 'paid' || !t.entryFee || t.entryFee <= 0 ? (
-                                                                <CheckCircle2 className="w-8 h-8 text-emerald-500" />
-                                                            ) : (
-                                                                <CreditCard className="w-8 h-8 text-amber-500" />
-                                                            )}
-                                                        </div>
-                                                        <h4 className="text-lg font-bold text-efb-dark">
-                                                            {myRegistration.paymentStatus === 'paid' || !t.entryFee || t.entryFee <= 0
-                                                                ? 'Đăng ký thành công!'
-                                                                : 'Cần thanh toán lệ phí'
-                                                            }
-                                                        </h4>
-                                                        <p className="text-sm text-gray-500 mt-2">
-                                                            Trạng thái: <span className="font-bold text-efb-blue uppercase">{myRegistration.status}</span>
-                                                            {t.entryFee > 0 && (
-                                                                <> • Thanh toán: <span className={`font-bold uppercase ${myRegistration.paymentStatus === 'paid' ? 'text-emerald-600' :
-                                                                    myRegistration.paymentStatus === 'pending_verification' ? 'text-amber-600' :
-                                                                        'text-red-500'
-                                                                    }`}>
-                                                                    {myRegistration.paymentStatus === 'paid' ? 'Đã thanh toán' :
-                                                                        myRegistration.paymentStatus === 'pending_verification' ? 'Chờ xác nhận' :
-                                                                            'Chưa thanh toán'}
-                                                                </span></>
-                                                            )}
-                                                        </p>
-                                                    </div>
-
-                                                    {/* === PAYMENT SECTION === */}
-                                                    {t.entryFee > 0 && myRegistration.paymentStatus !== 'paid' && showPaymentSection && (
-                                                        <div className="space-y-4 px-2">
-                                                            {/* Fee info */}
-                                                            <div className="p-4 rounded-2xl bg-gradient-to-r from-amber-50 to-orange-50 border border-amber-200">
-                                                                <div className="flex items-center gap-3">
-                                                                    <div className="w-10 h-10 rounded-xl bg-amber-100 flex items-center justify-center">
-                                                                        <DollarSign className="w-5 h-5 text-amber-600" />
-                                                                    </div>
-                                                                    <div>
-                                                                        <div className="text-sm font-bold text-amber-900">Lệ phí tham gia</div>
-                                                                        <div className="text-xl font-black text-amber-700">
-                                                                            {t.entryFee?.toLocaleString('vi-VN')} {t.currency || 'VNĐ'}
-                                                                        </div>
-                                                                    </div>
-                                                                </div>
-                                                            </div>
-
-                                                            {/* Pending verification */}
-                                                            {myRegistration.paymentStatus === 'pending_verification' ? (
-                                                                <div className="p-4 rounded-2xl bg-blue-50 border border-blue-100 text-center">
-                                                                    <Clock className="w-8 h-8 text-blue-500 mx-auto mb-2" />
-                                                                    <p className="text-sm font-bold text-blue-800">Đang chờ xác nhận thanh toán</p>
-                                                                    <p className="text-xs text-blue-600/70 mt-1">Hệ thống hoặc Manager sẽ xác nhận thanh toán của bạn</p>
-                                                                </div>
-                                                            ) : !selectedPayMethod ? (
-                                                                <>
-                                                                    {/* Payment Methods */}
-                                                                    <p className="text-xs font-bold text-gray-500 uppercase tracking-wider">Chọn phương thức thanh toán</p>
-                                                                    <div className="space-y-2">
-                                                                        {paymentMethods.map((method: any) => {
-                                                                            const typeIcons: Record<string, string> = {
-                                                                                bank_transfer: '🏦', payos: '⚡', other: '💵'
-                                                                            };
-                                                                            const isAuto = method.mode === 'auto';
-                                                                            return (
-                                                                                <button
-                                                                                    key={method.id}
-                                                                                    onClick={() => handleSelectPaymentMethod(method)}
-                                                                                    disabled={isPaymentLoading}
-                                                                                    className="w-full p-4 rounded-2xl border-2 border-gray-100 hover:border-efb-blue hover:shadow-lg transition-all flex items-center gap-4 group text-left disabled:opacity-50"
-                                                                                >
-                                                                                    <span className="text-2xl">{typeIcons[method.type] || '💵'}</span>
-                                                                                    <div className="flex-1">
-                                                                                        <div className="flex items-center gap-2">
-                                                                                            <span className="text-sm font-bold text-gray-900">{method.name}</span>
-                                                                                            {isAuto && (
-                                                                                                <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-emerald-50 text-emerald-600 font-bold">⚡ TỰ ĐỘNG</span>
-                                                                                            )}
-                                                                                        </div>
-                                                                                        <p className="text-xs text-gray-400 mt-0.5">
-                                                                                            {isAuto ? 'Thanh toán tức thì — tự động xác nhận' :
-                                                                                                `${method.accountName} • ${method.bankName || 'Chuyển khoản thủ công'}`}
-                                                                                        </p>
-                                                                                    </div>
-                                                                                    {isPaymentLoading ? (
-                                                                                        <Loader2 className="w-5 h-5 animate-spin text-gray-300" />
-                                                                                    ) : (
-                                                                                        <ChevronRight className="w-5 h-5 text-gray-300 group-hover:text-efb-blue transition-colors" />
-                                                                                    )}
-                                                                                </button>
-                                                                            );
-                                                                        })}
-
-                                                                        {paymentMethods.length === 0 && (
-                                                                            <div className="text-center py-6">
-                                                                                <Wallet className="w-8 h-8 text-gray-200 mx-auto mb-2" />
-                                                                                <p className="text-sm text-gray-400">Chưa có phương thức thanh toán nào</p>
-                                                                                <p className="text-xs text-gray-400 mt-1">Vui lòng liên hệ BTC</p>
-                                                                            </div>
-                                                                        )}
-                                                                    </div>
-                                                                </>
-                                                            ) : (
-                                                                <>
-                                                                    {/* Selected Manual Payment Method Details */}
-                                                                    {(() => {
-                                                                        const method = paymentMethods.find((m: any) => m.id === selectedPayMethod);
-                                                                        if (!method) return null;
-                                                                        const vietQRUrl = getVietQRUrl(method);
-                                                                        return (
-                                                                            <div className="space-y-4">
-                                                                                {/* Back button */}
-                                                                                <button
-                                                                                    onClick={() => { setSelectedPayMethod(null); setPaymentProofFile(null); }}
-                                                                                    className="flex items-center gap-1.5 text-xs font-bold text-gray-500 hover:text-efb-blue transition-colors"
-                                                                                >
-                                                                                    <ChevronRight className="w-3.5 h-3.5 rotate-180" />
-                                                                                    Chọn phương thức khác
-                                                                                </button>
-
-                                                                                {/* Bank info */}
-                                                                                <div className="p-4 rounded-2xl bg-gradient-to-br from-blue-50 to-indigo-50 border border-blue-100 space-y-3">
-                                                                                    <div className="flex items-center gap-2">
-                                                                                        <span className="text-lg">🏦</span>
-                                                                                        <span className="text-sm font-bold text-blue-800">{method.name}</span>
-                                                                                    </div>
-                                                                                    <div className="grid grid-cols-2 gap-3 text-sm">
-                                                                                        {method.bankName && (
-                                                                                            <div>
-                                                                                                <div className="text-[10px] font-bold text-blue-400 uppercase">Ngân hàng</div>
-                                                                                                <div className="font-bold text-blue-900 mt-0.5">{method.bankName}</div>
-                                                                                            </div>
-                                                                                        )}
-                                                                                        {method.accountNumber && (
-                                                                                            <div>
-                                                                                                <div className="text-[10px] font-bold text-blue-400 uppercase">{method.type === 'momo' ? 'SĐT MoMo' : 'Số tài khoản'}</div>
-                                                                                                <div className="font-mono font-bold text-blue-900 mt-0.5">{method.accountNumber}</div>
-                                                                                            </div>
-                                                                                        )}
-                                                                                        {method.accountName && (
-                                                                                            <div className="col-span-2">
-                                                                                                <div className="text-[10px] font-bold text-blue-400 uppercase">Chủ tài khoản</div>
-                                                                                                <div className="font-bold text-blue-900 mt-0.5">{method.accountName}</div>
-                                                                                            </div>
-                                                                                        )}
-                                                                                    </div>
-                                                                                    <div className="p-3 rounded-xl bg-white/60 border border-blue-100">
-                                                                                        <div className="text-[10px] font-bold text-blue-400 uppercase">Nội dung chuyển khoản</div>
-                                                                                        <div className="font-mono text-sm font-bold text-blue-900 mt-0.5">
-                                                                                            {t.title} - {myRegistration?.playerName || user?.name || ''}
-                                                                                        </div>
-                                                                                    </div>
-                                                                                    {method.instructions && (
-                                                                                        <p className="text-xs text-blue-600/70 italic">{method.instructions}</p>
-                                                                                    )}
-                                                                                </div>
-
-                                                                                {/* VietQR Code */}
-                                                                                {vietQRUrl && (
-                                                                                    <div className="p-4 rounded-2xl bg-white border border-gray-200 text-center space-y-3">
-                                                                                        <p className="text-xs font-bold text-gray-600 uppercase tracking-wider">Quét mã QR để thanh toán nhanh</p>
-                                                                                        <div className="inline-block p-2 bg-white rounded-xl border border-gray-100 shadow-sm">
-                                                                                            <img
-                                                                                                src={vietQRUrl}
-                                                                                                alt="VietQR Payment"
-                                                                                                className="w-56 h-auto mx-auto rounded-lg"
-                                                                                                onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
-                                                                                            />
-                                                                                        </div>
-                                                                                        <p className="text-[10px] text-gray-400">Mở app ngân hàng → Quét QR → Xác nhận thanh toán</p>
-                                                                                    </div>
-                                                                                )}
-
-                                                                                {/* QR image from admin */}
-                                                                                {method.qrImage && !vietQRUrl && (
-                                                                                    <div className="p-4 rounded-2xl bg-white border border-gray-200 text-center space-y-3">
-                                                                                        <p className="text-xs font-bold text-gray-600 uppercase tracking-wider">Mã QR thanh toán</p>
-                                                                                        <img
-                                                                                            src={method.qrImage}
-                                                                                            alt="QR Code"
-                                                                                            className="w-48 h-48 mx-auto object-contain rounded-xl border border-gray-100"
-                                                                                        />
-                                                                                    </div>
-                                                                                )}
-
-                                                                                {/* Upload payment proof */}
-                                                                                <div className="p-4 rounded-2xl bg-amber-50 border border-amber-200 space-y-3">
-                                                                                    <p className="text-xs font-bold text-amber-800">📸 Upload minh chứng sau khi chuyển khoản</p>
-                                                                                    <p className="text-[11px] text-amber-600/80">Chụp màn hình giao dịch thành công và gửi lên để BTC duyệt nhanh</p>
-                                                                                    <div className="flex items-center gap-3">
-                                                                                        <label className="flex-1 cursor-pointer">
-                                                                                            <div className="flex items-center gap-2 px-4 py-3 rounded-xl border-2 border-dashed border-amber-300 hover:border-amber-400 bg-white transition-colors">
-                                                                                                <Upload className="w-4 h-4 text-amber-500" />
-                                                                                                <span className="text-sm text-amber-700">
-                                                                                                    {paymentProofFile ? paymentProofFile.name : 'Chọn ảnh chụp GD...'}
-                                                                                                </span>
-                                                                                            </div>
-                                                                                            <input
-                                                                                                type="file"
-                                                                                                accept="image/*"
-                                                                                                className="hidden"
-                                                                                                onChange={(e) => setPaymentProofFile(e.target.files?.[0] || null)}
-                                                                                            />
-                                                                                        </label>
-                                                                                        <Button
-                                                                                            onClick={handleSubmitPaymentProof}
-                                                                                            disabled={!paymentProofFile || isSubmittingProof}
-                                                                                            className="bg-amber-500 hover:bg-amber-600 text-white rounded-xl h-12 px-6 font-bold"
-                                                                                        >
-                                                                                            {isSubmittingProof ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Gửi'}
-                                                                                        </Button>
-                                                                                    </div>
-                                                                                </div>
-                                                                            </div>
-                                                                        );
-                                                                    })()}
-                                                                </>
-                                                            )}
-
-                                                            {registerMsg && (
-                                                                <motion.div
-                                                                    initial={{ opacity: 0, y: 10 }}
-                                                                    animate={{ opacity: 1, y: 0 }}
-                                                                    className={`flex items-center gap-3 p-4 rounded-xl text-sm font-medium ${registerMsg.type === 'success' ? 'bg-emerald-50 text-emerald-600 border border-emerald-100' : 'bg-rose-50 text-rose-600 border border-rose-100'}`}
-                                                                >
-                                                                    {registerMsg.type === 'success' ? <CheckCircle2 className="w-5 h-5" /> : <Ban className="w-5 h-5" />}
-                                                                    {registerMsg.text}
-                                                                </motion.div>
-                                                            )}
-                                                        </div>
-                                                    )}
-
-                                                    {/* Actions for paid or free tournaments */}
-                                                    {(myRegistration.paymentStatus === 'paid' || !t.entryFee || t.entryFee <= 0) && (
-                                                        <div className="mt-6 flex gap-3 justify-center">
-                                                            <Button variant="outline" className="rounded-xl border-gray-200" onClick={() => router.push('/trang-ca-nhan')}>Quản lý của tôi</Button>
-                                                            <Button className="rounded-xl bg-efb-blue text-white" onClick={() => setActiveTab('players')}>Xem danh sách</Button>
-                                                        </div>
-                                                    )}
-                                                    {/* Cancel & re-register for pending + unpaid */}
-                                                    {myRegistration.status === 'pending' && myRegistration.paymentStatus === 'unpaid' && t.entryFee > 0 && (
-                                                        <div className="mt-4 pt-4 border-t border-gray-100 text-center">
-                                                            <button
-                                                                onClick={() => {
-                                                                    setMyRegistration(null);
-                                                                    setShowPaymentSection(false);
-                                                                    setSelectedPayMethod(null);
-                                                                    setPaymentProofFile(null);
-                                                                }}
-                                                                className="text-xs text-gray-400 hover:text-red-500 font-medium transition-colors"
-                                                            >
-                                                                Huỷ đăng ký & đăng ký lại với thông tin khác
-                                                            </button>
-                                                        </div>
-                                                    )}
-                                                </div>
-                                            ) : (
-                                                <div className="space-y-8">
-                                                    <div>
-                                                        <h4 className="text-xl font-bold text-efb-dark mb-1">Điền thông tin đội</h4>
-                                                        <p className="text-sm text-gray-400 font-light">Vui lòng kiểm tra kỹ In-game ID để Manager dễ dàng đối chiếu.</p>
-                                                    </div>
-
-                                                    <form onSubmit={handleRegister} className="space-y-6">
-                                                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
-                                                            <div className="space-y-2">
-                                                                <Label className="text-xs font-bold uppercase tracking-wider text-gray-400">Tên đội bóng</Label>
-                                                                <Input
-                                                                    placeholder="VD: Manchester United"
-                                                                    value={regForm.teamName}
-                                                                    onChange={e => setRegForm({ ...regForm, teamName: e.target.value })}
-                                                                    required
-                                                                    className="h-12 rounded-xl border-gray-200 focus:border-efb-blue focus:ring-efb-blue/10 bg-gray-50 focus:bg-white transition-all"
-                                                                />
-                                                            </div>
-                                                            <div className="space-y-2">
-                                                                <Label className="text-xs font-bold uppercase tracking-wider text-gray-400">Tên viết tắt (4 ký tự)</Label>
-                                                                <Input
-                                                                    placeholder="VD: MU"
-                                                                    value={regForm.teamShortName}
-                                                                    onChange={e => setRegForm({ ...regForm, teamShortName: e.target.value.toUpperCase() })}
-                                                                    required
-                                                                    maxLength={4}
-                                                                    className="h-12 rounded-xl border-gray-200 focus:border-efb-blue focus:ring-efb-blue/10 bg-gray-50 focus:bg-white transition-all uppercase"
-                                                                />
-                                                            </div>
-                                                        </div>
-
-                                                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
-                                                            <div className="space-y-2">
-                                                                <Label className="text-xs font-bold uppercase tracking-wider text-gray-400">Họ và Tên VĐV</Label>
-                                                                <Input
-                                                                    placeholder="VD: Nguyễn Văn A"
-                                                                    value={regForm.playerName}
-                                                                    onChange={e => setRegForm({ ...regForm, playerName: e.target.value })}
-                                                                    required
-                                                                    className="h-12 rounded-xl border-gray-200 focus:border-efb-blue focus:ring-efb-blue/10 bg-gray-50 focus:bg-white transition-all"
-                                                                />
-                                                            </div>
-                                                            <div className="space-y-2">
-                                                                <Label className="text-xs font-bold uppercase tracking-wider text-gray-400">Số điện thoại (Zalo)</Label>
-                                                                <Input
-                                                                    placeholder="VD: 090xxxxxxx"
-                                                                    value={regForm.phone}
-                                                                    onChange={e => setRegForm({ ...regForm, phone: e.target.value })}
-                                                                    required
-                                                                    className="h-12 rounded-xl border-gray-200 focus:border-efb-blue focus:ring-efb-blue/10 bg-gray-50 focus:bg-white transition-all"
-                                                                />
-                                                            </div>
-                                                        </div>
-
-                                                        <div className="space-y-2">
-                                                            <Label className="text-xs font-bold uppercase tracking-wider text-gray-400">In-game ID (Konami ID)</Label>
-                                                            <Input
-                                                                placeholder="VD: efoot-1234..."
-                                                                value={regForm.gamerId}
-                                                                onChange={e => setRegForm({ ...regForm, gamerId: e.target.value })}
-                                                                required
-                                                                className="h-12 rounded-xl border-gray-200 focus:border-efb-blue focus:ring-efb-blue/10 bg-gray-50 focus:bg-white transition-all"
-                                                            />
-                                                        </div>
-
-                                                        <div className="pt-2">
-                                                            <Button
-                                                                type="submit"
-                                                                className="w-full h-14 bg-efb-blue hover:bg-efb-blue-light text-white rounded-2xl font-bold shadow-lg shadow-blue-200 transition-all flex items-center justify-center gap-2 group"
-                                                                disabled={isRegistering}
-                                                            >
-                                                                {isRegistering ? (
-                                                                    <Loader2 className="w-5 h-5 animate-spin" />
-                                                                ) : (
-                                                                    <>
-                                                                        Xác nhận đăng ký
-                                                                        <ChevronRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
-                                                                    </>
-                                                                )}
-                                                            </Button>
-                                                        </div>
-
-                                                        {registerMsg && (
-                                                            <motion.div
-                                                                initial={{ opacity: 0, y: 10 }}
-                                                                animate={{ opacity: 1, y: 0 }}
-                                                                className={`flex items-center gap-3 p-4 rounded-xl text-sm font-medium ${registerMsg.type === 'success' ? 'bg-emerald-50 text-emerald-600 border border-emerald-100' : 'bg-rose-50 text-rose-600 border border-rose-100'}`}
-                                                            >
-                                                                {registerMsg.type === 'success' ? <CheckCircle2 className="w-5 h-5" /> : <Ban className="w-5 h-5" />}
-                                                                {registerMsg.text}
-                                                            </motion.div>
-                                                        )}
-
-                                                        <p className="text-center text-[10px] text-gray-400 leading-relaxed px-8">
-                                                            Bằng việc nhấn đăng ký, bạn đồng ý với các thể lệ và quy tắc ứng xử của giải đấu. Thông tin của bạn sẽ được Manager xét duyệt trước khi chính thức tham gia.
-                                                        </p>
-                                                    </form>
-                                                </div>
-                                            )}
-                                        </div>
-                                    </div>
-                                </motion.div>
-                            </div>
-                        )}
                     </div>
                 </div>
             </section>
 
-            {selectedMatch && <MatchDetailViewModal match={selectedMatch} tournament={t} onClose={() => setSelectedMatch(null)} />}
+
+            {/* ===== Registration Dialog ===== */}
+            <Dialog open={showRegDialog} onOpenChange={(open) => { setShowRegDialog(open); if (!open) setRegStep(1); }}>
+                <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto p-0 gap-0 rounded-2xl border-0 shadow-2xl">
+                    <div className="sticky top-0 z-10 bg-white border-b border-gray-100">
+                        <div className="px-6 pt-6 pb-3">
+                            <DialogHeader className="space-y-1">
+                                <DialogTitle className="text-lg font-semibold text-gray-900 tracking-tight">Đăng ký thi đấu</DialogTitle>
+                                <DialogDescription className="text-[13px] text-gray-400 font-normal">Điền đầy đủ thông tin bên dưới</DialogDescription>
+                            </DialogHeader>
+                        </div>
+                        {/* Step indicator - clean horizontal */}
+                        <div className="px-6 pb-4">
+                            <div className="flex items-center gap-0">
+                                {[{ step: 1, label: "Cá nhân" }, { step: 2, label: "Game" }, { step: 3, label: "Xác nhận" }].map((s, i) => (
+                                    <div key={s.step} className="flex items-center flex-1">
+                                        <button type="button" onClick={() => { if (s.step < regStep) setRegStep(s.step); }} className="flex items-center gap-2.5 group">
+                                            <div className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-semibold transition-all duration-300 ${regStep === s.step ? 'bg-efb-blue text-white ring-4 ring-blue-100 scale-110' :
+                                                regStep > s.step ? 'bg-efb-blue text-white' :
+                                                    'bg-gray-100 text-gray-400'
+                                                }`}>
+                                                {regStep > s.step ? <CheckCircle2 className="w-3.5 h-3.5" /> : s.step}
+                                            </div>
+                                            <span className={`text-xs font-medium transition-colors hidden sm:inline ${regStep === s.step ? 'text-efb-blue' :
+                                                regStep > s.step ? 'text-gray-600' :
+                                                    'text-gray-400'
+                                                }`}>{s.label}</span>
+                                        </button>
+                                        {i < 2 && (
+                                            <div className="flex-1 mx-3 h-0.5 rounded-full bg-gray-100 overflow-hidden">
+                                                <div className={`h-full rounded-full transition-all duration-500 ease-out ${regStep > s.step ? 'w-full bg-efb-blue' : 'w-0 bg-transparent'}`} />
+                                            </div>
+                                        )}
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    </div>
+                    <form onSubmit={handleRegister} className="px-6 py-6 space-y-5">
+                        <AnimatePresence mode="wait">
+                            {regStep === 1 && (
+                                <motion.div key="s1" initial={{ opacity: 0, x: 15 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -15 }} className="space-y-4">
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                        <div className="space-y-1.5"><Label className="text-xs font-medium text-gray-500">Họ và tên VĐV <span className="text-red-400">*</span></Label><Input placeholder="Nguyễn Văn A" value={regForm.playerName} onChange={e => setRegForm({ ...regForm, playerName: e.target.value })} required className="h-11 rounded-lg border-gray-200 focus:border-efb-blue bg-gray-50/50 focus:bg-white transition-all text-sm" /></div>
+                                        <div className="space-y-1.5"><Label className="text-xs font-medium text-gray-500">Ngày sinh</Label><DatePicker value={regForm.dateOfBirth ? new Date(regForm.dateOfBirth + 'T00:00:00') : undefined} onChange={(date) => setRegForm({ ...regForm, dateOfBirth: date ? `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}` : '' })} placeholder="dd/mm/yyyy" /></div>
+                                    </div>
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                        <div className="space-y-1.5"><Label className="text-xs font-medium text-gray-500">Số điện thoại <span className="text-red-400">*</span></Label><div className="relative"><Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" /><Input placeholder="090xxxxxxx" value={regForm.phone} onChange={e => setRegForm({ ...regForm, phone: e.target.value })} required className="h-11 pl-10 rounded-lg border-gray-200 focus:border-efb-blue bg-gray-50/50 focus:bg-white transition-all text-sm" /></div></div>
+                                        <div className="space-y-1.5"><Label className="text-xs font-medium text-gray-500">Email</Label><div className="relative"><Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" /><Input type="email" placeholder="email@example.com" value={regForm.email} onChange={e => setRegForm({ ...regForm, email: e.target.value })} className="h-11 pl-10 rounded-lg border-gray-200 focus:border-efb-blue bg-gray-50/50 focus:bg-white transition-all text-sm" /></div></div>
+                                    </div>
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                        <div className="space-y-1.5">
+                                            <Label className="text-xs font-medium text-gray-500">Quốc gia</Label>
+                                            <Popover open={countryOpen} onOpenChange={(open) => { setCountryOpen(open); if (open && countries.length === 0) { fetch('https://restcountries.com/v3.1/all?fields=name,cca2').then(r => r.json()).then((data: { name: { common: string }; cca2: string }[]) => { const sorted = data.map(c => ({ name: c.name.common, code: c.cca2 })).sort((a, b) => { if (a.name === 'Vietnam') return -1; if (b.name === 'Vietnam') return 1; return a.name.localeCompare(b.name); }); const vnIdx = sorted.findIndex(c => c.code === 'VN'); if (vnIdx > 0) { const vn = sorted.splice(vnIdx, 1)[0]; vn.name = 'Việt Nam'; sorted.unshift(vn); } setCountries(sorted); }).catch(() => { setCountries([{ name: 'Việt Nam', code: 'VN' }, { name: 'Japan', code: 'JP' }, { name: 'South Korea', code: 'KR' }, { name: 'Thailand', code: 'TH' }]); }); } }}>
+                                                <PopoverTrigger asChild>
+                                                    <button type="button" className={`flex h-11 w-full items-center justify-between rounded-lg border border-gray-200 bg-gray-50/50 px-3 text-sm transition-all hover:bg-white focus:outline-none focus:border-efb-blue focus:bg-white ${!regCountry ? 'text-gray-400' : 'text-gray-900'}`}>
+                                                        <div className="flex items-center gap-2 truncate">
+                                                            <Globe className="w-4 h-4 text-gray-400 flex-shrink-0" />
+                                                            <span className="truncate">{regCountry || 'Chọn quốc gia...'}</span>
+                                                        </div>
+                                                        <ChevronsUpDown className="w-3.5 h-3.5 text-gray-400 flex-shrink-0" />
+                                                    </button>
+                                                </PopoverTrigger>
+                                                <PopoverContent className="w-[280px] p-0" align="start">
+                                                    <Command>
+                                                        <CommandInput placeholder="Tìm quốc gia..." />
+                                                        <CommandList>
+                                                            <CommandEmpty>Không tìm thấy</CommandEmpty>
+                                                            <CommandGroup>
+                                                                {countries.map(c => (
+                                                                    <CommandItem key={c.code} value={c.name} onSelect={() => { setRegCountry(c.name); setRegForm(prev => ({ ...prev, province: '' })); setCountryOpen(false); }}>
+                                                                        <Check className={`w-3.5 h-3.5 mr-2 ${regCountry === c.name ? 'opacity-100' : 'opacity-0'}`} />
+                                                                        {c.name}
+                                                                    </CommandItem>
+                                                                ))}
+                                                            </CommandGroup>
+                                                        </CommandList>
+                                                    </Command>
+                                                </PopoverContent>
+                                            </Popover>
+                                        </div>
+                                        <div className="space-y-1.5">
+                                            <Label className="text-xs font-medium text-gray-500">Tỉnh / Thành phố</Label>
+                                            {regCountry === 'Việt Nam' ? (
+                                                <Popover open={provinceOpen} onOpenChange={(open) => { setProvinceOpen(open); if (open && vnProvinces.length === 0) { fetch('https://provinces.open-api.vn/api/p/').then(r => r.json()).then((data: { name: string; code: number }[]) => setVnProvinces(data)).catch(() => { }); } }}>
+                                                    <PopoverTrigger asChild>
+                                                        <button type="button" className={`flex h-11 w-full items-center justify-between rounded-lg border border-gray-200 bg-gray-50/50 px-3 text-sm transition-all hover:bg-white focus:outline-none focus:border-efb-blue focus:bg-white ${!regForm.province ? 'text-gray-400' : 'text-gray-900'}`}>
+                                                            <div className="flex items-center gap-2 truncate">
+                                                                <MapPinned className="w-4 h-4 text-gray-400 flex-shrink-0" />
+                                                                <span className="truncate">{regForm.province || 'Chọn tỉnh thành...'}</span>
+                                                            </div>
+                                                            <ChevronsUpDown className="w-3.5 h-3.5 text-gray-400 flex-shrink-0" />
+                                                        </button>
+                                                    </PopoverTrigger>
+                                                    <PopoverContent className="w-[280px] p-0" align="start">
+                                                        <Command>
+                                                            <CommandInput placeholder="Tìm tỉnh thành..." />
+                                                            <CommandList>
+                                                                <CommandEmpty>Không tìm thấy</CommandEmpty>
+                                                                <CommandGroup>
+                                                                    {vnProvinces.map(p => (
+                                                                        <CommandItem key={p.code} value={p.name} onSelect={() => { setRegForm(prev => ({ ...prev, province: p.name })); setProvinceOpen(false); }}>
+                                                                            <Check className={`w-3.5 h-3.5 mr-2 ${regForm.province === p.name ? 'opacity-100' : 'opacity-0'}`} />
+                                                                            {p.name}
+                                                                        </CommandItem>
+                                                                    ))}
+                                                                </CommandGroup>
+                                                            </CommandList>
+                                                        </Command>
+                                                    </PopoverContent>
+                                                </Popover>
+                                            ) : (
+                                                <div className="relative">
+                                                    <MapPinned className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                                                    <Input placeholder="Nhập tên thành phố..." value={regForm.province} onChange={e => setRegForm({ ...regForm, province: e.target.value })} className="h-11 pl-10 rounded-lg border-gray-200 focus:border-efb-blue bg-gray-50/50 focus:bg-white transition-all text-sm" />
+                                                </div>
+                                            )}
+                                        </div>
+                                    </div>
+                                    <div className="pt-3 flex justify-end"><Button type="button" onClick={() => { if (!regForm.playerName.trim() || !regForm.phone.trim()) { toast.error('Vui lòng nhập Họ tên và Số điện thoại'); return; } setRegStep(2); }} className="h-11 px-8 bg-efb-blue text-white rounded-lg font-medium flex items-center gap-2">Tiếp theo <ChevronRight className="w-4 h-4" /></Button></div>
+                                </motion.div>
+                            )}
+                            {regStep === 2 && (
+                                <motion.div key="s2" initial={{ opacity: 0, x: 15 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -15 }} className="space-y-4">
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                        <div className="space-y-1.5"><Label className="text-xs font-medium text-gray-500">ID Game (Konami ID) <span className="text-red-400">*</span></Label><Input placeholder="efoot-1234..." value={regForm.gamerId} onChange={e => setRegForm({ ...regForm, gamerId: e.target.value })} required className="h-11 rounded-lg border-gray-200 focus:border-efb-blue bg-gray-50/50 focus:bg-white transition-all text-sm" /></div>
+                                        <div className="space-y-1.5"><Label className="text-xs font-medium text-gray-500">Nickname eFootball</Label><Input placeholder="Tên trong game" value={regForm.nickname} onChange={e => setRegForm({ ...regForm, nickname: e.target.value })} className="h-11 rounded-lg border-gray-200 focus:border-efb-blue bg-gray-50/50 focus:bg-white transition-all text-sm" /></div>
+                                    </div>
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                        <div className="space-y-1.5"><Label className="text-xs font-medium text-gray-500">Facebook</Label><div className="relative"><Facebook className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" /><Input placeholder="Tên Facebook" value={regForm.facebookName} onChange={e => setRegForm({ ...regForm, facebookName: e.target.value })} className="h-11 pl-10 rounded-lg border-gray-200 focus:border-efb-blue bg-gray-50/50 focus:bg-white transition-all text-sm" /></div></div>
+                                        <div className="space-y-1.5"><Label className="text-xs font-medium text-gray-500">Link Facebook</Label><div className="relative"><ExternalLink className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" /><Input placeholder="https://facebook.com/..." value={regForm.facebookLink} onChange={e => setRegForm({ ...regForm, facebookLink: e.target.value })} className="h-11 pl-10 rounded-lg border-gray-200 focus:border-efb-blue bg-gray-50/50 focus:bg-white transition-all text-sm" /></div></div>
+                                    </div>
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                        <div className="space-y-1.5"><Label className="text-xs font-medium text-gray-500">Tên đội bóng <span className="text-red-400">*</span></Label><Input placeholder="Manchester United" value={regForm.teamName} onChange={e => setRegForm({ ...regForm, teamName: e.target.value })} required className="h-11 rounded-lg border-gray-200 focus:border-efb-blue bg-gray-50/50 focus:bg-white transition-all text-sm" /></div>
+                                        <div className="space-y-1.5"><Label className="text-xs font-medium text-gray-500">Viết tắt (4 ký tự) <span className="text-red-400">*</span></Label><Input placeholder="MU" value={regForm.teamShortName} onChange={e => setRegForm({ ...regForm, teamShortName: e.target.value.toUpperCase() })} required maxLength={4} className="h-11 rounded-lg border-gray-200 focus:border-efb-blue bg-gray-50/50 focus:bg-white transition-all text-sm uppercase" /></div>
+                                    </div>
+                                    <div className="pt-3 flex justify-between">
+                                        <Button type="button" variant="outline" onClick={() => setRegStep(1)} className="h-11 px-6 rounded-lg font-medium border-gray-200 flex items-center gap-2"><ChevronLeft className="w-4 h-4" /> Quay lại</Button>
+                                        <Button type="button" onClick={() => { if (!regForm.gamerId.trim() || !regForm.teamName.trim() || !regForm.teamShortName.trim()) { toast.error('Vui lòng nhập ID Game, Tên đội và Viết tắt'); return; } setRegStep(3); }} className="h-11 px-8 bg-efb-blue text-white rounded-lg font-medium flex items-center gap-2">Tiếp theo <ChevronRight className="w-4 h-4" /></Button>
+                                    </div>
+                                </motion.div>
+                            )}
+                            {regStep === 3 && (
+                                <motion.div key="s3" initial={{ opacity: 0, x: 15 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -15 }} className="space-y-4">
+                                    <div className="space-y-1.5"><Label className="text-xs font-medium text-gray-500">Hình cá nhân (rõ mặt)</Label><div className="flex items-start gap-4">{regForm.personalPhoto ? (<div className="relative group"><img src={regForm.personalPhoto} alt="Ảnh" className="w-24 h-24 object-cover rounded-xl border-2 border-gray-200" /><button type="button" onClick={() => setRegForm(prev => ({ ...prev, personalPhoto: '' }))} className="absolute -top-2 -right-2 w-6 h-6 rounded-full bg-red-500 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity shadow-lg"><X className="w-3.5 h-3.5" /></button></div>) : (<label className="cursor-pointer flex-1"><div className="flex items-center gap-3 p-4 rounded-xl border-2 border-dashed border-gray-200 hover:border-efb-blue hover:bg-blue-50/30 transition-all">{uploadingPersonal ? <Loader2 className="w-5 h-5 animate-spin text-efb-blue" /> : <div className="w-10 h-10 rounded-lg bg-blue-50 flex items-center justify-center"><Camera className="w-5 h-5 text-efb-blue" /></div>}<div><p className="text-sm font-medium text-gray-700">Tải ảnh cá nhân</p><p className="text-[11px] text-gray-400">JPG, PNG — tối đa 5MB</p></div></div><input type="file" accept="image/*" className="hidden" disabled={uploadingPersonal} onChange={(e) => { const f = e.target.files?.[0]; if (f) handleUploadRegImage(f, 'personalPhoto'); e.target.value = ''; }} /></label>)}</div></div>
+                                    <div className="space-y-1.5"><Label className="text-xs font-medium text-gray-500">Hình đội hình thẻ thi đấu</Label><div className="flex items-start gap-4">{regForm.teamLineupPhoto ? (<div className="relative group"><img src={regForm.teamLineupPhoto} alt="Đội hình" className="w-40 h-24 object-cover rounded-xl border-2 border-gray-200" /><button type="button" onClick={() => setRegForm(prev => ({ ...prev, teamLineupPhoto: '' }))} className="absolute -top-2 -right-2 w-6 h-6 rounded-full bg-red-500 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity shadow-lg"><X className="w-3.5 h-3.5" /></button></div>) : (<label className="cursor-pointer flex-1"><div className="flex items-center gap-3 p-4 rounded-xl border-2 border-dashed border-gray-200 hover:border-efb-blue hover:bg-blue-50/30 transition-all">{uploadingLineup ? <Loader2 className="w-5 h-5 animate-spin text-efb-blue" /> : <div className="w-10 h-10 rounded-lg bg-emerald-50 flex items-center justify-center"><ImageIcon className="w-5 h-5 text-emerald-600" /></div>}<div><p className="text-sm font-medium text-gray-700">Tải ảnh đội hình</p><p className="text-[11px] text-gray-400">Screenshot — JPG, PNG (tối đa 5MB)</p></div></div><input type="file" accept="image/*" className="hidden" disabled={uploadingLineup} onChange={(e) => { const f = e.target.files?.[0]; if (f) handleUploadRegImage(f, 'teamLineupPhoto'); e.target.value = ''; }} /></label>)}</div></div>
+                                    {t.entryFee > 0 && (<div className="p-3 rounded-xl bg-amber-50 border border-amber-200 flex items-center gap-3"><DollarSign className="w-5 h-5 text-amber-600 flex-shrink-0" /><div><p className="text-xs font-medium text-amber-800">Lệ phí: {t.entryFee?.toLocaleString('vi-VN')} {t.currency || 'VNĐ'}</p><p className="text-[10px] text-amber-600/70 mt-0.5">Thanh toán sau đăng ký.</p></div></div>)}
+                                    <div className="p-4 rounded-xl bg-gray-50 border border-gray-100 space-y-2"><p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">Tóm tắt</p><div className="grid grid-cols-2 gap-x-4 gap-y-1.5 text-sm"><div><span className="text-gray-400">Họ tên:</span> <span className="font-medium text-gray-700">{regForm.playerName}</span></div><div><span className="text-gray-400">SĐT:</span> <span className="font-medium text-gray-700">{regForm.phone}</span></div><div><span className="text-gray-400">ID Game:</span> <span className="font-medium text-gray-700">{regForm.gamerId}</span></div><div><span className="text-gray-400">Đội:</span> <span className="font-medium text-gray-700">{regForm.teamName} ({regForm.teamShortName})</span></div>{regForm.nickname && <div><span className="text-gray-400">Nickname:</span> <span className="font-medium text-gray-700">{regForm.nickname}</span></div>}{regForm.province && <div><span className="text-gray-400">Tỉnh/TP:</span> <span className="font-medium text-gray-700">{regForm.province}</span></div>}</div></div>
+                                    <div className="pt-3 flex justify-between"><Button type="button" variant="outline" onClick={() => setRegStep(2)} className="h-11 px-6 rounded-lg font-medium border-gray-200 flex items-center gap-2"><ChevronLeft className="w-4 h-4" /> Quay lại</Button><Button type="submit" className="h-11 px-8 bg-gradient-to-r from-efb-blue to-blue-600 text-white rounded-lg font-medium shadow-sm flex items-center gap-2" disabled={isRegistering}>{isRegistering ? <Loader2 className="w-5 h-5 animate-spin" /> : <>Xác nhận <ChevronRight className="w-4 h-4" /></>}</Button></div>
+                                </motion.div>
+                            )}
+                        </AnimatePresence>
+                        <p className="text-center text-[10px] text-gray-400 leading-relaxed">Bằng việc nhấn đăng ký, bạn đồng ý với thể lệ giải đấu.</p>
+                    </form>
+                </DialogContent>
+            </Dialog>
+
+            {/* ===== Payment Dialog ===== */}
+            <Dialog open={showPaymentDialog} onOpenChange={setShowPaymentDialog}>
+                <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto p-0 gap-0 rounded-2xl border-0 shadow-2xl">
+                    <div className="bg-gradient-to-br from-amber-50 to-orange-50 px-6 py-5 border-b border-amber-100">
+                        <DialogHeader className="space-y-1">
+                            <DialogTitle className="text-lg font-semibold text-gray-900 flex items-center gap-2">
+                                <div className="w-8 h-8 rounded-lg bg-amber-100 flex items-center justify-center">
+                                    <CreditCard className="w-4.5 h-4.5 text-amber-600" />
+                                </div>
+                                Thanh toán lệ phí
+                            </DialogTitle>
+                            <DialogDescription className="text-[13px] text-gray-500">Hoàn tất thanh toán để xác nhận đăng ký</DialogDescription>
+                        </DialogHeader>
+                        <div className="mt-4 flex items-center justify-between p-3 bg-white/80 rounded-xl border border-amber-100">
+                            <div>
+                                <p className="text-xs text-gray-400">Giải đấu</p>
+                                <p className="text-sm font-medium text-gray-800 truncate max-w-[200px]">{t.title}</p>
+                            </div>
+                            <div className="text-right">
+                                <p className="text-xs text-gray-400">Lệ phí</p>
+                                <p className="text-lg font-bold text-amber-600">{t.entryFee?.toLocaleString('vi-VN')} <span className="text-xs font-medium">{t.currency || 'VNĐ'}</span></p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div className="px-6 py-5 space-y-5">
+                        {/* Status banners */}
+                        {myRegistration?.paymentStatus === 'paid' || myRegistration?.paymentStatus === 'confirmed' ? (
+                            <div className="p-4 rounded-xl bg-green-50 border border-green-200 flex items-center gap-3">
+                                <CheckCircle2 className="w-6 h-6 text-green-600 flex-shrink-0" />
+                                <div>
+                                    <p className="text-sm font-medium text-green-800">Đã thanh toán thành công</p>
+                                    <p className="text-xs text-green-600 mt-0.5">Đăng ký của bạn đang chờ Manager duyệt.</p>
+                                </div>
+                            </div>
+                        ) : myRegistration?.paymentStatus === 'pending_verification' ? (
+                            <div className="p-4 rounded-xl bg-orange-50 border border-orange-200 flex items-center gap-3">
+                                <Clock className="w-6 h-6 text-orange-600 flex-shrink-0" />
+                                <div>
+                                    <p className="text-sm font-medium text-orange-800">Đang chờ xác nhận thanh toán</p>
+                                    <p className="text-xs text-orange-600 mt-0.5">Minh chứng của bạn đang được kiểm tra.</p>
+                                </div>
+                            </div>
+                        ) : t.entryFee <= 0 ? (
+                            <div className="p-4 rounded-xl bg-blue-50 border border-blue-200 flex items-center gap-3">
+                                <Info className="w-6 h-6 text-blue-600 flex-shrink-0" />
+                                <div>
+                                    <p className="text-sm font-medium text-blue-800">Giải đấu miễn phí</p>
+                                    <p className="text-xs text-blue-600 mt-0.5">Đăng ký của bạn đang chờ duyệt.</p>
+                                </div>
+                            </div>
+                        ) : null}
+
+                        {/* Payment Methods - only show if unpaid and has entry fee */}
+                        {myRegistration?.paymentStatus === 'unpaid' && t.entryFee > 0 && (
+                            <>
+                                {!selectedPayMethod ? (
+                                    <div className="space-y-3">
+                                        <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Chọn phương thức thanh toán</p>
+                                        {paymentMethods.length === 0 ? (
+                                            <div className="flex items-center justify-center py-8">
+                                                <Loader2 className="w-5 h-5 animate-spin text-gray-400" />
+                                                <span className="text-sm text-gray-400 ml-2">Đang tải...</span>
+                                            </div>
+                                        ) : (
+                                            <div className="space-y-2">
+                                                {paymentMethods.map((method: any) => (
+                                                    <button key={method.id || method._id} type="button" onClick={() => handleSelectPaymentMethod(method)} disabled={isPaymentLoading} className="w-full flex items-center gap-3 p-3.5 rounded-xl border border-gray-200 hover:border-efb-blue hover:bg-blue-50/30 transition-all text-left group">
+                                                        <div className="w-10 h-10 rounded-lg bg-gray-50 group-hover:bg-blue-50 flex items-center justify-center flex-shrink-0 transition-colors">
+                                                            {method.mode === 'auto' ? <Wallet className="w-5 h-5 text-efb-blue" /> : <CreditCard className="w-5 h-5 text-gray-500 group-hover:text-efb-blue" />}
+                                                        </div>
+                                                        <div className="flex-1 min-w-0">
+                                                            <p className="text-sm font-medium text-gray-800">{method.name || method.bankName || 'Chuyển khoản'}</p>
+                                                            <p className="text-xs text-gray-400">{method.mode === 'auto' ? 'Thanh toán tự động' : `${method.bankName || ''} • ${method.accountNumber || ''}`}</p>
+                                                        </div>
+                                                        <ChevronRight className="w-4 h-4 text-gray-300 group-hover:text-efb-blue transition-colors" />
+                                                    </button>
+                                                ))}
+                                            </div>
+                                        )}
+                                    </div>
+                                ) : (
+                                    <div className="space-y-4">
+                                        <button type="button" onClick={() => setSelectedPayMethod(null)} className="flex items-center gap-1.5 text-sm text-efb-blue hover:underline">
+                                            <ChevronLeft className="w-4 h-4" /> Chọn phương thức khác
+                                        </button>
+
+                                        {/* Bank info */}
+                                        {(() => {
+                                            const m = paymentMethods.find((pm: any) => pm.id === selectedPayMethod || pm._id === selectedPayMethod); if (!m) return null; const qrUrl = getVietQRUrl(m); return (
+                                                <div className="space-y-4">
+                                                    <div className="p-4 rounded-xl bg-gray-50 border border-gray-100 space-y-2.5">
+                                                        <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Thông tin chuyển khoản</p>
+                                                        <div className="grid grid-cols-2 gap-2 text-sm">
+                                                            <div><span className="text-gray-400">Ngân hàng:</span></div>
+                                                            <div><span className="font-medium text-gray-800">{m.bankName}</span></div>
+                                                            <div><span className="text-gray-400">Số TK:</span></div>
+                                                            <div><span className="font-medium text-gray-800 select-all">{m.accountNumber}</span></div>
+                                                            <div><span className="text-gray-400">Chủ TK:</span></div>
+                                                            <div><span className="font-medium text-gray-800">{m.accountName}</span></div>
+                                                            <div><span className="text-gray-400">Số tiền:</span></div>
+                                                            <div><span className="font-bold text-amber-600">{t.entryFee?.toLocaleString('vi-VN')} {t.currency || 'VNĐ'}</span></div>
+                                                        </div>
+                                                        <div className="pt-1">
+                                                            <p className="text-xs text-gray-400">Nội dung CK:</p>
+                                                            <p className="text-sm font-medium text-efb-blue select-all bg-blue-50 px-2 py-1 rounded mt-1">{t.title} - {myRegistration?.playerName}</p>
+                                                        </div>
+                                                    </div>
+
+                                                    {qrUrl && (
+                                                        <div className="flex flex-col items-center gap-2">
+                                                            <p className="text-xs text-gray-400">Quét mã QR để thanh toán nhanh</p>
+                                                            <div className="bg-white p-2 rounded-xl border border-gray-200 shadow-sm">
+                                                                <img src={qrUrl} alt="VietQR" className="w-48 h-48 object-contain" />
+                                                            </div>
+                                                        </div>
+                                                    )}
+
+                                                    {/* Upload proof */}
+                                                    <div className="space-y-2.5">
+                                                        <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Tải lên minh chứng thanh toán</p>
+                                                        {paymentProofFile ? (
+                                                            <div className="flex items-center gap-3 p-3 rounded-xl border border-green-200 bg-green-50">
+                                                                <CheckCircle2 className="w-5 h-5 text-green-600 flex-shrink-0" />
+                                                                <div className="flex-1 min-w-0">
+                                                                    <p className="text-sm font-medium text-gray-800 truncate">{paymentProofFile.name}</p>
+                                                                    <p className="text-xs text-gray-400">{(paymentProofFile.size / 1024 / 1024).toFixed(1)} MB</p>
+                                                                </div>
+                                                                <button type="button" onClick={() => setPaymentProofFile(null)} className="text-gray-400 hover:text-red-500 transition-colors"><X className="w-4 h-4" /></button>
+                                                            </div>
+                                                        ) : (
+                                                            <label className="cursor-pointer block">
+                                                                <div className="flex items-center gap-3 p-4 rounded-xl border-2 border-dashed border-gray-200 hover:border-efb-blue hover:bg-blue-50/30 transition-all">
+                                                                    <div className="w-10 h-10 rounded-lg bg-blue-50 flex items-center justify-center"><Upload className="w-5 h-5 text-efb-blue" /></div>
+                                                                    <div>
+                                                                        <p className="text-sm font-medium text-gray-700">Chọn ảnh minh chứng</p>
+                                                                        <p className="text-[11px] text-gray-400">Screenshot chuyển khoản — JPG, PNG</p>
+                                                                    </div>
+                                                                </div>
+                                                                <input type="file" accept="image/*" className="hidden" onChange={e => { if (e.target.files?.[0]) setPaymentProofFile(e.target.files[0]); e.target.value = ''; }} />
+                                                            </label>
+                                                        )}
+
+                                                        <Button onClick={handleSubmitPaymentProof} disabled={!paymentProofFile || isSubmittingProof} className="w-full h-11 bg-gradient-to-r from-efb-blue to-blue-600 text-white rounded-xl font-medium">
+                                                            {isSubmittingProof ? <><Loader2 className="w-4 h-4 animate-spin mr-2" /> Đang gửi...</> : <><CheckCircle2 className="w-4 h-4 mr-2" /> Gửi minh chứng</>}
+                                                        </Button>
+                                                    </div>
+                                                </div>
+                                            );
+                                        })()}
+                                    </div>
+                                )}
+                            </>
+                        )}
+                    </div>
+                    <div className="px-6 py-4 bg-gray-50 border-t border-gray-100">
+                        <button type="button" onClick={handleCancelRegistration} className="w-full text-center text-xs text-gray-400 hover:text-red-500 transition-colors py-1">
+                            Hủy đăng ký giải đấu
+                        </button>
+                    </div>
+                </DialogContent>
+            </Dialog>
+
+            {selectedMatch && <MatchDetailViewModal match={selectedMatch} tournament={t} onClose={() => setSelectedMatch(null)} user={user} myRegistration={myRegistration} />}
         </>
     );
 }

@@ -30,7 +30,7 @@ export async function GET(req: NextRequest, { params }: RouteParams) {
         if (status) query.status = status;
 
         const registrations = await Registration.find(query)
-            .populate("user", "name email avatar gamerId")
+            .populate("user", "name email avatar gamerId efvId")
             .populate("approvedBy", "name")
             .sort({ createdAt: -1 })
             .lean();
@@ -106,6 +106,14 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
             phone: body.phone,
             email: body.email || authResult.user.email,
             notes: body.notes,
+            // Extended player info
+            dateOfBirth: body.dateOfBirth || "",
+            facebookName: body.facebookName || "",
+            facebookLink: body.facebookLink || "",
+            nickname: body.nickname || "",
+            province: body.province || "",
+            personalPhoto: body.personalPhoto || "",
+            teamLineupPhoto: body.teamLineupPhoto || "",
             paymentStatus: tournament.entryFee > 0 ? "unpaid" : "paid",
         });
 
@@ -224,6 +232,40 @@ export async function PUT(req: NextRequest, { params }: RouteParams) {
         return apiResponse(registration, 200, `${action === "approve" ? "Phê duyệt" : "Từ chối"} thành công`);
     } catch (error) {
         console.error("Update registration error:", error);
+        return apiError("Có lỗi xảy ra", 500);
+    }
+}
+
+// DELETE /api/tournaments/[id]/registrations — Cancel own registration (user)
+export async function DELETE(req: NextRequest, { params }: RouteParams) {
+    try {
+        const authResult = await requireAuth(req);
+        if (authResult instanceof Response) return authResult;
+
+        await dbConnect();
+        const { id: idOrSlug } = await params;
+        const query = mongoose.Types.ObjectId.isValid(idOrSlug) ? { _id: idOrSlug } : { slug: idOrSlug };
+
+        const tournament = await Tournament.findOne(query);
+        if (!tournament) return apiError("Không tìm thấy giải đấu", 404);
+        const id = tournament._id;
+
+        const registration = await Registration.findOne({
+            tournament: id,
+            user: authResult.user._id,
+        });
+        if (!registration) return apiError("Không tìm thấy đăng ký", 404);
+
+        // Only allow cancel if not yet approved
+        if (registration.status === "approved") {
+            return apiError("Đăng ký đã được duyệt, không thể hủy", 400);
+        }
+
+        await Registration.deleteOne({ _id: registration._id });
+
+        return apiResponse(null, 200, "Đã hủy đăng ký thành công");
+    } catch (error) {
+        console.error("Cancel registration error:", error);
         return apiError("Có lỗi xảy ra", 500);
     }
 }

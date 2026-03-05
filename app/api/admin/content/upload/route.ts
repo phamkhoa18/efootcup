@@ -31,7 +31,7 @@ export async function POST(req: NextRequest) {
 
         // Create uploads directory for content
         const subDir = type === "cover" ? "covers" : type === "gallery" ? "gallery" : "content";
-        const uploadsDir = path.join(process.cwd(), "public", "uploads", "posts", subDir);
+        const uploadsDir = path.join(process.cwd(), "uploads", "posts", subDir);
         await mkdir(uploadsDir, { recursive: true });
 
         // Generate unique filename
@@ -45,7 +45,7 @@ export async function POST(req: NextRequest) {
         await writeFile(filepath, Buffer.from(bytes));
 
         // Return the public URL
-        const url = `/uploads/posts/${subDir}/${filename}`;
+        const url = `/api/files/posts/${subDir}/${filename}`;
 
         return apiResponse({
             url,

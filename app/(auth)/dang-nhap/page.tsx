@@ -11,6 +11,7 @@ import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Eye, EyeOff, Mail, Lock, ArrowRight, Trophy, Gamepad2, Loader2 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
+import { useSiteSettings } from "@/hooks/useSiteSettings";
 
 export default function DangNhapPage() {
     const [showPassword, setShowPassword] = useState(false);
@@ -19,6 +20,7 @@ export default function DangNhapPage() {
     const [error, setError] = useState("");
     const [isSubmitting, setIsSubmitting] = useState(false);
     const { login } = useAuth();
+    const { settings: siteSettings } = useSiteSettings();
     const router = useRouter();
 
     const handleSubmit = async (e: React.FormEvent) => {
@@ -68,16 +70,16 @@ export default function DangNhapPage() {
                 >
                     {/* Logo */}
                     <Link href="/" className="inline-flex items-center gap-2.5 mb-10">
-                        <div className="bg-efb-blue rounded-lg p-1.5">
+                        <div className={siteSettings.logo ? "" : "bg-efb-blue rounded-lg p-1.5"}>
                             <Image
-                                src="/assets/logo.svg"
-                                alt="eFootCup"
+                                src={siteSettings.logo || "/assets/logo.svg"}
+                                alt={siteSettings.siteName}
                                 width={80}
                                 height={20}
-                                className="h-4 w-auto"
+                                className={siteSettings.logo ? "h-8 w-auto object-contain" : "h-4 w-auto"}
                             />
                         </div>
-                        <span className="text-sm font-bold text-efb-dark">eFootCup VN</span>
+                        <span className="text-sm font-bold text-efb-dark">{siteSettings.siteName || "eFootCup VN"}</span>
                     </Link>
 
                     {/* Heading */}

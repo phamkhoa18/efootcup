@@ -1,7 +1,9 @@
 import mongoose, { Schema, Document, Model } from "mongoose";
+import Counter from "./Counter";
 
 export interface IUser extends Document {
     _id: mongoose.Types.ObjectId;
+    efvId: string; // EFV-XXXXXX unique permanent ID
     name: string;
     email: string;
     password: string;
@@ -30,6 +32,12 @@ export interface IUser extends Document {
 
 const UserSchema = new Schema<IUser>(
     {
+        efvId: {
+            type: String,
+            unique: true,
+            sparse: true,
+            index: true,
+        },
         name: {
             type: String,
             required: [true, "Vui lòng nhập họ và tên"],
@@ -109,6 +117,19 @@ const UserSchema = new Schema<IUser>(
 // Indexes
 UserSchema.index({ role: 1 });
 UserSchema.index({ gamerId: 1 });
+UserSchema.index({ efvId: 1 });
+
+// Pre-save hook: auto-generate EFV-ID for new users
+UserSchema.pre("save", async function () {
+    if (this.isNew && !this.efvId) {
+        try {
+            const seq = await Counter.getNextSequence("efvId");
+            this.efvId = `EFV-${seq.toString().padStart(6, "0")}`;
+        } catch (err) {
+            console.error("Failed to generate EFV-ID:", err);
+        }
+    }
+});
 
 const User: Model<IUser> =
     mongoose.models.User || mongoose.model<IUser>("User", UserSchema);

@@ -36,6 +36,16 @@ export interface ISiteSettings extends Document {
     contactPhone: string;
     contactAddress: string;
 
+    // === Email / SMTP ===
+    smtpHost: string;
+    smtpPort: number;
+    smtpSecure: boolean;
+    smtpUser: string;
+    smtpPass: string;
+    smtpFromName: string;
+    smtpFromEmail: string;
+    emailEnabled: boolean;
+
     // === Advanced ===
     googleAnalyticsId: string; // GA4 Measurement ID
     facebookPixelId: string;
@@ -86,6 +96,16 @@ const SiteSettingsSchema = new Schema<ISiteSettings>(
         contactEmail: { type: String, default: "" },
         contactPhone: { type: String, default: "" },
         contactAddress: { type: String, default: "" },
+
+        // Email / SMTP
+        smtpHost: { type: String, default: "" },
+        smtpPort: { type: Number, default: 587 },
+        smtpSecure: { type: Boolean, default: false },
+        smtpUser: { type: String, default: "" },
+        smtpPass: { type: String, default: "" },
+        smtpFromName: { type: String, default: "eFootCup VN" },
+        smtpFromEmail: { type: String, default: "" },
+        emailEnabled: { type: Boolean, default: false },
 
         // Advanced
         googleAnalyticsId: { type: String, default: "" },

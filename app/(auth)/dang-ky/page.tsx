@@ -14,6 +14,7 @@ import {
     Shield, Gamepad2
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
+import { useSiteSettings } from "@/hooks/useSiteSettings";
 
 export default function DangKyPage() {
     const [showPassword, setShowPassword] = useState(false);
@@ -28,6 +29,7 @@ export default function DangKyPage() {
         role: "user" as "user" | "manager",
     });
     const { register: registerUser } = useAuth();
+    const { settings: siteSettings } = useSiteSettings();
     const router = useRouter();
 
     const updateField = (field: string, value: string) => {
@@ -145,16 +147,16 @@ export default function DangKyPage() {
                 >
                     {/* Logo */}
                     <Link href="/" className="inline-flex items-center gap-2.5 mb-10">
-                        <div className="bg-efb-blue rounded-lg p-1.5">
+                        <div className={siteSettings.logo ? "" : "bg-efb-blue rounded-lg p-1.5"}>
                             <Image
-                                src="/assets/logo.svg"
-                                alt="eFootCup"
+                                src={siteSettings.logo || "/assets/logo.svg"}
+                                alt={siteSettings.siteName}
                                 width={80}
                                 height={20}
-                                className="h-4 w-auto"
+                                className={siteSettings.logo ? "h-8 w-auto object-contain" : "h-4 w-auto"}
                             />
                         </div>
-                        <span className="text-sm font-bold text-efb-dark">eFootCup VN</span>
+                        <span className="text-sm font-bold text-efb-dark">{siteSettings.siteName || "eFootCup VN"}</span>
                     </Link>
 
                     {/* Heading */}

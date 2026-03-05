@@ -18,7 +18,7 @@ export async function POST(req: NextRequest) {
         }
 
         // Allowed types for authenticated users
-        const allowedTypes = ["general", "avatar", "payment_proof"];
+        const allowedTypes = ["general", "avatar", "payment_proof", "registration"];
         if (!allowedTypes.includes(type)) {
             return apiError("Loại file không hợp lệ", 400);
         }
@@ -38,10 +38,11 @@ export async function POST(req: NextRequest) {
         // Determine upload subdirectory based on type
         const subDir = type === "avatar" ? "avatars"
             : type === "payment_proof" ? "payment_proof"
-                : "general";
+                : type === "registration" ? "registration"
+                    : "general";
 
         // Create uploads directory
-        const uploadsDir = path.join(process.cwd(), "public", "uploads", subDir);
+        const uploadsDir = path.join(process.cwd(), "uploads", subDir);
         await mkdir(uploadsDir, { recursive: true });
 
         // Generate unique filename
@@ -54,7 +55,7 @@ export async function POST(req: NextRequest) {
         await writeFile(filepath, Buffer.from(bytes));
 
         // Return the public URL
-        const url = `/uploads/${subDir}/${filename}`;
+        const url = `/api/files/${subDir}/${filename}`;
 
         return apiResponse({ url, type }, 200, "Upload thành công");
     } catch (error) {

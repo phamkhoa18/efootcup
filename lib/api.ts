@@ -158,6 +158,11 @@ export const tournamentAPI = {
             body: JSON.stringify(data),
         }),
 
+    cancelRegistration: (tournamentId: string) =>
+        apiFetch(`/tournaments/${tournamentId}/registrations`, {
+            method: "DELETE",
+        }),
+
     importRegistrations: (tournamentId: string, registrations: any[]) =>
         apiFetch(`/tournaments/${tournamentId}/registrations/import`, {
             method: "POST",

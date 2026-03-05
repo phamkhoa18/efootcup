@@ -18,6 +18,7 @@ export async function GET(req: NextRequest) {
 
         return apiResponse({
             _id: user._id,
+            efvId: user.efvId,
             name: user.name,
             email: user.email,
             role: user.role,
@@ -66,6 +67,7 @@ export async function PUT(req: NextRequest) {
         return apiResponse(
             {
                 _id: user._id,
+                efvId: user.efvId,
                 name: user.name,
                 email: user.email,
                 role: user.role,

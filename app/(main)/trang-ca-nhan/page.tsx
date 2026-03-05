@@ -11,8 +11,10 @@ import {
     Camera, User, Mail, Phone, Gamepad2, FileText,
     Save, Loader2, CheckCircle2, ArrowLeft, Shield,
     Trophy, Swords, Target, CalendarDays, Edit3, X,
-    Clock, ExternalLink, ChevronRight, Activity, XCircle
+    Clock, ExternalLink, ChevronRight, Activity, XCircle, Upload
 } from "lucide-react";
+import { toast } from "sonner";
+
 import { useAuth } from "@/contexts/AuthContext";
 import { authAPI } from "@/lib/api";
 
@@ -36,6 +38,14 @@ export default function TrangCaNhanPage() {
         matches: { upcoming: [], past: [] }
     });
     const [isPGLoading, setIsPGLoading] = useState(false);
+    // Submit result states
+    const [submitMatchId, setSubmitMatchId] = useState<string | null>(null);
+    const [submitHomeScore, setSubmitHomeScore] = useState("");
+    const [submitAwayScore, setSubmitAwayScore] = useState("");
+    const [submitNotes, setSubmitNotes] = useState("");
+    const [submitScreenshots, setSubmitScreenshots] = useState<string[]>([]);
+    const [isSubmittingResult, setIsSubmittingResult] = useState(false);
+    const [isUploadingShot, setIsUploadingShot] = useState(false);
 
     const [form, setForm] = useState({
         name: "",
@@ -86,7 +96,13 @@ export default function TrangCaNhanPage() {
 
     const handleAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
-        if (!file || !token) return;
+        if (!file) return;
+
+        const savedToken = token || localStorage.getItem("efootcup_token");
+        if (!savedToken) {
+            setErrorMsg("Vui lòng đăng nhập lại");
+            return;
+        }
 
         setIsUploading(true);
         setErrorMsg("");
@@ -94,24 +110,26 @@ export default function TrangCaNhanPage() {
         try {
             const formData = new FormData();
             formData.append("file", file);
+            formData.append("type", "avatar");
 
             const res = await fetch("/api/upload", {
                 method: "POST",
-                headers: { Authorization: `Bearer ${token}` },
+                headers: { Authorization: `Bearer ${savedToken}` },
                 body: formData,
             });
 
             const data = await res.json();
 
             if (data.success) {
-                const result = await updateProfile({ avatar: data.data.url });
+                const avatarUrl = data.data?.url || data.url;
+                const result = await updateProfile({ avatar: avatarUrl });
                 if (result.success) {
                     showSuccess("Cập nhật ảnh đại diện thành công!");
                 } else {
                     setErrorMsg(result.message);
                 }
             } else {
-                setErrorMsg(data.message);
+                setErrorMsg(data.message || "Upload thất bại");
             }
         } catch {
             setErrorMsg("Có lỗi xảy ra khi tải ảnh lên");
@@ -576,13 +594,149 @@ export default function TrangCaNhanPage() {
                                                         </div>
 
                                                         {/* Action Footer */}
-                                                        <div className="mt-5 flex items-center justify-between pt-3 border-t border-gray-50">
-                                                            <span className="text-[10px] text-gray-400 font-medium italic">
-                                                                {match.status === 'live' ? 'Vui lòng báo cáo kết quả sau trận' : 'Chuẩn bị thi đấu'}
-                                                            </span>
-                                                            <Link href={`/giai-dau/${match.tournament?.slug || match.tournament?._id}?tab=schedule`} className="flex items-center gap-1.5 text-[11px] font-semibold text-efb-blue hover:underline">
-                                                                Xem chi tiết <ChevronRight className="w-3 h-3" />
-                                                            </Link>
+                                                        <div className="mt-5 pt-3 border-t border-gray-50">
+                                                            {(() => {
+                                                                const isHome = match.homeTeam?._id?.toString?.() === myTeam?._id?.toString?.();
+                                                                const hasOfficialScore = match.homeScore !== null && match.homeScore !== undefined && match.awayScore !== null && match.awayScore !== undefined;
+                                                                const myExistingSub = match.resultSubmissions?.find(
+                                                                    (s: any) => s.user?.toString?.() === user?._id?.toString?.() || s.user?._id?.toString?.() === user?._id?.toString?.()
+                                                                );
+                                                                const isLocked = match.status === "completed" || hasOfficialScore || !!myExistingSub;
+
+                                                                // STATE 1: Match completed or manager set official scores
+                                                                if (match.status === "completed" || hasOfficialScore) {
+                                                                    return (
+                                                                        <div className="space-y-2">
+                                                                            <div className="flex items-center gap-2 px-3 py-2.5 bg-blue-50 border border-blue-200 rounded-xl">
+                                                                                <CheckCircle2 className="w-4 h-4 text-blue-500 flex-shrink-0" />
+                                                                                <div className="flex-1">
+                                                                                    <p className="text-[11px] font-bold text-blue-700">Kết quả chính thức</p>
+                                                                                    <p className="text-sm text-blue-800 font-black">
+                                                                                        {myTeam?.shortName || "BẠN"}{" "}
+                                                                                        <span>{isHome ? match.homeScore : match.awayScore}</span>
+                                                                                        {" — "}
+                                                                                        <span>{isHome ? match.awayScore : match.homeScore}</span>
+                                                                                        {" "}{opponent?.shortName || "ĐỐI THỦ"}
+                                                                                    </p>
+                                                                                </div>
+                                                                                <span className="text-[9px] font-bold text-blue-400 bg-blue-100 px-2 py-0.5 rounded-full">🔒 Đã khóa</span>
+                                                                            </div>
+                                                                            {myExistingSub && myExistingSub.screenshots?.length > 0 && (
+                                                                                <div className="flex gap-1.5 flex-wrap px-1">
+                                                                                    {myExistingSub.screenshots.map((s: string, si: number) => (
+                                                                                        <img key={si} src={s} alt="Minh chứng" className="w-12 h-12 rounded-lg object-cover border border-gray-200 cursor-pointer hover:opacity-80" onClick={() => window.open(s, "_blank")} />
+                                                                                    ))}
+                                                                                </div>
+                                                                            )}
+                                                                        </div>
+                                                                    );
+                                                                }
+
+                                                                // STATE 2: User already submitted → show locked result with screenshots
+                                                                if (myExistingSub) {
+                                                                    return (
+                                                                        <div className="space-y-2">
+                                                                            <div className="flex items-center gap-2 px-3 py-2.5 bg-emerald-50 border border-emerald-200 rounded-xl">
+                                                                                <CheckCircle2 className="w-4 h-4 text-emerald-500 flex-shrink-0" />
+                                                                                <div className="flex-1">
+                                                                                    <p className="text-[11px] font-bold text-emerald-700">Đã gửi kết quả — chờ quản lý duyệt</p>
+                                                                                    <p className="text-sm text-emerald-800 font-black">
+                                                                                        {myTeam?.shortName || "BẠN"}{" "}
+                                                                                        <span>{isHome ? myExistingSub.homeScore : myExistingSub.awayScore}</span>
+                                                                                        {" — "}
+                                                                                        <span>{isHome ? myExistingSub.awayScore : myExistingSub.homeScore}</span>
+                                                                                        {" "}{opponent?.shortName || "ĐỐI THỦ"}
+                                                                                    </p>
+                                                                                </div>
+                                                                                <span className="text-[9px] font-bold text-emerald-400 bg-emerald-100 px-2 py-0.5 rounded-full">🔒 Đã gửi</span>
+                                                                            </div>
+                                                                            {myExistingSub.notes && (
+                                                                                <p className="text-[10px] text-gray-500 italic px-1">💬 {myExistingSub.notes}</p>
+                                                                            )}
+                                                                            {myExistingSub.screenshots?.length > 0 && (
+                                                                                <div className="flex gap-1.5 flex-wrap px-1">
+                                                                                    <p className="text-[9px] text-gray-400 font-semibold w-full mb-0.5">Ảnh minh chứng:</p>
+                                                                                    {myExistingSub.screenshots.map((s: string, si: number) => (
+                                                                                        <img key={si} src={s} alt="Minh chứng" className="w-14 h-14 rounded-lg object-cover border-2 border-emerald-200 cursor-pointer hover:opacity-80 hover:shadow-md transition-all" onClick={() => window.open(s, "_blank")} />
+                                                                                    ))}
+                                                                                </div>
+                                                                            )}
+                                                                            <div className="flex justify-end">
+                                                                                <Link href={`/giai-dau/${match.tournament?.slug || match.tournament?._id}?tab=schedule`} className="flex items-center gap-1 text-[10px] font-medium text-gray-400 hover:text-efb-blue">
+                                                                                    Chi tiết <ChevronRight className="w-3 h-3" />
+                                                                                </Link>
+                                                                            </div>
+                                                                        </div>
+                                                                    );
+                                                                }
+
+                                                                // STATE 3: Not submitted yet → show form or button
+                                                                if (submitMatchId === match._id) {
+                                                                    return (
+                                                                        <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} className="space-y-4">
+                                                                            <div className="flex items-center justify-between">
+                                                                                <h4 className="text-xs font-bold text-gray-700 flex items-center gap-1.5"><Upload className="w-3.5 h-3.5 text-efb-blue" /> Gửi kết quả</h4>
+                                                                                <button onClick={() => { setSubmitMatchId(null); setSubmitHomeScore(""); setSubmitAwayScore(""); setSubmitNotes(""); setSubmitScreenshots([]); }} className="text-gray-400 hover:text-gray-600"><X className="w-4 h-4" /></button>
+                                                                            </div>
+                                                                            <div className="flex items-center justify-center gap-3">
+                                                                                <div className="text-center">
+                                                                                    <p className="text-[9px] font-bold text-gray-400 mb-1 uppercase">{myTeam?.shortName || "BẠN"}</p>
+                                                                                    <input type="number" min="0" max="99" value={submitHomeScore} onChange={e => setSubmitHomeScore(e.target.value)} className="w-16 h-12 text-center text-xl font-black rounded-xl border-2 border-gray-200 focus:border-efb-blue outline-none bg-white" placeholder="0" />
+                                                                                </div>
+                                                                                <span className="text-xl font-light text-gray-200 mt-4">—</span>
+                                                                                <div className="text-center">
+                                                                                    <p className="text-[9px] font-bold text-gray-400 mb-1 uppercase">{opponent?.shortName || "ĐỐI THỦ"}</p>
+                                                                                    <input type="number" min="0" max="99" value={submitAwayScore} onChange={e => setSubmitAwayScore(e.target.value)} className="w-16 h-12 text-center text-xl font-black rounded-xl border-2 border-gray-200 focus:border-efb-blue outline-none bg-white" placeholder="0" />
+                                                                                </div>
+                                                                            </div>
+                                                                            <div>
+                                                                                <label className="text-[10px] font-semibold text-gray-400 mb-1.5 block">Ảnh minh chứng (tối đa 3)</label>
+                                                                                <div className="flex items-center gap-2 flex-wrap">
+                                                                                    {submitScreenshots.map((s, i) => (
+                                                                                        <div key={i} className="relative group">
+                                                                                            <img src={s} alt="SS" className="w-16 h-16 rounded-xl object-cover border-2 border-gray-200" />
+                                                                                            <button type="button" onClick={() => setSubmitScreenshots(prev => prev.filter((_, idx) => idx !== i))} className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-red-500 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"><X className="w-2.5 h-2.5" /></button>
+                                                                                        </div>
+                                                                                    ))}
+                                                                                    {submitScreenshots.length < 3 && (
+                                                                                        <label className="cursor-pointer">
+                                                                                            <div className="w-16 h-16 rounded-xl border-2 border-dashed border-gray-200 hover:border-efb-blue hover:bg-blue-50/30 flex flex-col items-center justify-center transition-all">
+                                                                                                {isUploadingShot ? <Loader2 className="w-4 h-4 animate-spin text-efb-blue" /> : <><Camera className="w-4 h-4 text-gray-400" /><span className="text-[8px] text-gray-400 mt-0.5">Thêm ảnh</span></>}
+                                                                                            </div>
+                                                                                            <input type="file" accept="image/*" className="hidden" disabled={isUploadingShot} onChange={async e => { const f = e.target.files?.[0]; if (!f) return; setIsUploadingShot(true); try { const fd = new FormData(); fd.append("file", f); fd.append("type", "registration"); const hdrs: any = {}; const tk = localStorage.getItem("efootcup_token"); if (tk) hdrs.Authorization = `Bearer ${tk}`; const r = await fetch("/api/upload", { method: "POST", headers: hdrs, body: fd }); const d = await r.json(); const url = d.data?.url || d.url; if (url) setSubmitScreenshots(prev => [...prev, url]); } catch { } finally { setIsUploadingShot(false); } e.target.value = ""; }} />
+                                                                                        </label>
+                                                                                    )}
+                                                                                </div>
+                                                                            </div>
+                                                                            <textarea value={submitNotes} onChange={e => setSubmitNotes(e.target.value)} placeholder="Ghi chú (tùy chọn)..." maxLength={500} rows={2} className="w-full px-3 py-2 text-xs rounded-xl border border-gray-200 bg-white focus:border-efb-blue outline-none resize-none" />
+                                                                            <div className="flex gap-2">
+                                                                                <button onClick={() => { setSubmitMatchId(null); setSubmitHomeScore(""); setSubmitAwayScore(""); setSubmitNotes(""); setSubmitScreenshots([]); }} className="flex-1 py-2 rounded-xl border border-gray-200 text-xs font-medium text-gray-600 hover:bg-gray-50">Hủy</button>
+                                                                                <button disabled={isSubmittingResult || submitHomeScore === "" || submitAwayScore === ""} onClick={async () => { setIsSubmittingResult(true); try { const tk = localStorage.getItem("efootcup_token"); const myScore = Number(submitHomeScore); const oppScore = Number(submitAwayScore); const res = await fetch(`/api/tournaments/${match.tournament?._id}/matches/submit-result`, { method: "POST", headers: { "Content-Type": "application/json", ...(tk ? { Authorization: `Bearer ${tk}` } : {}) }, body: JSON.stringify({ matchId: match._id, homeScore: isHome ? myScore : oppScore, awayScore: isHome ? oppScore : myScore, screenshots: submitScreenshots, notes: submitNotes }) }); const d = await res.json(); if (d.success) { toast.success("Gửi kết quả thành công!"); setSubmitMatchId(null); setSubmitHomeScore(""); setSubmitAwayScore(""); setSubmitNotes(""); setSubmitScreenshots([]); } else { toast.error(d.message || "Có lỗi xảy ra"); } } catch { toast.error("Có lỗi xảy ra"); } finally { setIsSubmittingResult(false); } }} className="flex-1 py-2 rounded-xl bg-gradient-to-r from-efb-blue to-indigo-600 text-white text-xs font-bold disabled:opacity-50 flex items-center justify-center gap-1.5">
+                                                                                    {isSubmittingResult ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <CheckCircle2 className="w-3.5 h-3.5" />}
+                                                                                    {isSubmittingResult ? "Đang gửi..." : "Xác nhận gửi"}
+                                                                                </button>
+                                                                            </div>
+                                                                        </motion.div>
+                                                                    );
+                                                                }
+
+                                                                // Default: show submit button
+                                                                return (
+                                                                    <div className="flex items-center justify-between">
+                                                                        <span className="text-[10px] text-gray-400 font-medium italic">
+                                                                            {match.status === "live" ? "Vui lòng báo cáo kết quả sau trận" : "Chuẩn bị thi đấu"}
+                                                                        </span>
+                                                                        <div className="flex items-center gap-3">
+                                                                            <button onClick={() => { setSubmitMatchId(match._id); setSubmitHomeScore(""); setSubmitAwayScore(""); setSubmitNotes(""); setSubmitScreenshots([]); }} className="flex items-center gap-1.5 text-[11px] font-bold text-white bg-gradient-to-r from-efb-blue to-indigo-600 px-3.5 py-1.5 rounded-lg shadow-sm hover:shadow-md transition-all">
+                                                                                <Upload className="w-3 h-3" /> Gửi kết quả
+                                                                            </button>
+                                                                            <Link href={`/giai-dau/${match.tournament?.slug || match.tournament?._id}?tab=schedule`} className="flex items-center gap-1 text-[10px] font-medium text-gray-400 hover:text-efb-blue">
+                                                                                Chi tiết <ChevronRight className="w-3 h-3" />
+                                                                            </Link>
+                                                                        </div>
+                                                                    </div>
+                                                                );
+                                                            })()}
                                                         </div>
                                                     </div>
                                                 );
@@ -841,7 +995,7 @@ export default function TrangCaNhanPage() {
                         </div>
                     </div>
                 </motion.div>
-            </div>
-        </div>
+            </div >
+        </div >
     );
 }

@@ -12,6 +12,14 @@ export interface IRegistration extends Document {
     phone: string;
     email: string;
     notes?: string;
+    // Extended player info
+    dateOfBirth?: string;
+    facebookName?: string;
+    facebookLink?: string;
+    nickname?: string; // eFootball nickname
+    province?: string; // Tỉnh thành hoặc Đất nước
+    personalPhoto?: string; // Hình ảnh cá nhân (rõ mặt)
+    teamLineupPhoto?: string; // Hình ảnh đội hình thẻ thi đấu
     status: "pending" | "approved" | "rejected" | "cancelled";
     rejectionReason?: string;
     // Payment fields
@@ -77,6 +85,14 @@ const RegistrationSchema = new Schema<IRegistration>(
             required: [true, "Vui lòng nhập email"],
         },
         notes: { type: String, default: "" },
+        // Extended player info
+        dateOfBirth: { type: String, default: "" },
+        facebookName: { type: String, default: "" },
+        facebookLink: { type: String, default: "" },
+        nickname: { type: String, default: "" },
+        province: { type: String, default: "" },
+        personalPhoto: { type: String, default: "" },
+        teamLineupPhoto: { type: String, default: "" },
         status: {
             type: String,
             enum: ["pending", "approved", "rejected", "cancelled"],

@@ -240,9 +240,97 @@ function TournamentListContent() {
                         </div>
                     )}
 
+                    {/* Empty state */}
+                    {!isLoading && tournaments.length === 0 && (
+                        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="text-center py-20">
+                            <div className="w-20 h-20 rounded-full bg-gray-50 flex items-center justify-center mx-auto mb-5">
+                                <Trophy className="w-9 h-9 text-gray-200" />
+                            </div>
+                            <h3 className="text-lg font-semibold text-gray-800 mb-1.5">Không tìm thấy giải đấu</h3>
+                            <p className="text-sm text-gray-400 max-w-sm mx-auto">
+                                {urlSearch ? `Không có kết quả cho "${urlSearch}"` : "Hiện chưa có giải đấu nào ở trạng thái này"}
+                            </p>
+                            {(urlSearch || urlStatus !== "all") && (
+                                <Button variant="outline" className="mt-5 rounded-xl" onClick={() => { setSearchInput(""); updateURL({ status: "all", q: "" }); }}>
+                                    Xóa bộ lọc
+                                </Button>
+                            )}
+                        </motion.div>
+                    )}                    {/* Pagination */}
                     {pagination.totalPages > 1 && (
-                        <div className="flex justify-center gap-2 mt-12">
-                            {pageNumbers.map((p, i) => p === "..." ? <span key={i}>...</span> : <button key={p} onClick={() => goToPage(p as number)} className={`w-10 h-10 rounded-xl leading-10 text-center ${p === urlPage ? "bg-efb-blue text-white" : "bg-gray-50"}`}>{p}</button>)}
+                        <div className="mt-14 flex flex-col items-center gap-4">
+                            {/* Page info */}
+                            <p className="text-xs text-gray-400 font-medium tracking-wide">
+                                Trang <span className="text-gray-700 font-bold">{urlPage}</span> / <span className="text-gray-700 font-bold">{pagination.totalPages}</span>
+                                <span className="mx-2 text-gray-200">•</span>
+                                <span>{pagination.total} giải đấu</span>
+                            </p>
+
+                            {/* Pagination controls */}
+                            <nav className="flex items-center gap-1.5" aria-label="Phân trang">
+                                {/* First page */}
+                                <button
+                                    onClick={() => goToPage(1)}
+                                    disabled={urlPage === 1}
+                                    className="hidden sm:flex w-10 h-10 items-center justify-center rounded-xl border border-gray-200 text-gray-400 hover:text-efb-blue hover:border-efb-blue hover:bg-blue-50 disabled:opacity-30 disabled:cursor-not-allowed disabled:hover:text-gray-400 disabled:hover:border-gray-200 disabled:hover:bg-transparent transition-all duration-200"
+                                    aria-label="Trang đầu"
+                                >
+                                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M18.5 18l-6-6 6-6M12.5 18l-6-6 6-6" /></svg>
+                                </button>
+
+                                {/* Previous */}
+                                <button
+                                    onClick={() => goToPage(urlPage - 1)}
+                                    disabled={urlPage === 1}
+                                    className="flex items-center gap-1.5 h-10 px-4 rounded-xl border border-gray-200 text-sm font-medium text-gray-600 hover:text-efb-blue hover:border-efb-blue hover:bg-blue-50 disabled:opacity-30 disabled:cursor-not-allowed disabled:hover:text-gray-600 disabled:hover:border-gray-200 disabled:hover:bg-transparent transition-all duration-200"
+                                    aria-label="Trang trước"
+                                >
+                                    <ChevronLeft className="w-4 h-4" />
+                                    <span className="hidden sm:inline">Trước</span>
+                                </button>
+
+                                {/* Page numbers */}
+                                <div className="flex items-center gap-1">
+                                    {pageNumbers.map((p, i) =>
+                                        p === "..." ? (
+                                            <span key={`dots-${i}`} className="w-10 h-10 flex items-center justify-center text-gray-300 text-sm select-none">•••</span>
+                                        ) : (
+                                            <button
+                                                key={p}
+                                                onClick={() => goToPage(p as number)}
+                                                className={`w-10 h-10 rounded-xl text-sm font-semibold transition-all duration-200 ${p === urlPage
+                                                    ? "bg-gradient-to-br from-efb-blue to-indigo-600 text-white shadow-lg shadow-blue-500/25 scale-105"
+                                                    : "text-gray-500 hover:text-efb-blue hover:bg-blue-50 border border-transparent hover:border-blue-200"
+                                                    }`}
+                                                aria-current={p === urlPage ? "page" : undefined}
+                                            >
+                                                {p}
+                                            </button>
+                                        )
+                                    )}
+                                </div>
+
+                                {/* Next */}
+                                <button
+                                    onClick={() => goToPage(urlPage + 1)}
+                                    disabled={urlPage === pagination.totalPages}
+                                    className="flex items-center gap-1.5 h-10 px-4 rounded-xl border border-gray-200 text-sm font-medium text-gray-600 hover:text-efb-blue hover:border-efb-blue hover:bg-blue-50 disabled:opacity-30 disabled:cursor-not-allowed disabled:hover:text-gray-600 disabled:hover:border-gray-200 disabled:hover:bg-transparent transition-all duration-200"
+                                    aria-label="Trang sau"
+                                >
+                                    <span className="hidden sm:inline">Sau</span>
+                                    <ChevronRight className="w-4 h-4" />
+                                </button>
+
+                                {/* Last page */}
+                                <button
+                                    onClick={() => goToPage(pagination.totalPages)}
+                                    disabled={urlPage === pagination.totalPages}
+                                    className="hidden sm:flex w-10 h-10 items-center justify-center rounded-xl border border-gray-200 text-gray-400 hover:text-efb-blue hover:border-efb-blue hover:bg-blue-50 disabled:opacity-30 disabled:cursor-not-allowed disabled:hover:text-gray-400 disabled:hover:border-gray-200 disabled:hover:bg-transparent transition-all duration-200"
+                                    aria-label="Trang cuối"
+                                >
+                                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M5.5 18l6-6-6-6M11.5 18l6-6-6-6" /></svg>
+                                </button>
+                            </nav>
                         </div>
                     )}
                 </div>

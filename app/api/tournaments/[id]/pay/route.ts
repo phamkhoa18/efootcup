@@ -58,6 +58,47 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
 
         // === AUTO MODE: PayOS ===
         if (method.mode === "auto" && method.type === "payos") {
+            // Check if there's already a pending PayOS link
+            if (registration.paymentMethod === "payos" && registration.paymentNote) {
+                try {
+                    const noteData = JSON.parse(registration.paymentNote);
+                    if (noteData.orderCode && noteData.paymentLinkId) {
+                        // Check existing link status via PayOS API
+                        const checkRes = await fetch(`https://api-merchant.payos.vn/v2/payment-requests/${noteData.orderCode}`, {
+                            headers: {
+                                "x-client-id": method.payosClientId,
+                                "x-api-key": method.payosApiKey,
+                            },
+                        });
+                        const checkData = await checkRes.json();
+                        if (checkData.code === "00" && checkData.data) {
+                            const linkStatus = checkData.data.status;
+                            if (linkStatus === "PENDING") {
+                                // Return existing checkout URL
+                                return apiResponse({
+                                    payUrl: checkData.data.checkoutUrl,
+                                    qrCode: checkData.data.qrCode,
+                                    orderCode: noteData.orderCode,
+                                    paymentLinkId: noteData.paymentLinkId,
+                                    amount: checkData.data.amount,
+                                }, 200, "Link thanh toán PayOS đang chờ");
+                            } else if (linkStatus === "PAID") {
+                                // Already paid! Update status
+                                registration.paymentStatus = "paid";
+                                registration.paymentAmount = checkData.data.amountPaid || checkData.data.amount;
+                                registration.paymentConfirmedAt = new Date();
+                                // paymentConfirmedBy stored in paymentNote as "payos-check"
+                                await registration.save();
+                                return apiError("Bạn đã thanh toán rồi", 400);
+                            }
+                            // CANCELLED/EXPIRED → allow creating new link below
+                        }
+                    }
+                } catch (e) {
+                    console.error("Check existing PayOS link error:", e);
+                }
+            }
+
             return await createPayOSPayment(
                 method,
                 paymentConfig,
@@ -175,7 +216,7 @@ async function createPayOSPayment(
         console.log("📦 PayOS response:", JSON.stringify(result, null, 2));
 
         if (result.code === "00" && result.data) {
-            // Save payment info to registration
+            // Save payment info to registration (keep unpaid until webhook or return URL confirms)
             registration.paymentMethod = "payos";
             registration.paymentNote = JSON.stringify({
                 orderCode,
@@ -183,7 +224,7 @@ async function createPayOSPayment(
                 tournamentId: tournament._id.toString(),
                 registrationId: registration._id.toString(),
             });
-            registration.paymentStatus = "pending_verification";
+            // Keep as unpaid — will be updated by webhook or return URL verification
             await registration.save();
 
             return apiResponse({

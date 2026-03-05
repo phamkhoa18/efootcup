@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useMemo, useEffect } from "react";
+import { useSiteSettings } from "@/hooks/useSiteSettings";
 import Link from "next/link";
 import Image from "next/image";
 import { usePathname, useRouter } from "next/navigation";
@@ -85,6 +86,7 @@ export default function ManagerLayout({
     const pathname = usePathname();
     const router = useRouter();
     const { user, isLoading, isAuthenticated, isManager, logout } = useAuth();
+    const { settings: siteSettings } = useSiteSettings();
     const [collapsed, setCollapsed] = useState(false);
     const [mobileOpen, setMobileOpen] = useState(false);
     const [notifications, setNotifications] = useState<any[]>([]);
@@ -168,14 +170,18 @@ export default function ManagerLayout({
             {/* Logo */}
             <div className={`flex items-center h-16 px-4 border-b border-gray-100 ${collapsed ? "justify-center" : "gap-3"}`}>
                 {collapsed ? (
-                    <Image src="/assets/logo_football.png" alt="eFootCup" width={32} height={32} className="w-8 h-8" />
+                    siteSettings.logo ? (
+                        <Image src={siteSettings.logo} alt={siteSettings.siteName} width={32} height={32} className="w-8 h-8 object-contain" />
+                    ) : (
+                        <Image src="/assets/logo_football.png" alt={siteSettings.siteName} width={32} height={32} className="w-8 h-8" />
+                    )
                 ) : (
                     <>
-                        <div className="bg-efb-blue rounded-lg p-1.5 flex-shrink-0">
-                            <Image src="/assets/logo.svg" alt="eFootCup" width={80} height={20} className="h-4 w-auto" />
+                        <div className={siteSettings.logo ? "flex-shrink-0" : "bg-efb-blue rounded-lg p-1.5 flex-shrink-0"}>
+                            <Image src={siteSettings.logo || "/assets/logo.svg"} alt={siteSettings.siteName} width={80} height={20} className={siteSettings.logo ? "h-8 w-auto object-contain" : "h-4 w-auto"} />
                         </div>
                         <div className="flex flex-col min-w-0">
-                            <span className="text-sm font-bold text-efb-dark leading-tight">eFootCup</span>
+                            <span className="text-sm font-bold text-efb-dark leading-tight">{siteSettings.siteName || "eFootCup"}</span>
                             <span className="text-[10px] text-efb-text-muted">Manager</span>
                         </div>
                     </>

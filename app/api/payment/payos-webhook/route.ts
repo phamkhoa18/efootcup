@@ -3,8 +3,10 @@ import crypto from "crypto";
 import dbConnect from "@/lib/mongodb";
 import Registration from "@/models/Registration";
 import Tournament from "@/models/Tournament";
+import Team from "@/models/Team";
 import Notification from "@/models/Notification";
 import PaymentConfig from "@/models/PaymentConfig";
+import { sendPaymentInvoiceEmail } from "@/lib/email";
 
 /**
  * GET /api/payment/payos-webhook
@@ -86,6 +88,46 @@ export async function POST(req: NextRequest) {
         // Only process successful payments
         if (code !== "00" || data.code !== "00") {
             console.log("PayOS webhook: non-success code", code, data.code);
+
+            // Handle CANCELLED or FAILED payments — reset paymentStatus to unpaid
+            const { orderCode: failedOrderCode, paymentLinkId: failedLinkId } = data;
+            if (failedOrderCode || failedLinkId) {
+                const pendingRegs = await Registration.find({
+                    paymentStatus: { $in: ["pending_verification"] },
+                });
+                for (const reg of pendingRegs) {
+                    try {
+                        const noteData = JSON.parse(reg.paymentNote || "{}");
+                        if (noteData.orderCode === failedOrderCode || noteData.paymentLinkId === failedLinkId) {
+                            reg.paymentStatus = "unpaid";
+                            reg.paymentNote = JSON.stringify({
+                                ...noteData,
+                                cancelledAt: new Date().toISOString(),
+                                cancelCode: code,
+                                cancelDesc: data.desc || "Cancelled",
+                            });
+                            await reg.save();
+                            console.log(`PayOS: Registration ${reg._id} payment cancelled/failed → reset to unpaid`);
+
+                            // Notify user
+                            const tournament = await Tournament.findById(reg.tournament);
+                            if (tournament) {
+                                await Notification.create({
+                                    recipient: reg.user,
+                                    type: "system",
+                                    title: "Thanh toán không thành công",
+                                    message: `Thanh toán cho giải "${tournament.title}" đã bị hủy hoặc thất bại. Vui lòng thử lại.`,
+                                    link: `/giai-dau/${tournament._id}?tab=register`,
+                                });
+                            }
+                            break;
+                        }
+                    } catch {
+                        // Skip invalid JSON
+                    }
+                }
+            }
+
             return NextResponse.json({ success: true });
         }
 
@@ -141,11 +183,119 @@ export async function POST(req: NextRequest) {
         console.log(`✅ PayOS: Registration ${registration._id} payment confirmed!`);
         console.log(`   Amount: ${amount}, OrderCode: ${orderCode}, Reference: ${reference}`);
 
-        // Get tournament info for notification
+        // Get tournament info
         const tournament = await Tournament.findById(registration.tournament);
 
-        // Notify user
-        if (tournament) {
+        // ============================================================
+        // AUTO-APPROVE: Thanh toán tự động → duyệt vào giải luôn
+        // ============================================================
+        if (tournament && registration.status === "pending") {
+            // Check if tournament still has room
+            if (tournament.currentTeams < tournament.maxTeams) {
+                // Create team automatically
+                const team = await Team.create({
+                    name: registration.teamName,
+                    shortName: registration.teamShortName,
+                    tournament: tournament._id,
+                    captain: registration.user,
+                    members: [
+                        {
+                            user: registration.user,
+                            role: "captain",
+                            joinedAt: new Date(),
+                        },
+                    ],
+                });
+
+                // Auto-approve registration
+                registration.status = "approved";
+                registration.team = team._id;
+                registration.approvedBy = "payos-auto" as any;
+                registration.approvedAt = new Date();
+                await registration.save();
+
+                // Update tournament team count
+                await Tournament.findByIdAndUpdate(tournament._id, {
+                    $inc: { currentTeams: 1 },
+                });
+
+                console.log(`🎉 PayOS: Auto-approved registration ${registration._id} → Team ${team._id}`);
+
+                // Notify user: payment + approval in one
+                await Notification.create({
+                    recipient: registration.user,
+                    type: "system",
+                    title: "🎉 Đăng ký thành công!",
+                    message: `Thanh toán ${amount?.toLocaleString("vi-VN")}đ đã được xác nhận. Bạn đã chính thức tham gia giải "${tournament.title}"!`,
+                    link: `/giai-dau/${tournament._id}`,
+                });
+
+                // Notify manager
+                await Notification.create({
+                    recipient: tournament.createdBy,
+                    type: "system",
+                    title: "✅ VĐV mới tự động duyệt",
+                    message: `VĐV "${registration.playerName}" (đội ${registration.teamName}) đã thanh toán ${amount?.toLocaleString("vi-VN")}đ qua PayOS và được tự động duyệt vào giải "${tournament.title}".`,
+                    link: `/manager/giai-dau/${tournament._id}/dang-ky`,
+                });
+
+                // 📧 Send invoice email to user
+                sendPaymentInvoiceEmail({
+                    playerName: registration.playerName,
+                    email: registration.email,
+                    teamName: registration.teamName,
+                    teamShortName: registration.teamShortName,
+                    tournamentTitle: tournament.title,
+                    tournamentId: tournament._id.toString(),
+                    amount,
+                    currency: tournament.currency || "VNĐ",
+                    paymentDate: transactionDateTime ? new Date(transactionDateTime) : new Date(),
+                    orderCode,
+                    reference: reference || "",
+                    paymentMethod: registration.paymentMethod || "PayOS",
+                    registrationId: registration._id.toString(),
+                    isAutoApproved: true,
+                }).catch((err: any) => console.error("❌ Failed to send invoice email:", err));
+            } else {
+                // Tournament full — can't auto-approve, just confirm payment
+                console.log(`⚠️ PayOS: Tournament full, payment confirmed but NOT auto-approved for ${registration._id}`);
+
+                await Notification.create({
+                    recipient: registration.user,
+                    type: "system",
+                    title: "✅ Thanh toán thành công",
+                    message: `Thanh toán ${amount?.toLocaleString("vi-VN")}đ cho giải "${tournament.title}" đã được xác nhận. Giải đã đủ đội, vui lòng liên hệ BTC.`,
+                    link: `/giai-dau/${tournament._id}`,
+                });
+
+                await Notification.create({
+                    recipient: tournament.createdBy,
+                    type: "system",
+                    title: "💰 Thanh toán nhận — giải đã đủ đội",
+                    message: `VĐV "${registration.playerName}" đã thanh toán ${amount?.toLocaleString("vi-VN")}đ nhưng giải "${tournament.title}" đã đủ ${tournament.maxTeams} đội.`,
+                    link: `/manager/giai-dau/${tournament._id}/dang-ky`,
+                });
+
+                // 📧 Send invoice email (tournament full)
+                sendPaymentInvoiceEmail({
+                    playerName: registration.playerName,
+                    email: registration.email,
+                    teamName: registration.teamName,
+                    teamShortName: registration.teamShortName,
+                    tournamentTitle: tournament.title,
+                    tournamentId: tournament._id.toString(),
+                    amount,
+                    currency: tournament.currency || "VNĐ",
+                    paymentDate: transactionDateTime ? new Date(transactionDateTime) : new Date(),
+                    orderCode,
+                    reference: reference || "",
+                    paymentMethod: registration.paymentMethod || "PayOS",
+                    registrationId: registration._id.toString(),
+                    isAutoApproved: false,
+                }).catch((err: any) => console.error("❌ Failed to send invoice email:", err));
+            }
+        } else if (tournament) {
+            // Registration already approved or other status — just confirm payment
             await Notification.create({
                 recipient: registration.user,
                 type: "system",
@@ -154,14 +304,23 @@ export async function POST(req: NextRequest) {
                 link: `/giai-dau/${tournament._id}`,
             });
 
-            // Notify manager
-            await Notification.create({
-                recipient: tournament.createdBy,
-                type: "system",
-                title: "💰 Thanh toán tự động xác nhận",
-                message: `VĐV "${registration.playerName}" đã thanh toán ${amount?.toLocaleString("vi-VN")}đ cho giải "${tournament.title}" qua PayOS.`,
-                link: `/manager/giai-dau/${tournament._id}/dang-ky`,
-            });
+            // 📧 Send invoice email (already approved)
+            sendPaymentInvoiceEmail({
+                playerName: registration.playerName,
+                email: registration.email,
+                teamName: registration.teamName,
+                teamShortName: registration.teamShortName,
+                tournamentTitle: tournament.title,
+                tournamentId: tournament._id.toString(),
+                amount,
+                currency: tournament.currency || "VNĐ",
+                paymentDate: transactionDateTime ? new Date(transactionDateTime) : new Date(),
+                orderCode,
+                reference: reference || "",
+                paymentMethod: registration.paymentMethod || "PayOS",
+                registrationId: registration._id.toString(),
+                isAutoApproved: false,
+            }).catch((err: any) => console.error("❌ Failed to send invoice email:", err));
         }
 
         return NextResponse.json({ success: true });

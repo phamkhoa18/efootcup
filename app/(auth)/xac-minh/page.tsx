@@ -11,12 +11,14 @@ import {
     Mail, ArrowRight, Loader2, CheckCircle2, RefreshCw, ShieldCheck, ArrowLeft
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
+import { useSiteSettings } from "@/hooks/useSiteSettings";
 
 function VerifyContent() {
     const searchParams = useSearchParams();
     const emailParam = searchParams.get("email") || "";
     const router = useRouter();
     const { verifyEmail, resendCode } = useAuth();
+    const { settings: siteSettings } = useSiteSettings();
 
     const [code, setCode] = useState(["", "", "", ""]);
     const [error, setError] = useState("");
@@ -291,10 +293,10 @@ function VerifyContent() {
                                 {/* Timer */}
                                 <div className="text-center mb-6">
                                     <div className={`inline-flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium ${countdown > 60
-                                            ? "bg-blue-50 text-blue-600"
-                                            : countdown > 0
-                                                ? "bg-amber-50 text-amber-600"
-                                                : "bg-red-50 text-red-600"
+                                        ? "bg-blue-50 text-blue-600"
+                                        : countdown > 0
+                                            ? "bg-amber-50 text-amber-600"
+                                            : "bg-red-50 text-red-600"
                                         }`}>
                                         {countdown > 0 ? (
                                             <>
@@ -330,8 +332,8 @@ function VerifyContent() {
                                                 onPaste={index === 0 ? handlePaste : undefined}
                                                 disabled={isSubmitting || countdown === 0}
                                                 className={`w-16 h-16 text-center text-2xl font-bold rounded-xl border-2 transition-all duration-200 focus:ring-2 focus:ring-offset-1 ${digit
-                                                        ? "border-efb-blue bg-efb-blue/5 text-efb-blue focus:ring-efb-blue/20"
-                                                        : "border-gray-200 bg-gray-50/50 text-gray-700 focus:border-efb-blue focus:ring-efb-blue/20 focus:bg-white"
+                                                    ? "border-efb-blue bg-efb-blue/5 text-efb-blue focus:ring-efb-blue/20"
+                                                    : "border-gray-200 bg-gray-50/50 text-gray-700 focus:border-efb-blue focus:ring-efb-blue/20 focus:bg-white"
                                                     } ${isSubmitting ? "opacity-60" : ""}`}
                                                 autoComplete="one-time-code"
                                             />
@@ -430,16 +432,16 @@ function VerifyContent() {
                 {/* Logo */}
                 <div className="mt-8 text-center">
                     <Link href="/" className="inline-flex items-center gap-2 opacity-60 hover:opacity-100 transition-opacity">
-                        <div className="bg-efb-blue rounded-lg p-1">
+                        <div className={siteSettings.logo ? "" : "bg-efb-blue rounded-lg p-1"}>
                             <Image
-                                src="/assets/logo.svg"
-                                alt="eFootCup"
+                                src={siteSettings.logo || "/assets/logo.svg"}
+                                alt={siteSettings.siteName}
                                 width={60}
                                 height={16}
-                                className="h-3 w-auto"
+                                className={siteSettings.logo ? "h-5 w-auto object-contain" : "h-3 w-auto"}
                             />
                         </div>
-                        <span className="text-xs font-semibold text-gray-500">eFootCup VN</span>
+                        <span className="text-xs font-semibold text-gray-500">{siteSettings.siteName || "eFootCup VN"}</span>
                     </Link>
                 </div>
             </motion.div>

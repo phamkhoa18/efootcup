@@ -99,6 +99,15 @@ export async function GET(req: NextRequest, { params }: RouteParams) {
             rounds[rk].push(m);
         });
 
+        // Debug: check resultSubmissions
+        const withSubs = matches.filter((m: any) => m.resultSubmissions && m.resultSubmissions.length > 0);
+        if (withSubs.length > 0) {
+            console.log(`🟠 Brackets: ${withSubs.length} matches have resultSubmissions`);
+            withSubs.forEach((m: any) => console.log(`  Match #${m.matchNumber}: ${m.resultSubmissions.length} submissions`));
+        } else {
+            console.log(`🟠 Brackets: NO matches have resultSubmissions. Total matches: ${matches.length}`);
+        }
+
         return apiResponse({ matches, rounds });
     } catch (e) { return apiError("Lỗi", 500); }
 }

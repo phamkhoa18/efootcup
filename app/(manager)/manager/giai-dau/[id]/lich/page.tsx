@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
-import { Calendar, Download, Edit3, Filter, Settings2, Share2, Play, Users, X, Info, ChevronDown, CheckCircle2, Bone, Hexagon, SplitSquareHorizontal, Loader2, ArrowLeftRight, FileBarChart } from "lucide-react";
+import { Calendar, Download, Edit3, Filter, Settings2, Share2, Play, Users, X, Info, ChevronDown, CheckCircle2, Bone, Hexagon, SplitSquareHorizontal, Loader2, ArrowLeftRight, FileBarChart, Eye } from "lucide-react";
 import { tournamentAPI } from "@/lib/api";
 import { toast } from "sonner";
 import { useConfirmDialog } from "@/components/ui/confirm-dialog";
@@ -39,6 +39,7 @@ export default function LichThiDauPage() {
     const [team2Id, setTeam2Id] = useState("");
     const [selectedFormatType, setSelectedFormatType] = useState('standard');
     const [editingMatch, setEditingMatch] = useState<any>(null);
+    const [viewingSubmissions, setViewingSubmissions] = useState<any>(null);
     const { confirm, alert: showAlert } = useConfirmDialog();
 
     const handleDownloadPDF = async () => {
@@ -395,6 +396,12 @@ export default function LichThiDauPage() {
                                                         ) : (
                                                             <div className="w-4 h-4" /> // empty space placeholder
                                                         )}
+                                                        {m.resultSubmissions && m.resultSubmissions.length > 0 && (
+                                                            <span title={`${m.resultSubmissions.length} kết quả VĐV gửi`} onClick={() => setViewingSubmissions(m)} className="relative cursor-pointer">
+                                                                <Eye className="w-4 h-4 hover:text-orange-500 transition-colors text-orange-400" />
+                                                                <span className="absolute -top-1.5 -right-1.5 w-3.5 h-3.5 rounded-full bg-orange-500 text-white text-[8px] font-bold flex items-center justify-center">{m.resultSubmissions.length}</span>
+                                                            </span>
+                                                        )}
                                                         <Edit3 className="w-4 h-4 hover:text-blue-500 cursor-pointer transition-colors" onClick={() => setEditingMatch({ ...m, roundName })} />
                                                     </div>
                                                 </div>
@@ -543,6 +550,76 @@ export default function LichThiDauPage() {
                                 Trộn lịch thi đấu
                             </Button>
                         </div>
+                    </div>
+                </DialogContent>
+            </Dialog>
+
+            {/* View Submissions Popup */}
+            <Dialog open={!!viewingSubmissions} onOpenChange={(open) => !open && setViewingSubmissions(null)}>
+                <DialogContent className="max-w-lg p-0 overflow-hidden border-0 rounded-[16px] bg-white text-gray-900 shadow-2xl" showCloseButton={false}>
+                    <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 bg-gradient-to-r from-orange-50 to-amber-50">
+                        <div>
+                            <DialogTitle className="text-lg font-bold text-gray-900 flex items-center gap-2">
+                                <Eye className="w-5 h-5 text-orange-500" /> Kết quả VĐV đã gửi
+                            </DialogTitle>
+                            <p className="text-xs text-gray-500 mt-0.5">
+                                Trận #{viewingSubmissions?.matchNumber} — {viewingSubmissions?.homeTeam?.name || "?"} vs {viewingSubmissions?.awayTeam?.name || "?"}
+                            </p>
+                        </div>
+                        <button onClick={() => setViewingSubmissions(null)} className="text-gray-400 hover:text-gray-600">
+                            <X className="w-5 h-5" />
+                        </button>
+                    </div>
+                    <div className="p-6 max-h-[60vh] overflow-y-auto space-y-4">
+                        {viewingSubmissions?.resultSubmissions?.length > 0 ? (
+                            viewingSubmissions.resultSubmissions.map((sub: any, idx: number) => (
+                                <div key={idx} className="p-4 rounded-xl bg-gray-50 border border-gray-200 space-y-3">
+                                    <div className="flex items-center justify-between">
+                                        <span className="text-xs font-bold text-gray-700 flex items-center gap-1.5">
+                                            📤 {sub.team?.toString() === (viewingSubmissions.homeTeam?._id || viewingSubmissions.homeTeam)?.toString()
+                                                ? viewingSubmissions.homeTeam?.shortName || viewingSubmissions.homeTeam?.name || "Đội nhà"
+                                                : viewingSubmissions.awayTeam?.shortName || viewingSubmissions.awayTeam?.name || "Đội khách"
+                                            }
+                                        </span>
+                                        <span className="text-[10px] text-gray-400">
+                                            {sub.submittedAt ? new Date(sub.submittedAt).toLocaleString("vi-VN") : ""}
+                                        </span>
+                                    </div>
+                                    {/* Score */}
+                                    <div className="flex items-center justify-center gap-4 py-2">
+                                        <div className="text-center">
+                                            <p className="text-[9px] font-bold text-gray-400 uppercase mb-1">{viewingSubmissions.homeTeam?.shortName || "H"}</p>
+                                            <span className="text-2xl font-black text-blue-600 bg-blue-50 px-4 py-2 rounded-xl inline-block">{sub.homeScore}</span>
+                                        </div>
+                                        <span className="text-xl text-gray-200 font-light">—</span>
+                                        <div className="text-center">
+                                            <p className="text-[9px] font-bold text-gray-400 uppercase mb-1">{viewingSubmissions.awayTeam?.shortName || "A"}</p>
+                                            <span className="text-2xl font-black text-blue-600 bg-blue-50 px-4 py-2 rounded-xl inline-block">{sub.awayScore}</span>
+                                        </div>
+                                    </div>
+                                    {sub.notes && (
+                                        <p className="text-xs text-gray-500 italic bg-white px-3 py-2 rounded-lg border border-gray-100">💬 "{sub.notes}"</p>
+                                    )}
+                                    {sub.screenshots && sub.screenshots.length > 0 && (
+                                        <div className="flex gap-2 flex-wrap">
+                                            {sub.screenshots.map((s: string, si: number) => (
+                                                <img key={si} src={s} alt="Screenshot" className="w-24 h-24 rounded-xl object-cover border-2 border-gray-200 cursor-pointer hover:opacity-80 hover:shadow-lg transition-all" onClick={() => window.open(s, "_blank")} />
+                                            ))}
+                                        </div>
+                                    )}
+                                </div>
+                            ))
+                        ) : (
+                            <div className="text-center py-8 text-gray-400">
+                                <p className="text-sm">Chưa có kết quả nào được gửi.</p>
+                            </div>
+                        )}
+                    </div>
+                    <div className="border-t border-gray-100 p-4 bg-gray-50 flex justify-between items-center">
+                        <p className="text-[10px] text-gray-400 italic">Xem kết quả và nhập tỉ số chính thức qua nút Sửa bên cạnh.</p>
+                        <Button variant="outline" onClick={() => setViewingSubmissions(null)} className="px-6 h-9 rounded-lg border-gray-200 text-gray-700 font-semibold hover:bg-gray-100 text-sm">
+                            Đóng
+                        </Button>
                     </div>
                 </DialogContent>
             </Dialog>
@@ -734,6 +811,51 @@ function EditMatchModal({ match, tournament, onClose, onSaved }: { match: any; t
                             </Select>
                         </div>
                     </div>
+
+                    {/* Player Submitted Results */}
+                    {match.resultSubmissions && match.resultSubmissions.length > 0 && (
+                        <div className="mt-8 border border-orange-200 rounded-xl p-5 bg-orange-50/30">
+                            <h4 className="text-sm font-bold text-gray-800 mb-4 flex items-center gap-2">
+                                <FileBarChart className="w-4 h-4 text-orange-500" />
+                                Kết quả VĐV đã gửi
+                                <span className="bg-orange-100 text-orange-600 text-[10px] font-bold px-2 py-0.5 rounded-full">{match.resultSubmissions.length}</span>
+                            </h4>
+                            <div className="space-y-3">
+                                {match.resultSubmissions.map((sub: any, idx: number) => (
+                                    <div key={idx} className="p-4 rounded-xl bg-white border border-gray-200 shadow-sm">
+                                        <div className="flex items-center justify-between mb-2">
+                                            <span className="text-xs font-bold text-gray-700">
+                                                {sub.team?.toString?.() === (match.homeTeam?._id || match.homeTeam)?.toString?.()
+                                                    ? `📤 ${match.homeTeam?.shortName || match.homeTeam?.name || "Home"}`
+                                                    : `📤 ${match.awayTeam?.shortName || match.awayTeam?.name || "Away"}`
+                                                }
+                                            </span>
+                                            <span className="text-[10px] text-gray-400">
+                                                {sub.submittedAt ? new Date(sub.submittedAt).toLocaleString("vi-VN") : ""}
+                                            </span>
+                                        </div>
+                                        <div className="flex items-center gap-4 mb-2">
+                                            <div className="flex items-center gap-2 text-sm">
+                                                <span className="font-bold text-gray-700">{match.homeTeam?.shortName || "H"}</span>
+                                                <span className="text-xl font-black text-blue-600 bg-blue-50 px-3 py-1 rounded-lg">{sub.homeScore}</span>
+                                                <span className="text-gray-300 font-light">—</span>
+                                                <span className="text-xl font-black text-blue-600 bg-blue-50 px-3 py-1 rounded-lg">{sub.awayScore}</span>
+                                                <span className="font-bold text-gray-700">{match.awayTeam?.shortName || "A"}</span>
+                                            </div>
+                                        </div>
+                                        {sub.notes && <p className="text-xs text-gray-500 italic mb-2">"{sub.notes}"</p>}
+                                        {sub.screenshots && sub.screenshots.length > 0 && (
+                                            <div className="flex gap-2 mt-2">
+                                                {sub.screenshots.map((s: string, si: number) => (
+                                                    <img key={si} src={s} alt="SS" className="w-20 h-20 rounded-lg object-cover border border-gray-200 cursor-pointer hover:opacity-80 hover:shadow-md transition-all" onClick={() => window.open(s, "_blank")} />
+                                                ))}
+                                            </div>
+                                        )}
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    )}
 
                     {/* History */}
                     <div className="mt-8 mb-16 text-center">

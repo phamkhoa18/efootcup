@@ -6,10 +6,12 @@ import Link from "next/link";
 import Image from "next/image";
 import { Button } from "@/components/ui/button";
 import { Trophy, ArrowRight, Sparkles } from "lucide-react";
+import { useSiteSettings } from "@/hooks/useSiteSettings";
 
 export function CTASection() {
     const ref = useRef(null);
     const isInView = useInView(ref, { once: true, margin: "-100px" });
+    const { settings: siteSettings } = useSiteSettings();
 
     return (
         <section ref={ref} className="py-20 lg:py-28 bg-white">
@@ -33,7 +35,7 @@ export function CTASection() {
                         {/* Logo watermark */}
                         <div className="absolute -right-10 top-1/2 -translate-y-1/2 opacity-[0.04] pointer-events-none">
                             <Image
-                                src="/assets/logo.svg"
+                                src={siteSettings.logoDark || siteSettings.logo || "/assets/logo.svg"}
                                 alt=""
                                 width={400}
                                 height={100}

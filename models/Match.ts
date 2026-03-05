@@ -33,6 +33,17 @@ export interface IMatch extends Document {
     }[];
     notes?: string;
     screenshots?: string[];
+    resultSubmissions: {
+        user: mongoose.Types.ObjectId;
+        team: mongoose.Types.ObjectId;
+        homeScore: number;
+        awayScore: number;
+        homePenalty?: number;
+        awayPenalty?: number;
+        screenshots: string[];
+        notes?: string;
+        submittedAt: Date;
+    }[];
     nextMatch?: mongoose.Types.ObjectId; // Winner goes to this match
     previousMatches?: mongoose.Types.ObjectId[]; // Matches that feed into this
     bracketPosition: {
@@ -99,6 +110,19 @@ const MatchSchema = new Schema<IMatch>(
         ],
         notes: { type: String },
         screenshots: [{ type: String }],
+        resultSubmissions: [
+            {
+                user: { type: Schema.Types.ObjectId, ref: "User", required: true },
+                team: { type: Schema.Types.ObjectId, ref: "Team", required: true },
+                homeScore: { type: Number, required: true },
+                awayScore: { type: Number, required: true },
+                homePenalty: { type: Number },
+                awayPenalty: { type: Number },
+                screenshots: [{ type: String }],
+                notes: { type: String },
+                submittedAt: { type: Date, default: Date.now },
+            },
+        ],
         nextMatch: { type: Schema.Types.ObjectId, ref: "Match" },
         previousMatches: [{ type: Schema.Types.ObjectId, ref: "Match" }],
         bracketPosition: {

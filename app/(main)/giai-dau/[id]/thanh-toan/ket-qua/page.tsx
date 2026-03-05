@@ -38,13 +38,46 @@ function PaymentResultContent() {
             // === PayOS result check ===
             if (gateway === "payos") {
                 if (isCancelled) {
+                    // Reset registration paymentStatus to unpaid so user can retry
+                    try {
+                        await fetch(`/api/payment/payos-cancel`, {
+                            method: "POST",
+                            headers: { "Content-Type": "application/json" },
+                            body: JSON.stringify({
+                                tournamentId,
+                                orderCode: payosOrderCode,
+                            }),
+                        });
+                    } catch (err) {
+                        console.error("Failed to reset payment status:", err);
+                    }
                     setStatus("failed");
                     return;
                 }
                 if (payosStatus === "PAID" || payosCode === "00") {
-                    // PayOS says success — wait for webhook to confirm
+                    // Call verify API to confirm payment and auto-approve
+                    try {
+                        const verifyRes = await fetch(`/api/payment/payos-verify`, {
+                            method: "POST",
+                            headers: { "Content-Type": "application/json" },
+                            body: JSON.stringify({
+                                tournamentId,
+                                orderCode: payosOrderCode,
+                            }),
+                        });
+                        const verifyData = await verifyRes.json();
+                        console.log("PayOS verify result:", verifyData);
+
+                        if (verifyData.success && verifyData.payosStatus === "PAID") {
+                            setStatus("success");
+                            return;
+                        }
+                    } catch (err) {
+                        console.error("PayOS verify error:", err);
+                    }
+
+                    // Fallback: wait and recheck registration
                     await new Promise(r => setTimeout(r, 3000));
-                    // Recheck registration status
                     const rRes = await tournamentAPI.getRegistrations(tournamentId);
                     if (rRes.success) {
                         const regs = rRes.data?.registrations || rRes.data || [];
@@ -57,7 +90,6 @@ function PaymentResultContent() {
                             return;
                         }
                     }
-                    // Webhook might not have processed yet
                     setStatus("pending");
                 } else {
                     setStatus("failed");
@@ -97,12 +129,12 @@ function PaymentResultContent() {
                 <div className="bg-white rounded-3xl border border-gray-100 shadow-2xl shadow-gray-200/50 overflow-hidden">
                     {/* Status Banner */}
                     <div className={`relative p-10 text-center overflow-hidden ${status === "success"
-                            ? "bg-gradient-to-br from-emerald-500 to-teal-600"
-                            : status === "pending"
-                                ? "bg-gradient-to-br from-amber-500 to-orange-600"
-                                : status === "failed"
-                                    ? "bg-gradient-to-br from-red-500 to-rose-600"
-                                    : "bg-gradient-to-br from-blue-500 to-indigo-600"
+                        ? "bg-gradient-to-br from-emerald-500 to-teal-600"
+                        : status === "pending"
+                            ? "bg-gradient-to-br from-amber-500 to-orange-600"
+                            : status === "failed"
+                                ? "bg-gradient-to-br from-red-500 to-rose-600"
+                                : "bg-gradient-to-br from-blue-500 to-indigo-600"
                         }`}>
                         <div className="absolute top-0 right-0 w-40 h-40 rounded-full bg-white/5 -translate-y-1/2 translate-x-1/2" />
                         <div className="absolute bottom-0 left-0 w-24 h-24 rounded-full bg-white/5 translate-y-1/2 -translate-x-1/2" />
@@ -130,13 +162,13 @@ function PaymentResultContent() {
 
                             <h1 className="text-2xl font-bold text-white mt-5">
                                 {status === "loading" && "Đang xử lý..."}
-                                {status === "success" && "Thanh toán thành công!"}
+                                {status === "success" && "🎉 Đăng ký thành công!"}
                                 {status === "pending" && "Đang xác nhận..."}
                                 {status === "failed" && (isCancelled ? "Đã huỷ thanh toán" : "Thanh toán thất bại")}
                             </h1>
                             <p className="text-white/80 text-sm mt-2">
                                 {status === "loading" && "Đang kiểm tra kết quả thanh toán..."}
-                                {status === "success" && "Lệ phí giải đấu đã được thanh toán thành công"}
+                                {status === "success" && "Thanh toán đã xác nhận — bạn đã chính thức tham gia giải đấu!"}
                                 {status === "pending" && "Hệ thống đang xử lý. Vui lòng đợi trong giây lát..."}
                                 {status === "failed" && (isCancelled ? "Bạn đã huỷ giao dịch" : "Giao dịch không thành công. Vui lòng thử lại.")}
                             </p>
