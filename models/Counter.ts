@@ -3,7 +3,7 @@ import mongoose, { Schema, Document, Model } from "mongoose";
 /**
  * Counter model for auto-incrementing sequences (e.g., EFV-ID)
  */
-export interface ICounter extends Document {
+export interface ICounter extends Omit<Document, '_id'> {
     _id: string; // counter name, e.g. "efvId"
     seq: number; // current sequence number
 }
