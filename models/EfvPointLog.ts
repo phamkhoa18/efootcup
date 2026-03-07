@@ -5,7 +5,7 @@ export interface IEfvPointLog extends Document {
     user: mongoose.Types.ObjectId;           // VĐV (ref User)
     tournament: mongoose.Types.ObjectId;     // Giải đấu (ref Tournament)
     mode: "mobile" | "pc";                   // Chế độ giải
-    efvTier: "efv_250" | "efv_500" | "efv_1000"; // Hạng giải
+    efvTier: "efv_250" | "efv_500" | "efv_1000" | "efv_50" | "efv_100" | "efv_200"; // Hạng giải
     placement: string;                       // "champion" | "runner_up" | "top_4" | ...
     points: number;                          // Số điểm nhận được
     teamName: string;                        // Tên đội/VĐV tại thời điểm giải
@@ -34,7 +34,7 @@ const EfvPointLogSchema = new Schema<IEfvPointLog>(
         },
         efvTier: {
             type: String,
-            enum: ["efv_250", "efv_500", "efv_1000"],
+            enum: ["efv_250", "efv_500", "efv_1000", "efv_50", "efv_100", "efv_200"],
             required: true,
         },
         placement: {
@@ -68,8 +68,9 @@ const EfvPointLogSchema = new Schema<IEfvPointLog>(
 // Unique: 1 user chỉ được cộng điểm 1 lần per tournament
 EfvPointLogSchema.index({ user: 1, tournament: 1 }, { unique: true });
 
-// Query BXH: sort by awardedAt để lấy top 5 gần nhất
+// Query BXH: sort by awardedAt để lấy top N gần nhất per tier
 EfvPointLogSchema.index({ user: 1, mode: 1, awardedAt: -1 });
+EfvPointLogSchema.index({ user: 1, efvTier: 1, awardedAt: -1 });
 
 // Aggregate BXH: tìm tất cả user có điểm
 EfvPointLogSchema.index({ mode: 1, awardedAt: -1 });

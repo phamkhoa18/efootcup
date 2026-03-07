@@ -5,19 +5,21 @@ import { apiResponse, apiError, requireRole } from "@/lib/auth";
 
 export const dynamic = "force-dynamic";
 
-// GET /api/bxh — Get BXH list
+// GET /api/bxh — Get BXH list (filtered by mode)
 export async function GET(req: NextRequest) {
     try {
         await dbConnect();
 
-        const bxhList = await Bxh.find().lean();
+        const { searchParams } = new URL(req.url);
+        const mode = searchParams.get("mode") || "mobile";
+
+        const bxhList = await Bxh.find({ mode }).lean();
 
         // Sắp xếp: Thứ hạng cứng có trước
         bxhList.sort((a, b) => {
             const rankA = a.rank && a.rank > 0 ? a.rank : 999999;
             const rankB = b.rank && b.rank > 0 ? b.rank : 999999;
             if (rankA !== rankB) return rankA - rankB;
-            // Nếu bằng rank (ví dụ cùng là null), thì xếp theo điểm (hoặc tùy bạn, excel không có rank thì cũng chả cần thiết, nhưng cứ xếp tạm theo điểm nếu lỡ tay chưa có rank)
             return (b.points || 0) - (a.points || 0);
         });
 
@@ -30,11 +32,19 @@ export async function GET(req: NextRequest) {
                 team: item.team,
                 nickname: item.nickname,
                 points: item.points,
-                rank: item.rank || 0, // Chỉ trả về rank có sẵn, nếu không có thì là 0 hoặc "?" ở Frontend tự lo
+                // Mobile tiers
+                pointsEfv250: (item as any).pointsEfv250 || 0,
+                pointsEfv500: (item as any).pointsEfv500 || 0,
+                pointsEfv1000: (item as any).pointsEfv1000 || 0,
+                // PC tiers
+                pointsEfv50: (item as any).pointsEfv50 || 0,
+                pointsEfv100: (item as any).pointsEfv100 || 0,
+                pointsEfv200: (item as any).pointsEfv200 || 0,
+                rank: item.rank || 0,
             };
         });
 
-        return apiResponse({ data, total: data.length });
+        return apiResponse({ data, total: data.length, mode });
     } catch (error) {
         console.error("Get BXH error:", error);
         return apiError("Có lỗi xảy ra", 500);

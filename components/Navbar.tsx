@@ -26,7 +26,8 @@ import { useSiteSettings } from "@/hooks/useSiteSettings";
 const defaultNavLinks = [
     { label: "Giải đấu", href: "/giai-dau", icon: Trophy },
     { label: "Tin tức", href: "/tin-tuc", icon: Newspaper },
-    { label: "Bảng xếp hạng", href: "/bxh", icon: Users },
+    { label: "BXH Mobile", href: "/bxh", icon: Users },
+    { label: "BXH Console", href: "/bxh-console", icon: Gamepad2 },
 ];
 
 const iconMap: Record<string, any> = {

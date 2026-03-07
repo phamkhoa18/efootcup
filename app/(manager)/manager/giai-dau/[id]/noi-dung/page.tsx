@@ -292,13 +292,13 @@ export default function NoiDungThiDauPage() {
                     <>
                         <div className="w-px h-5 bg-gray-200" />
                         <Badge variant="outline" className="text-xs font-medium bg-white">
-                            {tournament.mode === "mobile" ? "📱 Mobile" : "🖥 PC"}
+                            {tournament.mode === "mobile" ? "📱 Mobile" : tournament.mode === "free" ? "🎯 Tự do" : "🖥 Console"}
                         </Badge>
                     </>
                 )}
                 {tournament?.efvTier && (
                     <Badge variant="outline" className="text-xs font-bold bg-purple-50 text-purple-600 border-purple-100">
-                        {tournament.efvTier === "efv_250" ? "EFV 250" : tournament.efvTier === "efv_500" ? "EFV 500" : "EFV 1000"}
+                        {({ "efv_250": "EFV 250", "efv_500": "EFV 500", "efv_1000": "EFV 1000", "efv_50": "EFV 50", "efv_100": "EFV 100", "efv_200": "EFV 200" } as Record<string, string>)[tournament.efvTier] || tournament.efvTier}
                     </Badge>
                 )}
             </motion.div>

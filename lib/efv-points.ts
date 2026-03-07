@@ -1,14 +1,16 @@
 /**
  * EFV Points System — Constants & Point Tables
  * 
- * Điểm EFV được tính dựa trên:
- * - Hạng giải (efvTier): efv_250 | efv_500 | efv_1000
- * - Thành tích (placement): champion | runner_up | top_4 | top_8 | top_16 | top_32 | participant
+ * MOBILE: EFV250 / EFV500 / EFV1000
+ * PC:     EFV50  / EFV100 / EFV200
  * 
- * Quy tắc BXH: Chỉ tính 5 giải Mobile gần nhất
+ * Quy tắc BXH:
+ * - Mobile: EFV250 lấy 5 giải, EFV500 lấy 4 giải, EFV1000 lấy 3 giải gần nhất
+ * - PC:     EFV50 lấy 5 giải, EFV100 lấy 4 giải, EFV200 lấy 3 giải gần nhất
+ * - BXH Tổng = sum of all tiers in that mode
  */
 
-// Bảng điểm EFV theo tier và placement
+// ══════════════ MOBILE Point Table ══════════════
 export const EFV_POINT_TABLE: Record<string, Record<string, number>> = {
     efv_250: {
         champion: 250,
@@ -37,9 +39,34 @@ export const EFV_POINT_TABLE: Record<string, Record<string, number>> = {
         top_32: 150,
         participant: 100,
     },
+    // ══════════════ PC Point Table ══════════════
+    efv_50: {
+        champion: 50,
+        runner_up: 40,
+        top_4: 30,
+        top_8: 20,
+        top_16: 10,
+        participant: 5,
+    },
+    efv_100: {
+        champion: 100,
+        runner_up: 80,
+        top_4: 60,
+        top_8: 40,
+        top_16: 20,
+        participant: 10,
+    },
+    efv_200: {
+        champion: 200,
+        runner_up: 160,
+        top_4: 120,
+        top_8: 80,
+        top_16: 40,
+        participant: 20,
+    },
 };
 
-// Tier options for UI
+// ══════════════ MOBILE Tier Options (UI) ══════════════
 export const EFV_TIER_OPTIONS = [
     {
         value: "efv_250",
@@ -73,6 +100,43 @@ export const EFV_TIER_OPTIONS = [
     },
 ];
 
+// ══════════════ PC Tier Options (UI) ══════════════
+export const EFV_PC_TIER_OPTIONS = [
+    {
+        value: "efv_50",
+        label: "EFV 50",
+        description: "Giải nhỏ",
+        pointRange: "5 - 50 điểm",
+        color: "from-teal-500 to-teal-600",
+        bgColor: "bg-teal-50",
+        textColor: "text-teal-600",
+        borderColor: "border-teal-200",
+    },
+    {
+        value: "efv_100",
+        label: "EFV 100",
+        description: "Giải trung",
+        pointRange: "10 - 100 điểm",
+        color: "from-cyan-500 to-cyan-600",
+        bgColor: "bg-cyan-50",
+        textColor: "text-cyan-600",
+        borderColor: "border-cyan-200",
+    },
+    {
+        value: "efv_200",
+        label: "EFV 200",
+        description: "Giải lớn",
+        pointRange: "20 - 200 điểm",
+        color: "from-rose-500 to-rose-600",
+        bgColor: "bg-rose-50",
+        textColor: "text-rose-600",
+        borderColor: "border-rose-200",
+    },
+];
+
+// All tier options combined
+export const ALL_EFV_TIER_OPTIONS = [...EFV_TIER_OPTIONS, ...EFV_PC_TIER_OPTIONS];
+
 // Placement labels in Vietnamese
 export const PLACEMENT_LABELS: Record<string, string> = {
     champion: "🥇 Vô địch",
@@ -84,18 +148,44 @@ export const PLACEMENT_LABELS: Record<string, string> = {
     participant: "✅ Tham gia hợp lệ",
 };
 
-// Maximum number of recent tournaments to count for BXH
+// ══════════════ Sliding Windows — PER TIER ══════════════
+export const EFV_TIER_WINDOWS: Record<string, number> = {
+    // Mobile
+    efv_250: 5,
+    efv_500: 4,
+    efv_1000: 3,
+    // PC
+    efv_50: 5,
+    efv_100: 4,
+    efv_200: 3,
+};
+
+// Kept for backward compatibility — max across all tiers
 export const EFV_MAX_WINDOW = 5;
+
+// Mobile tiers list
+export const MOBILE_TIERS = ["efv_250", "efv_500", "efv_1000"] as const;
+// PC tiers list
+export const PC_TIERS = ["efv_50", "efv_100", "efv_200"] as const;
+
+/** Get the sliding window size for a specific tier */
+export function getTierWindow(tier: string): number {
+    return EFV_TIER_WINDOWS[tier] ?? 5;
+}
+
+/** Get tiers for a given mode */
+export function getTiersForMode(mode: string): string[] {
+    return mode === "pc" ? [...PC_TIERS] : [...MOBILE_TIERS];
+}
+
+/** Get tier label from tier value */
+export function getTierLabel(tier: string): string {
+    const option = ALL_EFV_TIER_OPTIONS.find(t => t.value === tier);
+    return option?.label || tier;
+}
 
 /**
  * Determine placement based on elimination round in single_elimination bracket.
- * 
- * @param totalTeams - Total number of teams in the tournament
- * @param eliminatedAtRound - The round number where the team was eliminated (1-based)
- *                            For the champion, pass -1 or use "champion" placement directly
- * @param totalRounds - Total number of rounds in the bracket
- * @param isChampion - Whether this team won the tournament
- * @param isRunnerUp - Whether this team lost in the final
  */
 export function getPlacementFromRound(
     totalRounds: number,
@@ -106,20 +196,18 @@ export function getPlacementFromRound(
     if (isChampion) return "champion";
     if (isRunnerUp) return "runner_up";
 
-    // Round numbering: round 1 = first round, totalRounds = final
-    // eliminatedAtRound = round they LOST in
     const roundsFromFinal = totalRounds - eliminatedAtRound;
 
     switch (roundsFromFinal) {
-        case 0: // Lost in final = runner_up (handled above, but safety)
+        case 0:
             return "runner_up";
-        case 1: // Lost in semi-final
+        case 1:
             return "top_4";
-        case 2: // Lost in quarter-final
+        case 2:
             return "top_8";
-        case 3: // Lost in round of 16
+        case 3:
             return "top_16";
-        case 4: // Lost in round of 32
+        case 4:
             return "top_32";
         default:
             return "participant";

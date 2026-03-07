@@ -5,7 +5,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import {
     Users, Search, Filter, Crown, Shield, UserCheck, UserX,
     MoreVertical, Mail, Phone, Calendar, Loader2, ChevronDown,
-    CheckCircle2, XCircle, Trash2, Edit, ArrowUpRight, Download
+    CheckCircle2, XCircle, Trash2, Edit, ArrowUpRight, Download, Hash
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -169,7 +169,7 @@ export default function AdminUsersPage() {
                         value={search}
                         onChange={(e) => setSearch(e.target.value)}
                         onKeyDown={(e) => e.key === "Enter" && handleSearch()}
-                        placeholder="Tìm theo tên, email, Gamer ID..."
+                        placeholder="Tìm theo tên, email, Gamer ID, EFV ID..."
                         className="pl-10 h-10 rounded-xl"
                     />
                 </div>
@@ -212,6 +212,7 @@ export default function AdminUsersPage() {
                         <table className="w-full">
                             <thead>
                                 <tr className="bg-[#f8f9fc] text-[10px] font-bold text-gray-500 uppercase tracking-wider border-b border-gray-100">
+                                    <th className="px-4 py-4 text-center font-bold">EFV ID</th>
                                     <th className="px-6 py-4 text-left font-bold">Người dùng</th>
                                     <th className="px-6 py-4 text-left font-bold">Liên hệ</th>
                                     <th className="px-6 py-4 text-center font-bold">Role</th>
@@ -232,6 +233,11 @@ export default function AdminUsersPage() {
                                             transition={{ delay: i * 0.02 }}
                                             className="hover:bg-gray-50/50 transition-colors group"
                                         >
+                                            <td className="px-4 py-4 text-center">
+                                                <span className="text-xs font-bold text-amber-700 bg-amber-50 border border-amber-200 px-2 py-1 rounded-md">
+                                                    {u.efvId ?? "—"}
+                                                </span>
+                                            </td>
                                             <td className="px-6 py-4">
                                                 <div className="flex items-center gap-3">
                                                     <div className={`w-9 h-9 rounded-lg flex items-center justify-center font-bold text-xs ${u.role === "admin" ? "bg-amber-50 text-amber-700" : u.role === "manager" ? "bg-blue-50 text-blue-700" : "bg-gray-100 text-gray-500"}`}>

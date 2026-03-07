@@ -13,8 +13,8 @@ export interface ITournament extends Document {
     format: "single_elimination" | "double_elimination" | "round_robin" | "swiss" | "group_stage";
     gameVersion: string;
     platform: "pc" | "ps4" | "ps5" | "xbox" | "mobile" | "cross_platform";
-    mode: "mobile" | "pc";
-    efvTier: "efv_250" | "efv_500" | "efv_1000" | null;
+    mode: "mobile" | "pc" | "free";
+    efvTier: "efv_250" | "efv_500" | "efv_1000" | "efv_50" | "efv_100" | "efv_200" | null;
     efvPointsAwarded: boolean;
     maxTeams: number;
     minTeams: number;
@@ -175,12 +175,12 @@ const TournamentSchema = new Schema<ITournament>(
         },
         mode: {
             type: String,
-            enum: ["mobile", "pc"],
+            enum: ["mobile", "pc", "free"],
             default: "mobile",
         },
         efvTier: {
             type: String,
-            enum: ["efv_250", "efv_500", "efv_1000"],
+            enum: ["efv_250", "efv_500", "efv_1000", "efv_50", "efv_100", "efv_200"],
             default: null,
         },
         efvPointsAwarded: {

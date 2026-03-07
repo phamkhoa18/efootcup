@@ -18,7 +18,7 @@ import {
 } from "lucide-react";
 import { tournamentAPI } from "@/lib/api";
 import { useAuth } from "@/contexts/AuthContext";
-import { EFV_TIER_OPTIONS } from "@/lib/efv-points";
+import { EFV_TIER_OPTIONS, EFV_PC_TIER_OPTIONS } from "@/lib/efv-points";
 
 /* ===== Helpers ===== */
 
@@ -174,7 +174,7 @@ export default function TaoGiaiDauPage() {
     const [tags, setTags] = useState("");
 
     // Mode & EFV Tier
-    const [mode, setMode] = useState<"mobile" | "pc">("mobile");
+    const [mode, setMode] = useState<"mobile" | "pc" | "free">("mobile");
     const [efvTier, setEfvTier] = useState<string | null>(null);
 
     // Format & Settings
@@ -352,7 +352,7 @@ export default function TaoGiaiDauPage() {
                 tags: tags.split(",").map((t) => t.trim()).filter(Boolean),
                 status: "draft",
                 mode,
-                efvTier: mode === "mobile" ? efvTier : null,
+                efvTier: efvTier || null,
             };
 
             const res = await tournamentAPI.create(tournamentData);
@@ -470,10 +470,10 @@ export default function TaoGiaiDauPage() {
                         />
                     </div>
 
-                    {/* Mode: Mobile / PC */}
+                    {/* Mode: Mobile / Console / Free */}
                     <div className="space-y-3 pt-4 border-t border-gray-100">
                         <Label className="text-sm font-medium">Chế độ thi đấu *</Label>
-                        <div className="grid grid-cols-2 gap-3">
+                        <div className="grid grid-cols-3 gap-3">
                             <button
                                 type="button"
                                 onClick={() => { setMode("mobile"); }}
@@ -504,15 +504,32 @@ export default function TaoGiaiDauPage() {
                                     <Monitor className={`w-5 h-5 ${mode === "pc" ? "text-efb-blue" : "text-gray-400"}`} />
                                 </div>
                                 <div className="text-left">
-                                    <div className={`text-sm font-semibold ${mode === "pc" ? "text-efb-blue" : "text-gray-600"}`}>PC</div>
-                                    <div className="text-[11px] text-gray-400">eFootball PC/Console</div>
+                                    <div className={`text-sm font-semibold ${mode === "pc" ? "text-efb-blue" : "text-gray-600"}`}>Console</div>
+                                    <div className="text-[11px] text-gray-400">eFootball Console</div>
+                                </div>
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => { setMode("free"); setEfvTier(null); }}
+                                className={`flex items-center gap-3 p-4 rounded-xl border-2 transition-all ${mode === "free"
+                                    ? "border-emerald-500 bg-emerald-50"
+                                    : "border-gray-200 hover:border-gray-300"
+                                    }`}
+                            >
+                                <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${mode === "free" ? "bg-emerald-100" : "bg-gray-100"
+                                    }`}>
+                                    <Gamepad2 className={`w-5 h-5 ${mode === "free" ? "text-emerald-600" : "text-gray-400"}`} />
+                                </div>
+                                <div className="text-left">
+                                    <div className={`text-sm font-semibold ${mode === "free" ? "text-emerald-600" : "text-gray-600"}`}>Tự do</div>
+                                    <div className="text-[11px] text-gray-400">Không tính điểm</div>
                                 </div>
                             </button>
                         </div>
                     </div>
 
-                    {/* EFV Tier (only for Mobile) */}
-                    {mode === "mobile" && (
+                    {/* EFV Tier — only for Mobile and PC (not free) */}
+                    {mode !== "free" && (
                         <motion.div
                             initial={{ opacity: 0, height: 0 }}
                             animate={{ opacity: 1, height: "auto" }}
@@ -520,13 +537,13 @@ export default function TaoGiaiDauPage() {
                         >
                             <div className="flex items-center gap-2">
                                 <Crown className="w-4 h-4 text-amber-500" />
-                                <Label className="text-sm font-medium">Hạng điểm EFV *</Label>
+                                <Label className="text-sm font-medium">Hạng điểm EFV ({mode === "mobile" ? "Mobile" : "Console"}) *</Label>
                             </div>
                             <p className="text-xs text-efb-text-muted -mt-1">
                                 Chọn hạng giải để tự động trao điểm EFV cho VĐV khi giải kết thúc
                             </p>
                             <div className="grid grid-cols-3 gap-3">
-                                {EFV_TIER_OPTIONS.map((tier) => (
+                                {(mode === "mobile" ? EFV_TIER_OPTIONS : EFV_PC_TIER_OPTIONS).map((tier) => (
                                     <button
                                         key={tier.value}
                                         type="button"
@@ -560,6 +577,13 @@ export default function TaoGiaiDauPage() {
                                 ))}
                             </div>
                         </motion.div>
+                    )}
+
+                    {mode === "free" && (
+                        <div className="bg-gray-50 rounded-xl p-4 border border-gray-200 text-center">
+                            <p className="text-sm text-gray-500 font-medium">🎯 Giải tự do — không tính điểm EFV</p>
+                            <p className="text-xs text-gray-400 mt-1">Giải đấu giao hữu, không ảnh hưởng BXH</p>
+                        </div>
                     )}
                 </motion.div>
             )}

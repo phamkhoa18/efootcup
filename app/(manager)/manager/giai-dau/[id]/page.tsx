@@ -324,7 +324,7 @@ export default function TournamentDetailPage() {
                                     <div className="text-xs text-efb-text-muted">Hạng EFV</div>
                                     <div className="text-sm font-medium text-amber-600 flex items-center gap-1">
                                         <Crown className="w-3.5 h-3.5" />
-                                        {t.efvTier === "efv_250" ? "EFV 250" : t.efvTier === "efv_500" ? "EFV 500" : "EFV 1000"} ({t.mode?.toUpperCase() || "MOBILE"})
+                                        {({ "efv_250": "EFV 250", "efv_500": "EFV 500", "efv_1000": "EFV 1000", "efv_50": "EFV 50", "efv_100": "EFV 100", "efv_200": "EFV 200" } as Record<string, string>)[t.efvTier] || t.efvTier} ({t.mode?.toUpperCase() || "MOBILE"})
                                     </div>
                                 </div>
                             )}
@@ -332,7 +332,7 @@ export default function TournamentDetailPage() {
                                 <div>
                                     <div className="text-xs text-efb-text-muted">Chế độ</div>
                                     <div className="text-sm font-medium text-efb-dark">
-                                        {t.mode === "mobile" ? "📱 Mobile" : "🖥 PC"}
+                                        {t.mode === "mobile" ? "📱 Mobile" : t.mode === "free" ? "🎯 Tự do" : "🖥 Console"}
                                     </div>
                                 </div>
                             )}

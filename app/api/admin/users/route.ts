@@ -24,10 +24,15 @@ export async function GET(req: NextRequest) {
                 { email: { $regex: search, $options: "i" } },
                 { gamerId: { $regex: search, $options: "i" } },
             ];
-            // efvId is a number, so only match if search is numeric
-            const searchNum = parseInt(search, 10);
-            if (!isNaN(searchNum)) {
-                orConditions.push({ efvId: searchNum });
+            // efvId is a number — support both raw number and "EFV-XXXXXX" format
+            const efvMatch = search.match(/^EFV-?(\d+)$/i);
+            if (efvMatch) {
+                orConditions.push({ efvId: parseInt(efvMatch[1], 10) });
+            } else {
+                const searchNum = parseInt(search, 10);
+                if (!isNaN(searchNum)) {
+                    orConditions.push({ efvId: searchNum });
+                }
             }
             query.$or = orConditions;
         }

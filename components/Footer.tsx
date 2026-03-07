@@ -8,7 +8,8 @@ import { useSiteSettings } from "@/hooks/useSiteSettings";
 const quickLinks = [
     { label: "Giải đấu", href: "/giai-dau" },
     { label: "Tin tức", href: "/tin-tuc" },
-    { label: "Bảng xếp hạng", href: "/bxh" },
+    { label: "BXH Mobile", href: "/bxh" },
+    { label: "BXH Console", href: "/bxh-console" },
 ];
 
 const supportLinks = [

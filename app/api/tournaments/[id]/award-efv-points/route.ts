@@ -7,7 +7,7 @@ import Registration from "@/models/Registration";
 import EfvPointLog from "@/models/EfvPointLog";
 import Bxh from "@/models/Bxh";
 import { requireRole, apiResponse, apiError } from "@/lib/auth";
-import { getPlacementFromRound, getEfvPoints, EFV_MAX_WINDOW } from "@/lib/efv-points";
+import { getPlacementFromRound, getEfvPoints, EFV_TIER_WINDOWS } from "@/lib/efv-points";
 
 interface RouteParams {
     params: Promise<{ id: string }>;
@@ -209,47 +209,66 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
 }
 
 /**
- * Recalculate BXH for given users based on sliding window (5 giải gần nhất)
+ * Recalculate BXH for given users based on per-tier sliding windows.
+ * Supports both Mobile (EFV250/500/1000) and PC (EFV50/100/200) modes.
  */
 async function recalculateBxh(userIds: string[], mode: string) {
+    const User = (await import("@/models/User")).default;
+    const { getTiersForMode } = await import("@/lib/efv-points");
+
+    const tiers = getTiersForMode(mode);
+
     for (const userId of userIds) {
-        // Get ALL point logs for this user in this mode, sorted by most recent
         const allLogs = await EfvPointLog.find({ user: userId, mode })
             .sort({ awardedAt: -1 })
             .lean();
 
-        // Only count top 5 most recent
-        const activeLogs = allLogs.slice(0, EFV_MAX_WINDOW);
-        const totalPoints = activeLogs.reduce((sum, log) => sum + log.points, 0);
+        // Calculate per-tier points
+        const tierPoints: Record<string, number> = {};
+        const tierCounts: Record<string, number> = {};
+        for (const t of tiers) { tierPoints[t] = 0; tierCounts[t] = 0; }
 
-        // Get team name from the most recent log
+        for (const log of allLogs) {
+            const tier = log.efvTier;
+            if (!tiers.includes(tier)) continue;
+            const maxWindow = EFV_TIER_WINDOWS[tier] ?? 5;
+            if (tierCounts[tier] < maxWindow) {
+                tierCounts[tier]++;
+                tierPoints[tier] += log.points;
+            }
+        }
+
+        const totalPoints = Object.values(tierPoints).reduce((a, b) => a + b, 0);
         const latestTeamName = allLogs[0]?.teamName || "";
 
-        // Get user info for BXH display
-        const User = (await import("@/models/User")).default;
         const user = await User.findById(userId).lean() as any;
         if (!user) continue;
 
-        // Upsert into Bxh
         await Bxh.findOneAndUpdate(
-            { gamerId: String(user.efvId || userId) },
+            { gamerId: String(user.efvId || userId), mode },
             {
                 $set: {
                     gamerId: String(user.efvId || userId),
+                    mode,
                     name: user.name,
                     facebook: user.facebookName || user.facebookLink || "",
                     team: latestTeamName,
                     nickname: user.nickname || "",
                     points: totalPoints,
-                    // rank will be recalculated later
+                    pointsEfv250: tierPoints["efv_250"] || 0,
+                    pointsEfv500: tierPoints["efv_500"] || 0,
+                    pointsEfv1000: tierPoints["efv_1000"] || 0,
+                    pointsEfv50: tierPoints["efv_50"] || 0,
+                    pointsEfv100: tierPoints["efv_100"] || 0,
+                    pointsEfv200: tierPoints["efv_200"] || 0,
                 },
             },
             { upsert: true }
         );
     }
 
-    // Recalculate ranks for all BXH entries
-    const allBxh = await Bxh.find().sort({ points: -1 }).lean();
+    // Recalculate ranks for this mode
+    const allBxh = await Bxh.find({ mode }).sort({ points: -1 }).lean();
     const bulkOps = allBxh.map((entry, index) => ({
         updateOne: {
             filter: { _id: entry._id },
@@ -260,3 +279,4 @@ async function recalculateBxh(userIds: string[], mode: string) {
         await Bxh.bulkWrite(bulkOps);
     }
 }
+
