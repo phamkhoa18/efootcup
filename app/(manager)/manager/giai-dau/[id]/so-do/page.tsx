@@ -580,14 +580,11 @@ export default function SoDoThiDauPage() {
             ) : (
                 <div id="bracket-capture-area" className="flex-1 overflow-auto bg-[#FDFDFD] rounded-[24px] border border-gray-100 relative custom-scrollbar shadow-inner">
                     <div className="absolute inset-0 opacity-[0.4] pointer-events-none" style={{ backgroundImage: `radial-gradient(#E2E8F0 1.2px, transparent 1.2px)`, backgroundSize: '32px 32px' }} />
-                    <div className="inline-flex p-24 min-w-full">
+                    <div className="inline-flex p-24">
                         {bracketRounds.map((round, rIndex) => {
                             const isLastRound = rIndex === bracketRounds.length - 1;
-
-                            // For visualization, we calculate a "base height" to keep matches aligned.
-                            // The spacing should increase as we go further into the bracket.
-                            // In this new logic, we calculate depth from the end if needed, 
-                            // but simpler is to use scale 2^rIndex * UNIT_HEIGHT.
+                            const scale = Math.pow(2, rIndex);
+                            const GAP = 80; // gap between round columns
 
                             return (
                                 <div key={rIndex} className="flex">
@@ -598,10 +595,7 @@ export default function SoDoThiDauPage() {
                                             </div>
                                         </div>
                                         <div className="relative flex-1">
-                                            {round.matches.map((match: any, mIdx: any) => {
-                                                // Calculate Y position based on bracketPosition.y
-                                                // We want to center the matches.
-                                                const scale = Math.pow(2, rIndex);
+                                            {round.matches.map((match: any, mIdx: number) => {
                                                 const topPadding = (scale - 1) * (UNIT_HEIGHT / 2);
                                                 const yOffset = topPadding + (match.bracketPosition?.y || 0) * UNIT_HEIGHT * scale;
 
@@ -617,34 +611,73 @@ export default function SoDoThiDauPage() {
                                                     >
                                                         <MatchCard match={match} onClick={() => setSelectedMatch(match)} />
 
-                                                        {/* Line to next match */}
-                                                        {match.nextMatch && (
-                                                            <>
-                                                                <div className="absolute right-[-40px] w-[40px] h-px bg-[#CBD5E1]" />
-                                                                <div
-                                                                    className="absolute right-[-40px] w-px bg-[#CBD5E1]"
-                                                                    style={{
-                                                                        height: `${(UNIT_HEIGHT * scale) / 2}px`,
-                                                                        top: (match.bracketPosition?.y % 2 === 0) ? '50%' : 'auto',
-                                                                        bottom: (match.bracketPosition?.y % 2 !== 0) ? '50%' : 'auto'
-                                                                    }}
-                                                                />
-                                                                {(match.bracketPosition?.y % 2 === 0) && (
+                                                        {/* Connector lines to next round */}
+                                                        {match.nextMatch && !isLastRound && (() => {
+                                                            const bY = match.bracketPosition?.y ?? 0;
+                                                            const isTop = bY % 2 === 0;
+                                                            const vLen = (UNIT_HEIGHT * scale) / 2;
+                                                            const halfGap = GAP / 2;
+
+                                                            return (
+                                                                <>
+                                                                    {/* Horizontal stub from card to midpoint */}
                                                                     <div
-                                                                        className="absolute right-[-128px] w-[88px] h-px bg-[#CBD5E1]"
-                                                                        style={{ top: 'calc(50% + ' + ((UNIT_HEIGHT * scale) / 2) + 'px)' }}
+                                                                        className="absolute bg-[#CBD5E1]"
+                                                                        style={{
+                                                                            right: `-${halfGap}px`,
+                                                                            width: `${halfGap}px`,
+                                                                            height: '1px',
+                                                                            top: '50%',
+                                                                        }}
                                                                     />
-                                                                )}
-                                                            </>
+                                                                    {/* Vertical line from this match to sibling */}
+                                                                    <div
+                                                                        className="absolute bg-[#CBD5E1]"
+                                                                        style={{
+                                                                            right: `-${halfGap}px`,
+                                                                            width: '1px',
+                                                                            height: `${vLen}px`,
+                                                                            ...(isTop
+                                                                                ? { top: '50%' }
+                                                                                : { bottom: '50%' }
+                                                                            ),
+                                                                        }}
+                                                                    />
+                                                                    {/* Horizontal line from midpoint to next round (only for the top match of each pair) */}
+                                                                    {isTop && (
+                                                                        <div
+                                                                            className="absolute bg-[#CBD5E1]"
+                                                                            style={{
+                                                                                right: `-${GAP}px`,
+                                                                                width: `${halfGap}px`,
+                                                                                height: '1px',
+                                                                                top: `calc(50% + ${vLen}px)`,
+                                                                            }}
+                                                                        />
+                                                                    )}
+                                                                </>
+                                                            );
+                                                        })()}
+
+                                                        {/* Incoming line from previous round */}
+                                                        {rIndex > 0 && (
+                                                            <div
+                                                                className="absolute bg-[#CBD5E1]"
+                                                                style={{
+                                                                    left: `-${GAP / 2}px`,
+                                                                    width: `${GAP / 2}px`,
+                                                                    height: '1px',
+                                                                    top: '50%',
+                                                                }}
+                                                            />
                                                         )}
-                                                        {rIndex > 0 && <div className="absolute left-[-40px] w-[40px] h-px bg-[#CBD5E1]" />}
                                                     </div>
                                                 );
                                             })}
                                         </div>
                                     </div>
                                     {/* Spacer between rounds */}
-                                    <div className="w-[80px]" />
+                                    <div style={{ width: `${GAP}px` }} />
                                 </div>
                             );
                         })}

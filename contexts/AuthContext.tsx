@@ -17,6 +17,7 @@ interface User {
     country?: string;
     province?: string;
     nickname?: string;
+    teamName?: string;
     facebookName?: string;
     facebookLink?: string;
     stats?: {
@@ -54,6 +55,7 @@ interface RegisterData {
     password: string;
     confirmPassword: string;
     role?: "admin" | "manager" | "user";
+    teamName?: string;
 }
 
 const AuthContext = createContext<AuthContextType | null>(null);

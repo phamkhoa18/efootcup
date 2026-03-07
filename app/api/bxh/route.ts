@@ -79,7 +79,7 @@ export async function POST(req: NextRequest) {
                 // Bulk upsert
                 const ops = bxhData.map((item: any) => ({
                     updateOne: {
-                        filter: { gamerId: item.gamerId },
+                        filter: { gamerId: item.gamerId, mode: item.mode || "mobile" },
                         update: { $set: item },
                         upsert: true
                     }
@@ -90,7 +90,7 @@ export async function POST(req: NextRequest) {
                 return apiResponse(null, 201, `Đã cập nhật/thêm ${ops.length} VĐV thành công`);
             }
         } else {
-            const exists = await Bxh.findOne({ gamerId: body.gamerId });
+            const exists = await Bxh.findOne({ gamerId: body.gamerId, mode: body.mode || "mobile" });
             if (exists) {
                 return apiError("ID VĐV đã tồn tại trong bảng xếp hạng", 400);
             }

@@ -121,7 +121,8 @@ export default function NoiDungThiDauPage() {
                 r.gamerId?.toLowerCase().includes(q) ||
                 r.phone?.includes(q) ||
                 r.email?.toLowerCase().includes(q) ||
-                r.nickname?.toLowerCase().includes(q)
+                r.nickname?.toLowerCase().includes(q) ||
+                String(r.user?.efvId || "").includes(q)
             );
         }
 
@@ -171,6 +172,7 @@ export default function NoiDungThiDauPage() {
 
         const exportData = filtered.map((r, i) => ({
             "STT": i + 1,
+            "EFV ID": r.user?.efvId || "",
             "Tên đội": r.teamName || "",
             "Viết tắt": r.teamShortName || "",
             "Tên VĐV": r.playerName || "",
@@ -388,6 +390,7 @@ export default function NoiDungThiDauPage() {
                         <thead>
                             <tr className="border-b border-gray-100 bg-gradient-to-r from-gray-50/50 to-slate-50/50">
                                 <th className="px-4 py-3.5 text-center text-[10px] font-bold text-gray-400 uppercase tracking-widest w-12">#</th>
+                                <th className="px-4 py-3.5 text-center text-[10px] font-bold text-amber-500 uppercase tracking-widest">EFV ID</th>
                                 <SortHeader field="teamName" label="Tên đội" />
                                 <SortHeader field="playerName" label="Tên VĐV" />
                                 <SortHeader field="gamerId" label="ID Game" />
@@ -401,7 +404,7 @@ export default function NoiDungThiDauPage() {
                         <tbody>
                             {paginatedData.length === 0 ? (
                                 <tr>
-                                    <td colSpan={9} className="px-5 py-16 text-center">
+                                    <td colSpan={10} className="px-5 py-16 text-center">
                                         <div className="flex flex-col items-center">
                                             <div className="w-14 h-14 rounded-2xl bg-gray-50 flex items-center justify-center mb-3">
                                                 <Users className="w-6 h-6 text-gray-300" />
@@ -428,6 +431,13 @@ export default function NoiDungThiDauPage() {
                                         >
                                             <td className="px-4 py-3.5 text-center">
                                                 <span className="text-xs font-bold text-gray-300 tabular-nums">{globalIndex + 1}</span>
+                                            </td>
+                                            <td className="px-4 py-3.5 text-center">
+                                                {r.user?.efvId != null ? (
+                                                    <span className="inline-flex items-center text-[11px] font-bold text-amber-700 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-md tabular-nums">#{r.user.efvId}</span>
+                                                ) : (
+                                                    <span className="text-[11px] text-gray-300">—</span>
+                                                )}
                                             </td>
                                             <td className="px-4 py-3.5">
                                                 <div className="flex items-center gap-2">

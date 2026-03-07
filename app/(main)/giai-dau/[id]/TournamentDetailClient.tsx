@@ -293,25 +293,68 @@ const MatchDetailViewModal = ({ match, tournament, onClose, user, myRegistration
                             </div>
                         )}
                     </div>
-                    <div className="border border-solid border-gray-100 rounded-xl p-4 sm:p-5 bg-gray-50/50 shadow-inner">
-                        <div className="flex justify-between text-sm font-bold text-gray-900 mb-4 px-1">
-                            <div>VĐV / Đội thi đấu</div>
-                            <div>Kết quả</div>
-                        </div>
-                        <div className="flex flex-col gap-3">
-                            <div className={`p-4 rounded-xl flex items-center justify-between border ${match.homeScore > match.awayScore ? "bg-blue-50/80 border-blue-200" : "bg-white border-gray-200"}`}>
-                                <div>
-                                    <div className={`font-bold ${match.homeScore > match.awayScore ? "text-efb-blue" : "text-gray-900"}`}>{match.homeTeam?.name || match.homeTeam?.shortName || match.p1?.name || "Tự do"}</div>
-                                    <div className="text-xs text-gray-500 mt-1">{hName}</div>
+                    <div className="rounded-xl overflow-hidden border border-gray-100 shadow-sm">
+                        {/* Score display - centered */}
+                        <div className={`p-5 sm:p-6 text-center ${match.status === 'completed' ? 'bg-gradient-to-b from-gray-900 to-gray-800' : match.status === 'live' ? 'bg-gradient-to-b from-red-600 to-red-700' : 'bg-gradient-to-b from-gray-50 to-gray-100'}`}>
+                            <div className="flex items-center justify-center gap-4 sm:gap-8">
+                                {/* Home */}
+                                <div className="flex-1 text-right min-w-0">
+                                    <div className="flex items-center justify-end gap-1.5 mb-1">
+                                        {match.homeTeam?.efvId != null && (
+                                            <span className="text-[9px] font-bold text-amber-300 bg-amber-900/40 border border-amber-700/30 px-1.5 py-px rounded flex-shrink-0">#{match.homeTeam.efvId}</span>
+                                        )}
+                                        <span className={`text-sm sm:text-base font-bold truncate ${match.status === 'completed' || match.status === 'live' ? (match.homeScore > match.awayScore ? 'text-white' : 'text-white/50') : 'text-gray-800'}`}>
+                                            {match.homeTeam?.player1 || match.p1?.name || "Chờ..."}
+                                        </span>
+                                    </div>
+                                    <p className={`text-[10px] sm:text-xs truncate ${match.status === 'completed' || match.status === 'live' ? 'text-white/40' : 'text-gray-400'}`}>
+                                        {match.homeTeam?.name || match.homeTeam?.shortName || ""}
+                                    </p>
                                 </div>
-                                <div className="text-2xl font-black text-gray-900 pr-2">{homeScore}</div>
+
+                                {/* Score */}
+                                <div className="flex-shrink-0">
+                                    <div className={`text-2xl sm:text-3xl font-black tabular-nums tracking-wider ${match.status === 'completed' || match.status === 'live' ? 'text-white' : 'text-gray-300'}`}>
+                                        {match.status === 'completed' || match.status === 'live'
+                                            ? `${match.homeScore ?? 0} - ${match.awayScore ?? 0}`
+                                            : 'VS'}
+                                    </div>
+                                </div>
+
+                                {/* Away */}
+                                <div className="flex-1 text-left min-w-0">
+                                    <div className="flex items-center gap-1.5 mb-1">
+                                        <span className={`text-sm sm:text-base font-bold truncate ${match.status === 'completed' || match.status === 'live' ? (match.awayScore > match.homeScore ? 'text-white' : 'text-white/50') : 'text-gray-800'}`}>
+                                            {match.awayTeam?.player1 || match.p2?.name || "Chờ..."}
+                                        </span>
+                                        {match.awayTeam?.efvId != null && (
+                                            <span className="text-[9px] font-bold text-amber-300 bg-amber-900/40 border border-amber-700/30 px-1.5 py-px rounded flex-shrink-0">#{match.awayTeam.efvId}</span>
+                                        )}
+                                    </div>
+                                    <p className={`text-[10px] sm:text-xs truncate ${match.status === 'completed' || match.status === 'live' ? 'text-white/40' : 'text-gray-400'}`}>
+                                        {match.awayTeam?.name || match.awayTeam?.shortName || ""}
+                                    </p>
+                                </div>
                             </div>
-                            <div className={`p-4 rounded-xl flex items-center justify-between border ${match.awayScore > match.homeScore ? "bg-blue-50/80 border-blue-200" : "bg-white border-gray-200"}`}>
-                                <div>
-                                    <div className={`font-bold ${match.awayScore > match.homeScore ? "text-efb-blue" : "text-gray-900"}`}>{match.awayTeam?.name || match.awayTeam?.shortName || match.p2?.name || "Tự do"}</div>
-                                    <div className="text-xs text-gray-500 mt-1">{aName}</div>
-                                </div>
-                                <div className="text-2xl font-black text-gray-900 pr-2">{awayScore}</div>
+                        </div>
+
+                        {/* Player details row */}
+                        <div className="grid grid-cols-2 divide-x divide-gray-100 bg-white">
+                            <div className={`p-3 sm:p-4 ${match.homeScore > match.awayScore ? 'bg-blue-50/50' : ''}`}>
+                                <p className="text-[10px] text-gray-400 font-semibold uppercase tracking-wider mb-1">Đội nhà</p>
+                                <p className="text-sm font-bold text-gray-900 truncate">{match.homeTeam?.player1 || match.p1?.name || "—"}</p>
+                                {match.homeTeam?.player2 && match.homeTeam.player2 !== "TBD" && (
+                                    <p className="text-xs text-gray-500 mt-0.5">ID: {match.homeTeam.player2}</p>
+                                )}
+                                {match.homeTeam?.name && <p className="text-[10px] text-gray-400 mt-1">{match.homeTeam.name}</p>}
+                            </div>
+                            <div className={`p-3 sm:p-4 ${match.awayScore > match.homeScore ? 'bg-blue-50/50' : ''}`}>
+                                <p className="text-[10px] text-gray-400 font-semibold uppercase tracking-wider mb-1">Đội khách</p>
+                                <p className="text-sm font-bold text-gray-900 truncate">{match.awayTeam?.player1 || match.p2?.name || "—"}</p>
+                                {match.awayTeam?.player2 && match.awayTeam.player2 !== "TBD" && (
+                                    <p className="text-xs text-gray-500 mt-0.5">ID: {match.awayTeam.player2}</p>
+                                )}
+                                {match.awayTeam?.name && <p className="text-[10px] text-gray-400 mt-1">{match.awayTeam.name}</p>}
                             </div>
                         </div>
                     </div>
@@ -587,9 +630,14 @@ export default function TournamentDetailClient({ initialData, id }: { initialDat
                 toast.info('Bạn đã được duyệt vào giải đấu này!');
                 return;
             }
-            // Any non-approved state: open payment/status dialog
+            // Free tournament: no payment needed, just show status
+            if (!t.entryFee || t.entryFee <= 0) {
+                toast.info('Đăng ký của bạn đang chờ Manager duyệt.');
+                return;
+            }
+            // Paid tournament: open payment/status dialog
             setShowPaymentDialog(true);
-            if (paymentMethods.length === 0 && t.entryFee > 0) loadPaymentMethods();
+            if (paymentMethods.length === 0) loadPaymentMethods();
             return;
         }
         setShowRegDialog(true);
@@ -648,7 +696,7 @@ export default function TournamentDetailClient({ initialData, id }: { initialDat
     };
 
     useEffect(() => {
-        if (activeTab === "bracket" && !brackets) loadBrackets();
+        if ((activeTab === "bracket" || activeTab === "schedule") && !brackets) loadBrackets();
     }, [activeTab]);
 
     // Load payment methods and auto-show dialog when needed
@@ -998,8 +1046,10 @@ export default function TournamentDetailClient({ initialData, id }: { initialDat
                                         <Button disabled className="bg-emerald-500 text-white rounded-lg h-9 text-xs"><CheckCircle2 className="w-3.5 h-3.5 mr-1.5" /> Đã được duyệt</Button>
                                     ) : (
                                         <>
-                                            <Button onClick={handleRegisterClick} className="bg-amber-500 hover:bg-amber-600 text-white rounded-lg h-9 text-xs">
-                                                {myRegistration.paymentStatus === 'paid' || myRegistration.paymentStatus === 'confirmed' || t.entryFee <= 0 ? (
+                                            <Button onClick={handleRegisterClick} className={`${!t.entryFee || t.entryFee <= 0 ? 'bg-emerald-500 hover:bg-emerald-600' : 'bg-amber-500 hover:bg-amber-600'} text-white rounded-lg h-9 text-xs`}>
+                                                {!t.entryFee || t.entryFee <= 0 ? (
+                                                    <><CheckCircle2 className="w-3.5 h-3.5 mr-1.5" /> Đang chờ duyệt</>
+                                                ) : myRegistration.paymentStatus === 'paid' || myRegistration.paymentStatus === 'confirmed' ? (
                                                     <><Clock className="w-3.5 h-3.5 mr-1.5" /> Xem trạng thái</>
                                                 ) : myRegistration.paymentStatus === 'pending_verification' ? (
                                                     <><Clock className="w-3.5 h-3.5 mr-1.5" /> Chờ xác nhận</>
@@ -1251,6 +1301,11 @@ export default function TournamentDetailClient({ initialData, id }: { initialDat
                                     <div className="absolute inset-0 opacity-[0.4] pointer-events-none" style={{ backgroundImage: `radial-gradient(#E2E8F0 1.2px, transparent 1.2px)`, backgroundSize: '32px 32px' }} />
                                     <div className="inline-flex p-12 min-w-full relative z-10">
                                         {bracketRounds.map((round, rIndex) => {
+                                            const isLastRound = rIndex === bracketRounds.length - 1;
+                                            const scale = Math.pow(2, rIndex);
+                                            const GAP = 128;
+                                            const halfGap = GAP / 2;
+
                                             return (
                                                 <div key={rIndex} className="flex">
                                                     <div className="flex flex-col w-[200px]">
@@ -1260,8 +1315,7 @@ export default function TournamentDetailClient({ initialData, id }: { initialDat
                                                             </div>
                                                         </div>
                                                         <div className="relative flex-1">
-                                                            {round.matches.map((match: any, mIdx: any) => {
-                                                                const scale = Math.pow(2, rIndex);
+                                                            {round.matches.map((match: any, mIdx: number) => {
                                                                 const topPadding = (scale - 1) * (UNIT_HEIGHT / 2);
                                                                 const yOffset = topPadding + (match.bracketPosition?.y || 0) * UNIT_HEIGHT * scale;
 
@@ -1284,33 +1338,71 @@ export default function TournamentDetailClient({ initialData, id }: { initialDat
                                                                     >
                                                                         <MatchCard match={match} onClick={() => setSelectedMatch(match)} />
 
-                                                                        {match.nextMatch && (
-                                                                            <>
-                                                                                <div className="absolute right-[-40px] w-[40px] h-px bg-[#CBD5E1]" />
-                                                                                <div
-                                                                                    className="absolute right-[-40px] w-px bg-[#CBD5E1]"
-                                                                                    style={{
-                                                                                        height: `${(UNIT_HEIGHT * scale) / 2}px`,
-                                                                                        top: (match.bracketPosition?.y % 2 === 0) ? '50%' : 'auto',
-                                                                                        bottom: (match.bracketPosition?.y % 2 !== 0) ? '50%' : 'auto'
-                                                                                    }}
-                                                                                />
-                                                                                {(match.bracketPosition?.y % 2 === 0) && (
+                                                                        {/* Connector lines to next round */}
+                                                                        {match.nextMatch && !isLastRound && (() => {
+                                                                            const bY = match.bracketPosition?.y ?? 0;
+                                                                            const isTop = bY % 2 === 0;
+                                                                            const vLen = (UNIT_HEIGHT * scale) / 2;
+
+                                                                            return (
+                                                                                <>
+                                                                                    {/* Horizontal stub from card to midpoint */}
                                                                                     <div
-                                                                                        className="absolute right-[-128px] w-[88px] h-px bg-[#CBD5E1]"
-                                                                                        style={{ top: 'calc(50% + ' + ((UNIT_HEIGHT * scale) / 2) + 'px)' }}
+                                                                                        className="absolute bg-[#CBD5E1]"
+                                                                                        style={{
+                                                                                            right: `-${halfGap}px`,
+                                                                                            width: `${halfGap}px`,
+                                                                                            height: '1px',
+                                                                                            top: '50%',
+                                                                                        }}
                                                                                     />
-                                                                                )}
-                                                                            </>
+                                                                                    {/* Vertical line from this match to sibling */}
+                                                                                    <div
+                                                                                        className="absolute bg-[#CBD5E1]"
+                                                                                        style={{
+                                                                                            right: `-${halfGap}px`,
+                                                                                            width: '1px',
+                                                                                            height: `${vLen}px`,
+                                                                                            ...(isTop
+                                                                                                ? { top: '50%' }
+                                                                                                : { bottom: '50%' }
+                                                                                            ),
+                                                                                        }}
+                                                                                    />
+                                                                                    {/* Horizontal line from midpoint to next round (only for the top match of each pair) */}
+                                                                                    {isTop && (
+                                                                                        <div
+                                                                                            className="absolute bg-[#CBD5E1]"
+                                                                                            style={{
+                                                                                                right: `-${GAP}px`,
+                                                                                                width: `${halfGap}px`,
+                                                                                                height: '1px',
+                                                                                                top: `calc(50% + ${vLen}px)`,
+                                                                                            }}
+                                                                                        />
+                                                                                    )}
+                                                                                </>
+                                                                            );
+                                                                        })()}
+
+                                                                        {/* Incoming line from previous round */}
+                                                                        {rIndex > 0 && (
+                                                                            <div
+                                                                                className="absolute bg-[#CBD5E1]"
+                                                                                style={{
+                                                                                    left: `-${halfGap}px`,
+                                                                                    width: `${halfGap}px`,
+                                                                                    height: '1px',
+                                                                                    top: '50%',
+                                                                                }}
+                                                                            />
                                                                         )}
-                                                                        {/* Left connector for Round 2+ (to catch Byes) */}
-                                                                        {rIndex > 0 && <div className="absolute left-[-40px] w-[40px] h-px bg-[#CBD5E1]" />}
                                                                     </div>
                                                                 );
                                                             })}
                                                         </div>
                                                     </div>
-                                                    <div className="w-[128px]" />
+                                                    <div style={{ width: `${GAP}px` }} />
                                                 </div>
                                             );
                                         })}
@@ -1356,6 +1448,7 @@ export default function TournamentDetailClient({ initialData, id }: { initialDat
                                             <thead>
                                                 <tr className="bg-gradient-to-r from-slate-800 to-slate-900 text-white text-[10px] uppercase tracking-wider">
                                                     <th className="px-4 py-3.5 text-center w-14">#</th>
+                                                    <th className="px-4 py-3.5 text-center w-20 text-amber-300">EFV ID</th>
                                                     <th className="px-4 py-3.5 text-left">VĐV / Đội</th>
                                                     <th className="px-3 py-3.5 text-center w-14">P</th>
                                                     <th className="px-3 py-3.5 text-center w-14">W</th>
@@ -1370,7 +1463,7 @@ export default function TournamentDetailClient({ initialData, id }: { initialDat
                                                     if (!playerSearch.trim()) return true;
                                                     const reg = data.registrations?.find((r: any) => r.team === team._id || r.team?._id === team._id) || {};
                                                     const pName = reg.playerName || team.captain?.name || "";
-                                                    return [pName, team.name, team.shortName, team.captain?.name].some(v => v && v.toLowerCase().includes(playerSearch.toLowerCase()));
+                                                    return [pName, team.name, team.shortName, team.captain?.name, String(reg?.user?.efvId || "")].some(v => v && v.toLowerCase().includes(playerSearch.toLowerCase()));
                                                 }).map((team: any, i: number) => {
                                                     const reg = data.registrations?.find((r: any) => r.team === team._id || r.team?._id === team._id) || {};
                                                     const playerName = reg.playerName || team.captain?.name || "—";
@@ -1410,6 +1503,13 @@ export default function TournamentDetailClient({ initialData, id }: { initialDat
                                                                     <span className="text-sm font-bold text-slate-400">{i + 1}</span>
                                                                 )}
                                                             </td>
+                                                            <td className="px-4 py-3.5 text-center">
+                                                                {reg?.user?.efvId != null ? (
+                                                                    <span className="inline-flex items-center text-[11px] font-bold text-amber-700 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-md tabular-nums">#{reg.user.efvId}</span>
+                                                                ) : (
+                                                                    <span className="text-[11px] text-gray-300">—</span>
+                                                                )}
+                                                            </td>
                                                             <td className="px-4 py-3.5">
                                                                 <div className="flex items-center gap-3">
                                                                     <div className="w-9 h-9 rounded-lg bg-gray-100 flex-shrink-0 flex items-center justify-center overflow-hidden">
@@ -1420,7 +1520,7 @@ export default function TournamentDetailClient({ initialData, id }: { initialDat
                                                                             <p className="text-[14px] font-semibold text-gray-900 truncate">{playerName}</p>
                                                                             {placement && <span className="text-sm">{placement}</span>}
                                                                         </div>
-                                                                        <p className="text-[11px] text-gray-400 truncate mt-0.5">{team.name}{team.shortName ? ` (${team.shortName})` : ''}</p>
+                                                                        <p className="text-[11px] text-gray-400 truncate mt-0.5">{team.name}</p>
                                                                     </div>
                                                                 </div>
                                                             </td>
@@ -1484,6 +1584,9 @@ export default function TournamentDetailClient({ initialData, id }: { initialDat
                                                         </div>
                                                         <div className="flex-1 min-w-0">
                                                             <div className="flex items-center gap-1.5">
+                                                                {reg?.user?.efvId && (
+                                                                    <span className="inline-flex items-center text-[8px] font-bold text-amber-600 bg-amber-50 border border-amber-200 px-1 py-px rounded flex-shrink-0">#{reg.user.efvId}</span>
+                                                                )}
                                                                 <p className="text-[14px] font-semibold text-gray-900 truncate">{playerName}</p>
                                                                 {placement && <span className="text-xs">{placement}</span>}
                                                             </div>
@@ -1517,17 +1620,132 @@ export default function TournamentDetailClient({ initialData, id }: { initialDat
                             </div>
                         )}
 
-                        {activeTab === "schedule" && (
-                            <div className="space-y-3">
-                                {matches.filter((m: any) => m.status !== 'walkover').map((m: any) => (
-                                    <div key={m._id} className="flex items-center gap-4 p-4 bg-white border rounded-xl hover:shadow-sm transition-all" onClick={() => setSelectedMatch(m)}>
-                                        <div className="w-20 text-center"><div className="font-bold text-sm">{m.scheduledDate ? formatDate(m.scheduledDate) : "TBD"}</div><div className="text-[10px] text-gray-400">{m.roundName || `Vòng ${m.round}`}</div></div>
-                                        <div className="flex-1 font-medium">{m.homeTeam?.name || "TBD"} vs {m.awayTeam?.name || "TBD"}</div>
-                                        <div className="font-bold">{m.status === 'completed' ? `${m.homeScore} - ${m.awayScore}` : '—'}</div>
-                                    </div>
-                                ))}
-                            </div>
-                        )}
+                        {activeTab === "schedule" && (() => {
+                            // Use bracket-enriched matches (with player names) if available, fallback to raw matches
+                            const scheduleMatches = brackets?.matches || matches;
+                            // Group matches by round
+                            const roundMap: Record<string, any[]> = {};
+                            scheduleMatches.filter((m: any) => m.status !== 'walkover').forEach((m: any) => {
+                                const rn = m.roundName || `Vòng ${m.round}`;
+                                if (!roundMap[rn]) roundMap[rn] = [];
+                                roundMap[rn].push(m);
+                            });
+                            const roundEntries = Object.entries(roundMap).sort(([, a], [, b]) => {
+                                return (a[0]?.round ?? 0) - (b[0]?.round ?? 0);
+                            });
+
+                            return (
+                                <div className="space-y-6">
+                                    {roundEntries.length === 0 ? (
+                                        <div className="text-center py-16">
+                                            <Calendar className="w-10 h-10 text-gray-200 mx-auto mb-3" />
+                                            <p className="text-gray-400 text-sm font-medium">Chưa có lịch thi đấu</p>
+                                        </div>
+                                    ) : (
+                                        roundEntries.map(([roundName, roundMatches]) => (
+                                            <div key={roundName}>
+                                                {/* Round header */}
+                                                <div className="flex items-center gap-3 mb-3">
+                                                    <div className="w-1 h-5 bg-efb-blue rounded-full" />
+                                                    <h3 className="text-sm font-bold text-gray-800 uppercase tracking-wide">{roundName}</h3>
+                                                    <span className="text-[10px] text-gray-400 font-medium">{roundMatches.length} trận</span>
+                                                </div>
+
+                                                <div className="space-y-2.5">
+                                                    {roundMatches.map((m: any) => {
+                                                        const isCompleted = m.status === 'completed';
+                                                        const isLive = m.status === 'live';
+                                                        const homePlayer = m.homeTeam?.player1 || "Chờ kết quả";
+                                                        const awayPlayer = m.awayTeam?.player1 || "Chờ kết quả";
+                                                        const homeCLB = m.homeTeam?.name || "";
+                                                        const awayCLB = m.awayTeam?.name || "";
+                                                        const homeEfvId = m.homeTeam?.efvId;
+                                                        const awayEfvId = m.awayTeam?.efvId;
+                                                        const homeWin = isCompleted && (m.winner === (m.homeTeam?._id || m.homeTeam?.id) || (m.homeScore ?? 0) > (m.awayScore ?? 0));
+                                                        const awayWin = isCompleted && (m.winner === (m.awayTeam?._id || m.awayTeam?.id) || (m.awayScore ?? 0) > (m.homeScore ?? 0));
+
+                                                        return (
+                                                            <motion.div
+                                                                key={m._id}
+                                                                initial={{ opacity: 0, y: 4 }}
+                                                                animate={{ opacity: 1, y: 0 }}
+                                                                onClick={() => setSelectedMatch(m)}
+                                                                className={`relative bg-white border rounded-xl p-3.5 sm:p-4 cursor-pointer transition-all hover:shadow-md group ${isLive ? 'border-red-200 ring-1 ring-red-100' : isCompleted ? 'border-gray-100' : 'border-gray-100 hover:border-blue-200'
+                                                                    }`}
+                                                            >
+                                                                {/* LIVE badge */}
+                                                                {isLive && (
+                                                                    <div className="absolute top-2.5 right-3 flex items-center gap-1 bg-red-500 text-white text-[9px] font-bold px-2 py-0.5 rounded-full animate-pulse">
+                                                                        <span className="w-1.5 h-1.5 bg-white rounded-full" /> LIVE
+                                                                    </div>
+                                                                )}
+
+                                                                {/* Match number + round info */}
+                                                                <div className="flex items-center gap-2 mb-3">
+                                                                    <span className="text-[10px] font-bold text-gray-300 bg-gray-50 px-2 py-0.5 rounded">#{m.matchNumber}</span>
+                                                                    {m.scheduledAt && (
+                                                                        <span className="text-[10px] text-gray-400 flex items-center gap-1">
+                                                                            <Clock className="w-3 h-3" />
+                                                                            {new Date(m.scheduledAt).toLocaleString("vi-VN", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" })}
+                                                                        </span>
+                                                                    )}
+                                                                    {isCompleted && (
+                                                                        <span className="text-[10px] font-semibold text-emerald-500 flex items-center gap-0.5 ml-auto">
+                                                                            <CheckCircle2 className="w-3 h-3" /> Kết thúc
+                                                                        </span>
+                                                                    )}
+                                                                </div>
+
+                                                                {/* Match content: Home vs Away */}
+                                                                <div className="flex items-center gap-2 sm:gap-4">
+                                                                    {/* Home side */}
+                                                                    <div className={`flex-1 min-w-0 text-right ${homeWin ? '' : isCompleted ? 'opacity-50' : ''}`}>
+                                                                        <div className="flex items-center justify-end gap-1.5 mb-0.5">
+                                                                            {homeEfvId != null && (
+                                                                                <span className="text-[9px] font-bold text-amber-600 bg-amber-50 border border-amber-200 px-1.5 py-px rounded flex-shrink-0">#{homeEfvId}</span>
+                                                                            )}
+                                                                            <span className={`text-sm font-bold truncate ${homeWin ? 'text-blue-700' : 'text-gray-800'}`}>
+                                                                                {homePlayer}
+                                                                            </span>
+                                                                        </div>
+                                                                        {homeCLB && (
+                                                                            <p className="text-[10px] text-gray-400 truncate">{homeCLB}</p>
+                                                                        )}
+                                                                    </div>
+
+                                                                    {/* Score */}
+                                                                    <div className={`flex-shrink-0 w-[72px] sm:w-[80px] text-center py-1.5 rounded-lg ${isCompleted ? 'bg-gray-900 text-white' : isLive ? 'bg-red-500 text-white' : 'bg-gray-50 text-gray-300'
+                                                                        }`}>
+                                                                        <span className="text-base sm:text-lg font-black tabular-nums tracking-wider">
+                                                                            {isCompleted || isLive ? `${m.homeScore ?? 0} - ${m.awayScore ?? 0}` : 'VS'}
+                                                                        </span>
+                                                                    </div>
+
+                                                                    {/* Away side */}
+                                                                    <div className={`flex-1 min-w-0 text-left ${awayWin ? '' : isCompleted ? 'opacity-50' : ''}`}>
+                                                                        <div className="flex items-center gap-1.5 mb-0.5">
+                                                                            <span className={`text-sm font-bold truncate ${awayWin ? 'text-blue-700' : 'text-gray-800'}`}>
+                                                                                {awayPlayer}
+                                                                            </span>
+                                                                            {awayEfvId != null && (
+                                                                                <span className="text-[9px] font-bold text-amber-600 bg-amber-50 border border-amber-200 px-1.5 py-px rounded flex-shrink-0">#{awayEfvId}</span>
+                                                                            )}
+                                                                        </div>
+                                                                        {awayCLB && (
+                                                                            <p className="text-[10px] text-gray-400 truncate">{awayCLB}</p>
+                                                                        )}
+                                                                    </div>
+                                                                </div>
+                                                            </motion.div>
+                                                        );
+                                                    })}
+                                                </div>
+                                            </div>
+                                        ))
+                                    )}
+                                </div>
+                            );
+                        })()}
 
                     </div>
                 </div>
@@ -1555,7 +1773,7 @@ export default function TournamentDetailClient({ initialData, id }: { initialDat
                                             </div>
                                             <div className="min-w-0">
                                                 <h3 className="text-lg font-bold truncate">{playerName}</h3>
-                                                <p className="text-white/60 text-xs truncate">{team.name}{team.shortName ? ` (${team.shortName})` : ''}</p>
+                                                <p className="text-white/60 text-xs truncate">{team.name}</p>
                                             </div>
                                         </div>
                                         <div className="flex gap-2">
@@ -1679,7 +1897,7 @@ export default function TournamentDetailClient({ initialData, id }: { initialDat
                                 <motion.div key="s1" initial={{ opacity: 0, x: 15 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -15 }} className="space-y-4">
                                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                                         <div className="space-y-1.5"><Label className="text-xs font-medium text-gray-500">Họ và tên VĐV <span className="text-red-400">*</span></Label><Input placeholder="Nguyễn Văn A" value={regForm.playerName} onChange={e => setRegForm({ ...regForm, playerName: e.target.value })} required className="h-11 rounded-lg border-gray-200 focus:border-efb-blue bg-gray-50/50 focus:bg-white transition-all text-sm" /></div>
-                                        <div className="space-y-1.5"><Label className="text-xs font-medium text-gray-500">Ngày sinh</Label><DatePicker value={regForm.dateOfBirth ? new Date(regForm.dateOfBirth + 'T00:00:00') : undefined} onChange={(date) => setRegForm({ ...regForm, dateOfBirth: date ? `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}` : '' })} placeholder="dd/mm/yyyy" /></div>
+                                        <div className="space-y-1.5"><Label className="text-xs font-medium text-gray-500">Ngày sinh <span className="text-red-400">*</span></Label><DatePicker value={regForm.dateOfBirth ? new Date(regForm.dateOfBirth + 'T00:00:00') : undefined} onChange={(date) => setRegForm({ ...regForm, dateOfBirth: date ? `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}` : '' })} placeholder="dd/mm/yyyy" /></div>
                                     </div>
                                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                                         <div className="space-y-1.5"><Label className="text-xs font-medium text-gray-500">Số điện thoại <span className="text-red-400">*</span></Label><div className="relative"><Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" /><Input placeholder="090xxxxxxx" value={regForm.phone} onChange={e => setRegForm({ ...regForm, phone: e.target.value })} required className="h-11 pl-10 rounded-lg border-gray-200 focus:border-efb-blue bg-gray-50/50 focus:bg-white transition-all text-sm" /></div></div>
@@ -1687,7 +1905,7 @@ export default function TournamentDetailClient({ initialData, id }: { initialDat
                                     </div>
                                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                                         <div className="space-y-1.5">
-                                            <Label className="text-xs font-medium text-gray-500">Quốc gia</Label>
+                                            <Label className="text-xs font-medium text-gray-500">Quốc gia <span className="text-red-400">*</span></Label>
                                             <Popover open={countryOpen} onOpenChange={(open) => { setCountryOpen(open); if (open && countries.length === 0) { fetch('https://restcountries.com/v3.1/all?fields=name,cca2').then(r => r.json()).then((data: { name: { common: string }; cca2: string }[]) => { const sorted = data.map(c => ({ name: c.name.common, code: c.cca2 })).sort((a, b) => { if (a.name === 'Vietnam') return -1; if (b.name === 'Vietnam') return 1; return a.name.localeCompare(b.name); }); const vnIdx = sorted.findIndex(c => c.code === 'VN'); if (vnIdx > 0) { const vn = sorted.splice(vnIdx, 1)[0]; vn.name = 'Việt Nam'; sorted.unshift(vn); } setCountries(sorted); }).catch(() => { setCountries([{ name: 'Việt Nam', code: 'VN' }, { name: 'Japan', code: 'JP' }, { name: 'South Korea', code: 'KR' }, { name: 'Thailand', code: 'TH' }]); }); } }}>
                                                 <PopoverTrigger asChild>
                                                     <button type="button" className={`flex h-11 w-full items-center justify-between rounded-lg border border-gray-200 bg-gray-50/50 px-3 text-sm transition-all hover:bg-white focus:outline-none focus:border-efb-blue focus:bg-white ${!regCountry ? 'text-gray-400' : 'text-gray-900'}`}>
@@ -1717,7 +1935,7 @@ export default function TournamentDetailClient({ initialData, id }: { initialDat
                                             </Popover>
                                         </div>
                                         <div className="space-y-1.5">
-                                            <Label className="text-xs font-medium text-gray-500">Tỉnh / Thành phố</Label>
+                                            <Label className="text-xs font-medium text-gray-500">Tỉnh / Thành phố <span className="text-red-400">*</span></Label>
                                             {regCountry === 'Việt Nam' ? (
                                                 <Popover open={provinceOpen} onOpenChange={(open) => { setProvinceOpen(open); if (open && vnProvinces.length === 0) { fetch('https://provinces.open-api.vn/api/p/').then(r => r.json()).then((data: { name: string; code: number }[]) => setVnProvinces(data)).catch(() => { }); } }}>
                                                     <PopoverTrigger asChild>
@@ -1754,26 +1972,25 @@ export default function TournamentDetailClient({ initialData, id }: { initialDat
                                             )}
                                         </div>
                                     </div>
-                                    <div className="pt-3 flex justify-end"><Button type="button" onClick={() => { if (!regForm.playerName.trim() || !regForm.phone.trim()) { toast.error('Vui lòng nhập Họ tên và Số điện thoại'); return; } setRegStep(2); }} className="h-11 px-8 bg-efb-blue text-white rounded-lg font-medium flex items-center gap-2">Tiếp theo <ChevronRight className="w-4 h-4" /></Button></div>
+                                    <div className="pt-3 flex justify-end"><Button type="button" onClick={() => { if (!regForm.playerName.trim() || !regForm.phone.trim() || !regForm.dateOfBirth) { toast.error('Vui lòng nhập đầy đủ Họ tên, Số điện thoại và Ngày sinh'); return; } setRegStep(2); }} className="h-11 px-8 bg-efb-blue text-white rounded-lg font-medium flex items-center gap-2">Tiếp theo <ChevronRight className="w-4 h-4" /></Button></div>
                                 </motion.div>
                             )}
                             {regStep === 2 && (
                                 <motion.div key="s2" initial={{ opacity: 0, x: 15 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -15 }} className="space-y-4">
                                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                                         <div className="space-y-1.5"><Label className="text-xs font-medium text-gray-500">ID Game (Konami ID) <span className="text-red-400">*</span></Label><Input placeholder="efoot-1234..." value={regForm.gamerId} onChange={e => setRegForm({ ...regForm, gamerId: e.target.value })} required className="h-11 rounded-lg border-gray-200 focus:border-efb-blue bg-gray-50/50 focus:bg-white transition-all text-sm" /></div>
-                                        <div className="space-y-1.5"><Label className="text-xs font-medium text-gray-500">Nickname eFootball</Label><Input placeholder="Tên trong game" value={regForm.nickname} onChange={e => setRegForm({ ...regForm, nickname: e.target.value })} className="h-11 rounded-lg border-gray-200 focus:border-efb-blue bg-gray-50/50 focus:bg-white transition-all text-sm" /></div>
+                                        <div className="space-y-1.5"><Label className="text-xs font-medium text-gray-500">Nickname eFootball <span className="text-red-400">*</span></Label><Input placeholder="Tên trong game" value={regForm.nickname} onChange={e => setRegForm({ ...regForm, nickname: e.target.value })} required className="h-11 rounded-lg border-gray-200 focus:border-efb-blue bg-gray-50/50 focus:bg-white transition-all text-sm" /></div>
                                     </div>
                                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                                        <div className="space-y-1.5"><Label className="text-xs font-medium text-gray-500">Facebook</Label><div className="relative"><Facebook className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" /><Input placeholder="Tên Facebook" value={regForm.facebookName} onChange={e => setRegForm({ ...regForm, facebookName: e.target.value })} className="h-11 pl-10 rounded-lg border-gray-200 focus:border-efb-blue bg-gray-50/50 focus:bg-white transition-all text-sm" /></div></div>
-                                        <div className="space-y-1.5"><Label className="text-xs font-medium text-gray-500">Link Facebook</Label><div className="relative"><ExternalLink className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" /><Input placeholder="https://facebook.com/..." value={regForm.facebookLink} onChange={e => setRegForm({ ...regForm, facebookLink: e.target.value })} className="h-11 pl-10 rounded-lg border-gray-200 focus:border-efb-blue bg-gray-50/50 focus:bg-white transition-all text-sm" /></div></div>
+                                        <div className="space-y-1.5"><Label className="text-xs font-medium text-gray-500">Facebook <span className="text-red-400">*</span></Label><div className="relative"><Facebook className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" /><Input placeholder="Tên Facebook" value={regForm.facebookName} onChange={e => setRegForm({ ...regForm, facebookName: e.target.value })} required className="h-11 pl-10 rounded-lg border-gray-200 focus:border-efb-blue bg-gray-50/50 focus:bg-white transition-all text-sm" /></div></div>
+                                        <div className="space-y-1.5"><Label className="text-xs font-medium text-gray-500">Link Facebook <span className="text-red-400">*</span></Label><div className="relative"><ExternalLink className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" /><Input placeholder="https://facebook.com/..." value={regForm.facebookLink} onChange={e => setRegForm({ ...regForm, facebookLink: e.target.value })} required className="h-11 pl-10 rounded-lg border-gray-200 focus:border-efb-blue bg-gray-50/50 focus:bg-white transition-all text-sm" /></div></div>
                                     </div>
                                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                                        <div className="space-y-1.5"><Label className="text-xs font-medium text-gray-500">Tên đội bóng <span className="text-red-400">*</span></Label><Input placeholder="Manchester United" value={regForm.teamName} onChange={e => setRegForm({ ...regForm, teamName: e.target.value })} required className="h-11 rounded-lg border-gray-200 focus:border-efb-blue bg-gray-50/50 focus:bg-white transition-all text-sm" /></div>
-                                        <div className="space-y-1.5"><Label className="text-xs font-medium text-gray-500">Viết tắt (4 ký tự) <span className="text-red-400">*</span></Label><Input placeholder="MU" value={regForm.teamShortName} onChange={e => setRegForm({ ...regForm, teamShortName: e.target.value.toUpperCase() })} required maxLength={4} className="h-11 rounded-lg border-gray-200 focus:border-efb-blue bg-gray-50/50 focus:bg-white transition-all text-sm uppercase" /></div>
+                                        <div className="space-y-1.5"><Label className="text-xs font-medium text-gray-500">Tên Team <span className="text-[10px] font-normal text-gray-400">(không bắt buộc)</span></Label><Input placeholder="VD: FC Saigon, Team Hanoi..." value={regForm.teamName} onChange={e => setRegForm({ ...regForm, teamName: e.target.value })} className="h-11 rounded-lg border-gray-200 focus:border-efb-blue bg-gray-50/50 focus:bg-white transition-all text-sm" maxLength={100} /></div>
                                     </div>
                                     <div className="pt-3 flex justify-between">
                                         <Button type="button" variant="outline" onClick={() => setRegStep(1)} className="h-11 px-6 rounded-lg font-medium border-gray-200 flex items-center gap-2"><ChevronLeft className="w-4 h-4" /> Quay lại</Button>
-                                        <Button type="button" onClick={() => { if (!regForm.gamerId.trim() || !regForm.teamName.trim() || !regForm.teamShortName.trim()) { toast.error('Vui lòng nhập ID Game, Tên đội và Viết tắt'); return; } setRegStep(3); }} className="h-11 px-8 bg-efb-blue text-white rounded-lg font-medium flex items-center gap-2">Tiếp theo <ChevronRight className="w-4 h-4" /></Button>
+                                        <Button type="button" onClick={() => { if (!regForm.gamerId.trim() || !regForm.nickname.trim() || !regForm.facebookName.trim() || !regForm.facebookLink.trim()) { toast.error('Vui lòng nhập đầy đủ ID Game, Nickname, Facebook và Link Facebook'); return; } setRegStep(3); }} className="h-11 px-8 bg-efb-blue text-white rounded-lg font-medium flex items-center gap-2">Tiếp theo <ChevronRight className="w-4 h-4" /></Button>
                                     </div>
                                 </motion.div>
                             )}
@@ -1782,7 +1999,7 @@ export default function TournamentDetailClient({ initialData, id }: { initialDat
                                     <div className="space-y-1.5"><Label className="text-xs font-medium text-gray-500">Hình cá nhân (rõ mặt)</Label><div className="flex items-start gap-4">{regForm.personalPhoto ? (<div className="relative group"><img src={regForm.personalPhoto} alt="Ảnh" className="w-24 h-24 object-cover rounded-xl border-2 border-gray-200" /><button type="button" onClick={() => setRegForm(prev => ({ ...prev, personalPhoto: '' }))} className="absolute -top-2 -right-2 w-6 h-6 rounded-full bg-red-500 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity shadow-lg"><X className="w-3.5 h-3.5" /></button></div>) : (<label className="cursor-pointer flex-1"><div className="flex items-center gap-3 p-4 rounded-xl border-2 border-dashed border-gray-200 hover:border-efb-blue hover:bg-blue-50/30 transition-all">{uploadingPersonal ? <Loader2 className="w-5 h-5 animate-spin text-efb-blue" /> : <div className="w-10 h-10 rounded-lg bg-blue-50 flex items-center justify-center"><Camera className="w-5 h-5 text-efb-blue" /></div>}<div><p className="text-sm font-medium text-gray-700">Tải ảnh cá nhân</p><p className="text-[11px] text-gray-400">JPG, PNG — tối đa 5MB</p></div></div><input type="file" accept="image/*" className="hidden" disabled={uploadingPersonal} onChange={(e) => { const f = e.target.files?.[0]; if (f) handleUploadRegImage(f, 'personalPhoto'); e.target.value = ''; }} /></label>)}</div></div>
                                     <div className="space-y-1.5"><Label className="text-xs font-medium text-gray-500">Hình đội hình thẻ thi đấu</Label><div className="flex items-start gap-4">{regForm.teamLineupPhoto ? (<div className="relative group"><img src={regForm.teamLineupPhoto} alt="Đội hình" className="w-40 h-24 object-cover rounded-xl border-2 border-gray-200" /><button type="button" onClick={() => setRegForm(prev => ({ ...prev, teamLineupPhoto: '' }))} className="absolute -top-2 -right-2 w-6 h-6 rounded-full bg-red-500 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity shadow-lg"><X className="w-3.5 h-3.5" /></button></div>) : (<label className="cursor-pointer flex-1"><div className="flex items-center gap-3 p-4 rounded-xl border-2 border-dashed border-gray-200 hover:border-efb-blue hover:bg-blue-50/30 transition-all">{uploadingLineup ? <Loader2 className="w-5 h-5 animate-spin text-efb-blue" /> : <div className="w-10 h-10 rounded-lg bg-emerald-50 flex items-center justify-center"><ImageIcon className="w-5 h-5 text-emerald-600" /></div>}<div><p className="text-sm font-medium text-gray-700">Tải ảnh đội hình</p><p className="text-[11px] text-gray-400">Screenshot — JPG, PNG (tối đa 5MB)</p></div></div><input type="file" accept="image/*" className="hidden" disabled={uploadingLineup} onChange={(e) => { const f = e.target.files?.[0]; if (f) handleUploadRegImage(f, 'teamLineupPhoto'); e.target.value = ''; }} /></label>)}</div></div>
                                     {t.entryFee > 0 && (<div className="p-3 rounded-xl bg-amber-50 border border-amber-200 flex items-center gap-3"><DollarSign className="w-5 h-5 text-amber-600 flex-shrink-0" /><div><p className="text-xs font-medium text-amber-800">Lệ phí: {t.entryFee?.toLocaleString('vi-VN')} {t.currency || 'VNĐ'}</p><p className="text-[10px] text-amber-600/70 mt-0.5">Thanh toán sau đăng ký.</p></div></div>)}
-                                    <div className="p-4 rounded-xl bg-gray-50 border border-gray-100 space-y-2"><p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">Tóm tắt</p><div className="grid grid-cols-2 gap-x-4 gap-y-1.5 text-sm"><div><span className="text-gray-400">Họ tên:</span> <span className="font-medium text-gray-700">{regForm.playerName}</span></div><div><span className="text-gray-400">SĐT:</span> <span className="font-medium text-gray-700">{regForm.phone}</span></div><div><span className="text-gray-400">ID Game:</span> <span className="font-medium text-gray-700">{regForm.gamerId}</span></div><div><span className="text-gray-400">Đội:</span> <span className="font-medium text-gray-700">{regForm.teamName} ({regForm.teamShortName})</span></div>{regForm.nickname && <div><span className="text-gray-400">Nickname:</span> <span className="font-medium text-gray-700">{regForm.nickname}</span></div>}{regForm.province && <div><span className="text-gray-400">Tỉnh/TP:</span> <span className="font-medium text-gray-700">{regForm.province}</span></div>}</div></div>
+                                    <div className="p-4 rounded-xl bg-gray-50 border border-gray-100 space-y-2"><p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">Tóm tắt</p><div className="grid grid-cols-2 gap-x-4 gap-y-1.5 text-sm"><div><span className="text-gray-400">Họ tên:</span> <span className="font-medium text-gray-700">{regForm.playerName}</span></div><div><span className="text-gray-400">SĐT:</span> <span className="font-medium text-gray-700">{regForm.phone}</span></div><div><span className="text-gray-400">ID Game:</span> <span className="font-medium text-gray-700">{regForm.gamerId}</span></div>{regForm.teamName && <div><span className="text-gray-400">Team:</span> <span className="font-medium text-gray-700">{regForm.teamName}</span></div>}{regForm.nickname && <div><span className="text-gray-400">Nickname:</span> <span className="font-medium text-gray-700">{regForm.nickname}</span></div>}{regForm.province && <div><span className="text-gray-400">Tỉnh/TP:</span> <span className="font-medium text-gray-700">{regForm.province}</span></div>}</div></div>
                                     <div className="pt-3 flex justify-between"><Button type="button" variant="outline" onClick={() => setRegStep(2)} className="h-11 px-6 rounded-lg font-medium border-gray-200 flex items-center gap-2"><ChevronLeft className="w-4 h-4" /> Quay lại</Button><Button type="submit" className="h-11 px-8 bg-gradient-to-r from-efb-blue to-blue-600 text-white rounded-lg font-medium shadow-sm flex items-center gap-2" disabled={isRegistering}>{isRegistering ? <Loader2 className="w-5 h-5 animate-spin" /> : <>Xác nhận <ChevronRight className="w-4 h-4" /></>}</Button></div>
                                 </motion.div>
                             )}

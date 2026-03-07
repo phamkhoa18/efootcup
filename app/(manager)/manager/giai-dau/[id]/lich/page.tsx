@@ -345,10 +345,12 @@ export default function LichThiDauPage() {
                                                 <div className="col-span-2 flex flex-col gap-1.5">
                                                     <div className="border border-gray-200 rounded px-1.5 py-0.5 shadow-sm bg-white text-[11px] font-semibold text-gray-700 truncate w-fit max-w-full flex items-center gap-1">
                                                         <div className="w-1.5 h-1.5 rounded-full bg-blue-400"></div>
+                                                        {m.homeTeam?.efvId != null && <span className="text-[9px] font-bold text-amber-600 bg-amber-50 border border-amber-200 px-1 py-px rounded">#{m.homeTeam.efvId}</span>}
                                                         {homeName}
                                                     </div>
                                                     <div className="border border-gray-200 rounded px-1.5 py-0.5 shadow-sm bg-white text-[11px] font-semibold text-gray-700 truncate w-fit max-w-full flex items-center gap-1">
                                                         <div className="w-1.5 h-1.5 rounded-full bg-red-400"></div>
+                                                        {m.awayTeam?.efvId != null && <span className="text-[9px] font-bold text-amber-600 bg-amber-50 border border-amber-200 px-1 py-px rounded">#{m.awayTeam.efvId}</span>}
                                                         {awayName}
                                                     </div>
                                                 </div>

@@ -34,6 +34,18 @@ export async function POST(req: NextRequest) {
         const modes = targetMode ? [targetMode] : ["mobile", "pc"];
         let totalPlayers = 0;
 
+        // Drop stale gamerId_1 unique index if it exists (from before compound index was added)
+        try {
+            const indexes = await Bxh.collection.indexes();
+            const staleIndex = indexes.find((idx: any) => idx.name === "gamerId_1" && !idx.key?.mode);
+            if (staleIndex) {
+                await Bxh.collection.dropIndex("gamerId_1");
+                console.log("Dropped stale gamerId_1 index");
+            }
+        } catch (e) {
+            // Index might not exist, that's fine
+        }
+
         for (const mode of modes) {
             // 1. Get all distinct users who have point logs for this mode
             const userIds = await EfvPointLog.distinct("user", { mode });

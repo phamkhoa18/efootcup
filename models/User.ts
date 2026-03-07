@@ -16,6 +16,7 @@ export interface IUser extends Document {
     country?: string;
     province?: string;
     nickname?: string;
+    teamName?: string;
     facebookName?: string;
     facebookLink?: string;
     stats: {
@@ -103,6 +104,11 @@ const UserSchema = new Schema<IUser>(
         nickname: {
             type: String,
             default: "",
+        },
+        teamName: {
+            type: String,
+            default: "",
+            maxlength: [100, "Tên team không được quá 100 ký tự"],
         },
         facebookName: {
             type: String,

@@ -240,7 +240,7 @@ export default function BXHConsolePage() {
                             {/* Table header */}
                             <div className="hidden md:grid grid-cols-[55px_120px_1fr_120px_120px_90px_45px] px-5 py-3 text-[10px] font-bold text-slate-400 uppercase tracking-widest bg-slate-50 border-b border-slate-100">
                                 <span className="text-center">#</span>
-                                <span>ID Gamers</span>
+                                <span>EFV ID</span>
                                 <span>Họ Tên VĐV</span>
                                 <span>Team</span>
                                 <span>Nickname</span>
@@ -289,7 +289,6 @@ export default function BXHConsolePage() {
                                             </div>
                                             <span className="text-[12px] text-teal-600 font-mono font-medium truncate pr-2">{p.id}</span>
                                             <p className="font-semibold text-[14px] text-slate-800 truncate group-hover:text-teal-600 transition-colors pr-2">
-                                                <span className="text-[11px] font-bold text-teal-600 bg-teal-50 px-1.5 py-0.5 rounded mr-1.5 border border-teal-100">{p.id}</span>
                                                 {p.name}
                                             </p>
                                             <div className="pr-2">
@@ -342,7 +341,6 @@ export default function BXHConsolePage() {
                                                 </div>
                                                 <div className="flex-1 min-w-0">
                                                     <p className="font-bold text-[14px] text-slate-800 truncate leading-tight">
-                                                        <span className="text-[10px] font-bold text-teal-600 bg-teal-50 px-1 py-0.5 rounded mr-1 border border-teal-100">{p.id}</span>
                                                         {p.name} {p.nickname ? <span className="text-slate-500 font-normal">({p.nickname})</span> : ""}
                                                     </p>
                                                     <div className="flex items-center gap-2 flex-wrap mt-1">

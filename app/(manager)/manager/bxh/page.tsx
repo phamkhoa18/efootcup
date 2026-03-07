@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import { Plus, Search, Trophy, Medal, Edit, Trash2, Loader2, Award, Upload, FileSpreadsheet, Download, RefreshCw, Database } from "lucide-react";
+import { Plus, Search, Trophy, Medal, Edit, Trash2, Loader2, Award, Upload, FileSpreadsheet, Download, RefreshCw, Database, Smartphone, Monitor } from "lucide-react";
 import * as XLSX from "xlsx";
 import { toast } from "sonner";
 import { useConfirmDialog } from "@/components/ui/confirm-dialog";
@@ -42,18 +42,21 @@ export default function ManagerBxhPage() {
 
     const [error, setError] = useState<string | null>(null);
     const [isReloading, setIsReloading] = useState(false);
+    const [activeMode, setActiveMode] = useState<"mobile" | "pc">("mobile");
 
     useEffect(() => {
         loadData();
-    }, []);
+    }, [activeMode]);
 
     const loadData = async () => {
         setIsLoading(true);
         try {
-            const res = await fetch("/api/bxh", { cache: "no-store" });
+            const res = await fetch(`/api/bxh?mode=${activeMode}`, { cache: "no-store" });
             const result = await res.json();
             if (result.data && Array.isArray(result.data.data)) {
                 setPlayers(result.data.data);
+            } else {
+                setPlayers([]);
             }
         } catch (error) {
             console.error("Error loading BXH:", error);
@@ -316,17 +319,22 @@ export default function ManagerBxhPage() {
     };
 
     const handleReloadSystem = async () => {
+        const modeLabel = activeMode === "mobile" ? "Mobile" : "Console";
         const yes = await confirm({
-            title: "Reload BXH từ hệ thống?",
-            description: "Toàn bộ BXH hiện tại sẽ được xóa và thay bằng dữ liệu tính từ các giải đấu EFV trong hệ thống (cơ chế 5 giải gần nhất). Dữ liệu Excel sẽ bị thay thế.",
-            confirmText: "Reload",
+            title: `Reload BXH ${modeLabel} từ hệ thống?`,
+            description: `Toàn bộ BXH ${modeLabel} hiện tại sẽ được xóa và thay bằng dữ liệu tính từ các giải đấu EFV trong hệ thống (cơ chế cửa sổ trượt). Dữ liệu Excel sẽ bị thay thế.`,
+            confirmText: `Reload ${modeLabel}`,
             variant: "warning",
         });
         if (!yes) return;
 
         setIsReloading(true);
         try {
-            const res = await fetch("/api/bxh/reload-system", { method: "POST" });
+            const res = await fetch("/api/bxh/reload-system", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ mode: activeMode }),
+            });
             const json = await res.json();
             if (json.success !== false) {
                 toast.success(`✅ ${json.message}`);
@@ -373,7 +381,7 @@ export default function ManagerBxhPage() {
                         {isReloading ? (
                             <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Đang reload...</>
                         ) : (
-                            <><Database className="w-4 h-4 mr-2" /> Reload từ hệ thống</>
+                            <><Database className="w-4 h-4 mr-2" /> Reload {activeMode === "mobile" ? "Mobile" : "Console"}</>
                         )}
                     </Button>
                     {players.length > 0 && (
@@ -385,6 +393,28 @@ export default function ManagerBxhPage() {
                         <Plus className="w-4 h-4 mr-2" /> Thêm VĐV
                     </Button>
                 </div>
+            </div>
+
+            {/* Mode Tabs */}
+            <div className="flex items-center gap-2 bg-white rounded-xl border border-slate-200 p-1.5 shadow-sm w-fit">
+                <button
+                    onClick={() => setActiveMode("mobile")}
+                    className={`flex items-center gap-2 px-5 py-2.5 rounded-lg text-sm font-bold transition-all ${activeMode === "mobile"
+                            ? "bg-gradient-to-r from-blue-500 to-indigo-600 text-white shadow-md shadow-blue-500/20"
+                            : "text-slate-500 hover:bg-slate-50 hover:text-slate-700"
+                        }`}
+                >
+                    <Smartphone className="w-4 h-4" /> Mobile
+                </button>
+                <button
+                    onClick={() => setActiveMode("pc")}
+                    className={`flex items-center gap-2 px-5 py-2.5 rounded-lg text-sm font-bold transition-all ${activeMode === "pc"
+                            ? "bg-gradient-to-r from-teal-500 to-cyan-600 text-white shadow-md shadow-teal-500/20"
+                            : "text-slate-500 hover:bg-slate-50 hover:text-slate-700"
+                        }`}
+                >
+                    <Monitor className="w-4 h-4" /> Console
+                </button>
             </div>
 
             <div className="bg-white rounded-2xl p-6 shadow-sm border border-slate-100">

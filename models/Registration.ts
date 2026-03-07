@@ -56,12 +56,12 @@ const RegistrationSchema = new Schema<IRegistration>(
         },
         teamName: {
             type: String,
-            required: [true, "Vui lòng nhập tên đội"],
+            default: "",
             trim: true,
         },
         teamShortName: {
             type: String,
-            required: [true, "Vui lòng nhập tên viết tắt"],
+            default: "",
             trim: true,
             uppercase: true,
             maxlength: 4,

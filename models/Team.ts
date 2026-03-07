@@ -44,7 +44,7 @@ const TeamSchema = new Schema<ITeam>(
         },
         shortName: {
             type: String,
-            required: [true, "Vui lòng nhập tên viết tắt"],
+            default: "",
             trim: true,
             maxlength: [4, "Tên viết tắt tối đa 4 ký tự"],
             uppercase: true,

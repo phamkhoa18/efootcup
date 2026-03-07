@@ -330,7 +330,8 @@ export default function DangKyPage() {
                 r.nickname?.toLowerCase().includes(q) ||
                 r.facebookName?.toLowerCase().includes(q) ||
                 r.province?.toLowerCase().includes(q) ||
-                r.phone?.toLowerCase().includes(q)
+                r.phone?.toLowerCase().includes(q) ||
+                String(r.user?.efvId || "").includes(q)
             );
         }
         return true;
@@ -444,7 +445,7 @@ export default function DangKyPage() {
                 <div className="relative flex-1 max-w-sm">
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
                     <Input
-                        placeholder="Tìm VĐV theo tên, SĐT, email..."
+                        placeholder="Tìm VĐV theo EFV ID, tên, SĐT, email..."
                         value={search}
                         onChange={(e) => setSearch(e.target.value)}
                         className="pl-9 h-10 rounded-xl border-gray-200 focus-visible:ring-blue-500/30 focus-visible:border-blue-400"
@@ -483,6 +484,7 @@ export default function DangKyPage() {
                             <thead>
                                 <tr className="border-b border-gray-100 bg-gradient-to-r from-gray-50/50 to-slate-50/50">
                                     <th className="text-left px-4 py-4 text-[10px] font-bold text-gray-400 uppercase tracking-widest">#</th>
+                                    <th className="text-left px-4 py-4 text-[10px] font-bold text-amber-500 uppercase tracking-widest">EFV ID</th>
                                     <th className="text-left px-4 py-4 text-[10px] font-bold text-gray-400 uppercase tracking-widest">Nhân sự / CLB</th>
                                     <th className="text-left px-4 py-4 text-[10px] font-bold text-gray-400 uppercase tracking-widest hidden md:table-cell">In-game ID</th>
                                     <th className="text-left px-4 py-4 text-[10px] font-bold text-gray-400 uppercase tracking-widest hidden lg:table-cell">Ngày ĐK</th>
@@ -513,9 +515,18 @@ export default function DangKyPage() {
                                         >
                                             <td className="px-4 py-4 text-sm text-gray-400 font-medium">{i + 1}</td>
                                             <td className="px-4 py-4">
+                                                {r.user?.efvId != null ? (
+                                                    <span className="inline-flex items-center text-[11px] font-bold text-amber-700 bg-amber-50 border border-amber-200 px-2 py-1 rounded-md tabular-nums">#{r.user.efvId}</span>
+                                                ) : (
+                                                    <span className="text-[11px] text-gray-300">—</span>
+                                                )}
+                                            </td>
+                                            <td className="px-4 py-4">
                                                 <div className="flex items-center gap-2">
                                                     <div>
-                                                        <div className="text-sm font-bold text-gray-900">{r.playerName || r.teamName || r.name || "—"}</div>
+                                                        <div className="text-sm font-bold text-gray-900">
+                                                            {r.playerName || r.teamName || r.name || "—"}
+                                                        </div>
                                                         <div className="text-[11px] text-gray-400 font-medium flex items-center gap-1.5 mt-0.5">
                                                             <span className="text-efb-blue">{r.teamName || "Tự do"}</span>
                                                             <span className="w-1 h-1 rounded-full bg-gray-200" />
@@ -779,8 +790,8 @@ export default function DangKyPage() {
                                     <span className="text-[13px] text-gray-900 font-normal">{playerDetailView.nickname || '—'}</span>
                                 </div>
                                 <div className="px-6 py-3 flex items-center justify-between border-b border-gray-50">
-                                    <span className="text-[13px] text-gray-400 font-light">Tên đội</span>
-                                    <span className="text-[13px] text-gray-900 font-normal">{playerDetailView.teamName} ({playerDetailView.teamShortName})</span>
+                                    <span className="text-[13px] text-gray-400 font-light">Tên Team</span>
+                                    <span className="text-[13px] text-gray-900 font-normal">{playerDetailView.teamName || '—'}</span>
                                 </div>
                                 <div className="px-6 py-3 flex items-center justify-between border-b border-gray-50">
                                     <span className="text-[13px] text-gray-400 font-light">Số điện thoại</span>

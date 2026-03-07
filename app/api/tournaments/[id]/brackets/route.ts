@@ -78,7 +78,8 @@ export async function GET(req: NextRequest, { params }: RouteParams) {
             .lean();
 
         const Registration = (await import('@/models/Registration')).default;
-        const registrations = await Registration.find({ tournament: id, status: 'approved' }).lean();
+        const User = (await import('@/models/User')).default;
+        const registrations = await Registration.find({ tournament: id, status: 'approved' }).populate('user', 'efvId').lean();
         const teamMap = new Map();
         registrations.forEach(r => { if (r.team) teamMap.set(r.team.toString(), r); });
 
@@ -86,7 +87,7 @@ export async function GET(req: NextRequest, { params }: RouteParams) {
             [match.homeTeam, match.awayTeam].forEach(t => {
                 if (t && t._id) {
                     const reg = teamMap.get(t._id.toString());
-                    if (reg) { t.player1 = reg.playerName; t.player2 = reg.gamerId; }
+                    if (reg) { t.player1 = reg.playerName; t.player2 = reg.gamerId; t.efvId = reg.user?.efvId; }
                 }
             });
             return match;

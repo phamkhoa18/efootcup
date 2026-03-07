@@ -10,7 +10,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
-    Eye, EyeOff, Mail, Lock, User, ArrowRight, Trophy, Loader2
+    Eye, EyeOff, Mail, Lock, User, ArrowRight, Trophy, Loader2, Shield
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useSiteSettings } from "@/hooks/useSiteSettings";
@@ -25,6 +25,7 @@ export default function DangKyPage() {
         email: "",
         password: "",
         confirmPassword: "",
+        teamName: "",
         role: "user" as const,
     });
     const { register: registerUser } = useAuth();
@@ -196,6 +197,27 @@ export default function DangKyPage() {
                                     className="pl-10 h-12 rounded-xl border-gray-200 bg-gray-50/50 focus:bg-white focus:border-efb-blue focus:ring-efb-blue/20 transition-all text-sm"
                                     required
                                     disabled={isSubmitting}
+                                />
+                            </div>
+                        </div>
+
+                        {/* Team Name (optional) */}
+                        <div className="space-y-2">
+                            <Label htmlFor="teamName" className="text-sm font-medium text-efb-dark flex items-center gap-1.5">
+                                Tên Team
+                                <span className="text-xs font-normal text-gray-400">(không bắt buộc)</span>
+                            </Label>
+                            <div className="relative">
+                                <Shield className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-efb-text-muted" />
+                                <Input
+                                    id="teamName"
+                                    type="text"
+                                    placeholder="VD: FC Saigon, Team Hanoi..."
+                                    value={form.teamName}
+                                    onChange={(e) => updateField("teamName", e.target.value)}
+                                    className="pl-10 h-12 rounded-xl border-gray-200 bg-gray-50/50 focus:bg-white focus:border-efb-blue focus:ring-efb-blue/20 transition-all text-sm"
+                                    disabled={isSubmitting}
+                                    maxLength={100}
                                 />
                             </div>
                         </div>

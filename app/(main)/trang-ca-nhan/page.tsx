@@ -12,7 +12,7 @@ import {
     Save, Loader2, CheckCircle2, ArrowLeft, Shield,
     Trophy, Swords, Target, CalendarDays, Edit3, X,
     Clock, ExternalLink, ChevronRight, Activity, XCircle, Upload,
-    Star, Crown, Medal, Award, TrendingUp, Hash
+    Star, Crown, Medal, Award, TrendingUp, Hash, ChevronDown, Monitor, Smartphone
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -51,6 +51,8 @@ export default function TrangCaNhanPage() {
     // EFV Points
     const [efvData, setEfvData] = useState<any>(null);
     const [isEfvLoading, setIsEfvLoading] = useState(false);
+    const [efvTab, setEfvTab] = useState<'mobile' | 'console'>('mobile');
+    const [efvHistoryOpen, setEfvHistoryOpen] = useState(false);
 
     const [form, setForm] = useState({
         name: "",
@@ -434,7 +436,7 @@ export default function TrangCaNhanPage() {
 
                     <div className="h-px bg-gray-100" />
 
-                    {/* EFV Points Section */}
+                    {/* EFV Points Section — Tab-based compact layout */}
                     <div className="px-6 sm:px-8 py-6">
                         <div className="flex items-center justify-between mb-4">
                             <h2 className="text-base font-semibold text-gray-900 flex items-center gap-2 tracking-tight">
@@ -446,85 +448,114 @@ export default function TrangCaNhanPage() {
 
                         {!isEfvLoading && efvData ? (
                             <div className="space-y-4">
-                                {/* ═══ MOBILE BXH ═══ */}
-                                <div className="space-y-3">
-                                    <p className="text-[10px] font-bold text-amber-600 uppercase tracking-[0.15em] flex items-center gap-1.5 pl-1">
-                                        📱 Mobile
-                                    </p>
-                                    <div className="grid grid-cols-2 gap-3">
-                                        <div className="bg-gradient-to-br from-amber-50 to-orange-50 rounded-xl p-4 text-center border border-amber-100">
-                                            <div className="w-9 h-9 rounded-lg bg-gradient-to-br from-amber-400 to-orange-500 flex items-center justify-center mx-auto mb-2 shadow-sm shadow-amber-200">
-                                                <Star className="w-4 h-4 text-white" />
-                                            </div>
-                                            <p className="text-lg font-bold text-amber-700">{efvData.totalMobilePoints ?? efvData.totalActivePoints ?? 0}</p>
-                                            <p className="text-[10px] text-amber-500 font-medium uppercase">BXH Tổng</p>
-                                        </div>
-                                        <div className="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-xl p-4 text-center border border-blue-100">
-                                            <div className="w-9 h-9 rounded-lg bg-gradient-to-br from-blue-400 to-indigo-500 flex items-center justify-center mx-auto mb-2 shadow-sm shadow-blue-200">
-                                                <Hash className="w-4 h-4 text-white" />
-                                            </div>
-                                            <p className="text-lg font-bold text-blue-700">{(efvData.mobileRank ?? efvData.rank) ? `#${efvData.mobileRank ?? efvData.rank}` : "—"}</p>
-                                            <p className="text-[10px] text-blue-500 font-medium uppercase">Hạng</p>
-                                        </div>
-                                    </div>
-                                    <div className="grid grid-cols-3 gap-2">
-                                        <div className="bg-blue-50/80 rounded-xl p-3 text-center border border-blue-100">
-                                            <p className="text-[9px] text-blue-500 font-bold uppercase tracking-wide">EFV 250</p>
-                                            <p className="text-base font-bold text-blue-700">{efvData.pointsEfv250 ?? 0}</p>
-                                            <p className="text-[8px] text-blue-400">Top {efvData.tierWindows?.efv_250 ?? 5} giải</p>
-                                        </div>
-                                        <div className="bg-purple-50/80 rounded-xl p-3 text-center border border-purple-100">
-                                            <p className="text-[9px] text-purple-500 font-bold uppercase tracking-wide">EFV 500</p>
-                                            <p className="text-base font-bold text-purple-700">{efvData.pointsEfv500 ?? 0}</p>
-                                            <p className="text-[8px] text-purple-400">Top {efvData.tierWindows?.efv_500 ?? 4} giải</p>
-                                        </div>
-                                        <div className="bg-amber-50/80 rounded-xl p-3 text-center border border-amber-100">
-                                            <p className="text-[9px] text-amber-500 font-bold uppercase tracking-wide">EFV 1000</p>
-                                            <p className="text-base font-bold text-amber-700">{efvData.pointsEfv1000 ?? 0}</p>
-                                            <p className="text-[8px] text-amber-400">Top {efvData.tierWindows?.efv_1000 ?? 3} giải</p>
-                                        </div>
-                                    </div>
+                                {/* ── Tab Switcher ── */}
+                                <div className="flex bg-gray-100 rounded-xl p-1 gap-1">
+                                    <button
+                                        onClick={() => setEfvTab('mobile')}
+                                        className={`flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg text-xs font-semibold transition-all duration-200 ${efvTab === 'mobile'
+                                                ? 'bg-white text-amber-700 shadow-sm'
+                                                : 'text-gray-400 hover:text-gray-600'
+                                            }`}
+                                    >
+                                        <Smartphone className="w-3.5 h-3.5" />
+                                        Mobile
+                                    </button>
+                                    <button
+                                        onClick={() => setEfvTab('console')}
+                                        className={`flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg text-xs font-semibold transition-all duration-200 ${efvTab === 'console'
+                                                ? 'bg-white text-cyan-700 shadow-sm'
+                                                : 'text-gray-400 hover:text-gray-600'
+                                            }`}
+                                    >
+                                        <Monitor className="w-3.5 h-3.5" />
+                                        Console
+                                    </button>
                                 </div>
 
-                                {/* ═══ PC BXH ═══ */}
-                                <div className="space-y-3 pt-3 border-t border-gray-100">
-                                    <p className="text-[10px] font-bold text-cyan-600 uppercase tracking-[0.15em] flex items-center gap-1.5 pl-1">
-                                        🖥️ Console
-                                    </p>
-                                    <div className="grid grid-cols-2 gap-3">
-                                        <div className="bg-gradient-to-br from-cyan-50 to-teal-50 rounded-xl p-4 text-center border border-cyan-100">
-                                            <div className="w-9 h-9 rounded-lg bg-gradient-to-br from-cyan-400 to-teal-500 flex items-center justify-center mx-auto mb-2 shadow-sm shadow-cyan-200">
-                                                <Star className="w-4 h-4 text-white" />
+                                {/* ── Tab Content ── */}
+                                <AnimatePresence mode="wait">
+                                    {efvTab === 'mobile' ? (
+                                        <motion.div
+                                            key="mobile"
+                                            initial={{ opacity: 0, x: -8 }}
+                                            animate={{ opacity: 1, x: 0 }}
+                                            exit={{ opacity: 0, x: 8 }}
+                                            transition={{ duration: 0.15 }}
+                                            className="space-y-3"
+                                        >
+                                            {/* Summary row */}
+                                            <div className="flex items-center gap-3 bg-gradient-to-r from-amber-50 to-orange-50 rounded-xl p-3.5 border border-amber-100/80">
+                                                <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-amber-400 to-orange-500 flex items-center justify-center shadow-sm shadow-amber-200/50 flex-shrink-0">
+                                                    <Star className="w-4.5 h-4.5 text-white" />
+                                                </div>
+                                                <div className="flex-1 min-w-0">
+                                                    <p className="text-xl font-extrabold text-amber-700 leading-none">{efvData.totalMobilePoints ?? efvData.totalActivePoints ?? 0}</p>
+                                                    <p className="text-[10px] text-amber-500/80 font-medium mt-0.5">Tổng điểm Mobile</p>
+                                                </div>
+                                                <div className="text-right flex-shrink-0 pl-3 border-l border-amber-200/60">
+                                                    <p className="text-lg font-bold text-amber-600 leading-none">{(efvData.mobileRank ?? efvData.rank) ? `#${efvData.mobileRank ?? efvData.rank}` : "—"}</p>
+                                                    <p className="text-[10px] text-amber-400 font-medium mt-0.5">Hạng BXH</p>
+                                                </div>
                                             </div>
-                                            <p className="text-lg font-bold text-cyan-700">{efvData.totalPcPoints ?? 0}</p>
-                                            <p className="text-[10px] text-cyan-500 font-medium uppercase">BXH Tổng</p>
-                                        </div>
-                                        <div className="bg-gradient-to-br from-teal-50 to-emerald-50 rounded-xl p-4 text-center border border-teal-100">
-                                            <div className="w-9 h-9 rounded-lg bg-gradient-to-br from-teal-400 to-emerald-500 flex items-center justify-center mx-auto mb-2 shadow-sm shadow-teal-200">
-                                                <Hash className="w-4 h-4 text-white" />
+                                            {/* Tier breakdown */}
+                                            <div className="grid grid-cols-3 gap-2">
+                                                {[
+                                                    { label: 'EFV 250', value: efvData.pointsEfv250 ?? 0, window: efvData.tierWindows?.efv_250 ?? 5, color: 'blue' },
+                                                    { label: 'EFV 500', value: efvData.pointsEfv500 ?? 0, window: efvData.tierWindows?.efv_500 ?? 4, color: 'purple' },
+                                                    { label: 'EFV 1000', value: efvData.pointsEfv1000 ?? 0, window: efvData.tierWindows?.efv_1000 ?? 3, color: 'amber' },
+                                                ].map((tier) => (
+                                                    <div key={tier.label} className={`bg-${tier.color}-50/60 rounded-lg p-2.5 text-center border border-${tier.color}-100/80`}>
+                                                        <p className={`text-[9px] text-${tier.color}-500 font-bold uppercase tracking-wide`}>{tier.label}</p>
+                                                        <p className={`text-sm font-bold text-${tier.color}-700 mt-0.5`}>{tier.value}</p>
+                                                        <p className={`text-[8px] text-${tier.color}-400`}>Top {tier.window} giải</p>
+                                                    </div>
+                                                ))}
                                             </div>
-                                            <p className="text-lg font-bold text-teal-700">{efvData.pcRank ? `#${efvData.pcRank}` : "—"}</p>
-                                            <p className="text-[10px] text-teal-500 font-medium uppercase">Hạng</p>
-                                        </div>
-                                    </div>
-                                    <div className="grid grid-cols-3 gap-2">
-                                        <div className="bg-teal-50/80 rounded-xl p-3 text-center border border-teal-100">
-                                            <p className="text-[9px] text-teal-500 font-bold uppercase tracking-wide">EFV 50</p>
-                                            <p className="text-base font-bold text-teal-700">{efvData.pointsEfv50 ?? 0}</p>
-                                            <p className="text-[8px] text-teal-400">Top {efvData.tierWindows?.efv_50 ?? 5} giải</p>
-                                        </div>
-                                        <div className="bg-cyan-50/80 rounded-xl p-3 text-center border border-cyan-100">
-                                            <p className="text-[9px] text-cyan-500 font-bold uppercase tracking-wide">EFV 100</p>
-                                            <p className="text-base font-bold text-cyan-700">{efvData.pointsEfv100 ?? 0}</p>
-                                            <p className="text-[8px] text-cyan-400">Top {efvData.tierWindows?.efv_100 ?? 4} giải</p>
-                                        </div>
-                                        <div className="bg-rose-50/80 rounded-xl p-3 text-center border border-rose-100">
-                                            <p className="text-[9px] text-rose-500 font-bold uppercase tracking-wide">EFV 200</p>
-                                            <p className="text-base font-bold text-rose-700">{efvData.pointsEfv200 ?? 0}</p>
-                                            <p className="text-[8px] text-rose-400">Top {efvData.tierWindows?.efv_200 ?? 3} giải</p>
-                                        </div>
-                                    </div>
-                                </div>
+                                        </motion.div>
+                                    ) : (
+                                        <motion.div
+                                            key="console"
+                                            initial={{ opacity: 0, x: 8 }}
+                                            animate={{ opacity: 1, x: 0 }}
+                                            exit={{ opacity: 0, x: -8 }}
+                                            transition={{ duration: 0.15 }}
+                                            className="space-y-3"
+                                        >
+                                            {/* Summary row */}
+                                            <div className="flex items-center gap-3 bg-gradient-to-r from-cyan-50 to-teal-50 rounded-xl p-3.5 border border-cyan-100/80">
+                                                <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-cyan-400 to-teal-500 flex items-center justify-center shadow-sm shadow-cyan-200/50 flex-shrink-0">
+                                                    <Star className="w-4.5 h-4.5 text-white" />
+                                                </div>
+                                                <div className="flex-1 min-w-0">
+                                                    <p className="text-xl font-extrabold text-cyan-700 leading-none">{efvData.totalPcPoints ?? 0}</p>
+                                                    <p className="text-[10px] text-cyan-500/80 font-medium mt-0.5">Tổng điểm Console</p>
+                                                </div>
+                                                <div className="text-right flex-shrink-0 pl-3 border-l border-cyan-200/60">
+                                                    <p className="text-lg font-bold text-cyan-600 leading-none">{efvData.pcRank ? `#${efvData.pcRank}` : "—"}</p>
+                                                    <p className="text-[10px] text-cyan-400 font-medium mt-0.5">Hạng BXH</p>
+                                                </div>
+                                            </div>
+                                            {/* Tier breakdown */}
+                                            <div className="grid grid-cols-3 gap-2">
+                                                <div className="bg-teal-50/60 rounded-lg p-2.5 text-center border border-teal-100/80">
+                                                    <p className="text-[9px] text-teal-500 font-bold uppercase tracking-wide">EFV 50</p>
+                                                    <p className="text-sm font-bold text-teal-700 mt-0.5">{efvData.pointsEfv50 ?? 0}</p>
+                                                    <p className="text-[8px] text-teal-400">Top {efvData.tierWindows?.efv_50 ?? 5} giải</p>
+                                                </div>
+                                                <div className="bg-cyan-50/60 rounded-lg p-2.5 text-center border border-cyan-100/80">
+                                                    <p className="text-[9px] text-cyan-500 font-bold uppercase tracking-wide">EFV 100</p>
+                                                    <p className="text-sm font-bold text-cyan-700 mt-0.5">{efvData.pointsEfv100 ?? 0}</p>
+                                                    <p className="text-[8px] text-cyan-400">Top {efvData.tierWindows?.efv_100 ?? 4} giải</p>
+                                                </div>
+                                                <div className="bg-rose-50/60 rounded-lg p-2.5 text-center border border-rose-100/80">
+                                                    <p className="text-[9px] text-rose-500 font-bold uppercase tracking-wide">EFV 200</p>
+                                                    <p className="text-sm font-bold text-rose-700 mt-0.5">{efvData.pointsEfv200 ?? 0}</p>
+                                                    <p className="text-[8px] text-rose-400">Top {efvData.tierWindows?.efv_200 ?? 3} giải</p>
+                                                </div>
+                                            </div>
+                                        </motion.div>
+                                    )}
+                                </AnimatePresence>
 
                                 {efvData.totalActivePoints > 0 && (
                                     <p className="text-[10px] text-gray-400 italic px-1">
@@ -532,54 +563,68 @@ export default function TrangCaNhanPage() {
                                     </p>
                                 )}
 
-                                {/* EFV History */}
+                                {/* ── Collapsible History ── */}
                                 {efvData.logs && efvData.logs.length > 0 ? (
-                                    <div className="space-y-2">
-                                        <p className="text-[10px] font-medium text-gray-400 uppercase tracking-[0.1em] pl-1">Lịch sử điểm EFV</p>
-                                        <div className="divide-y divide-gray-50">
-                                            {efvData.logs.map((log: any) => (
-                                                <div key={log._id} className={`flex items-center gap-3 py-3 px-3 rounded-lg transition-colors ${log.isActive ? 'bg-white hover:bg-gray-50' : 'bg-gray-50/50 opacity-60'}`}>
-                                                    <div className={`w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0 ${log.placement === 'champion' ? 'bg-yellow-100 text-yellow-600' :
-                                                        log.placement === 'runner_up' ? 'bg-gray-100 text-gray-600' :
-                                                            log.placement === 'top_4' ? 'bg-orange-100 text-orange-600' :
-                                                                'bg-blue-50 text-blue-500'
-                                                        }`}>
-                                                        {log.placement === 'champion' ? <Crown className="w-4 h-4" /> :
-                                                            log.placement === 'runner_up' ? <Medal className="w-4 h-4" /> :
-                                                                <TrendingUp className="w-4 h-4" />}
+                                    <div>
+                                        <button
+                                            onClick={() => setEfvHistoryOpen(!efvHistoryOpen)}
+                                            className="w-full flex items-center justify-between py-2 px-1 text-[11px] font-semibold text-gray-400 hover:text-gray-600 transition-colors group"
+                                        >
+                                            <span className="uppercase tracking-[0.1em]">Lịch sử điểm ({efvData.logs.length})</span>
+                                            <ChevronDown className={`w-3.5 h-3.5 transition-transform duration-200 ${efvHistoryOpen ? 'rotate-180' : ''}`} />
+                                        </button>
+                                        <AnimatePresence>
+                                            {efvHistoryOpen && (
+                                                <motion.div
+                                                    initial={{ opacity: 0, height: 0 }}
+                                                    animate={{ opacity: 1, height: 'auto' }}
+                                                    exit={{ opacity: 0, height: 0 }}
+                                                    transition={{ duration: 0.2 }}
+                                                    className="overflow-hidden"
+                                                >
+                                                    <div className="divide-y divide-gray-50 max-h-[280px] overflow-y-auto">
+                                                        {efvData.logs.map((log: any) => (
+                                                            <div key={log._id} className={`flex items-center gap-3 py-2.5 px-2 rounded-lg transition-colors ${log.isActive ? 'hover:bg-gray-50' : 'opacity-50'}`}>
+                                                                <div className={`w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0 ${log.placement === 'champion' ? 'bg-yellow-100 text-yellow-600' :
+                                                                    log.placement === 'runner_up' ? 'bg-gray-100 text-gray-600' :
+                                                                        log.placement === 'top_4' ? 'bg-orange-100 text-orange-600' :
+                                                                            'bg-blue-50 text-blue-500'
+                                                                    }`}>
+                                                                    {log.placement === 'champion' ? <Crown className="w-3.5 h-3.5" /> :
+                                                                        log.placement === 'runner_up' ? <Medal className="w-3.5 h-3.5" /> :
+                                                                            <TrendingUp className="w-3.5 h-3.5" />}
+                                                                </div>
+                                                                <div className="flex-1 min-w-0">
+                                                                    <div className="flex items-center gap-1.5">
+                                                                        <p className="text-xs font-medium text-gray-900 truncate">{log.tournamentTitle}</p>
+                                                                        {log.isActive && (
+                                                                            <span className="flex-shrink-0 text-[7px] font-bold text-emerald-600 bg-emerald-50 px-1 py-px rounded uppercase">Active</span>
+                                                                        )}
+                                                                    </div>
+                                                                    <div className="flex items-center gap-1.5 mt-px">
+                                                                        <span className="text-[9px] text-gray-400">{log.placementLabel}</span>
+                                                                        <span className="text-[9px] text-gray-200">·</span>
+                                                                        <span className="text-[9px] font-medium" style={{ color: log.efvTier === 'efv_1000' ? '#d97706' : log.efvTier === 'efv_500' ? '#7c3aed' : '#2563eb' }}>
+                                                                            {log.efvTierLabel}
+                                                                        </span>
+                                                                        <span className="text-[9px] text-gray-200">·</span>
+                                                                        <span className="text-[9px] text-gray-400">
+                                                                            {new Date(log.awardedAt).toLocaleDateString('vi-VN')}
+                                                                        </span>
+                                                                    </div>
+                                                                </div>
+                                                                <span className={`text-xs font-bold flex-shrink-0 ${log.isActive ? 'text-amber-600' : 'text-gray-400'}`}>+{log.points}</span>
+                                                            </div>
+                                                        ))}
                                                     </div>
-                                                    <div className="flex-1 min-w-0">
-                                                        <div className="flex items-center gap-2">
-                                                            <p className="text-[13px] font-medium text-gray-900 truncate">{log.tournamentTitle}</p>
-                                                            {log.isActive && (
-                                                                <span className="flex-shrink-0 text-[8px] font-semibold text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded uppercase">Đang tính</span>
-                                                            )}
-                                                        </div>
-                                                        <div className="flex items-center gap-2 mt-0.5">
-                                                            <span className="text-[10px] text-gray-400">{log.placementLabel}</span>
-                                                            <span className="text-[10px] text-gray-300">·</span>
-                                                            <span className="text-[10px] font-medium" style={{ color: log.efvTier === 'efv_1000' ? '#d97706' : log.efvTier === 'efv_500' ? '#7c3aed' : '#2563eb' }}>
-                                                                {log.efvTierLabel}
-                                                            </span>
-                                                            <span className="text-[10px] text-gray-300">·</span>
-                                                            <span className="text-[10px] text-gray-400">
-                                                                {new Date(log.awardedAt).toLocaleDateString('vi-VN')}
-                                                            </span>
-                                                        </div>
-                                                    </div>
-                                                    <div className="text-right flex-shrink-0">
-                                                        <span className={`text-sm font-bold ${log.isActive ? 'text-amber-600' : 'text-gray-400'}`}>+{log.points}</span>
-                                                        <p className="text-[9px] text-gray-400">điểm</p>
-                                                    </div>
-                                                </div>
-                                            ))}
-                                        </div>
+                                                </motion.div>
+                                            )}
+                                        </AnimatePresence>
                                     </div>
                                 ) : (
-                                    <div className="text-center py-6 bg-gray-50/50 rounded-xl border border-dashed border-gray-200">
-                                        <Award className="w-8 h-8 text-gray-200 mx-auto mb-2" />
-                                        <p className="text-sm text-gray-400">Bạn chưa có điểm EFV nào.</p>
-                                        <p className="text-xs text-gray-300 mt-1">Tham gia các giải đấu EFV để tích lũy điểm!</p>
+                                    <div className="text-center py-5 bg-gray-50/50 rounded-xl border border-dashed border-gray-200">
+                                        <Award className="w-7 h-7 text-gray-200 mx-auto mb-1.5" />
+                                        <p className="text-xs text-gray-400">Chưa có lịch sử điểm EFV.</p>
                                     </div>
                                 )}
                             </div>

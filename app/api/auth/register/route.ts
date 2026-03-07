@@ -11,7 +11,7 @@ export async function POST(req: NextRequest) {
         await dbConnect();
 
         const body = await req.json();
-        const { name, email, password, confirmPassword, role } = body;
+        const { name, email, password, confirmPassword, role, teamName } = body;
 
         // Validate
         if (!name || !email || !password) {
@@ -44,6 +44,7 @@ export async function POST(req: NextRequest) {
                 existingUser.name = name;
                 existingUser.password = hashedPassword;
                 existingUser.role = role === "manager" ? "manager" : "user";
+                if (teamName) existingUser.teamName = teamName;
                 existingUser.verificationCode = code;
                 existingUser.verificationCodeExpires = codeExpires;
                 await existingUser.save();
@@ -78,6 +79,7 @@ export async function POST(req: NextRequest) {
             email: email.toLowerCase(),
             password: hashedPassword,
             role: role === "manager" ? "manager" : "user",
+            ...(teamName ? { teamName } : {}),
             isVerified: false,
             verificationCode: code,
             verificationCodeExpires: codeExpires,

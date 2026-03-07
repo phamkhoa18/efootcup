@@ -177,10 +177,12 @@ export async function PUT(req: NextRequest, { params }: RouteParams) {
                 );
             }
 
-            // Create team
+            // Create team — auto-generate name/shortName if not provided
+            const teamName = registration.teamName || registration.playerName || "Team";
+            const teamShort = registration.teamShortName || teamName.substring(0, 4).toUpperCase();
             const team = await Team.create({
-                name: registration.teamName,
-                shortName: registration.teamShortName,
+                name: teamName,
+                shortName: teamShort,
                 tournament: id,
                 captain: registration.user,
                 members: [
