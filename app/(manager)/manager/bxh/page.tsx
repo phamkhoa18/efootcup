@@ -349,6 +349,64 @@ export default function ManagerBxhPage() {
         }
     };
 
+    const handleExportExcel = (mode: "mobile" | "pc", data: any[]) => {
+        const modeLabel = mode === "mobile" ? "Mobile" : "Console";
+        const rows = data.map((p: any) => ({
+            "Hạng": p.rank || "",
+            "EFV ID": p.id || "",
+            "Họ Tên VĐV": p.name || "",
+            "Team": p.team || "",
+            "Nickname": p.nickname || "",
+            "Điểm": p.points || 0,
+            "Facebook": p.facebook || "",
+        }));
+        const ws = XLSX.utils.json_to_sheet(rows);
+        // Set column widths
+        ws["!cols"] = [
+            { wch: 6 }, { wch: 12 }, { wch: 25 }, { wch: 15 }, { wch: 18 }, { wch: 8 }, { wch: 35 },
+        ];
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, `BXH ${modeLabel}`);
+        XLSX.writeFile(wb, `BXH_${modeLabel}_${new Date().toLocaleDateString("vi-VN").replace(/\//g, "-")}.xlsx`);
+        toast.success(`Đã tải BXH ${modeLabel} (${data.length} VĐV)`);
+    };
+
+    const handleExportBoth = async () => {
+        toast.info("Đang tải dữ liệu cả 2 chế độ...");
+        try {
+            const [mobileRes, pcRes] = await Promise.all([
+                fetch(`/api/bxh?mode=mobile`, { cache: "no-store" }).then(r => r.json()),
+                fetch(`/api/bxh?mode=pc`, { cache: "no-store" }).then(r => r.json()),
+            ]);
+            const mobileData = mobileRes.data?.data || [];
+            const pcData = pcRes.data?.data || [];
+
+            const toRows = (data: any[]) => data.map((p: any) => ({
+                "Hạng": p.rank || "",
+                "EFV ID": p.id || "",
+                "Họ Tên VĐV": p.name || "",
+                "Team": p.team || "",
+                "Nickname": p.nickname || "",
+                "Điểm": p.points || 0,
+                "Facebook": p.facebook || "",
+            }));
+
+            const wb = XLSX.utils.book_new();
+            const wsMobile = XLSX.utils.json_to_sheet(toRows(mobileData));
+            wsMobile["!cols"] = [{ wch: 6 }, { wch: 12 }, { wch: 25 }, { wch: 15 }, { wch: 18 }, { wch: 8 }, { wch: 35 }];
+            XLSX.utils.book_append_sheet(wb, wsMobile, "BXH Mobile");
+
+            const wsPC = XLSX.utils.json_to_sheet(toRows(pcData));
+            wsPC["!cols"] = [{ wch: 6 }, { wch: 12 }, { wch: 25 }, { wch: 15 }, { wch: 18 }, { wch: 8 }, { wch: 35 }];
+            XLSX.utils.book_append_sheet(wb, wsPC, "BXH Console");
+
+            XLSX.writeFile(wb, `BXH_Full_${new Date().toLocaleDateString("vi-VN").replace(/\//g, "-")}.xlsx`);
+            toast.success(`Đã tải BXH đầy đủ (Mobile: ${mobileData.length}, Console: ${pcData.length} VĐV)`);
+        } catch {
+            toast.error("Lỗi khi tải dữ liệu BXH");
+        }
+    };
+
     const filtered = (Array.isArray(players) ? players : []).filter(p =>
         (p.name && String(p.name).toLowerCase().includes(search.toLowerCase())) ||
         (p.id && String(p.id).toLowerCase().includes(search.toLowerCase())) ||
@@ -384,6 +442,21 @@ export default function ManagerBxhPage() {
                             <><Database className="w-4 h-4 mr-2" /> Reload {activeMode === "mobile" ? "Mobile" : "Console"}</>
                         )}
                     </Button>
+                    <Button
+                        variant="outline"
+                        onClick={() => handleExportExcel(activeMode, filtered)}
+                        disabled={filtered.length === 0}
+                        className="border-emerald-300 text-emerald-700 hover:bg-emerald-50 rounded-xl shadow-sm flex-1 sm:flex-none"
+                    >
+                        <Download className="w-4 h-4 mr-2" /> Tải Excel {activeMode === "mobile" ? "Mobile" : "Console"}
+                    </Button>
+                    <Button
+                        variant="outline"
+                        onClick={handleExportBoth}
+                        className="border-blue-300 text-blue-700 hover:bg-blue-50 rounded-xl shadow-sm flex-1 sm:flex-none"
+                    >
+                        <FileSpreadsheet className="w-4 h-4 mr-2" /> Tải cả 2 chế độ
+                    </Button>
                     {players.length > 0 && (
                         <Button variant="destructive" onClick={handleDeleteAll} className="bg-rose-500 hover:bg-rose-600 text-white rounded-xl shadow-sm flex-1 sm:flex-none">
                             <Trash2 className="w-4 h-4 mr-2" /> Xóa toàn bộ
@@ -400,8 +473,8 @@ export default function ManagerBxhPage() {
                 <button
                     onClick={() => setActiveMode("mobile")}
                     className={`flex items-center gap-2 px-5 py-2.5 rounded-lg text-sm font-bold transition-all ${activeMode === "mobile"
-                            ? "bg-gradient-to-r from-blue-500 to-indigo-600 text-white shadow-md shadow-blue-500/20"
-                            : "text-slate-500 hover:bg-slate-50 hover:text-slate-700"
+                        ? "bg-gradient-to-r from-blue-500 to-indigo-600 text-white shadow-md shadow-blue-500/20"
+                        : "text-slate-500 hover:bg-slate-50 hover:text-slate-700"
                         }`}
                 >
                     <Smartphone className="w-4 h-4" /> Mobile
@@ -409,8 +482,8 @@ export default function ManagerBxhPage() {
                 <button
                     onClick={() => setActiveMode("pc")}
                     className={`flex items-center gap-2 px-5 py-2.5 rounded-lg text-sm font-bold transition-all ${activeMode === "pc"
-                            ? "bg-gradient-to-r from-teal-500 to-cyan-600 text-white shadow-md shadow-teal-500/20"
-                            : "text-slate-500 hover:bg-slate-50 hover:text-slate-700"
+                        ? "bg-gradient-to-r from-teal-500 to-cyan-600 text-white shadow-md shadow-teal-500/20"
+                        : "text-slate-500 hover:bg-slate-50 hover:text-slate-700"
                         }`}
                 >
                     <Monitor className="w-4 h-4" /> Console
