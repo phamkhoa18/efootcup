@@ -10,7 +10,7 @@
 
 **Nền tảng tổ chức và quản lý giải đấu eFootball chuyên nghiệp hàng đầu Việt Nam.**
 
-[Demo Live](https://efvcup.vn) · [Báo Lỗi](https://github.com/phamkhoa18/efootcup/issues)
+[Demo Live](https://efootball.vn) · [Báo Lỗi](https://github.com/phamkhoa18/efootcup/issues)
 
 </div>
 

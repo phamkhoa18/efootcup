@@ -66,7 +66,7 @@ const SiteSettingsSchema = new Schema<ISiteSettings>(
         siteName: { type: String, default: "EFV CUP Vietnam" },
         siteTagline: { type: String, default: "Nền tảng giải đấu eFootball hàng đầu Việt Nam" },
         siteDescription: { type: String, default: "Nền tảng tổ chức và quản lý giải đấu eFootball hàng đầu Việt Nam. Tạo giải đấu chuyên nghiệp, quản lý đội hình, theo dõi kết quả trực tiếp." },
-        siteUrl: { type: String, default: "https://efvcup.vn" },
+        siteUrl: { type: String, default: "https://efootball.vn" },
 
         // Branding
         logo: { type: String, default: "" },

@@ -7,6 +7,6 @@ export default function robots(): MetadataRoute.Robots {
             allow: '/',
             disallow: ['/api/', '/manager/', '/login', '/register'],
         },
-        sitemap: 'https://efvcup.vn/sitemap.xml',
+        sitemap: 'https://efootball.vn/sitemap.xml',
     }
 }

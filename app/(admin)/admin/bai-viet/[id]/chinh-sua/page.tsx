@@ -356,7 +356,7 @@ export default function EditPostPage({ params }: { params: Promise<{ id: string 
                                 <CardContent>
                                     <div className="p-4 rounded-lg bg-muted/50 border space-y-1">
                                         <p className="text-sm text-blue-700 font-medium truncate">{form.seo.metaTitle || form.title || "Tiêu đề"}</p>
-                                        <p className="text-xs text-emerald-700 truncate">efootcup.vn/bai-viet/{postMeta?.slug || "slug"}</p>
+                                        <p className="text-xs text-emerald-700 truncate">efootball.vn/bai-viet/{postMeta?.slug || "slug"}</p>
                                         <p className="text-xs text-muted-foreground line-clamp-2">{form.seo.metaDescription || form.excerpt || "Mô tả..."}</p>
                                     </div>
                                 </CardContent>
@@ -397,7 +397,7 @@ export default function EditPostPage({ params }: { params: Promise<{ id: string 
                             <Card>
                                 <CardHeader className="pb-3"><CardTitle className="text-sm flex items-center gap-2"><Code className="w-4 h-4 text-primary" /> Nâng cao</CardTitle></CardHeader>
                                 <CardContent className="space-y-4">
-                                    <div className="space-y-2"><Label className="text-xs">Canonical URL</Label><Input value={form.seo.canonicalUrl} onChange={(e) => updateSEO("canonicalUrl", e.target.value)} placeholder="https://efootcup.vn/..." /></div>
+                                    <div className="space-y-2"><Label className="text-xs">Canonical URL</Label><Input value={form.seo.canonicalUrl} onChange={(e) => updateSEO("canonicalUrl", e.target.value)} placeholder="https://efootball.vn/..." /></div>
                                     <div className="flex items-center justify-between">
                                         <div><Label className="text-sm">noIndex</Label><p className="text-[11px] text-muted-foreground">Ẩn khỏi Google</p></div>
                                         <Switch checked={form.seo.noIndex} onCheckedChange={(val) => updateSEO("noIndex", val)} />

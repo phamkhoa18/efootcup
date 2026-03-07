@@ -567,7 +567,7 @@ export default function AdminSettingsPage() {
                                         Xem trước trên Google
                                     </p>
                                     <div className="bg-white rounded-lg p-4 border border-gray-200 max-w-xl">
-                                        <div className="text-xs text-emerald-700 mb-1 truncate">{form.siteUrl || "https://efvcup.vn"}</div>
+                                        <div className="text-xs text-emerald-700 mb-1 truncate">{form.siteUrl || "https://efootball.vn"}</div>
                                         <div className="text-[#1a0dab] text-lg font-medium leading-snug hover:underline cursor-pointer truncate">
                                             {form.seoTitle || form.siteName || "Tên website"}
                                         </div>
@@ -601,7 +601,7 @@ export default function AdminSettingsPage() {
                                         onChange={(e) => updateField("robotsTxt", e.target.value)}
                                         rows={4}
                                         className="w-full rounded-xl border border-gray-200 p-3 text-sm text-gray-800 font-mono placeholder:text-gray-400 resize-none focus:outline-none focus:ring-2 focus:ring-efb-blue/20 focus:border-efb-blue transition-all"
-                                        placeholder={"User-agent: *\nAllow: /\nDisallow: /admin/\n\nSitemap: https://efvcup.vn/sitemap.xml"}
+                                        placeholder={"User-agent: *\nAllow: /\nDisallow: /admin/\n\nSitemap: https://efootball.vn/sitemap.xml"}
                                     />
                                 </div>
                             </SettingsCard>
@@ -619,13 +619,13 @@ export default function AdminSettingsPage() {
                             >
                                 <div className="space-y-4">
                                     {[
-                                        { key: "socialFacebook", label: "Facebook", icon: Facebook, placeholder: "https://facebook.com/efvcup", color: "text-blue-600" },
-                                        { key: "socialYoutube", label: "Youtube", icon: Youtube, placeholder: "https://youtube.com/@efvcup", color: "text-red-500" },
-                                        { key: "socialTiktok", label: "TikTok", icon: Hash, placeholder: "https://tiktok.com/@efvcup", color: "text-gray-900" },
-                                        { key: "socialInstagram", label: "Instagram", icon: Instagram, placeholder: "https://instagram.com/efvcup", color: "text-pink-500" },
-                                        { key: "socialTwitter", label: "Twitter / X", icon: Twitter, placeholder: "https://twitter.com/efvcup", color: "text-sky-500" },
-                                        { key: "socialDiscord", label: "Discord", icon: MessageCircle, placeholder: "https://discord.gg/efvcup", color: "text-indigo-500" },
-                                        { key: "socialTelegram", label: "Telegram", icon: Send, placeholder: "https://t.me/efvcup", color: "text-sky-400" },
+                                        { key: "socialFacebook", label: "Facebook", icon: Facebook, placeholder: "https://facebook.com/efootballvn", color: "text-blue-600" },
+                                        { key: "socialYoutube", label: "Youtube", icon: Youtube, placeholder: "https://youtube.com/@efootballvn", color: "text-red-500" },
+                                        { key: "socialTiktok", label: "TikTok", icon: Hash, placeholder: "https://tiktok.com/@efootballvn", color: "text-gray-900" },
+                                        { key: "socialInstagram", label: "Instagram", icon: Instagram, placeholder: "https://instagram.com/efootballvn", color: "text-pink-500" },
+                                        { key: "socialTwitter", label: "Twitter / X", icon: Twitter, placeholder: "https://twitter.com/efootballvn", color: "text-sky-500" },
+                                        { key: "socialDiscord", label: "Discord", icon: MessageCircle, placeholder: "https://discord.gg/efootballvn", color: "text-indigo-500" },
+                                        { key: "socialTelegram", label: "Telegram", icon: Send, placeholder: "https://t.me/efootballvn", color: "text-sky-400" },
                                     ].map(({ key, label, icon: Icon, placeholder, color }) => (
                                         <div key={key} className="flex items-center gap-3">
                                             <div className={`w-10 h-10 rounded-xl bg-gray-50 border border-gray-100 flex items-center justify-center flex-shrink-0 ${color}`}>
@@ -663,7 +663,7 @@ export default function AdminSettingsPage() {
                                         </div>
                                         <div className="flex-1 space-y-1">
                                             <Label className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Email liên hệ</Label>
-                                            <Input value={form.contactEmail} onChange={(e) => updateField("contactEmail", e.target.value)} className="h-10 rounded-lg" placeholder="contact@efvcup.vn" />
+                                            <Input value={form.contactEmail} onChange={(e) => updateField("contactEmail", e.target.value)} className="h-10 rounded-lg" placeholder="contact@efootball.vn" />
                                         </div>
                                     </div>
                                     <div className="flex items-center gap-3">
@@ -786,7 +786,7 @@ export default function AdminSettingsPage() {
                                             value={form.smtpFromEmail}
                                             onChange={(e) => updateField("smtpFromEmail", e.target.value)}
                                             className="h-11 rounded-xl"
-                                            placeholder="noreply@efvcup.vn"
+                                            placeholder="noreply@efootball.vn"
                                         />
                                         <p className="text-[11px] text-gray-400">Để trống sẽ dùng SMTP Username làm email gửi</p>
                                     </div>

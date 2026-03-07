@@ -99,7 +99,7 @@ export async function sendVerificationEmail(
     try {
         const config = await getSmtpConfig();
         const transporter = createTransporterFromConfig(config);
-        const fromAddress = `"${config.smtpFromName}" <${config.smtpFromEmail || "noreply@EFV CUP.vn"}>`;
+        const fromAddress = `"${config.smtpFromName}" <${config.smtpFromEmail || "noreply@efootball.vn"}>`;
 
         const mailOptions = {
             from: fromAddress,
@@ -211,7 +211,7 @@ export async function sendResetPasswordEmail(
         }
 
         const transporter = createTransporterFromConfig(config);
-        const fromAddress = `"${config.smtpFromName}" <${config.smtpFromEmail || "noreply@EFV CUP.vn"}>`;
+        const fromAddress = `"${config.smtpFromName}" <${config.smtpFromEmail || "noreply@efootball.vn"}>`;
 
         const mailOptions = {
             from: fromAddress,
@@ -315,7 +315,7 @@ export async function sendNotificationEmail(
     name: string,
     title: string,
     message: string,
-    link: string = "https://EFV CUP.efootball.vn"
+    link: string = "https://efootball.vn"
 ): Promise<{ success: boolean }> {
     try {
         const config = await getSmtpConfig();
@@ -325,7 +325,7 @@ export async function sendNotificationEmail(
         }
 
         const transporter = createTransporterFromConfig(config);
-        const fromAddress = `"${config.smtpFromName}" <${config.smtpFromEmail || "noreply@EFV CUP.vn"}>`;
+        const fromAddress = `"${config.smtpFromName}" <${config.smtpFromEmail || "noreply@efootball.vn"}>`;
 
         const mailOptions = {
             from: fromAddress,
@@ -352,7 +352,7 @@ export async function sendNotificationEmail(
                             <p style="color:#1a1a2e; font-size:16px; margin:0 0 16px; font-weight:600;">Xin chao ${name},</p>
                             <p style="color:#4b5563; font-size:14px; line-height:1.6; margin:0 0 24px;">${message}</p>
                             
-                            <a href="${link.startsWith('http') ? link : 'https://EFV CUP.efootball.vn' + link}" 
+                            <a href="${link.startsWith('http') ? link : 'https://efootball.vn' + link}" 
                                style="display:inline-block; background-color:#1E40AF; color:#ffffff; padding:12px 24px; border-radius:8px; text-decoration:none; font-weight:600; font-size:14px;">
                                Xem chi tiet
                             </a>
@@ -412,7 +412,7 @@ export async function sendPaymentInvoiceEmail(
         }
 
         const transporter = createTransporterFromConfig(config);
-        const fromAddress = `"${config.smtpFromName}" <${config.smtpFromEmail || "noreply@EFV CUP.vn"}>`;
+        const fromAddress = `"${config.smtpFromName}" <${config.smtpFromEmail || "noreply@efootball.vn"}>`;
 
         const invoiceNumber = `INV-${String(data.orderCode).padStart(6, "0")}`;
         const formattedAmount = Number(data.amount).toLocaleString("vi-VN");
@@ -425,7 +425,7 @@ export async function sendPaymentInvoiceEmail(
             timeZone: "Asia/Ho_Chi_Minh",
         }).format(data.paymentDate instanceof Date ? data.paymentDate : new Date(data.paymentDate));
 
-        const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://EFV CUP.efootball.vn";
+        const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://efootball.vn";
         const tournamentLink = `${siteUrl}/giai-dau/${data.tournamentId}`;
 
         const statusMessage = data.isAutoApproved
@@ -686,7 +686,7 @@ export async function sendTestEmail(
     try {
         const config = await getSmtpConfig();
         const transporter = createTransporterFromConfig(config);
-        const fromAddress = `"${config.smtpFromName}" <${config.smtpFromEmail || "noreply@EFV CUP.vn"}>`;
+        const fromAddress = `"${config.smtpFromName}" <${config.smtpFromEmail || "noreply@efootball.vn"}>`;
 
         const mailOptions = {
             from: fromAddress,

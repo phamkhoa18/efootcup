@@ -372,7 +372,7 @@ export default function CreatePostPage() {
                                 <CardContent>
                                     <div className="p-4 rounded-lg bg-muted/50 border space-y-1">
                                         <p className="text-sm text-blue-700 font-medium truncate">{form.seo.metaTitle || form.title || "Tiêu đề bài viết"}</p>
-                                        <p className="text-xs text-emerald-700 truncate">efootcup.vn/bai-viet/{form.title ? form.title.toLowerCase().replace(/\s+/g, "-").substring(0, 30) : "slug"}</p>
+                                        <p className="text-xs text-emerald-700 truncate">efootball.vn/bai-viet/{form.title ? form.title.toLowerCase().replace(/\s+/g, "-").substring(0, 30) : "slug"}</p>
                                         <p className="text-xs text-muted-foreground line-clamp-2">{form.seo.metaDescription || form.excerpt || "Mô tả bài viết sẽ hiển thị ở đây..."}</p>
                                     </div>
                                 </CardContent>
@@ -455,7 +455,7 @@ export default function CreatePostPage() {
                                 <CardContent className="space-y-4">
                                     <div className="space-y-2">
                                         <Label className="text-xs">Canonical URL</Label>
-                                        <Input value={form.seo.canonicalUrl} onChange={(e) => updateSEO("canonicalUrl", e.target.value)} placeholder="https://efootcup.vn/bai-viet/..." />
+                                        <Input value={form.seo.canonicalUrl} onChange={(e) => updateSEO("canonicalUrl", e.target.value)} placeholder="https://efootball.vn/bai-viet/..." />
                                     </div>
                                     <div className="flex items-center justify-between">
                                         <div>
