@@ -12,6 +12,12 @@ interface User {
     phone?: string;
     bio?: string;
     gamerId?: string;
+    dateOfBirth?: string;
+    country?: string;
+    province?: string;
+    nickname?: string;
+    facebookName?: string;
+    facebookLink?: string;
     stats?: {
         tournamentsCreated: number;
         tournamentsJoined: number;
