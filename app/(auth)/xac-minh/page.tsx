@@ -441,7 +441,7 @@ function VerifyContent() {
                                 className={siteSettings.logo ? "h-5 w-auto object-contain" : "h-3 w-auto"}
                             />
                         </div>
-                        <span className="text-xs font-semibold text-gray-500">{siteSettings.siteName || "eFootCup VN"}</span>
+                        <span className="text-xs font-semibold text-gray-500">{siteSettings.siteName || "EFV CUP VN"}</span>
                     </Link>
                 </div>
             </motion.div>

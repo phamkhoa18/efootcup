@@ -32,7 +32,7 @@ async function getSmtpConfig(): Promise<SmtpConfig> {
                 smtpSecure: settings.smtpSecure || false,
                 smtpUser: settings.smtpUser,
                 smtpPass: settings.smtpPass || "",
-                smtpFromName: settings.smtpFromName || "eFootCup VN",
+                smtpFromName: settings.smtpFromName || "EFV CUP VN",
                 smtpFromEmail: settings.smtpFromEmail || settings.smtpUser,
                 emailEnabled: settings.emailEnabled !== false,
             };
@@ -48,7 +48,7 @@ async function getSmtpConfig(): Promise<SmtpConfig> {
         smtpSecure: process.env.SMTP_SECURE === "true",
         smtpUser: process.env.SMTP_USER || "",
         smtpPass: process.env.SMTP_PASS || "",
-        smtpFromName: "eFootCup VN",
+        smtpFromName: "EFV CUP VN",
         smtpFromEmail: process.env.SMTP_FROM || process.env.SMTP_USER || "",
         emailEnabled: !!process.env.SMTP_HOST,
     };
@@ -99,12 +99,12 @@ export async function sendVerificationEmail(
     try {
         const config = await getSmtpConfig();
         const transporter = createTransporterFromConfig(config);
-        const fromAddress = `"${config.smtpFromName}" <${config.smtpFromEmail || "noreply@efootcup.vn"}>`;
+        const fromAddress = `"${config.smtpFromName}" <${config.smtpFromEmail || "noreply@EFV CUP.vn"}>`;
 
         const mailOptions = {
             from: fromAddress,
             to: email,
-            subject: `[eFootCup] Ma xac minh: ${code}`,
+            subject: `[EFV CUP] Ma xac minh: ${code}`,
             html: `
 <!DOCTYPE html>
 <html>
@@ -121,7 +121,7 @@ export async function sendVerificationEmail(
                     <tr>
                         <td style="background: linear-gradient(135deg, #0A3D91 0%, #1E40AF 50%, #4338CA 100%); padding:32px 40px; text-align:center;">
                             <h1 style="color:#ffffff; font-size:24px; font-weight:700; margin:0; letter-spacing:-0.5px;">
-                                eFootCup VN
+                                EFV CUP VN
                             </h1>
                             <p style="color:rgba(255,255,255,0.7); font-size:13px; margin:8px 0 0; font-weight:300;">
                                 Nen tang giai dau eFootball #1 Viet Nam
@@ -136,7 +136,7 @@ export async function sendVerificationEmail(
                                 Xin chao ${name},
                             </p>
                             <p style="color:#6b7280; font-size:14px; line-height:1.6; margin:0 0 28px;">
-                                Cam on ban da dang ky tai khoan eFootCup. Vui long nhap ma xac minh ben duoi de kich hoat tai khoan cua ban:
+                                Cam on ban da dang ky tai khoan EFV CUP. Vui long nhap ma xac minh ben duoi de kich hoat tai khoan cua ban:
                             </p>
                             
                             <!-- Code -->
@@ -166,7 +166,7 @@ export async function sendVerificationEmail(
                     <tr>
                         <td style="background-color:#f9fafb; padding:20px 40px; border-top:1px solid #e5e7eb; text-align:center;">
                             <p style="color:#9ca3af; font-size:12px; margin:0;">
-                                &copy; 2026 eFootCup VN. All rights reserved.
+                                &copy; 2026 EFV CUP VN. All rights reserved.
                             </p>
                         </td>
                     </tr>
@@ -211,12 +211,12 @@ export async function sendResetPasswordEmail(
         }
 
         const transporter = createTransporterFromConfig(config);
-        const fromAddress = `"${config.smtpFromName}" <${config.smtpFromEmail || "noreply@efootcup.vn"}>`;
+        const fromAddress = `"${config.smtpFromName}" <${config.smtpFromEmail || "noreply@EFV CUP.vn"}>`;
 
         const mailOptions = {
             from: fromAddress,
             to: email,
-            subject: `[eFootCup] Dat lai mat khau - Ma xac nhan: ${code}`,
+            subject: `[EFV CUP] Dat lai mat khau - Ma xac nhan: ${code}`,
             html: `
 <!DOCTYPE html>
 <html>
@@ -233,7 +233,7 @@ export async function sendResetPasswordEmail(
                     <tr>
                         <td style="background: linear-gradient(135deg, #0A3D91 0%, #1E40AF 50%, #4338CA 100%); padding:32px 40px; text-align:center;">
                             <h1 style="color:#ffffff; font-size:24px; font-weight:700; margin:0; letter-spacing:-0.5px;">
-                                eFootCup VN
+                                EFV CUP VN
                             </h1>
                             <p style="color:rgba(255,255,255,0.7); font-size:13px; margin:8px 0 0; font-weight:300;">
                                 Nen tang giai dau eFootball #1 Viet Nam
@@ -278,7 +278,7 @@ export async function sendResetPasswordEmail(
                     <tr>
                         <td style="background-color:#f9fafb; padding:20px 40px; border-top:1px solid #e5e7eb; text-align:center;">
                             <p style="color:#9ca3af; font-size:12px; margin:0;">
-                                &copy; 2026 eFootCup VN. All rights reserved.
+                                &copy; 2026 EFV CUP VN. All rights reserved.
                             </p>
                         </td>
                     </tr>
@@ -315,7 +315,7 @@ export async function sendNotificationEmail(
     name: string,
     title: string,
     message: string,
-    link: string = "https://efootcup.efootball.vn"
+    link: string = "https://EFV CUP.efootball.vn"
 ): Promise<{ success: boolean }> {
     try {
         const config = await getSmtpConfig();
@@ -325,12 +325,12 @@ export async function sendNotificationEmail(
         }
 
         const transporter = createTransporterFromConfig(config);
-        const fromAddress = `"${config.smtpFromName}" <${config.smtpFromEmail || "noreply@efootcup.vn"}>`;
+        const fromAddress = `"${config.smtpFromName}" <${config.smtpFromEmail || "noreply@EFV CUP.vn"}>`;
 
         const mailOptions = {
             from: fromAddress,
             to: email,
-            subject: `[eFootCup] ${title}`,
+            subject: `[EFV CUP] ${title}`,
             html: `
 <!DOCTYPE html>
 <html>
@@ -344,7 +344,7 @@ export async function sendNotificationEmail(
                 <table width="480" cellpadding="0" cellspacing="0" style="background-color:#ffffff; border-radius:16px; overflow:hidden; box-shadow:0 4px 24px rgba(0,0,0,0.08);">
                     <tr>
                         <td style="background: linear-gradient(135deg, #0A3D91 0%, #1E40AF 50%, #4338CA 100%); padding:24px; text-align:center;">
-                            <h1 style="color:#ffffff; font-size:20px; font-weight:700; margin:0;">eFootCup VN</h1>
+                            <h1 style="color:#ffffff; font-size:20px; font-weight:700; margin:0;">EFV CUP VN</h1>
                         </td>
                     </tr>
                     <tr>
@@ -352,7 +352,7 @@ export async function sendNotificationEmail(
                             <p style="color:#1a1a2e; font-size:16px; margin:0 0 16px; font-weight:600;">Xin chao ${name},</p>
                             <p style="color:#4b5563; font-size:14px; line-height:1.6; margin:0 0 24px;">${message}</p>
                             
-                            <a href="${link.startsWith('http') ? link : 'https://efootcup.efootball.vn' + link}" 
+                            <a href="${link.startsWith('http') ? link : 'https://EFV CUP.efootball.vn' + link}" 
                                style="display:inline-block; background-color:#1E40AF; color:#ffffff; padding:12px 24px; border-radius:8px; text-decoration:none; font-weight:600; font-size:14px;">
                                Xem chi tiet
                             </a>
@@ -360,7 +360,7 @@ export async function sendNotificationEmail(
                     </tr>
                     <tr>
                         <td style="background-color:#f9fafb; padding:20px; border-top:1px solid #e5e7eb; text-align:center;">
-                            <p style="color:#9ca3af; font-size:12px; margin:0;">&copy; 2026 eFootCup VN</p>
+                            <p style="color:#9ca3af; font-size:12px; margin:0;">&copy; 2026 EFV CUP VN</p>
                         </td>
                     </tr>
                 </table>
@@ -412,7 +412,7 @@ export async function sendPaymentInvoiceEmail(
         }
 
         const transporter = createTransporterFromConfig(config);
-        const fromAddress = `"${config.smtpFromName}" <${config.smtpFromEmail || "noreply@efootcup.vn"}>`;
+        const fromAddress = `"${config.smtpFromName}" <${config.smtpFromEmail || "noreply@EFV CUP.vn"}>`;
 
         const invoiceNumber = `INV-${String(data.orderCode).padStart(6, "0")}`;
         const formattedAmount = Number(data.amount).toLocaleString("vi-VN");
@@ -425,7 +425,7 @@ export async function sendPaymentInvoiceEmail(
             timeZone: "Asia/Ho_Chi_Minh",
         }).format(data.paymentDate instanceof Date ? data.paymentDate : new Date(data.paymentDate));
 
-        const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://efootcup.efootball.vn";
+        const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://EFV CUP.efootball.vn";
         const tournamentLink = `${siteUrl}/giai-dau/${data.tournamentId}`;
 
         const statusMessage = data.isAutoApproved
@@ -435,14 +435,14 @@ export async function sendPaymentInvoiceEmail(
         const mailOptions = {
             from: fromAddress,
             to: data.email,
-            subject: `[eFootCup] Hoa don thanh toan #${invoiceNumber} - ${data.tournamentTitle}`,
+            subject: `[EFV CUP] Hoa don thanh toan #${invoiceNumber} - ${data.tournamentTitle}`,
             html: `
 <!DOCTYPE html>
 <html>
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Hoa don thanh toan - eFootCup</title>
+    <title>Hoa don thanh toan - EFV CUP</title>
 </head>
 <body style="margin:0; padding:0; background-color:#f0f2f5; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; -webkit-font-smoothing:antialiased;">
     <table width="100%" cellpadding="0" cellspacing="0" style="background-color:#f0f2f5; padding:40px 20px;">
@@ -454,7 +454,7 @@ export async function sendPaymentInvoiceEmail(
                     <tr>
                         <td style="background: linear-gradient(135deg, #0A3D91 0%, #1E40AF 50%, #4338CA 100%); padding:32px 40px; text-align:center;">
                             <h1 style="color:#ffffff; font-size:24px; font-weight:700; margin:0; letter-spacing:-0.5px;">
-                                eFootCup VN
+                                EFV CUP VN
                             </h1>
                             <p style="color:rgba(255,255,255,0.7); font-size:13px; margin:8px 0 0; font-weight:300;">
                                 Nen tang giai dau eFootball #1 Viet Nam
@@ -645,10 +645,10 @@ export async function sendPaymentInvoiceEmail(
                                 Ma dang ky: <span style="font-family:'Courier New',monospace; color:#1e293b;">${data.registrationId}</span>
                             </p>
                             <p style="color:#9ca3af; font-size:11px; margin:0 0 8px;">
-                                Email nay duoc gui tu dong tu he thong eFootCup VN
+                                Email nay duoc gui tu dong tu he thong EFV CUP VN
                             </p>
                             <p style="color:#9ca3af; font-size:11px; margin:0;">
-                                &copy; 2026 eFootCup VN. All rights reserved.
+                                &copy; 2026 EFV CUP VN. All rights reserved.
                             </p>
                         </td>
                     </tr>
@@ -686,12 +686,12 @@ export async function sendTestEmail(
     try {
         const config = await getSmtpConfig();
         const transporter = createTransporterFromConfig(config);
-        const fromAddress = `"${config.smtpFromName}" <${config.smtpFromEmail || "noreply@efootcup.vn"}>`;
+        const fromAddress = `"${config.smtpFromName}" <${config.smtpFromEmail || "noreply@EFV CUP.vn"}>`;
 
         const mailOptions = {
             from: fromAddress,
             to: toEmail,
-            subject: "[eFootCup] Email test - Kiem tra cau hinh SMTP",
+            subject: "[EFV CUP] Email test - Kiem tra cau hinh SMTP",
             html: `
 <!DOCTYPE html>
 <html>
@@ -703,7 +703,7 @@ export async function sendTestEmail(
                 <table width="480" cellpadding="0" cellspacing="0" style="background-color:#ffffff; border-radius:16px; overflow:hidden; box-shadow:0 4px 24px rgba(0,0,0,0.08);">
                     <tr>
                         <td style="background: linear-gradient(135deg, #0A3D91 0%, #1E40AF 50%, #4338CA 100%); padding:24px; text-align:center;">
-                            <h1 style="color:#ffffff; font-size:20px; font-weight:700; margin:0;">eFootCup VN</h1>
+                            <h1 style="color:#ffffff; font-size:20px; font-weight:700; margin:0;">EFV CUP VN</h1>
                         </td>
                     </tr>
                     <tr>
@@ -714,7 +714,7 @@ export async function sendTestEmail(
                                 </p>
                             </div>
                             <p style="color:#4b5563; font-size:14px; line-height:1.6; margin:0 0 16px;">
-                                Day la email kiem tra cau hinh SMTP tu trang quan tri eFootCup VN.
+                                Day la email kiem tra cau hinh SMTP tu trang quan tri EFV CUP VN.
                             </p>
                             <table width="100%" cellpadding="0" cellspacing="0" style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:8px;">
                                 <tr>
@@ -737,7 +737,7 @@ export async function sendTestEmail(
                     </tr>
                     <tr>
                         <td style="background-color:#f9fafb; padding:16px; border-top:1px solid #e5e7eb; text-align:center;">
-                            <p style="color:#9ca3af; font-size:11px; margin:0;">&copy; 2026 eFootCup VN. All rights reserved.</p>
+                            <p style="color:#9ca3af; font-size:11px; margin:0;">&copy; 2026 EFV CUP VN. All rights reserved.</p>
                         </td>
                     </tr>
                 </table>

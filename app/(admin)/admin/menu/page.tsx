@@ -355,7 +355,7 @@ export default function MenuManagementPage() {
                                 <div className="p-4 rounded-lg bg-muted/50 border">
                                     {location === "navbar" ? (
                                         <div className="flex items-center gap-4">
-                                            <span className="text-xs font-bold text-primary">eFootCup</span>
+                                            <span className="text-xs font-bold text-primary">EFV CUP</span>
                                             <div className="flex items-center gap-3">
                                                 {menus[location].filter(i => i.isVisible).map((item, i) => (
                                                     <div key={i} className="relative group">

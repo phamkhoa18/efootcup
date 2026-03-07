@@ -158,7 +158,7 @@ export default function StatisticsPage() {
         );
         XLSX.utils.book_append_sheet(wb, statusSheet, "Phân bổ trạng thái");
 
-        XLSX.writeFile(wb, `ThongKe_eFootCup_${format(new Date(), "ddMMyyyy")}.xlsx`);
+        XLSX.writeFile(wb, `ThongKe_EFV_CUP_${format(new Date(), "ddMMyyyy")}.xlsx`);
         toast.success("Đã xuất Excel thành công");
     };
 

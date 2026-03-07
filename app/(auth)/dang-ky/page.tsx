@@ -155,7 +155,7 @@ export default function DangKyPage() {
                                 className={siteSettings.logo ? "h-8 w-auto object-contain" : "h-4 w-auto"}
                             />
                         </div>
-                        <span className="text-sm font-bold text-efb-dark">{siteSettings.siteName || "eFootCup VN"}</span>
+                        <span className="text-sm font-bold text-efb-dark">{siteSettings.siteName || "EFV CUP VN"}</span>
                     </Link>
 
                     {/* Heading */}

@@ -60,7 +60,7 @@ export async function generateMetadata({ params }: { params: { id: string } }): 
     const t = data.tournament;
     const description = t.description
         ? t.description.substring(0, 160)
-        : `Tham gia giải đấu ${t.title} trên eFootCup VN. ${t.maxTeams} đội, giải thưởng ${t.prize?.total || "hấp dẫn"}.`;
+        : `Tham gia giải đấu ${t.title} trên EFV CUP VN. ${t.maxTeams} đội, giải thưởng ${t.prize?.total || "hấp dẫn"}.`;
 
     return {
         title: t.title,

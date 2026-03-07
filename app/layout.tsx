@@ -16,7 +16,7 @@ export const viewport: Viewport = {
 export async function generateMetadata(): Promise<Metadata> {
   const s = await getSiteSettings();
 
-  const siteUrl = s.siteUrl || "https://efootcup.efootball.vn";
+  const siteUrl = s.siteUrl || "https://efvcup.vn";
 
   return {
     metadataBase: new URL(siteUrl),

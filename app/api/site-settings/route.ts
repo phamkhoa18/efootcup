@@ -20,7 +20,7 @@ export async function GET() {
         // Return only public-safe fields
         const publicSettings = {
             // Website Identity
-            siteName: settings.siteName || "eFootCup Vietnam",
+            siteName: settings.siteName || "EFV CUP Vietnam",
             siteTagline: settings.siteTagline || "",
             siteDescription: settings.siteDescription || "",
             siteUrl: settings.siteUrl || "",

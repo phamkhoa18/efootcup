@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Share2, Copy, Facebook, Link2, QrCode } from "lucide-react";
 
 export default function ChiaSePage() {
-    const shareUrl = "https://efootcup.vn/giai-dau/1";
+    const shareUrl = "https://efvcup.vn/giai-dau/1";
 
     return (
         <div className="space-y-6">

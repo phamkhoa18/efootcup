@@ -138,7 +138,7 @@ export function Navbar() {
                         <div className={siteSettings.logo ? "" : "bg-efb-blue rounded-lg p-1.5"}>
                             <Image
                                 src={siteSettings.logo || "/assets/logo.svg"}
-                                alt={siteSettings.siteName || "eFootCup VN"}
+                                alt={siteSettings.siteName || "EFV CUP VN"}
                                 width={100}
                                 height={24}
                                 className={siteSettings.logo ? "h-8 w-auto object-contain" : "h-5 w-auto"}
@@ -146,7 +146,7 @@ export function Navbar() {
                             />
                         </div>
                         <div className="hidden sm:flex flex-col">
-                            <span className="text-sm font-bold text-efb-dark leading-tight">{siteSettings.siteName || "eFootCup"}</span>
+                            <span className="text-sm font-bold text-efb-dark leading-tight">{siteSettings.siteName || "EFV CUP"}</span>
                             <span className="text-[10px] text-efb-text-muted">{siteSettings.siteTagline ? siteSettings.siteTagline.slice(0, 30) : "Việt Nam"}</span>
                         </div>
                     </Link>
@@ -392,13 +392,13 @@ export function Navbar() {
                                     <div className={siteSettings.logo ? "" : "bg-efb-blue rounded-lg p-1.5"}>
                                         <Image
                                             src={siteSettings.logo || "/assets/logo.svg"}
-                                            alt={siteSettings.siteName || "eFootCup VN"}
+                                            alt={siteSettings.siteName || "EFV CUP VN"}
                                             width={80}
                                             height={20}
                                             className={siteSettings.logo ? "h-6 w-auto object-contain" : "h-4 w-auto"}
                                         />
                                     </div>
-                                    <span className="ml-2.5 text-sm font-bold text-efb-dark">{siteSettings.siteName || "eFootCup VN"}</span>
+                                    <span className="ml-2.5 text-sm font-bold text-efb-dark">{siteSettings.siteName || "EFV CUP VN"}</span>
                                 </div>
 
                                 {/* Mobile user info (if logged in) */}

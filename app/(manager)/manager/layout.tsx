@@ -180,7 +180,7 @@ export default function ManagerLayout({
                             <Image src={siteSettings.logo || "/assets/logo.svg"} alt={siteSettings.siteName} width={80} height={20} className={siteSettings.logo ? "h-8 w-auto object-contain" : "h-4 w-auto"} />
                         </div>
                         <div className="flex flex-col min-w-0">
-                            <span className="text-sm font-bold text-efb-dark leading-tight">{siteSettings.siteName || "eFootCup"}</span>
+                            <span className="text-sm font-bold text-efb-dark leading-tight">{siteSettings.siteName || "EFV CUP"}</span>
                             <span className="text-[10px] text-efb-text-muted">Manager</span>
                         </div>
                     </>

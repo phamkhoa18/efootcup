@@ -27,7 +27,7 @@ export interface ClientSiteSettings {
 }
 
 const defaults: ClientSiteSettings = {
-    siteName: "eFootCup Vietnam",
+    siteName: "EFV CUP Vietnam",
     siteTagline: "Nền tảng giải đấu eFootball hàng đầu Việt Nam",
     siteDescription: "Nền tảng tổ chức và quản lý giải đấu eFootball hàng đầu Việt Nam.",
     siteUrl: "",

@@ -31,7 +31,7 @@ export function Footer() {
         settings.socialTelegram && { label: "Telegram", href: settings.socialTelegram, icon: Send },
     ].filter(Boolean) as { label: string; href: string; icon: any }[];
 
-    const siteName = settings.siteName || "eFootCup Vietnam";
+    const siteName = settings.siteName || "EFV CUP Vietnam";
     const siteDescription = settings.siteDescription || "Nền tảng tổ chức và quản lý giải đấu eFootball hàng đầu Việt Nam. Kết nối cộng đồng game thủ, tạo sân chơi chuyên nghiệp.";
     const copyrightText = settings.copyrightText || "© 2026 eFootball Cup VN. Mọi quyền được bảo lưu.";
     const logoSrc = settings.logoDark || settings.logo || "/assets/logo.svg";

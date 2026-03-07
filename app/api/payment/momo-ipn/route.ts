@@ -173,5 +173,5 @@ export async function POST(req: NextRequest) {
 
 // GET: MoMo may also send GET requests for health check
 export async function GET() {
-    return NextResponse.json({ status: "ok", service: "eFootCup MoMo IPN" });
+    return NextResponse.json({ status: "ok", service: "EFV CUP MoMo IPN" });
 }

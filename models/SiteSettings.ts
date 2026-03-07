@@ -63,10 +63,10 @@ export interface ISiteSettings extends Document {
 const SiteSettingsSchema = new Schema<ISiteSettings>(
     {
         // Website Identity
-        siteName: { type: String, default: "eFootCup Vietnam" },
+        siteName: { type: String, default: "EFV CUP Vietnam" },
         siteTagline: { type: String, default: "Nền tảng giải đấu eFootball hàng đầu Việt Nam" },
         siteDescription: { type: String, default: "Nền tảng tổ chức và quản lý giải đấu eFootball hàng đầu Việt Nam. Tạo giải đấu chuyên nghiệp, quản lý đội hình, theo dõi kết quả trực tiếp." },
-        siteUrl: { type: String, default: "https://efootcup.efootball.vn" },
+        siteUrl: { type: String, default: "https://efvcup.vn" },
 
         // Branding
         logo: { type: String, default: "" },
@@ -78,7 +78,7 @@ const SiteSettingsSchema = new Schema<ISiteSettings>(
         // SEO
         seoTitle: { type: String, default: "eFootball Cup VN - Tổ Chức Giải Đấu eFootball Chuyên Nghiệp" },
         seoDescription: { type: String, default: "Nền tảng tổ chức và quản lý giải đấu eFootball hàng đầu Việt Nam. Kết nối đam mê, chinh phục giải đấu." },
-        seoKeywords: { type: [String], default: ["eFootball", "giải đấu", "tournament", "esports", "Việt Nam", "PES", "eFootCup", "tổ chức giải", "bóng đá điện tử"] },
+        seoKeywords: { type: [String], default: ["eFootball", "giải đấu", "tournament", "esports", "Việt Nam", "PES", "EFV CUP", "tổ chức giải", "bóng đá điện tử"] },
         googleSiteVerification: { type: String, default: "" },
         bingSiteVerification: { type: String, default: "" },
         robotsTxt: { type: String, default: "" },
@@ -103,7 +103,7 @@ const SiteSettingsSchema = new Schema<ISiteSettings>(
         smtpSecure: { type: Boolean, default: false },
         smtpUser: { type: String, default: "" },
         smtpPass: { type: String, default: "" },
-        smtpFromName: { type: String, default: "eFootCup VN" },
+        smtpFromName: { type: String, default: "EFV CUP VN" },
         smtpFromEmail: { type: String, default: "" },
         emailEnabled: { type: Boolean, default: false },
 
@@ -114,7 +114,7 @@ const SiteSettingsSchema = new Schema<ISiteSettings>(
         customFooterCode: { type: String, default: "" },
         maintenanceMode: { type: Boolean, default: false },
         registrationEnabled: { type: Boolean, default: true },
-        copyrightText: { type: String, default: "© 2024 eFootCup Vietnam. All rights reserved." },
+        copyrightText: { type: String, default: "© 2024 EFV CUP Vietnam. All rights reserved." },
 
         // Meta
         updatedBy: { type: String, default: "" },
