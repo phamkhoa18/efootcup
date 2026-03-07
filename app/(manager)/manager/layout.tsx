@@ -57,7 +57,6 @@ const mainSidebarLinks = [
     { label: "Bảng xếp hạng", href: "/manager/bxh", icon: Award },
     { label: "Quản lý VĐV", href: "/manager/vdv", icon: Users },
     { label: "Thống kê", href: "/manager/thong-ke", icon: BarChart3 },
-    { label: "Báo cáo", href: "/manager/bao-cao", icon: FileText },
 ];
 
 const mainBottomLinks = [
@@ -71,7 +70,7 @@ const tournamentSidebarLinks = (id: string) => [
     { label: "Lịch thi đấu", href: `/manager/giai-dau/${id}/lich`, icon: Calendar },
     { label: "Sơ đồ thi đấu", href: `/manager/giai-dau/${id}/so-do`, icon: Swords },
     { label: "Theo dõi giải đấu", href: `/manager/giai-dau/${id}/theo-doi`, icon: BarChart3 },
-    { label: "Trọng tài / Token", href: `/manager/giai-dau/${id}/trong-tai`, icon: ShieldCheck },
+
     { label: "Đăng ký thi đấu", href: `/manager/giai-dau/${id}/dang-ky`, icon: UserCheck },
     { label: "Thống kê chi phí", href: `/manager/giai-dau/${id}/chi-phi`, icon: DollarSign },
     { label: "Chia sẻ giải đấu", href: `/manager/giai-dau/${id}/chia-se`, icon: Share2 },

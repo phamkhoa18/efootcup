@@ -797,19 +797,6 @@ function EditMatchModal({ match, tournament, onClose, onSaved }: { match: any; t
                             <label className="block text-sm font-bold text-gray-900 mb-2">Sân thi đấu</label>
                             <Input className="w-full border-gray-200 shadow-sm rounded-md h-10" />
                         </div>
-                        <div>
-                            <label className="block text-sm font-bold text-gray-900 mb-2">Trọng tài</label>
-                            <Input className="w-full border-gray-200 shadow-sm rounded-md h-10" />
-                        </div>
-                        <div>
-                            <label className="block text-sm font-bold text-gray-900 mb-2 flex items-center gap-1">Token chấm điểm <Info className="w-3.5 h-3.5 text-gray-400" /></label>
-                            <Select>
-                                <SelectTrigger className="w-full text-gray-500 bg-white border-gray-200 shadow-sm focus:ring-0 rounded-md h-10">
-                                    <SelectValue placeholder="Không có token hợp lệ" />
-                                </SelectTrigger>
-                                <SelectContent><SelectItem value="none">Không có</SelectItem></SelectContent>
-                            </Select>
-                        </div>
                     </div>
 
                     {/* Player Submitted Results */}
@@ -857,11 +844,8 @@ function EditMatchModal({ match, tournament, onClose, onSaved }: { match: any; t
                         </div>
                     )}
 
-                    {/* History */}
-                    <div className="mt-8 mb-16 text-center">
-                        <div className="text-gray-500 font-medium mb-1">Chưa có lịch sử điểm số</div>
-                        <div className="text-xs text-gray-400">Lịch sử điểm số chỉ hiển thị khi sử dụng tính năng chấm điểm của trọng tài.</div>
-                    </div>
+
+
 
                 </div>
 

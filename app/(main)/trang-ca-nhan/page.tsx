@@ -11,7 +11,8 @@ import {
     Camera, User, Mail, Phone, Gamepad2, FileText,
     Save, Loader2, CheckCircle2, ArrowLeft, Shield,
     Trophy, Swords, Target, CalendarDays, Edit3, X,
-    Clock, ExternalLink, ChevronRight, Activity, XCircle, Upload
+    Clock, ExternalLink, ChevronRight, Activity, XCircle, Upload,
+    Star, Crown, Medal, Award, TrendingUp, Hash
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -47,6 +48,10 @@ export default function TrangCaNhanPage() {
     const [isSubmittingResult, setIsSubmittingResult] = useState(false);
     const [isUploadingShot, setIsUploadingShot] = useState(false);
 
+    // EFV Points
+    const [efvData, setEfvData] = useState<any>(null);
+    const [isEfvLoading, setIsEfvLoading] = useState(false);
+
     const [form, setForm] = useState({
         name: "",
         phone: "",
@@ -68,8 +73,25 @@ export default function TrangCaNhanPage() {
     useEffect(() => {
         if (isAuthenticated && token) {
             loadParticipation();
+            loadEfvPoints();
         }
     }, [isAuthenticated, token]);
+
+    const loadEfvPoints = async () => {
+        setIsEfvLoading(true);
+        try {
+            const tk = token || localStorage.getItem("efootcup_token");
+            const res = await fetch("/api/auth/me/efv-points", {
+                headers: tk ? { Authorization: `Bearer ${tk}` } : {},
+            });
+            const data = await res.json();
+            if (data.success) setEfvData(data.data);
+        } catch (e) {
+            console.error("Load EFV error:", e);
+        } finally {
+            setIsEfvLoading(false);
+        }
+    };
 
     const loadParticipation = async () => {
         setIsPGLoading(true);
@@ -393,6 +415,111 @@ export default function TrangCaNhanPage() {
                                 </div>
                             ))}
                         </div>
+                    </div>
+
+                    <div className="h-px bg-gray-100" />
+
+                    {/* EFV Points Section */}
+                    <div className="px-6 sm:px-8 py-6">
+                        <div className="flex items-center justify-between mb-4">
+                            <h2 className="text-base font-semibold text-gray-900 flex items-center gap-2 tracking-tight">
+                                <Award className="w-5 h-5 text-amber-500" />
+                                Điểm EFV
+                            </h2>
+                            {isEfvLoading && <Loader2 className="w-4 h-4 animate-spin text-efb-blue" />}
+                        </div>
+
+                        {!isEfvLoading && efvData ? (
+                            <div className="space-y-4">
+                                {/* EFV Summary Cards */}
+                                <div className="grid grid-cols-3 gap-3">
+                                    <div className="bg-gradient-to-br from-amber-50 to-orange-50 rounded-xl p-4 text-center border border-amber-100">
+                                        <div className="w-9 h-9 rounded-lg bg-gradient-to-br from-amber-400 to-orange-500 flex items-center justify-center mx-auto mb-2 shadow-sm shadow-amber-200">
+                                            <Star className="w-4 h-4 text-white" />
+                                        </div>
+                                        <p className="text-lg font-bold text-amber-700">{efvData.totalActivePoints}</p>
+                                        <p className="text-[10px] text-amber-500 font-medium uppercase">Điểm tích lũy</p>
+                                    </div>
+                                    <div className="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-xl p-4 text-center border border-blue-100">
+                                        <div className="w-9 h-9 rounded-lg bg-gradient-to-br from-blue-400 to-indigo-500 flex items-center justify-center mx-auto mb-2 shadow-sm shadow-blue-200">
+                                            <Hash className="w-4 h-4 text-white" />
+                                        </div>
+                                        <p className="text-lg font-bold text-blue-700">{efvData.rank ? `#${efvData.rank}` : "—"}</p>
+                                        <p className="text-[10px] text-blue-500 font-medium uppercase">Hạng BXH</p>
+                                    </div>
+                                    <div className="bg-gradient-to-br from-purple-50 to-violet-50 rounded-xl p-4 text-center border border-purple-100">
+                                        <div className="w-9 h-9 rounded-lg bg-gradient-to-br from-purple-400 to-violet-500 flex items-center justify-center mx-auto mb-2 shadow-sm shadow-purple-200">
+                                            <Trophy className="w-4 h-4 text-white" />
+                                        </div>
+                                        <p className="text-lg font-bold text-purple-700">{efvData.totalLogs}</p>
+                                        <p className="text-[10px] text-purple-500 font-medium uppercase">Giải đã thi</p>
+                                    </div>
+                                </div>
+
+                                {efvData.totalActivePoints > 0 && (
+                                    <p className="text-[10px] text-gray-400 italic px-1">
+                                        * Tính từ {efvData.activeWindow} giải gần nhất. Tổng tất cả: {efvData.totalAllPoints} điểm.
+                                    </p>
+                                )}
+
+                                {/* EFV History */}
+                                {efvData.logs && efvData.logs.length > 0 ? (
+                                    <div className="space-y-2">
+                                        <p className="text-[10px] font-medium text-gray-400 uppercase tracking-[0.1em] pl-1">Lịch sử điểm EFV</p>
+                                        <div className="divide-y divide-gray-50">
+                                            {efvData.logs.map((log: any) => (
+                                                <div key={log._id} className={`flex items-center gap-3 py-3 px-3 rounded-lg transition-colors ${log.isActive ? 'bg-white hover:bg-gray-50' : 'bg-gray-50/50 opacity-60'}`}>
+                                                    <div className={`w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0 ${log.placement === 'champion' ? 'bg-yellow-100 text-yellow-600' :
+                                                            log.placement === 'runner_up' ? 'bg-gray-100 text-gray-600' :
+                                                                log.placement === 'top_4' ? 'bg-orange-100 text-orange-600' :
+                                                                    'bg-blue-50 text-blue-500'
+                                                        }`}>
+                                                        {log.placement === 'champion' ? <Crown className="w-4 h-4" /> :
+                                                            log.placement === 'runner_up' ? <Medal className="w-4 h-4" /> :
+                                                                <TrendingUp className="w-4 h-4" />}
+                                                    </div>
+                                                    <div className="flex-1 min-w-0">
+                                                        <div className="flex items-center gap-2">
+                                                            <p className="text-[13px] font-medium text-gray-900 truncate">{log.tournamentTitle}</p>
+                                                            {log.isActive && (
+                                                                <span className="flex-shrink-0 text-[8px] font-semibold text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded uppercase">Đang tính</span>
+                                                            )}
+                                                        </div>
+                                                        <div className="flex items-center gap-2 mt-0.5">
+                                                            <span className="text-[10px] text-gray-400">{log.placementLabel}</span>
+                                                            <span className="text-[10px] text-gray-300">·</span>
+                                                            <span className="text-[10px] font-medium" style={{ color: log.efvTier === 'efv_1000' ? '#d97706' : log.efvTier === 'efv_500' ? '#7c3aed' : '#2563eb' }}>
+                                                                {log.efvTierLabel}
+                                                            </span>
+                                                            <span className="text-[10px] text-gray-300">·</span>
+                                                            <span className="text-[10px] text-gray-400">
+                                                                {new Date(log.awardedAt).toLocaleDateString('vi-VN')}
+                                                            </span>
+                                                        </div>
+                                                    </div>
+                                                    <div className="text-right flex-shrink-0">
+                                                        <span className={`text-sm font-bold ${log.isActive ? 'text-amber-600' : 'text-gray-400'}`}>+{log.points}</span>
+                                                        <p className="text-[9px] text-gray-400">điểm</p>
+                                                    </div>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                ) : (
+                                    <div className="text-center py-6 bg-gray-50/50 rounded-xl border border-dashed border-gray-200">
+                                        <Award className="w-8 h-8 text-gray-200 mx-auto mb-2" />
+                                        <p className="text-sm text-gray-400">Bạn chưa có điểm EFV nào.</p>
+                                        <p className="text-xs text-gray-300 mt-1">Tham gia các giải đấu EFV để tích lũy điểm!</p>
+                                    </div>
+                                )}
+                            </div>
+                        ) : !isEfvLoading ? (
+                            <div className="text-center py-6 bg-gray-50/50 rounded-xl border border-dashed border-gray-200">
+                                <Award className="w-8 h-8 text-gray-200 mx-auto mb-2" />
+                                <p className="text-sm text-gray-400">Bạn chưa có điểm EFV nào.</p>
+                                <p className="text-xs text-gray-300 mt-1">Tham gia các giải đấu EFV để tích lũy điểm!</p>
+                            </div>
+                        ) : null}
                     </div>
 
                     <div className="h-px bg-gray-100" />

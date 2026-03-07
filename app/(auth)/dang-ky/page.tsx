@@ -10,8 +10,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
-    Eye, EyeOff, Mail, Lock, User, ArrowRight, Trophy, Loader2,
-    Shield, Gamepad2
+    Eye, EyeOff, Mail, Lock, User, ArrowRight, Trophy, Loader2
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useSiteSettings } from "@/hooks/useSiteSettings";
@@ -26,7 +25,7 @@ export default function DangKyPage() {
         email: "",
         password: "",
         confirmPassword: "",
-        role: "user" as "user" | "manager",
+        role: "user" as const,
     });
     const { register: registerUser } = useAuth();
     const { settings: siteSettings } = useSiteSettings();
@@ -178,41 +177,6 @@ export default function DangKyPage() {
                         </motion.div>
                     )}
 
-                    {/* Role Selection */}
-                    <div className="grid grid-cols-2 gap-3 mb-6">
-                        <button
-                            type="button"
-                            onClick={() => updateField("role", "user")}
-                            className={`flex items-center gap-2.5 p-3 rounded-xl border-2 transition-all duration-200 ${form.role === "user"
-                                ? "border-efb-blue bg-efb-blue/5"
-                                : "border-gray-200 hover:border-gray-300"
-                                }`}
-                        >
-                            <Gamepad2 className={`w-5 h-5 ${form.role === "user" ? "text-efb-blue" : "text-gray-400"}`} />
-                            <div className="text-left">
-                                <div className={`text-sm font-semibold ${form.role === "user" ? "text-efb-blue" : "text-gray-600"}`}>
-                                    Người chơi
-                                </div>
-                                <div className="text-[11px] text-gray-400">Tham gia giải đấu</div>
-                            </div>
-                        </button>
-                        <button
-                            type="button"
-                            onClick={() => updateField("role", "manager")}
-                            className={`flex items-center gap-2.5 p-3 rounded-xl border-2 transition-all duration-200 ${form.role === "manager"
-                                ? "border-efb-blue bg-efb-blue/5"
-                                : "border-gray-200 hover:border-gray-300"
-                                }`}
-                        >
-                            <Shield className={`w-5 h-5 ${form.role === "manager" ? "text-efb-blue" : "text-gray-400"}`} />
-                            <div className="text-left">
-                                <div className={`text-sm font-semibold ${form.role === "manager" ? "text-efb-blue" : "text-gray-600"}`}>
-                                    Quản lý
-                                </div>
-                                <div className="text-[11px] text-gray-400">Tạo & quản lý giải</div>
-                            </div>
-                        </button>
-                    </div>
 
                     {/* Form */}
                     <form onSubmit={handleSubmit} className="space-y-4">

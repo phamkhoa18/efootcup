@@ -18,14 +18,14 @@ async function migrate() {
     const User = (await import("../models/User")).default;
 
     // Find users without efvId, sorted by creation date
-    const usersWithout = await User.find({ $or: [{ efvId: null }, { efvId: "" }, { efvId: { $exists: false } }] })
+    const usersWithout = await User.find({ $or: [{ efvId: null }, { efvId: { $exists: false } }] })
         .sort({ createdAt: 1 });
 
     console.log(`📋 Found ${usersWithout.length} users without EFV-ID`);
 
     for (const user of usersWithout) {
         const seq = await Counter.getNextSequence("efvId");
-        user.efvId = `EFV-${seq.toString().padStart(6, "0")}`;
+        user.efvId = seq;
         await user.save();
         console.log(`  ✅ ${user.name} → ${user.efvId}`);
     }

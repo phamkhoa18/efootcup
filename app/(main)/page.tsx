@@ -3,6 +3,7 @@ import { HeroSection } from "@/components/sections/HeroSection";
 import { FeaturesSection } from "@/components/sections/FeaturesSection";
 import { HowItWorksSection } from "@/components/sections/HowItWorksSection";
 import { TournamentsShowcase } from "@/components/sections/TournamentsShowcase";
+import { NewsShowcase } from "@/components/sections/NewsShowcase";
 import { StatsSection } from "@/components/sections/StatsSection";
 import { CTASection } from "@/components/sections/CTASection";
 import { getSiteSettings } from "@/lib/site-settings";
@@ -23,6 +24,7 @@ export default function Home() {
       <FeaturesSection />
       <HowItWorksSection />
       <TournamentsShowcase />
+      <NewsShowcase />
       <CTASection />
     </>
   );

@@ -19,12 +19,17 @@ export async function GET(req: NextRequest) {
 
         const query: any = {};
         if (search) {
-            query.$or = [
+            const orConditions: any[] = [
                 { name: { $regex: search, $options: "i" } },
                 { email: { $regex: search, $options: "i" } },
                 { gamerId: { $regex: search, $options: "i" } },
-                { efvId: { $regex: search, $options: "i" } },
             ];
+            // efvId is a number, so only match if search is numeric
+            const searchNum = parseInt(search, 10);
+            if (!isNaN(searchNum)) {
+                orConditions.push({ efvId: searchNum });
+            }
+            query.$or = orConditions;
         }
         if (role) query.role = role;
 

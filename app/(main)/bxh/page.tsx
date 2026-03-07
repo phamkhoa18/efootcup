@@ -2,9 +2,11 @@
 import { useState, useEffect, useMemo } from "react";
 import {
     Search, Trophy, Crown, Medal, ChevronLeft, ChevronRight,
-    Users, ExternalLink, Gamepad2, Award,
+    Users, ExternalLink, Gamepad2, Award, X, CheckCircle2, XCircle,
+    Loader2,
 } from "lucide-react";
 import Image from "next/image";
+import { PLACEMENT_LABELS, EFV_MAX_WINDOW } from "@/lib/efv-points";
 
 type Player = {
     rank: number | string;
@@ -15,7 +17,27 @@ type Player = {
     team: string;
     nickname: string;
     points: number | string;
+    efvId?: number;
 };
+
+type PointLog = {
+    _id: string;
+    tournamentTitle: string;
+    efvTier: string;
+    placement: string;
+    points: number;
+    teamName: string;
+    awardedAt: string;
+    isActive: boolean;
+};
+
+type HistoryData = {
+    user: { name: string; efvId: number };
+    logs: PointLog[];
+    activeTotal: number;
+    totalLogs: number;
+    maxWindow: number;
+} | null;
 
 const PER_PAGE_OPTIONS = [20, 50, 100];
 
@@ -56,6 +78,30 @@ export default function BXHPage() {
     const top3 = Array.isArray(allData) ? allData.slice(0, 3) : [];
 
     useEffect(() => { setPage(1); }, [search, perPage]);
+
+    // History modal
+    const [historyOpen, setHistoryOpen] = useState(false);
+    const [historyLoading, setHistoryLoading] = useState(false);
+    const [historyData, setHistoryData] = useState<HistoryData>(null);
+
+    const openHistory = async (player: Player) => {
+        const efvId = player.id; // gamerId = efvId
+        if (!efvId) return;
+        setHistoryOpen(true);
+        setHistoryLoading(true);
+        setHistoryData(null);
+        try {
+            const res = await fetch(`/api/bxh/${efvId}/history`);
+            const json = await res.json();
+            if (json.success !== false && json.data) {
+                setHistoryData(json.data);
+            }
+        } catch (err) {
+            console.error("Failed to load history:", err);
+        } finally {
+            setHistoryLoading(false);
+        }
+    };
 
     const pageRange = useMemo(() => {
         const range: number[] = [];
@@ -218,7 +264,8 @@ export default function BXHPage() {
                                 return (
                                     <div
                                         key={p._id || idx}
-                                        className={`${rowBg} border-b border-slate-100 last:border-b-0 hover:bg-blue-50/50 transition-colors inline-block w-full`}
+                                        onClick={() => openHistory(p)}
+                                        className={`${rowBg} border-b border-slate-100 last:border-b-0 hover:bg-blue-50/50 transition-colors inline-block w-full cursor-pointer`}
                                     >
                                         {/* Desktop */}
                                         <div className="hidden md:grid grid-cols-[55px_120px_1fr_120px_120px_90px_45px] px-5 py-3.5 items-center group">
@@ -354,6 +401,127 @@ export default function BXHPage() {
                     )}
                 </div>
             </section>
+
+            {/* ═══ HISTORY MODAL ═══ */}
+            {historyOpen && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+                    <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={() => setHistoryOpen(false)} />
+                    <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[85vh] overflow-hidden flex flex-col animate-in fade-in zoom-in-95 duration-200">
+                        {/* Header */}
+                        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 bg-gradient-to-r from-amber-50 to-white">
+                            <div>
+                                <h3 className="text-lg font-bold text-slate-800 flex items-center gap-2">
+                                    <Trophy className="w-5 h-5 text-amber-500" />
+                                    {historyData?.user?.name || "Đang tải..."}
+                                </h3>
+                                {historyData?.user?.efvId != null && (
+                                    <p className="text-xs text-slate-500 mt-0.5">EFV-ID: #{historyData.user.efvId}</p>
+                                )}
+                            </div>
+                            <button
+                                onClick={() => setHistoryOpen(false)}
+                                className="w-8 h-8 rounded-lg bg-slate-100 flex items-center justify-center hover:bg-slate-200 transition-colors"
+                            >
+                                <X size={16} />
+                            </button>
+                        </div>
+
+                        {/* Content */}
+                        <div className="flex-1 overflow-y-auto p-6">
+                            {historyLoading ? (
+                                <div className="flex items-center justify-center py-12">
+                                    <Loader2 className="w-8 h-8 animate-spin text-blue-500" />
+                                </div>
+                            ) : !historyData || historyData.logs.length === 0 ? (
+                                <div className="text-center py-12">
+                                    <Trophy className="w-12 h-12 text-slate-200 mx-auto mb-3" />
+                                    <p className="text-slate-500 font-medium">Chưa có lịch sử điểm EFV</p>
+                                    <p className="text-xs text-slate-400 mt-1">VĐV này chưa tham gia giải EFV nào</p>
+                                </div>
+                            ) : (
+                                <div className="space-y-4">
+                                    {/* Total */}
+                                    <div className="flex items-center justify-between p-4 rounded-xl bg-gradient-to-r from-amber-50 to-yellow-50 border border-amber-200">
+                                        <div>
+                                            <p className="text-xs text-amber-700 font-medium">Tổng điểm BXH</p>
+                                            <p className="text-xs text-amber-600/70 mt-0.5">Tính từ {Math.min(historyData.totalLogs, EFV_MAX_WINDOW)}/{historyData.totalLogs} giải gần nhất</p>
+                                        </div>
+                                        <div className="text-3xl font-black text-amber-600">
+                                            {historyData.activeTotal}
+                                        </div>
+                                    </div>
+
+                                    {/* Logs */}
+                                    <div className="space-y-2">
+                                        {historyData.logs.map((log, idx) => {
+                                            const tierLabel = log.efvTier === "efv_250" ? "EFV 250" : log.efvTier === "efv_500" ? "EFV 500" : "EFV 1000";
+                                            const placementLabel = PLACEMENT_LABELS[log.placement] || log.placement;
+                                            const isWindowBorder = idx === EFV_MAX_WINDOW - 1 && historyData.totalLogs > EFV_MAX_WINDOW;
+
+                                            return (
+                                                <div key={log._id}>
+                                                    <div className={`flex items-center gap-3 p-3 rounded-xl border transition-all ${log.isActive
+                                                            ? "bg-white border-slate-200 hover:border-blue-200"
+                                                            : "bg-slate-50/50 border-slate-100 opacity-60"
+                                                        }`}>
+                                                        <div className="flex-shrink-0">
+                                                            {log.isActive ? (
+                                                                <CheckCircle2 className="w-4 h-4 text-emerald-500" />
+                                                            ) : (
+                                                                <XCircle className="w-4 h-4 text-slate-300" />
+                                                            )}
+                                                        </div>
+                                                        <div className="flex-1 min-w-0">
+                                                            <p className="text-sm font-semibold text-slate-800 truncate">
+                                                                {log.tournamentTitle}
+                                                            </p>
+                                                            <div className="flex items-center gap-2 mt-0.5">
+                                                                <span className="text-[10px] font-bold text-purple-600 bg-purple-50 px-1.5 py-0.5 rounded">
+                                                                    {tierLabel}
+                                                                </span>
+                                                                <span className="text-[11px] text-slate-500">
+                                                                    {placementLabel}
+                                                                </span>
+                                                            </div>
+                                                        </div>
+                                                        <div className="text-right flex-shrink-0">
+                                                            <span className={`text-lg font-bold ${log.isActive ? "text-emerald-600" : "text-slate-400 line-through"
+                                                                }`}>
+                                                                +{log.points}
+                                                            </span>
+                                                        </div>
+                                                    </div>
+                                                    {isWindowBorder && (
+                                                        <div className="flex items-center gap-2 py-2 px-3">
+                                                            <div className="flex-1 h-px bg-slate-200" />
+                                                            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+                                                                Giới hạn {EFV_MAX_WINDOW} giải
+                                                            </span>
+                                                            <div className="flex-1 h-px bg-slate-200" />
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
+
+                                    {/* Legend */}
+                                    <div className="flex items-center gap-4 pt-3 border-t border-slate-100">
+                                        <div className="flex items-center gap-1.5 text-[11px] text-slate-500">
+                                            <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500" />
+                                            Tính vào BXH
+                                        </div>
+                                        <div className="flex items-center gap-1.5 text-[11px] text-slate-400">
+                                            <XCircle className="w-3.5 h-3.5 text-slate-300" />
+                                            Ngoài cửa sổ {EFV_MAX_WINDOW} giải
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 }

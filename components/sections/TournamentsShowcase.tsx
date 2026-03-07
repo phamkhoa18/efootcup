@@ -1,8 +1,9 @@
 "use client";
 
 import { motion, useInView } from "framer-motion";
-import { useRef } from "react";
+import { useRef, useState, useEffect } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -14,53 +15,50 @@ import {
     Clock,
     CheckCircle2,
     Sparkles,
+    Gamepad2,
+    CreditCard,
+    MapPin,
+    Loader2,
 } from "lucide-react";
 
-const tournaments = [
-    {
-        id: 1,
-        title: "eFootball Cup VN Season 5",
-        status: "live",
-        statusLabel: "Đang diễn ra",
-        format: "Loại trực tiếp",
-        teams: 32,
-        prize: "10,000,000 VNĐ",
-        date: "15/03 - 30/03/2026",
-        image: "/assets/efootball_bg.webp",
-    },
-    {
-        id: 2,
-        title: "Saigon eFootball League",
-        status: "upcoming",
-        statusLabel: "Sắp diễn ra",
-        format: "Vòng tròn + Playoff",
-        teams: 16,
-        prize: "5,000,000 VNĐ",
-        date: "01/04 - 15/04/2026",
-        image: "/assets/efootball_bg_cl2.webp",
-    },
-    {
-        id: 3,
-        title: "University Cup 2026",
-        status: "completed",
-        statusLabel: "Đã kết thúc",
-        format: "Chia bảng",
-        teams: 24,
-        prize: "8,000,000 VNĐ",
-        date: "01/02 - 28/02/2026",
-        image: "/assets/efootball_bg.webp",
-    },
-];
+const statusConfig: Record<string, { label: string; icon: typeof Flame; bgClass: string }> = {
+    registration: { label: "Đăng ký", icon: Clock, bgClass: "bg-amber-400 text-amber-900 border-transparent" },
+    ongoing: { label: "Đang diễn ra", icon: Flame, bgClass: "bg-red-500 text-white border-transparent" },
+    completed: { label: "Đã kết thúc", icon: CheckCircle2, bgClass: "bg-emerald-50 text-emerald-600 border-emerald-200" },
+    draft: { label: "Nháp", icon: Clock, bgClass: "bg-gray-200 text-gray-600 border-transparent" },
+    cancelled: { label: "Đã hủy", icon: Clock, bgClass: "bg-red-100 text-red-600 border-transparent" },
+};
 
-const statusConfig: Record<string, { icon: typeof Flame; bgClass: string }> = {
-    live: { icon: Flame, bgClass: "bg-red-500 text-white border-transparent" },
-    upcoming: { icon: Clock, bgClass: "bg-amber-400 text-amber-900 border-transparent" },
-    completed: { icon: CheckCircle2, bgClass: "bg-emerald-50 text-emerald-600 border-emerald-200" },
+const formatLabels: Record<string, string> = {
+    single_elimination: "Loại trực tiếp",
+    double_elimination: "Loại kép",
+    round_robin: "Vòng tròn",
+    swiss: "Swiss System",
+    group_stage: "Vòng bảng",
 };
 
 export function TournamentsShowcase() {
     const ref = useRef(null);
     const isInView = useInView(ref, { once: true, margin: "-80px" });
+    const [tournaments, setTournaments] = useState<any[]>([]);
+    const [loading, setLoading] = useState(true);
+
+    useEffect(() => {
+        fetch("/api/tournaments?limit=3&sort=-createdAt")
+            .then((r) => r.json())
+            .then((data) => {
+                if (data.success) {
+                    setTournaments(data.data?.tournaments || []);
+                }
+            })
+            .catch(console.error)
+            .finally(() => setLoading(false));
+    }, []);
+
+    const formatDate = (dateStr: string) => {
+        if (!dateStr) return "—";
+        return new Date(dateStr).toLocaleDateString("vi-VN", { day: "2-digit", month: "2-digit", year: "numeric" });
+    };
 
     return (
         <section ref={ref} className="py-20 lg:py-28 bg-gradient-to-b from-gray-50/80 via-white to-gray-50/80 relative overflow-hidden">
@@ -106,79 +104,114 @@ export function TournamentsShowcase() {
                 </div>
 
                 {/* Cards */}
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-                    {tournaments.map((t, i) => {
-                        const statusCfg = statusConfig[t.status];
-                        const StatusIcon = statusCfg.icon;
+                {loading ? (
+                    <div className="flex items-center justify-center py-20">
+                        <Loader2 className="w-6 h-6 animate-spin text-gray-400" />
+                    </div>
+                ) : tournaments.length === 0 ? (
+                    <div className="text-center py-16">
+                        <Trophy className="w-12 h-12 text-gray-200 mx-auto mb-3" />
+                        <p className="text-sm text-gray-400">Chưa có giải đấu nào</p>
+                    </div>
+                ) : (
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+                        {tournaments.map((t, i) => {
+                            const stCfg = statusConfig[t.status] || statusConfig.draft;
+                            const StatusIcon = stCfg.icon;
+                            const prizeTotal = t.prize?.total;
+                            const prizeStr = typeof prizeTotal === "number"
+                                ? `${prizeTotal.toLocaleString("vi-VN")} ₫`
+                                : prizeTotal || "—";
 
-                        return (
-                            <motion.div
-                                key={t.id}
-                                initial={{ opacity: 0, y: 24 }}
-                                animate={isInView ? { opacity: 1, y: 0 } : {}}
-                                transition={{ duration: 0.5, delay: i * 0.1 }}
-                            >
-                                <Link href={`/giai-dau/${t.id}`} className="block group">
-                                    <div className="bg-white rounded-2xl overflow-hidden border border-gray-100 hover:border-gray-200 hover:shadow-2xl hover:shadow-gray-200/50 transition-all duration-400">
-                                        {/* Image */}
-                                        <div className="relative h-48 overflow-hidden">
-                                            <div
-                                                className="absolute inset-0 bg-cover bg-center transition-transform duration-700 group-hover:scale-110"
-                                                style={{ backgroundImage: `url(${t.image})` }}
-                                            />
-                                            <div className="absolute inset-0 bg-gradient-to-t from-black/30 via-transparent to-transparent" />
+                            return (
+                                <motion.div
+                                    key={t._id}
+                                    initial={{ opacity: 0, y: 24 }}
+                                    animate={isInView ? { opacity: 1, y: 0 } : {}}
+                                    transition={{ duration: 0.5, delay: i * 0.1 }}
+                                >
+                                    <Link href={`/giai-dau/${t._id}`} className="block group">
+                                        <div className="bg-white rounded-2xl overflow-hidden border border-gray-100 hover:border-gray-200 hover:shadow-2xl hover:shadow-gray-200/50 transition-all duration-400">
+                                            {/* Image */}
+                                            <div className="relative h-48 overflow-hidden">
+                                                <Image
+                                                    src={t.banner || t.thumbnail || "/assets/efootball_bg.webp"}
+                                                    alt={t.title}
+                                                    fill
+                                                    className="object-cover transition-transform duration-700 group-hover:scale-110"
+                                                />
+                                                <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-transparent" />
 
-                                            {/* Status Badge */}
-                                            <div className="absolute top-3.5 left-3.5">
-                                                <Badge className={`${statusCfg.bgClass} border font-semibold text-[11px] px-2.5 py-0.5 shadow-sm`}>
-                                                    <StatusIcon className="w-3 h-3 mr-1" />
-                                                    {t.statusLabel}
-                                                </Badge>
+                                                {/* Status Badge */}
+                                                <div className="absolute top-3.5 left-3.5">
+                                                    <Badge className={`${stCfg.bgClass} border font-semibold text-[11px] px-2.5 py-0.5 shadow-sm`}>
+                                                        <StatusIcon className="w-3 h-3 mr-1" />
+                                                        {stCfg.label}
+                                                    </Badge>
+                                                </div>
+
+                                                {/* Teams count overlay */}
+                                                <div className="absolute bottom-3 right-3 bg-black/50 backdrop-blur-sm rounded-lg px-2.5 py-1 flex items-center gap-1.5">
+                                                    <Users className="w-3 h-3 text-white/70" />
+                                                    <span className="text-[11px] text-white font-medium">{t.currentTeams || 0}/{t.maxTeams || 0}</span>
+                                                </div>
                                             </div>
-                                        </div>
 
-                                        {/* Content */}
-                                        <div className="p-5">
-                                            <h3 className="text-[16px] font-semibold text-efb-dark mb-3.5 group-hover:text-efb-blue transition-colors duration-200">
-                                                {t.title}
-                                            </h3>
+                                            {/* Content */}
+                                            <div className="p-5">
+                                                <h3 className="text-[16px] font-semibold text-efb-dark mb-3.5 group-hover:text-efb-blue transition-colors duration-200 line-clamp-1">
+                                                    {t.title}
+                                                </h3>
 
-                                            <div className="space-y-2.5">
-                                                {[
-                                                    { icon: Trophy, label: "Thể thức", value: t.format },
-                                                    { icon: Users, label: "Đội", value: `${t.teams} đội` },
-                                                    { icon: Calendar, label: "Thời gian", value: t.date },
-                                                ].map((item) => (
-                                                    <div key={item.label} className="flex items-center justify-between text-[13px]">
-                                                        <span className="text-efb-text-muted flex items-center gap-1.5">
-                                                            <item.icon className="w-3.5 h-3.5" />
-                                                            {item.label}
-                                                        </span>
-                                                        <span className="text-efb-text-secondary font-medium">
-                                                            {item.value}
+                                                <div className="space-y-2.5">
+                                                    {[
+                                                        { icon: Gamepad2, label: "Thể thức", value: formatLabels[t.format] || t.format },
+                                                        { icon: Calendar, label: "Thời gian", value: `${formatDate(t.schedule?.tournamentStart)} - ${formatDate(t.schedule?.tournamentEnd)}` },
+                                                        { icon: MapPin, label: "Hình thức", value: t.isOnline ? "Online" : (t.location || "Offline") },
+                                                    ].map((item) => (
+                                                        <div key={item.label} className="flex items-center justify-between text-[13px]">
+                                                            <span className="text-efb-text-muted flex items-center gap-1.5">
+                                                                <item.icon className="w-3.5 h-3.5" />
+                                                                {item.label}
+                                                            </span>
+                                                            <span className="text-efb-text-secondary font-medium">
+                                                                {item.value}
+                                                            </span>
+                                                        </div>
+                                                    ))}
+                                                </div>
+
+                                                {/* Prize + Fee */}
+                                                <div className="mt-4 pt-3.5 border-t border-gray-100">
+                                                    <div className="flex items-center justify-between">
+                                                        <div className="flex items-center gap-1.5">
+                                                            <Trophy className="w-3.5 h-3.5 text-amber-500" />
+                                                            <span className="text-[11px] text-efb-text-muted font-medium">Giải thưởng</span>
+                                                        </div>
+                                                        <span className="text-gradient font-semibold text-[15px]">
+                                                            {prizeStr}
                                                         </span>
                                                     </div>
-                                                ))}
-                                            </div>
-
-                                            {/* Prize */}
-                                            <div className="mt-4 pt-3.5 border-t border-gray-100">
-                                                <div className="flex items-center justify-between">
-                                                    <span className="text-[11px] text-efb-text-muted uppercase tracking-wider font-medium">
-                                                        Giải thưởng
-                                                    </span>
-                                                    <span className="text-gradient font-bold text-[17px]">
-                                                        {t.prize}
-                                                    </span>
+                                                    {t.entryFee > 0 && (
+                                                        <div className="flex items-center justify-between mt-1.5">
+                                                            <div className="flex items-center gap-1.5">
+                                                                <CreditCard className="w-3.5 h-3.5 text-emerald-500" />
+                                                                <span className="text-[11px] text-efb-text-muted font-medium">Lệ phí</span>
+                                                            </div>
+                                                            <span className="text-[13px] text-emerald-600 font-medium">
+                                                                {Number(t.entryFee).toLocaleString("vi-VN")} ₫
+                                                            </span>
+                                                        </div>
+                                                    )}
                                                 </div>
                                             </div>
                                         </div>
-                                    </div>
-                                </Link>
-                            </motion.div>
-                        );
-                    })}
-                </div>
+                                    </Link>
+                                </motion.div>
+                            );
+                        })}
+                    </div>
+                )}
             </div>
         </section>
     );

@@ -13,6 +13,9 @@ export interface ITournament extends Document {
     format: "single_elimination" | "double_elimination" | "round_robin" | "swiss" | "group_stage";
     gameVersion: string;
     platform: "pc" | "ps4" | "ps5" | "xbox" | "mobile" | "cross_platform";
+    mode: "mobile" | "pc";
+    efvTier: "efv_250" | "efv_500" | "efv_1000" | null;
+    efvPointsAwarded: boolean;
     maxTeams: number;
     minTeams: number;
     currentTeams: number;
@@ -170,11 +173,25 @@ const TournamentSchema = new Schema<ITournament>(
             enum: ["pc", "ps4", "ps5", "xbox", "mobile", "cross_platform"],
             default: "cross_platform",
         },
+        mode: {
+            type: String,
+            enum: ["mobile", "pc"],
+            default: "mobile",
+        },
+        efvTier: {
+            type: String,
+            enum: ["efv_250", "efv_500", "efv_1000"],
+            default: null,
+        },
+        efvPointsAwarded: {
+            type: Boolean,
+            default: false,
+        },
         maxTeams: {
             type: Number,
             required: [true, "Vui lòng nhập số đội tối đa"],
             min: [2, "Phải có ít nhất 2 đội"],
-            max: [256, "Tối đa 256 đội"],
+            max: [1024, "Tối đa 1024 đội"],
         },
         minTeams: {
             type: Number,

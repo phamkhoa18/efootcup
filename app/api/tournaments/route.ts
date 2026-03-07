@@ -121,6 +121,8 @@ export async function POST(req: NextRequest) {
             gameVersion: body.gameVersion || "eFootball 2025",
             format,
             platform: body.platform || "cross_platform",
+            mode: body.mode || "mobile",
+            efvTier: body.efvTier || null,
             maxTeams: body.maxTeams || 16,
             teamSize: body.teamSize || 1,
             isOnline: body.isOnline !== undefined ? body.isOnline : true,

@@ -5,7 +5,7 @@ import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, CheckCircle2, Clock, Edit3, Flame, Loader2, Pause, Play, Settings, Trophy, Users, AlertCircle, Ban, Eye, FileText, Calendar, Gamepad2, Bone, Hexagon, SplitSquareHorizontal, MapPin, Globe, DollarSign, X } from "lucide-react";
+import { ArrowLeft, CheckCircle2, Clock, Edit3, Flame, Loader2, Pause, Play, Settings, Trophy, Users, AlertCircle, Ban, Eye, FileText, Calendar, Gamepad2, Bone, Hexagon, SplitSquareHorizontal, MapPin, Globe, DollarSign, X, Crown, Award } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useAuth } from "@/contexts/AuthContext";
 import { tournamentAPI } from "@/lib/api";
@@ -43,6 +43,8 @@ export default function TournamentDetailPage() {
 
     const [isGeneratingModalOpen, setIsGeneratingModalOpen] = useState(false);
     const [selectedFormatType, setSelectedFormatType] = useState('standard');
+    const [isAwardingEfv, setIsAwardingEfv] = useState(false);
+    const [efvAwardResult, setEfvAwardResult] = useState<any>(null);
 
     const loadTournament = async () => {
         try {
@@ -94,6 +96,28 @@ export default function TournamentDetailPage() {
             console.error("Failed to generate brackets:", error);
         } finally {
             setIsUpdating(false);
+        }
+    };
+
+    const handleAwardEfvPoints = async () => {
+        setIsAwardingEfv(true);
+        try {
+            const res = await fetch(`/api/tournaments/${id}/award-efv-points`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+            });
+            const json = await res.json();
+            if (json.success) {
+                toast.success(`🏆 ${json.message}`);
+                setEfvAwardResult(json.data);
+                loadTournament();
+            } else {
+                toast.error(`❌ ${json.message}`);
+            }
+        } catch (error) {
+            toast.error("Có lỗi xảy ra khi trao điểm EFV");
+        } finally {
+            setIsAwardingEfv(false);
         }
     };
 
@@ -234,6 +258,27 @@ export default function TournamentDetailPage() {
                         <Ban className="w-3.5 h-3.5 mr-1.5" />
                         Hủy giải
                     </Button>
+
+                    {/* EFV Award Button */}
+                    {t.status === "completed" && t.efvTier && !t.efvPointsAwarded && (
+                        <Button
+                            onClick={handleAwardEfvPoints}
+                            disabled={isAwardingEfv}
+                            className="bg-amber-500 text-white hover:bg-amber-600 rounded-xl h-9 px-4 text-sm"
+                        >
+                            {isAwardingEfv ? (
+                                <><Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" />Đang trao...</>
+                            ) : (
+                                <><Crown className="w-3.5 h-3.5 mr-1.5" />Trao điểm EFV</>
+                            )}
+                        </Button>
+                    )}
+                    {t.efvPointsAwarded && (
+                        <span className="inline-flex items-center gap-1.5 text-xs font-medium text-emerald-600 bg-emerald-50 px-3 py-1.5 rounded-xl">
+                            <CheckCircle2 className="w-3.5 h-3.5" />
+                            Đã trao điểm EFV
+                        </span>
+                    )}
                 </div>
             </div>
 
@@ -274,7 +319,48 @@ export default function TournamentDetailPage() {
                                     {t.isOnline ? "Online" : "Offline"}
                                 </div>
                             </div>
+                            {t.efvTier && (
+                                <div>
+                                    <div className="text-xs text-efb-text-muted">Hạng EFV</div>
+                                    <div className="text-sm font-medium text-amber-600 flex items-center gap-1">
+                                        <Crown className="w-3.5 h-3.5" />
+                                        {t.efvTier === "efv_250" ? "EFV 250" : t.efvTier === "efv_500" ? "EFV 500" : "EFV 1000"} ({t.mode?.toUpperCase() || "MOBILE"})
+                                    </div>
+                                </div>
+                            )}
+                            {!t.efvTier && t.mode && (
+                                <div>
+                                    <div className="text-xs text-efb-text-muted">Chế độ</div>
+                                    <div className="text-sm font-medium text-efb-dark">
+                                        {t.mode === "mobile" ? "📱 Mobile" : "🖥 PC"}
+                                    </div>
+                                </div>
+                            )}
+                            {t.settings?.matchDuration && (
+                                <div>
+                                    <div className="text-xs text-efb-text-muted">Thời lượng</div>
+                                    <div className="text-sm font-medium text-efb-dark">
+                                        {t.settings.matchDuration} phút · {t.settings.legsPerRound === 2 ? "2 lượt" : "1 lượt"}
+                                    </div>
+                                </div>
+                            )}
+                            {(t.settings?.extraTime !== undefined || t.settings?.penalties !== undefined) && (
+                                <div>
+                                    <div className="text-xs text-efb-text-muted">HP / Penalty</div>
+                                    <div className="text-sm font-medium text-efb-dark">
+                                        {t.settings?.extraTime ? "✅" : "❌"} HP · {t.settings?.penalties ? "✅" : "❌"} PEN
+                                    </div>
+                                </div>
+                            )}
                         </div>
+                        {t.entryFee > 0 && (
+                            <div className="pt-3 border-t border-gray-100">
+                                <div className="text-xs text-efb-text-muted mb-1">Phí tham gia</div>
+                                <div className="text-sm font-semibold text-blue-600">
+                                    {Number(t.entryFee).toLocaleString("vi-VN")} VNĐ
+                                </div>
+                            </div>
+                        )}
                         {t.prize?.total && t.prize.total !== "0 VNĐ" && (
                             <div className="pt-3 border-t border-gray-100">
                                 <div className="text-xs text-efb-text-muted mb-1">Giải thưởng</div>

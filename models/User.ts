@@ -3,7 +3,7 @@ import Counter from "./Counter";
 
 export interface IUser extends Document {
     _id: mongoose.Types.ObjectId;
-    efvId: string; // EFV-XXXXXX unique permanent ID
+    efvId: number; // Auto-incrementing unique permanent ID (1, 2, 3, ...)
     name: string;
     email: string;
     password: string;
@@ -12,6 +12,12 @@ export interface IUser extends Document {
     phone?: string;
     bio?: string;
     gamerId?: string; // eFootball ID
+    dateOfBirth?: string;
+    country?: string;
+    province?: string;
+    nickname?: string;
+    facebookName?: string;
+    facebookLink?: string;
     stats: {
         tournamentsCreated: number;
         tournamentsJoined: number;
@@ -25,6 +31,8 @@ export interface IUser extends Document {
     isVerified: boolean;
     verificationCode?: string;
     verificationCodeExpires?: Date;
+    resetPasswordCode?: string;
+    resetPasswordCodeExpires?: Date;
     lastLogin?: Date;
     createdAt: Date;
     updatedAt: Date;
@@ -33,7 +41,7 @@ export interface IUser extends Document {
 const UserSchema = new Schema<IUser>(
     {
         efvId: {
-            type: String,
+            type: Number,
             unique: true,
             sparse: true,
             index: true,
@@ -80,6 +88,30 @@ const UserSchema = new Schema<IUser>(
             type: String,
             default: "",
         },
+        dateOfBirth: {
+            type: String,
+            default: "",
+        },
+        country: {
+            type: String,
+            default: "Việt Nam",
+        },
+        province: {
+            type: String,
+            default: "",
+        },
+        nickname: {
+            type: String,
+            default: "",
+        },
+        facebookName: {
+            type: String,
+            default: "",
+        },
+        facebookLink: {
+            type: String,
+            default: "",
+        },
         stats: {
             tournamentsCreated: { type: Number, default: 0 },
             tournamentsJoined: { type: Number, default: 0 },
@@ -105,6 +137,14 @@ const UserSchema = new Schema<IUser>(
             type: Date,
             select: false,
         },
+        resetPasswordCode: {
+            type: String,
+            select: false,
+        },
+        resetPasswordCodeExpires: {
+            type: Date,
+            select: false,
+        },
         lastLogin: {
             type: Date,
         },
@@ -124,7 +164,7 @@ UserSchema.pre("save", async function () {
     if (this.isNew && !this.efvId) {
         try {
             const seq = await Counter.getNextSequence("efvId");
-            this.efvId = `EFV-${seq.toString().padStart(6, "0")}`;
+            this.efvId = seq;
         } catch (err) {
             console.error("Failed to generate EFV-ID:", err);
         }

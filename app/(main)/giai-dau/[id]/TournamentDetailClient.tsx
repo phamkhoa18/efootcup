@@ -20,7 +20,8 @@ import {
     Trophy, Users, Calendar, MapPin, Flame, Share2, ChevronRight, ChevronLeft, ChevronsUpDown, Check,
     Gamepad2, Award, FileText, UserPlus, Clock, Shield, Swords, Camera, MapPinned, Facebook,
     Loader2, Globe, CheckCircle2, Eye, Ban, DollarSign, Phone, Mail, MessageCircle,
-    LogIn, AlertCircle, Info, X, Watch, CreditCard, Upload, ExternalLink, Wallet, Image as ImageIcon, User
+    LogIn, AlertCircle, Info, X, Watch, CreditCard, Upload, ExternalLink, Wallet, Image as ImageIcon, User,
+    Zap, Target, ArrowRight, Search
 } from "lucide-react";
 import { tournamentAPI, tournamentPaymentAPI, paymentConfigAPI } from "@/lib/api";
 import { useAuth } from "@/contexts/AuthContext";
@@ -40,6 +41,16 @@ const formatLabels: Record<string, string> = {
     round_robin: "Vòng tròn",
     swiss: "Swiss System",
     group_stage: "Vòng bảng",
+};
+
+const platformLabels: Record<string, string> = {
+    cross_platform: "Đa nền tảng",
+    ps4: "PS4",
+    ps5: "PS5",
+    pc: "PC",
+    mobile: "Mobile",
+    xbox: "Xbox",
+    console: "Console",
 };
 
 const tabs = [
@@ -66,40 +77,35 @@ const MatchCard = ({ match, onClick }: { match: any; onClick: () => void }) => {
     const homeWin = isCompleted && (match.winner === (match.homeTeam?._id || match.homeTeam?.id) || (homeScore !== "" && awayScore !== "" && Number(homeScore) > Number(awayScore)));
     const awayWin = isCompleted && (match.winner === (match.awayTeam?._id || match.awayTeam?.id) || (homeScore !== "" && awayScore !== "" && Number(awayScore) > Number(homeScore)));
 
-    if (isWalkover) {
-        const hName = match.homeTeam?.name || match.homeTeam?.shortName || match.p1?.ingame || "Tự do";
-        const p1Name = match.homeTeam?.player1 || match.p1?.name || "";
-        const p2Name = match.homeTeam?.player2 && match.homeTeam.player2 !== "TBD" ? match.homeTeam.player2 : "";
+    // Reworked: Player name big on top, team name small below
+    const homeP1 = match.homeTeam?.player1 || match.p1?.name || "Chờ kết quả";
+    const homeP2 = match.homeTeam?.player2 && match.homeTeam.player2 !== "TBD" ? match.homeTeam.player2 : "";
+    const awayP1 = match.awayTeam?.player1 || match.p2?.name || "Chờ kết quả";
+    const awayP2 = match.awayTeam?.player2 && match.awayTeam.player2 !== "TBD" ? match.awayTeam.player2 : "";
 
+    if (isWalkover) {
         return (
-            <div className="flex items-center relative z-20 w-[180px]">
+            <div className="flex items-center relative z-20 w-[200px]">
                 <div className="absolute -left-2 top-1/2 -translate-y-1/2 w-4 h-4 bg-[#F8FAFC] border border-[#CBD5E1] rounded-full flex items-center justify-center text-[7px] font-bold text-gray-500 z-30">
                     {bracketNumber}
                 </div>
-
                 <motion.div
                     whileHover={{ y: -2, scale: 1.02 }}
                     onClick={onClick}
-                    className="w-full bg-white rounded-[6px] border border-[#E2E8F0] shadow-sm flex flex-col justify-center cursor-pointer overflow-hidden z-20 relative px-2 py-1.5 h-[44px]"
+                    className="w-full bg-white rounded-[6px] border border-[#E2E8F0] shadow-sm flex flex-col justify-center cursor-pointer overflow-hidden z-20 relative px-2.5 py-2 h-[50px]"
                 >
-                    <span className="text-[8px] text-gray-400 font-bold text-center mb-0.5">{hName}</span>
-                    <div className="flex flex-col items-center">
-                        <span className={`truncate text-[11px] text-gray-800 font-bold ${!match.homeTeam && !match.p1 ? "text-gray-400 italic font-medium" : ""}`}>
-                            {p1Name || (!match.homeTeam ? "Tự do" : "...")}
-                        </span>
-                        {p2Name && (
-                            <span className="truncate text-[10px] text-gray-700 font-bold mt-0.5">
-                                {p2Name}
-                            </span>
-                        )}
-                    </div>
+                    <span className={`truncate text-[12px] font-bold text-gray-800 ${!match.homeTeam && !match.p1 ? "text-gray-400 italic font-medium" : ""}`}>
+                        {homeP1}
+                    </span>
+                    {homeP2 && <span className="truncate text-[11px] text-gray-700 font-semibold">{homeP2}</span>}
+                    <span className="text-[9px] text-gray-400 truncate mt-0.5">{homeName}</span>
                 </motion.div>
             </div>
         );
     }
 
     return (
-        <div className="flex items-center relative z-20 w-[180px]">
+        <div className="flex items-center relative z-20 w-[200px]">
             <div className="absolute -left-2 top-1/2 -translate-y-1/2 w-4 h-4 bg-[#F8FAFC] border border-[#CBD5E1] rounded-full flex items-center justify-center text-[7px] font-bold text-gray-500 z-30">
                 {bracketNumber}
             </div>
@@ -115,39 +121,37 @@ const MatchCard = ({ match, onClick }: { match: any; onClick: () => void }) => {
                     </div>
                 )}
 
-                <div className={`p-1.5 flex flex-col ${homeWin ? "bg-blue-50/20" : ""} ${isLive ? 'mt-[10px]' : ''}`}>
-                    <span className="text-[8px] text-gray-400 font-bold text-center mb-0.5">{homeName}</span>
-                    <div className="flex justify-between items-center px-1">
-                        <div className="flex flex-col min-w-0 pr-1 leading-[1.1]">
-                            <span className={`truncate text-[11px] ${homeWin ? "text-blue-700 font-bold" : "text-gray-800 font-medium"} ${!match.homeTeam && !match.p1 ? "text-gray-400 italic" : ""}`}>
-                                {match.homeTeam?.player1 || match.p1?.name || "Chờ kết quả"}
+                {/* Home */}
+                <div className={`px-2.5 py-1.5 flex flex-col ${homeWin ? "bg-blue-50/30" : ""} ${isLive ? 'mt-[12px]' : ''}`}>
+                    <div className="flex justify-between items-start">
+                        <div className="flex flex-col min-w-0 pr-1 leading-[1.2] flex-1">
+                            <span className={`truncate text-[12px] ${homeWin ? "text-blue-700 font-bold" : "text-gray-900 font-semibold"} ${!match.homeTeam && !match.p1 ? "text-gray-400 italic font-normal" : ""}`}>
+                                {homeP1}
                             </span>
-                            {match.homeTeam?.player2 && match.homeTeam.player2 !== "TBD" && (
-                                <span className={`truncate text-[11px] mt-0.5 ${homeWin ? "text-blue-700 font-bold" : "text-gray-800 font-medium"}`}>
-                                    {match.homeTeam.player2}
-                                </span>
+                            {homeP2 && (
+                                <span className={`truncate text-[11px] ${homeWin ? "text-blue-600 font-semibold" : "text-gray-700 font-medium"}`}>{homeP2}</span>
                             )}
+                            <span className="text-[9px] text-gray-400 truncate mt-0.5">{homeName}</span>
                         </div>
-                        <span className={`text-[12px] tabular-nums ml-1 ${homeWin ? "text-blue-600 font-bold" : "text-gray-400 font-semibold"}`}>{homeScore}</span>
+                        <span className={`text-[13px] tabular-nums ml-1 mt-0.5 ${homeWin ? "text-blue-600 font-bold" : "text-gray-400 font-semibold"}`}>{homeScore}</span>
                     </div>
                 </div>
 
                 <div className="h-px bg-[#E2E8F0] w-full" />
 
-                <div className={`p-1.5 flex flex-col ${awayWin ? "bg-blue-50/20" : ""}`}>
-                    <span className="text-[8px] text-gray-400 font-bold text-center mb-0.5">{awayName}</span>
-                    <div className="flex justify-between items-center px-1">
-                        <div className="flex flex-col min-w-0 pr-1 leading-[1.1]">
-                            <span className={`truncate text-[11px] ${awayWin ? "text-blue-700 font-bold" : "text-gray-800 font-medium"} ${!match.awayTeam && !match.p2 ? "text-gray-400 italic" : ""}`}>
-                                {match.awayTeam?.player1 || match.p2?.name || "Chờ kết quả"}
+                {/* Away */}
+                <div className={`px-2.5 py-1.5 flex flex-col ${awayWin ? "bg-blue-50/30" : ""}`}>
+                    <div className="flex justify-between items-start">
+                        <div className="flex flex-col min-w-0 pr-1 leading-[1.2] flex-1">
+                            <span className={`truncate text-[12px] ${awayWin ? "text-blue-700 font-bold" : "text-gray-900 font-semibold"} ${!match.awayTeam && !match.p2 ? "text-gray-400 italic font-normal" : ""}`}>
+                                {awayP1}
                             </span>
-                            {match.awayTeam?.player2 && match.awayTeam.player2 !== "TBD" && (
-                                <span className={`truncate text-[11px] mt-0.5 ${awayWin ? "text-blue-700 font-bold" : "text-gray-800 font-medium"}`}>
-                                    {match.awayTeam.player2}
-                                </span>
+                            {awayP2 && (
+                                <span className={`truncate text-[11px] ${awayWin ? "text-blue-600 font-semibold" : "text-gray-700 font-medium"}`}>{awayP2}</span>
                             )}
+                            <span className="text-[9px] text-gray-400 truncate mt-0.5">{awayName}</span>
                         </div>
-                        <span className={`text-[12px] tabular-nums ml-1 ${awayWin ? "text-blue-600 font-bold" : "text-gray-400 font-semibold"}`}>{awayScore}</span>
+                        <span className={`text-[13px] tabular-nums ml-1 mt-0.5 ${awayWin ? "text-blue-600 font-bold" : "text-gray-400 font-semibold"}`}>{awayScore}</span>
                     </div>
                 </div>
             </motion.div>
@@ -540,16 +544,25 @@ export default function TournamentDetailClient({ initialData, id }: { initialDat
     const [provinceOpen, setProvinceOpen] = useState(false);
     const [countries, setCountries] = useState<{ name: string; code: string }[]>([]);
     const [countryOpen, setCountryOpen] = useState(false);
+    const [bracketSearch, setBracketSearch] = useState("");
+    const [playerSearch, setPlayerSearch] = useState("");
+    const [selectedPlayer, setSelectedPlayer] = useState<any>(null);
 
     useEffect(() => {
         if (user) {
             setRegForm((prev) => ({
                 ...prev,
                 playerName: prev.playerName || user.name || "",
-                email: prev.email || user.email || "",
+                email: user.email || prev.email || "",
                 gamerId: prev.gamerId || user.gamerId || "",
                 phone: prev.phone || user.phone || "",
+                dateOfBirth: prev.dateOfBirth || user.dateOfBirth || "",
+                province: prev.province || user.province || "",
+                nickname: prev.nickname || user.nickname || "",
+                facebookName: prev.facebookName || user.facebookName || "",
+                facebookLink: prev.facebookLink || user.facebookLink || "",
             }));
+            if (user.country) setRegCountry(user.country);
         }
     }, [user]);
 
@@ -799,6 +812,28 @@ export default function TournamentDetailClient({ initialData, id }: { initialDat
             if (res.success) {
                 setMyRegistration(res.data);
                 setShowRegDialog(false);
+
+                // Save reg info to profile for auto-fill next time
+                try {
+                    const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+                    const savedToken = localStorage.getItem('efootcup_token');
+                    if (savedToken) headers.Authorization = `Bearer ${savedToken}`;
+                    await fetch('/api/auth/me', {
+                        method: 'PUT',
+                        headers,
+                        body: JSON.stringify({
+                            phone: regForm.phone,
+                            gamerId: regForm.gamerId,
+                            dateOfBirth: regForm.dateOfBirth,
+                            country: regCountry,
+                            province: regForm.province,
+                            nickname: regForm.nickname,
+                            facebookName: regForm.facebookName,
+                            facebookLink: regForm.facebookLink,
+                        }),
+                    });
+                } catch { /* silent */ }
+
                 if (t.entryFee > 0) {
                     toast.success('Đăng ký thành công! Vui lòng thanh toán lệ phí.');
                     loadPaymentMethods();
@@ -854,208 +889,630 @@ export default function TournamentDetailClient({ initialData, id }: { initialDat
     return (
         <>
             <section className="relative pt-24 pb-14">
+                {/* Bright Background */}
                 <div className="absolute inset-0 overflow-hidden">
-                    <Image src={t.banner || t.thumbnail || "/assets/efootball_bg.webp"} alt="" fill className="object-cover opacity-60" priority />
-                    <div className="absolute inset-0 bg-gradient-to-b from-[#0A3D91]/70 via-[#1E40AF]/40 to-white" />
+                    <Image src={t.banner || t.thumbnail || "/assets/efootball_bg.webp"} alt="" fill className="object-cover" priority />
+                    <div className="absolute inset-0 bg-gradient-to-b from-[#0A3D91]/70 via-[#1E40AF]/50 to-white" />
                 </div>
+
                 <div className="max-w-[1200px] mx-auto px-6 relative z-10">
-                    <div className="flex items-center gap-2 text-xs text-white/60 mb-6">
-                        <Link href="/">Trang chủ</Link><ChevronRight className="w-3 h-3" /><Link href="/giai-dau">Giải đấu</Link><ChevronRight className="w-3 h-3" /><span>{t.title}</span>
+                    {/* Breadcrumb */}
+                    <div className="flex items-center gap-1.5 text-[11px] text-white/50 mb-5">
+                        <Link href="/" className="hover:text-white/80 transition-colors">Trang chủ</Link>
+                        <ChevronRight className="w-3 h-3 text-white/30" />
+                        <Link href="/giai-dau" className="hover:text-white/80 transition-colors">Giải đấu</Link>
+                        <ChevronRight className="w-3 h-3 text-white/30" />
+                        <span className="text-white/80">{t.title}</span>
                     </div>
-                    <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="bg-white rounded-2xl p-6 sm:p-8 -mb-10 relative z-20 shadow-xl">
-                        <div className="flex flex-col lg:flex-row gap-6">
-                            <div className="flex-1">
-                                <div className="flex gap-3 mb-3 flex-wrap">
-                                    <Badge className={`${sty.bgClass} border`}>{sty.label}</Badge>
-                                    <Badge className="bg-blue-50 text-efb-blue">{formatLabels[t.format] || t.format}</Badge>
-                                    <Badge className="bg-gray-100">{t.platform}</Badge>
+
+                    <motion.div
+                        initial={{ opacity: 0, y: 16 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ duration: 0.4 }}
+                        className="bg-white rounded-2xl p-5 sm:p-6 -mb-8 relative z-20 shadow-xl border border-gray-100/50"
+                    >
+                        {/* Badges */}
+                        <div className="flex gap-1.5 mb-3 flex-wrap">
+                            <Badge className={`${sty.bgClass} border text-[10px] font-semibold px-2.5 py-0.5 gap-1 rounded-full`}>
+                                <span className={`w-1.5 h-1.5 rounded-full ${t.status === 'ongoing' ? 'bg-white animate-pulse' : t.status === 'completed' ? 'bg-emerald-500' : t.status === 'registration' ? 'bg-amber-900' : 'bg-gray-400'}`} />
+                                {sty.label}
+                            </Badge>
+                            <Badge className="bg-blue-50 text-blue-600 border-blue-100 text-[10px] rounded-full px-2.5 py-0.5">{formatLabels[t.format] || t.format}</Badge>
+                            <Badge className="bg-gray-50 text-gray-500 border-gray-100 text-[10px] rounded-full px-2.5 py-0.5">{platformLabels[t.platform] || t.platform}</Badge>
+                            {t.entryFee > 0 && <Badge className="bg-emerald-50 text-emerald-600 border-emerald-100 text-[10px] rounded-full px-2.5 py-0.5">{Number(t.entryFee).toLocaleString("vi-VN")} ₫</Badge>}
+                            {t.entryFee <= 0 && <Badge className="bg-green-50 text-green-600 border-green-100 text-[10px] rounded-full px-2.5 py-0.5">Miễn phí</Badge>}
+                        </div>
+
+                        {/* Title */}
+                        <h1 className="text-xl sm:text-2xl font-bold text-gray-900 mb-3 leading-tight">{t.title}</h1>
+
+                        {/* Meta info - compact inline */}
+                        <div className="flex flex-wrap gap-x-4 gap-y-1.5 text-[12px] text-gray-500 mb-4">
+                            <span className="flex items-center gap-1.5"><Calendar className="w-3.5 h-3.5 text-blue-400" />{formatDate(t.schedule?.tournamentStart)} - {formatDate(t.schedule?.tournamentEnd)}</span>
+                            <span className="flex items-center gap-1.5"><MapPin className="w-3.5 h-3.5 text-rose-400" />{t.isOnline ? "Online" : (t.location || "Chưa xác định")}</span>
+                            <span className="flex items-center gap-1.5"><Eye className="w-3.5 h-3.5 text-gray-400" />{(t.views || 0).toLocaleString()} lượt xem</span>
+                        </div>
+
+                        {/* Progress bar - compact */}
+                        <div className="mb-4">
+                            <div className="flex items-center justify-between mb-1.5">
+                                <span className="text-[11px] font-medium text-gray-400">Số đội đăng ký</span>
+                                <span className="text-[11px] font-semibold text-efb-blue">{t.currentTeams}/{t.maxTeams} đội</span>
+                            </div>
+                            <div className="h-1.5 bg-gray-100 rounded-full overflow-hidden">
+                                <motion.div
+                                    initial={{ width: 0 }}
+                                    animate={{ width: `${Math.min((t.currentTeams / t.maxTeams) * 100, 100)}%` }}
+                                    transition={{ delay: 0.3, duration: 0.8 }}
+                                    className={`h-full rounded-full ${(t.currentTeams / t.maxTeams) >= 0.8 ? "bg-gradient-to-r from-red-400 to-red-500" : "bg-gradient-to-r from-blue-400 to-indigo-500"}`}
+                                />
+                            </div>
+                            {(t.currentTeams / t.maxTeams) >= 0.8 && t.status === "registration" && (
+                                <p className="text-[10px] text-red-500 font-medium mt-1 flex items-center gap-1"><Flame className="w-3 h-3" /> Sắp hết slot!</p>
+                            )}
+                        </div>
+
+                        {/* Stats Row - light & compact */}
+                        <div className="grid grid-cols-3 gap-3 mb-4">
+                            <div className="bg-blue-50/60 rounded-xl px-3 py-2.5 text-center">
+                                <div className="flex items-center justify-center gap-1.5 mb-0.5">
+                                    <Users className="w-3.5 h-3.5 text-blue-500" />
+                                    <span className="text-[10px] text-blue-500/70 font-medium uppercase tracking-wider">Đội</span>
                                 </div>
-                                <h1 className="text-2xl sm:text-3xl font-bold text-efb-dark mb-3">{t.title}</h1>
-                                <div className="flex flex-wrap gap-5 text-sm text-gray-500">
-                                    <span className="flex items-center gap-1.5"><Calendar className="w-4 h-4" />{formatDate(t.schedule?.tournamentStart)} - {formatDate(t.schedule?.tournamentEnd)}</span>
-                                    <span className="flex items-center gap-1.5"><MapPin className="w-4 h-4" />{t.isOnline ? "Online" : t.location}</span>
-                                    <span className="flex items-center gap-1.5"><Eye className="w-4 h-4" />{t.views || 0} lượt xem</span>
+                                <div className="text-gray-900">
+                                    <span className="text-lg font-bold tabular-nums">{t.currentTeams}</span>
+                                    <span className="text-xs text-gray-400 font-medium">/{t.maxTeams}</span>
                                 </div>
                             </div>
-                            <div className="flex gap-8 items-center">
-                                <div className="text-center"><div className="text-2xl">{t.currentTeams}/{t.maxTeams}</div><div className="text-[10px] uppercase text-gray-400">Đội</div></div>
-                                {t.prize?.total && <><div className="w-px h-10 bg-gray-100" /> <div className="text-center"><div className="text-xl font-bold text-gradient">{t.prize.total}</div><div className="text-[10px] uppercase text-gray-400">Giải thưởng</div></div></>}
+                            <div className="bg-amber-50/60 rounded-xl px-3 py-2.5 text-center">
+                                <div className="flex items-center justify-center gap-1.5 mb-0.5">
+                                    <Trophy className="w-3.5 h-3.5 text-amber-500" />
+                                    <span className="text-[10px] text-amber-500/70 font-medium uppercase tracking-wider">Giải thưởng</span>
+                                </div>
+                                <div className="text-amber-700 text-sm font-bold truncate">
+                                    {t.prize?.total
+                                        ? (typeof t.prize.total === 'number'
+                                            ? Number(t.prize.total).toLocaleString("vi-VN") + ' VNĐ'
+                                            : t.prize.total)
+                                        : "—"}
+                                </div>
+                            </div>
+                            <div className="bg-emerald-50/60 rounded-xl px-3 py-2.5 text-center">
+                                <div className="flex items-center justify-center gap-1.5 mb-0.5">
+                                    <CreditCard className="w-3.5 h-3.5 text-emerald-500" />
+                                    <span className="text-[10px] text-emerald-500/70 font-medium uppercase tracking-wider">Lệ phí</span>
+                                </div>
+                                <div className={`text-sm font-bold ${t.entryFee > 0 ? "text-emerald-700" : "text-green-600"}`}>
+                                    {t.entryFee > 0 ? `${Number(t.entryFee).toLocaleString("vi-VN")} ₫` : "Miễn phí"}
+                                </div>
                             </div>
                         </div>
-                        <div className="flex gap-3 mt-6 pt-5 border-t border-gray-100">
-                            {t.status === "registration" && (
+
+                        {/* CTA Buttons - compact */}
+                        <div className="flex flex-wrap items-center gap-2 pt-3 border-t border-gray-100">
+                            {t.status === "registration" ? (
                                 checkingRegistration ? (
-                                    <Button disabled className="bg-gray-300 text-white rounded-xl"><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Đang kiểm tra...</Button>
+                                    <Button disabled className="bg-gray-100 text-gray-400 rounded-lg h-9 text-xs px-4"><Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" /> Đang kiểm tra...</Button>
                                 ) : myRegistration ? (
                                     myRegistration.status === 'approved' ? (
-                                        <Button disabled className="bg-green-500 text-white rounded-xl"><CheckCircle2 className="w-4 h-4 mr-2" /> Đã được duyệt</Button>
+                                        <Button disabled className="bg-emerald-500 text-white rounded-lg h-9 text-xs"><CheckCircle2 className="w-3.5 h-3.5 mr-1.5" /> Đã được duyệt</Button>
                                     ) : (
                                         <>
-                                            <Button onClick={handleRegisterClick} className="bg-amber-500 hover:bg-amber-600 text-white rounded-xl">
+                                            <Button onClick={handleRegisterClick} className="bg-amber-500 hover:bg-amber-600 text-white rounded-lg h-9 text-xs">
                                                 {myRegistration.paymentStatus === 'paid' || myRegistration.paymentStatus === 'confirmed' || t.entryFee <= 0 ? (
-                                                    <><Clock className="w-4 h-4 mr-2" /> Xem trạng thái đăng ký</>
+                                                    <><Clock className="w-3.5 h-3.5 mr-1.5" /> Xem trạng thái</>
                                                 ) : myRegistration.paymentStatus === 'pending_verification' ? (
-                                                    <><Clock className="w-4 h-4 mr-2" /> Xem trạng thái thanh toán</>
+                                                    <><Clock className="w-3.5 h-3.5 mr-1.5" /> Chờ xác nhận</>
                                                 ) : (
-                                                    <><CreditCard className="w-4 h-4 mr-2" /> Thanh toán lệ phí</>
+                                                    <><CreditCard className="w-3.5 h-3.5 mr-1.5" /> Thanh toán</>
                                                 )}
                                             </Button>
-                                            <Button variant="outline" onClick={handleCancelRegistration} className="rounded-xl text-red-500 border-red-200 hover:bg-red-50 hover:border-red-300">
-                                                <X className="w-4 h-4 mr-2" /> Hủy đăng ký
+                                            <Button variant="outline" onClick={handleCancelRegistration} className="rounded-lg text-red-500 border-red-200 hover:bg-red-50 h-9 text-xs">
+                                                <X className="w-3.5 h-3.5 mr-1" /> Hủy
                                             </Button>
                                         </>
                                     )
                                 ) : (
-                                    <Button onClick={handleRegisterClick} className="bg-efb-blue text-white rounded-xl"><UserPlus className="w-4 h-4 mr-2" /> Đăng ký ngay</Button>
+                                    <Button
+                                        onClick={handleRegisterClick}
+                                        className="bg-gradient-to-r from-efb-blue to-indigo-600 hover:from-efb-blue/90 hover:to-indigo-600/90 text-white rounded-lg h-9 px-5 text-xs font-semibold shadow-sm shadow-blue-500/15 hover:shadow-md transition-all"
+                                    >
+                                        <UserPlus className="w-3.5 h-3.5 mr-1.5" /> Đăng ký tham gia
+                                    </Button>
                                 )
-                            )}
-                            <Button variant="outline" className="rounded-xl"><Share2 className="w-4 h-4 mr-2" /> Chia sẻ</Button>
+                            ) : t.status === "ongoing" ? (
+                                <Badge className="bg-red-500 text-white border-0 h-9 px-3 text-xs font-medium rounded-lg"><Flame className="w-3.5 h-3.5 mr-1.5" /> Đang diễn ra</Badge>
+                            ) : t.status === "completed" ? (
+                                <Badge className="bg-emerald-50 text-emerald-700 border-emerald-200 h-9 px-3 text-xs font-medium rounded-lg"><CheckCircle2 className="w-3.5 h-3.5 mr-1.5" /> Đã kết thúc</Badge>
+                            ) : null}
+                            <Button
+                                variant="outline"
+                                className="rounded-lg h-9 text-xs border-gray-200 hover:bg-gray-50"
+                                onClick={() => {
+                                    navigator.clipboard.writeText(window.location.href);
+                                    toast.success("Đã sao chép link giải đấu!");
+                                }}
+                            >
+                                <Share2 className="w-3.5 h-3.5 mr-1.5" /> Chia sẻ
+                            </Button>
                         </div>
                     </motion.div>
                 </div>
             </section>
 
-            <section className="pt-6 pb-20 bg-white">
+            <section className="pt-4 pb-16 bg-white">
                 <div className="max-w-[1200px] mx-auto px-6">
                     <div className="sticky top-16 z-30 bg-white border-b overflow-x-auto flex gap-1 no-scrollbar">
                         {tabs.map((tab) => (
                             <button
                                 key={tab.key}
                                 onClick={() => setActiveTab(tab.key)}
-                                className={`px-5 py-3.5 text-sm font-medium border-b-2 transition-all whitespace-nowrap flex-shrink-0 ${activeTab === tab.key ? "border-efb-blue text-efb-blue" : "border-transparent text-gray-400"}`}
+                                className={`px-4 py-3 text-[13px] font-medium border-b-2 transition-all whitespace-nowrap flex-shrink-0 flex items-center gap-1.5 ${activeTab === tab.key ? "border-efb-blue text-efb-blue" : "border-transparent text-gray-400 hover:text-gray-600"}`}
                             >
+                                <tab.icon className="w-3.5 h-3.5" />
                                 {tab.label}
                             </button>
                         ))}
                     </div>
 
-                    <div className="mt-8">
+                    <div className="mt-6">
                         {activeTab === "overview" && (
-                            <div className="grid lg:grid-cols-3 gap-6">
-                                <div className="lg:col-span-2 space-y-6">
-                                    {t.description && <div className="bg-white rounded-xl border p-6"><h3 className="font-bold mb-3">Giới thiệu</h3><p className="text-sm whitespace-pre-line">{t.description}</p></div>}
-                                    {t.rules && <div className="bg-white rounded-xl border p-6"><h3 className="font-bold mb-3">Thể lệ</h3><p className="text-sm whitespace-pre-line">{t.rules}</p></div>}
-                                    <div className="bg-white rounded-xl border p-6"><h3 className="font-bold mb-4">Cài đặt</h3>
-                                        <div className="grid grid-cols-2 gap-4 text-sm">
-                                            <div><div className="text-gray-400 text-xs">Thời lượng</div>{t.settings?.matchDuration} phút</div>
-                                            <div><div className="text-gray-400 text-xs">Hiệp phụ/Pen</div>{t.settings?.extraTime ? "Có" : "Không"} / {t.settings?.penalties ? "Có" : "Không"}</div>
-                                            <div><div className="text-gray-400 text-xs">Số lượt</div>{t.settings?.legsPerRound} lượt</div>
-                                            <div><div className="text-gray-400 text-xs">Platform</div>{t.platform}</div>
+                            <div className="grid lg:grid-cols-3 gap-5">
+                                <div className="lg:col-span-2 space-y-4">
+                                    {t.description && (
+                                        <div className="bg-white rounded-xl border border-gray-100 p-5 shadow-sm">
+                                            <h3 className="font-semibold text-[13px] text-gray-900 flex items-center gap-2 mb-2"><FileText className="w-4 h-4 text-blue-500" />Giới thiệu</h3>
+                                            <p className="text-[13px] text-gray-600 whitespace-pre-line leading-relaxed">{t.description}</p>
+                                        </div>
+                                    )}
+
+                                    {/* Rules */}
+                                    {t.rules && (
+                                        <div className="bg-white rounded-xl border border-gray-100 p-5 shadow-sm">
+                                            <h3 className="font-semibold text-[13px] text-gray-900 flex items-center gap-2 mb-2"><Shield className="w-4 h-4 text-amber-500" />Thể lệ</h3>
+                                            <p className="text-[13px] text-gray-600 whitespace-pre-line leading-relaxed">{t.rules}</p>
+                                        </div>
+                                    )}
+
+                                    <div className="bg-white rounded-xl border border-gray-100 p-5 shadow-sm">
+                                        <h3 className="font-semibold text-[13px] text-gray-900 flex items-center gap-2 mb-3"><Gamepad2 className="w-4 h-4 text-indigo-500" />Thông tin giải đấu</h3>
+                                        <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
+                                            {[
+                                                { label: "Hình thức", value: formatLabels[t.format] || t.format, icon: Trophy, color: "text-blue-600 bg-blue-50" },
+                                                { label: "Platform", value: platformLabels[t.platform] || t.platform || "—", icon: Gamepad2, color: "text-indigo-600 bg-indigo-50" },
+                                                { label: "Thời lượng trận", value: `${t.settings?.matchDuration || "—"} phút`, icon: Clock, color: "text-amber-600 bg-amber-50" },
+                                                { label: "Hiệp phụ", value: t.settings?.extraTime ? "Có" : "Không", icon: Zap, color: "text-orange-600 bg-orange-50" },
+                                                { label: "Luân lưu (Pen)", value: t.settings?.penalties ? "Có" : "Không", icon: Target, color: "text-red-600 bg-red-50" },
+                                                { label: "Số lượt/vòng", value: `${t.settings?.legsPerRound || 1} lượt`, icon: ArrowRight, color: "text-emerald-600 bg-emerald-50" },
+                                            ].map((item) => (
+                                                <div key={item.label} className={`${item.color.split(" ")[1]} rounded-xl p-3.5`}>
+                                                    <div className="flex items-center gap-2 mb-1.5">
+                                                        <item.icon className={`w-3.5 h-3.5 ${item.color.split(" ")[0]}`} />
+                                                        <span className="text-[10px] font-medium text-gray-400 uppercase tracking-wider">{item.label}</span>
+                                                    </div>
+                                                    <div className={`text-sm font-semibold ${item.color.split(" ")[0]}`}>{item.value}</div>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+
+                                    {/* Schedule Timeline */}
+                                    <div className="bg-white rounded-xl border border-gray-100 p-5 shadow-sm">
+                                        <h3 className="font-semibold text-[13px] text-gray-900 flex items-center gap-2 mb-3"><Calendar className="w-4 h-4 text-blue-500" />Lịch trình</h3>
+                                        <div className="space-y-3">
+                                            {[
+                                                { label: "Bắt đầu đăng ký", date: t.schedule?.registrationStart, icon: UserPlus, color: "bg-blue-500" },
+                                                { label: "Hạn đăng ký", date: t.schedule?.registrationDeadline, icon: Clock, color: "bg-amber-500" },
+                                                { label: "Bắt đầu giải đấu", date: t.schedule?.tournamentStart, icon: Flame, color: "bg-red-500" },
+                                                { label: "Kết thúc giải đấu", date: t.schedule?.tournamentEnd, icon: CheckCircle2, color: "bg-emerald-500" },
+                                            ].filter(item => item.date).map((item, i, arr) => (
+                                                <div key={item.label} className="flex items-center gap-3">
+                                                    <div className={`w-7 h-7 ${item.color} rounded-lg flex items-center justify-center shrink-0`}>
+                                                        <item.icon className="w-3.5 h-3.5 text-white" />
+                                                    </div>
+                                                    <div className="flex-1 flex items-center justify-between">
+                                                        <span className="text-[13px] text-gray-600">{item.label}</span>
+                                                        <span className="text-[13px] font-semibold text-gray-900">{formatDate(item.date!)}</span>
+                                                    </div>
+                                                </div>
+                                            ))}
                                         </div>
                                     </div>
                                 </div>
-                                <div className="space-y-6">
-                                    {prizes.length > 0 && <div className="bg-white border rounded-xl p-6"><h3 className="font-bold mb-4">Giải thưởng</h3>
-                                        <div className="space-y-2">{prizes.map(p => <div key={p.place} className="flex justify-between p-2 bg-gray-50 rounded-lg text-sm"><span>{p.place}</span><span className="font-bold">{p.amount}</span></div>)}</div>
-                                    </div>}
+
+                                {/* Sidebar */}
+                                <div className="space-y-4">
+                                    {/* Registration CTA Card */}
+                                    {t.status === "registration" && !myRegistration && (
+                                        <motion.div
+                                            initial={{ opacity: 0, y: 10 }}
+                                            animate={{ opacity: 1, y: 0 }}
+                                            className="bg-gradient-to-br from-[#0A3D91] to-[#4338CA] rounded-2xl p-6 text-white shadow-xl shadow-blue-900/10 relative overflow-hidden"
+                                        >
+                                            <div className="absolute top-0 right-0 w-32 h-32 bg-white/5 rounded-full -translate-y-1/2 translate-x-1/2" />
+                                            <div className="absolute bottom-0 left-0 w-24 h-24 bg-white/5 rounded-full translate-y-1/2 -translate-x-1/2" />
+                                            <div className="relative z-10">
+                                                <div className="w-11 h-11 bg-white/10 backdrop-blur-sm rounded-xl flex items-center justify-center mb-4 border border-white/10">
+                                                    <Trophy className="w-5 h-5 text-yellow-300" />
+                                                </div>
+                                                <h3 className="text-base font-semibold mb-1">Đăng ký tham gia</h3>
+                                                <p className="text-white/60 text-xs mb-4">Tham gia thi đấu cùng cộng đồng eFootball</p>
+
+                                                <div className="space-y-2 mb-5">
+                                                    <div className="flex justify-between text-sm">
+                                                        <span className="text-white/60">Slot còn lại</span>
+                                                        <span className="font-semibold">{Math.max(t.maxTeams - t.currentTeams, 0)} / {t.maxTeams}</span>
+                                                    </div>
+                                                    <div className="h-1.5 bg-white/10 rounded-full overflow-hidden">
+                                                        <div className="h-full bg-gradient-to-r from-amber-400 to-yellow-400 rounded-full" style={{ width: `${Math.min((t.currentTeams / t.maxTeams) * 100, 100)}%` }} />
+                                                    </div>
+                                                    {t.entryFee > 0 && (
+                                                        <div className="flex justify-between text-sm mt-2">
+                                                            <span className="text-white/60">Lệ phí</span>
+                                                            <span className="font-semibold text-yellow-300">{Number(t.entryFee).toLocaleString("vi-VN")} ₫</span>
+                                                        </div>
+                                                    )}
+                                                    {t.entryFee <= 0 && (
+                                                        <div className="flex justify-between text-sm mt-2">
+                                                            <span className="text-white/60">Lệ phí</span>
+                                                            <span className="font-semibold text-emerald-300">Miễn phí</span>
+                                                        </div>
+                                                    )}
+                                                </div>
+
+                                                <Button
+                                                    onClick={handleRegisterClick}
+                                                    className="w-full h-10 bg-white text-efb-blue hover:bg-white/90 font-semibold rounded-xl shadow-md transition-all group text-sm"
+                                                >
+                                                    <UserPlus className="w-5 h-5 mr-2 group-hover:scale-110 transition-transform" />
+                                                    Đăng ký ngay
+                                                </Button>
+                                            </div>
+                                        </motion.div>
+                                    )}
+
+                                    {/* Already registered card */}
+                                    {myRegistration && (
+                                        <div className={`rounded-2xl p-5 border-2 ${myRegistration.status === 'approved' ? 'bg-emerald-50 border-emerald-200' : 'bg-amber-50 border-amber-200'}`}>
+                                            <div className="flex items-center gap-2 mb-2">
+                                                {myRegistration.status === 'approved'
+                                                    ? <CheckCircle2 className="w-5 h-5 text-emerald-600" />
+                                                    : <Clock className="w-5 h-5 text-amber-600" />
+                                                }
+                                                <h3 className={`font-semibold text-sm ${myRegistration.status === 'approved' ? 'text-emerald-700' : 'text-amber-700'}`}>
+                                                    {myRegistration.status === 'approved' ? 'Đã được duyệt' : 'Đang chờ duyệt'}
+                                                </h3>
+                                            </div>
+                                            <p className={`text-sm ${myRegistration.status === 'approved' ? 'text-emerald-600' : 'text-amber-600'}`}>
+                                                {myRegistration.status === 'approved'
+                                                    ? 'Bạn đã được duyệt tham gia giải đấu này.'
+                                                    : 'Đăng ký của bạn đang được xem xét.'}
+                                            </p>
+                                        </div>
+                                    )}
+
+                                    {prizes.length > 0 && (
+                                        <div className="bg-white border border-gray-100 rounded-xl p-5 shadow-sm">
+                                            <h3 className="font-semibold text-[13px] text-gray-900 flex items-center gap-2 mb-3"><Award className="w-4 h-4 text-amber-500" />Giải thưởng</h3>
+                                            <div className="space-y-2">
+                                                {prizes.map(p => (
+                                                    <div key={p.place} className={`flex justify-between items-center p-3 rounded-lg bg-gradient-to-r ${p.color}/10 border border-gray-100`}>
+                                                        <span className="text-[13px] font-semibold text-gray-800">{p.place}</span>
+                                                        <span className="text-[13px] font-bold text-gray-900">{typeof p.amount === 'number' ? `${Number(p.amount).toLocaleString("vi-VN")} ₫` : p.amount}</span>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    {/* Contact */}
+                                    <div className="bg-white border border-gray-100 rounded-xl p-5 shadow-sm">
+                                        <h3 className="font-semibold text-[13px] text-gray-900 flex items-center gap-2 mb-3"><Users className="w-4 h-4 text-blue-500" />Thông tin</h3>
+                                        <div className="space-y-2.5 text-[13px]">
+                                            {t.createdBy?.name && (
+                                                <div className="flex justify-between items-center">
+                                                    <span className="text-gray-400">Ban tổ chức</span>
+                                                    <span className="font-semibold text-gray-900">{t.createdBy.name}</span>
+                                                </div>
+                                            )}
+                                            <div className="flex justify-between items-center">
+                                                <span className="text-gray-400">Hình thức</span>
+                                                <span className="font-semibold text-gray-900">{t.isOnline ? "Online" : "Offline"}</span>
+                                            </div>
+                                            {t.location && !t.isOnline && (
+                                                <div className="flex justify-between items-center">
+                                                    <span className="text-gray-400">Địa điểm</span>
+                                                    <span className="font-semibold text-gray-900 text-right max-w-[180px]">{t.location}</span>
+                                                </div>
+                                            )}
+                                            <div className="flex justify-between items-center">
+                                                <span className="text-gray-400">Tối đa</span>
+                                                <span className="font-semibold text-gray-900">{t.maxTeams} đội</span>
+                                            </div>
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
                         )}
 
                         {activeTab === "bracket" && (
-                            <div className="bg-[#FDFDFD] rounded-2xl border p-8 overflow-auto min-h-[500px] relative shadow-inner" ref={scrollContainerRef} onMouseDown={onMouseDown} onMouseLeave={onMouseLeave} onMouseUp={onMouseUp} onMouseMove={onMouseMove}>
-                                <div className="absolute inset-0 opacity-[0.4] pointer-events-none" style={{ backgroundImage: `radial-gradient(#E2E8F0 1.2px, transparent 1.2px)`, backgroundSize: '32px 32px' }} />
-                                <div className="inline-flex p-12 min-w-full relative z-10">
-                                    {bracketRounds.map((round, rIndex) => {
-                                        return (
-                                            <div key={rIndex} className="flex">
-                                                <div className="flex flex-col w-[180px]">
-                                                    <div className="h-10 flex items-center justify-center mb-12">
-                                                        <div className="w-[140px] py-1.5 rounded-sm bg-[#FEEBDB] flex items-center justify-center">
-                                                            <span className="text-[12px] font-bold text-gray-800">{round.name}</span>
+                            <div>
+                                {/* Search bar for bracket */}
+                                <div className="mb-4 relative max-w-xs">
+                                    <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                                    <Input
+                                        placeholder="Tìm đối thủ, đội..."
+                                        value={bracketSearch}
+                                        onChange={(e) => setBracketSearch(e.target.value)}
+                                        className="pl-9 h-9 text-sm rounded-lg border-gray-200"
+                                    />
+                                </div>
+                                <div className="bg-[#FDFDFD] rounded-2xl border p-8 overflow-auto min-h-[500px] relative shadow-inner" ref={scrollContainerRef} onMouseDown={onMouseDown} onMouseLeave={onMouseLeave} onMouseUp={onMouseUp} onMouseMove={onMouseMove}>
+                                    <div className="absolute inset-0 opacity-[0.4] pointer-events-none" style={{ backgroundImage: `radial-gradient(#E2E8F0 1.2px, transparent 1.2px)`, backgroundSize: '32px 32px' }} />
+                                    <div className="inline-flex p-12 min-w-full relative z-10">
+                                        {bracketRounds.map((round, rIndex) => {
+                                            return (
+                                                <div key={rIndex} className="flex">
+                                                    <div className="flex flex-col w-[200px]">
+                                                        <div className="h-10 flex items-center justify-center mb-12">
+                                                            <div className="w-[140px] py-1.5 rounded-sm bg-[#FEEBDB] flex items-center justify-center">
+                                                                <span className="text-[12px] font-bold text-gray-800">{round.name}</span>
+                                                            </div>
+                                                        </div>
+                                                        <div className="relative flex-1">
+                                                            {round.matches.map((match: any, mIdx: any) => {
+                                                                const scale = Math.pow(2, rIndex);
+                                                                const topPadding = (scale - 1) * (UNIT_HEIGHT / 2);
+                                                                const yOffset = topPadding + (match.bracketPosition?.y || 0) * UNIT_HEIGHT * scale;
+
+                                                                // Highlight matching search
+                                                                const matchesSearch = bracketSearch.trim() === "" || [
+                                                                    match.homeTeam?.name, match.homeTeam?.shortName, match.homeTeam?.player1, match.homeTeam?.player2,
+                                                                    match.awayTeam?.name, match.awayTeam?.shortName, match.awayTeam?.player1, match.awayTeam?.player2,
+                                                                    match.p1?.name, match.p2?.name
+                                                                ].some(v => v && v.toLowerCase().includes(bracketSearch.toLowerCase()));
+
+                                                                return (
+                                                                    <div
+                                                                        key={match._id || match.id}
+                                                                        className={`absolute left-0 flex items-center transition-opacity ${matchesSearch ? 'opacity-100' : 'opacity-20'}`}
+                                                                        style={{
+                                                                            top: `${yOffset}px`,
+                                                                            height: `${UNIT_HEIGHT}px`,
+                                                                            width: '100%'
+                                                                        }}
+                                                                    >
+                                                                        <MatchCard match={match} onClick={() => setSelectedMatch(match)} />
+
+                                                                        {match.nextMatch && (
+                                                                            <>
+                                                                                <div className="absolute right-[-40px] w-[40px] h-px bg-[#CBD5E1]" />
+                                                                                <div
+                                                                                    className="absolute right-[-40px] w-px bg-[#CBD5E1]"
+                                                                                    style={{
+                                                                                        height: `${(UNIT_HEIGHT * scale) / 2}px`,
+                                                                                        top: (match.bracketPosition?.y % 2 === 0) ? '50%' : 'auto',
+                                                                                        bottom: (match.bracketPosition?.y % 2 !== 0) ? '50%' : 'auto'
+                                                                                    }}
+                                                                                />
+                                                                                {(match.bracketPosition?.y % 2 === 0) && (
+                                                                                    <div
+                                                                                        className="absolute right-[-128px] w-[88px] h-px bg-[#CBD5E1]"
+                                                                                        style={{ top: 'calc(50% + ' + ((UNIT_HEIGHT * scale) / 2) + 'px)' }}
+                                                                                    />
+                                                                                )}
+                                                                            </>
+                                                                        )}
+                                                                        {/* Left connector for Round 2+ (to catch Byes) */}
+                                                                        {rIndex > 0 && <div className="absolute left-[-40px] w-[40px] h-px bg-[#CBD5E1]" />}
+                                                                    </div>
+                                                                );
+                                                            })}
                                                         </div>
                                                     </div>
-                                                    <div className="relative flex-1">
-                                                        {round.matches.map((match: any, mIdx: any) => {
-                                                            const scale = Math.pow(2, rIndex);
-                                                            const topPadding = (scale - 1) * (UNIT_HEIGHT / 2);
-                                                            const yOffset = topPadding + (match.bracketPosition?.y || 0) * UNIT_HEIGHT * scale;
-
-                                                            return (
-                                                                <div
-                                                                    key={match._id || match.id}
-                                                                    className="absolute left-0 flex items-center"
-                                                                    style={{
-                                                                        top: `${yOffset}px`,
-                                                                        height: `${UNIT_HEIGHT}px`,
-                                                                        width: '100%'
-                                                                    }}
-                                                                >
-                                                                    <MatchCard match={match} onClick={() => setSelectedMatch(match)} />
-
-                                                                    {match.nextMatch && (
-                                                                        <>
-                                                                            <div className="absolute right-[-40px] w-[40px] h-px bg-[#CBD5E1]" />
-                                                                            <div
-                                                                                className="absolute right-[-40px] w-px bg-[#CBD5E1]"
-                                                                                style={{
-                                                                                    height: `${(UNIT_HEIGHT * scale) / 2}px`,
-                                                                                    top: (match.bracketPosition?.y % 2 === 0) ? '50%' : 'auto',
-                                                                                    bottom: (match.bracketPosition?.y % 2 !== 0) ? '50%' : 'auto'
-                                                                                }}
-                                                                            />
-                                                                            {(match.bracketPosition?.y % 2 === 0) && (
-                                                                                <div
-                                                                                    className="absolute right-[-128px] w-[88px] h-px bg-[#CBD5E1]"
-                                                                                    style={{ top: 'calc(50% + ' + ((UNIT_HEIGHT * scale) / 2) + 'px)' }}
-                                                                                />
-                                                                            )}
-                                                                        </>
-                                                                    )}
-                                                                    {/* Left connector for Round 2+ (to catch Byes) */}
-                                                                    {rIndex > 0 && <div className="absolute left-[-40px] w-[40px] h-px bg-[#CBD5E1]" />}
-                                                                </div>
-                                                            );
-                                                        })}
-                                                    </div>
+                                                    <div className="w-[128px]" />
                                                 </div>
-                                                <div className="w-[128px]" />
-                                            </div>
-                                        );
-                                    })}
+                                            );
+                                        })}
+                                    </div>
                                 </div>
                             </div>
                         )}
 
                         {activeTab === "players" && (
-                            <div className="bg-white border rounded-xl overflow-hidden shadow-sm">
-                                <div className="overflow-x-auto no-scrollbar">
-                                    <table className="w-full text-sm min-w-[600px]">
-                                        <thead className="bg-[#F8FAFC] border-b border-gray-100">
-                                            <tr className="text-slate-500 uppercase text-[10px] font-bold tracking-wider">
-                                                <th className="px-6 py-4 text-left w-16">#</th>
-                                                <th className="px-6 py-4 text-left">Đội / Vận động viên</th>
-                                                <th className="px-6 py-4 text-center">P</th>
-                                                <th className="px-6 py-4 text-center">W</th>
-                                                <th className="px-6 py-4 text-center">D</th>
-                                                <th className="px-6 py-4 text-center">L</th>
-                                                <th className="px-6 py-4 text-center">Pts</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody>
-                                            {teams.map((team: any, i: number) => {
-                                                const reg = data.registrations?.find((r: any) => r.team === team._id || r.team?._id === team._id) || {};
-                                                return (
-                                                    <tr key={team._id} className="border-b border-gray-50 last:border-0 hover:bg-gray-50/50 transition-colors">
-                                                        <td className="px-6 py-4 font-bold text-slate-400">{i + 1}</td>
-                                                        <td className="px-6 py-4">
-                                                            <div className="font-bold text-efb-dark">{team.name}</div>
-                                                            <div className="text-[11px] text-slate-400 font-medium mt-0.5">VĐV: {reg.playerName || "—"}</div>
-                                                        </td>
-                                                        <td className="px-6 py-4 text-center font-medium">{team.stats?.played || 0}</td>
-                                                        <td className="px-6 py-4 text-center text-emerald-600 font-bold">{team.stats?.wins || 0}</td>
-                                                        <td className="px-6 py-4 text-center text-slate-600 font-medium">{team.stats?.draws || 0}</td>
-                                                        <td className="px-6 py-4 text-center text-rose-500 font-medium">{team.stats?.losses || 0}</td>
-                                                        <td className="px-6 py-4 text-center">
-                                                            <span className="inline-flex items-center justify-center w-8 h-8 rounded-lg bg-blue-50 text-efb-blue font-black text-xs">
+                            <div className="space-y-4">
+                                {/* Header + Search */}
+                                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                                    <div>
+                                        <h3 className="text-lg font-semibold text-gray-900">Danh sách VĐV</h3>
+                                        <p className="text-xs text-gray-400 mt-0.5">{teams.length} đội / vận động viên tham gia</p>
+                                    </div>
+                                    <div className="flex items-center gap-2">
+                                        <div className="relative">
+                                            <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                                            <Input
+                                                placeholder="Tìm VĐV, đội..."
+                                                value={playerSearch}
+                                                onChange={(e) => setPlayerSearch(e.target.value)}
+                                                className="pl-9 h-9 text-sm rounded-lg border-gray-200 w-[200px]"
+                                            />
+                                        </div>
+                                        {t.efvTier && (
+                                            <span className={`text-[10px] font-bold px-2.5 py-1 rounded-full uppercase tracking-wider ${t.efvTier === 'efv_1000' ? 'bg-amber-100 text-amber-700 border border-amber-200' :
+                                                t.efvTier === 'efv_500' ? 'bg-purple-100 text-purple-700 border border-purple-200' :
+                                                    'bg-blue-100 text-blue-700 border border-blue-200'
+                                                }`}>
+                                                {t.efvTier === 'efv_250' ? 'EFV 250' : t.efvTier === 'efv_500' ? 'EFV 500' : 'EFV 1000'}
+                                            </span>
+                                        )}
+                                    </div>
+                                </div>
+
+                                {/* Table */}
+                                <div className="bg-white border border-gray-100 rounded-2xl overflow-hidden shadow-sm">
+                                    {/* Desktop Table */}
+                                    <div className="hidden sm:block overflow-x-auto">
+                                        <table className="w-full text-sm">
+                                            <thead>
+                                                <tr className="bg-gradient-to-r from-slate-800 to-slate-900 text-white text-[10px] uppercase tracking-wider">
+                                                    <th className="px-4 py-3.5 text-center w-14">#</th>
+                                                    <th className="px-4 py-3.5 text-left">VĐV / Đội</th>
+                                                    <th className="px-3 py-3.5 text-center w-14">P</th>
+                                                    <th className="px-3 py-3.5 text-center w-14">W</th>
+                                                    <th className="px-3 py-3.5 text-center w-14">D</th>
+                                                    <th className="px-3 py-3.5 text-center w-14">L</th>
+                                                    <th className="px-4 py-3.5 text-center w-20">Điểm</th>
+                                                    {t.efvTier && <th className="px-4 py-3.5 text-center w-24">EFV</th>}
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                {teams.filter((team: any) => {
+                                                    if (!playerSearch.trim()) return true;
+                                                    const reg = data.registrations?.find((r: any) => r.team === team._id || r.team?._id === team._id) || {};
+                                                    const pName = reg.playerName || team.captain?.name || "";
+                                                    return [pName, team.name, team.shortName, team.captain?.name].some(v => v && v.toLowerCase().includes(playerSearch.toLowerCase()));
+                                                }).map((team: any, i: number) => {
+                                                    const reg = data.registrations?.find((r: any) => r.team === team._id || r.team?._id === team._id) || {};
+                                                    const playerName = reg.playerName || team.captain?.name || "—";
+                                                    const isTop1 = i === 0 && t.status === 'completed';
+                                                    const isTop2 = i === 1 && t.status === 'completed';
+                                                    const isTop3 = (i === 2 || i === 3) && t.status === 'completed';
+
+                                                    // Calculate EFV points for this specific tournament placement
+                                                    const getEfvPts = () => {
+                                                        if (!t.efvTier) return null;
+                                                        const table: Record<string, Record<string, number>> = {
+                                                            efv_250: { champion: 250, runner_up: 200, top_4: 150, top_8: 100, top_16: 50, top_32: 40, participant: 30 },
+                                                            efv_500: { champion: 500, runner_up: 400, top_4: 300, top_8: 200, top_16: 100, top_32: 70, participant: 50 },
+                                                            efv_1000: { champion: 1000, runner_up: 800, top_4: 600, top_8: 400, top_16: 200, top_32: 150, participant: 100 },
+                                                        };
+                                                        if (t.status !== 'completed') return table[t.efvTier]?.participant ?? 0;
+                                                        // Determine placement based on sorted position
+                                                        const placement = i === 0 ? 'champion' : i === 1 ? 'runner_up' : i <= 3 ? 'top_4' : i <= 7 ? 'top_8' : i <= 15 ? 'top_16' : i <= 31 ? 'top_32' : 'participant';
+                                                        return table[t.efvTier]?.[placement] ?? 0;
+                                                    };
+                                                    const efvPts = getEfvPts();
+                                                    const placement = t.status === 'completed' ? (i === 0 ? '🥇' : i === 1 ? '🥈' : i <= 3 ? '🥉' : '') : '';
+
+                                                    return (
+                                                        <tr key={team._id} className={`border-b border-gray-50 last:border-0 hover:bg-blue-50/30 transition-colors cursor-pointer ${isTop1 ? 'bg-amber-50/40' : isTop2 ? 'bg-gray-50/40' : ''}`}
+                                                            onClick={() => {
+                                                                const reg = data.registrations?.find((r: any) => r.team === team._id || r.team?._id === team._id);
+                                                                setSelectedPlayer({ team, reg, placement: i, playerName });
+                                                            }}
+                                                        >
+                                                            <td className="px-4 py-3.5 text-center">
+                                                                {isTop1 ? (
+                                                                    <span className="inline-flex items-center justify-center w-7 h-7 rounded-full bg-gradient-to-br from-yellow-400 to-amber-500 text-white text-[10px] font-bold shadow-sm">1</span>
+                                                                ) : isTop2 ? (
+                                                                    <span className="inline-flex items-center justify-center w-7 h-7 rounded-full bg-gradient-to-br from-slate-300 to-slate-500 text-white text-[10px] font-bold shadow-sm">2</span>
+                                                                ) : (
+                                                                    <span className="text-sm font-bold text-slate-400">{i + 1}</span>
+                                                                )}
+                                                            </td>
+                                                            <td className="px-4 py-3.5">
+                                                                <div className="flex items-center gap-3">
+                                                                    <div className="w-9 h-9 rounded-lg bg-gray-100 flex-shrink-0 flex items-center justify-center overflow-hidden">
+                                                                        {team.logo ? <img src={team.logo} className="w-full h-full object-cover" alt="" /> : <Users className="w-4 h-4 text-gray-300" />}
+                                                                    </div>
+                                                                    <div className="min-w-0">
+                                                                        <div className="flex items-center gap-2">
+                                                                            <p className="text-[14px] font-semibold text-gray-900 truncate">{playerName}</p>
+                                                                            {placement && <span className="text-sm">{placement}</span>}
+                                                                        </div>
+                                                                        <p className="text-[11px] text-gray-400 truncate mt-0.5">{team.name}{team.shortName ? ` (${team.shortName})` : ''}</p>
+                                                                    </div>
+                                                                </div>
+                                                            </td>
+                                                            <td className="px-3 py-3.5 text-center text-sm font-medium text-gray-600">{team.stats?.played || 0}</td>
+                                                            <td className="px-3 py-3.5 text-center text-sm font-bold text-emerald-600">{team.stats?.wins || 0}</td>
+                                                            <td className="px-3 py-3.5 text-center text-sm font-medium text-gray-500">{team.stats?.draws || 0}</td>
+                                                            <td className="px-3 py-3.5 text-center text-sm font-medium text-rose-500">{team.stats?.losses || 0}</td>
+                                                            <td className="px-4 py-3.5 text-center">
+                                                                <span className="inline-flex items-center justify-center min-w-[32px] h-7 rounded-lg bg-blue-50 text-efb-blue font-bold text-xs px-2">
+                                                                    {team.stats?.points || 0}
+                                                                </span>
+                                                            </td>
+                                                            {t.efvTier && (
+                                                                <td className="px-4 py-3.5 text-center">
+                                                                    <span className={`inline-flex items-center justify-center min-w-[40px] h-7 rounded-lg font-bold text-xs px-2 ${i === 0 && t.status === 'completed' ? 'bg-amber-100 text-amber-700' :
+                                                                        i === 1 && t.status === 'completed' ? 'bg-gray-100 text-gray-700' :
+                                                                            i <= 3 && t.status === 'completed' ? 'bg-orange-50 text-orange-600' :
+                                                                                'bg-purple-50 text-purple-600'
+                                                                        }`}>
+                                                                        +{efvPts}
+                                                                    </span>
+                                                                </td>
+                                                            )}
+                                                        </tr>
+                                                    );
+                                                })}
+                                            </tbody>
+                                        </table>
+                                    </div>
+
+                                    {/* Mobile Cards */}
+                                    <div className="sm:hidden divide-y divide-gray-50">
+                                        {teams.filter((team: any) => {
+                                            if (!playerSearch.trim()) return true;
+                                            const reg = data.registrations?.find((r: any) => r.team === team._id || r.team?._id === team._id) || {};
+                                            const pName = reg.playerName || team.captain?.name || "";
+                                            return [pName, team.name, team.shortName].some(v => v && v.toLowerCase().includes(playerSearch.toLowerCase()));
+                                        }).map((team: any, i: number) => {
+                                            const reg = data.registrations?.find((r: any) => r.team === team._id || r.team?._id === team._id) || {};
+                                            const playerName = reg.playerName || team.captain?.name || "—";
+                                            const isTop1 = i === 0 && t.status === 'completed';
+                                            const isTop2 = i === 1 && t.status === 'completed';
+                                            const placement = t.status === 'completed' ? (i === 0 ? '🥇' : i === 1 ? '🥈' : i <= 3 ? '🥉' : '') : '';
+
+                                            return (
+                                                <div key={team._id} className={`px-4 py-3.5 cursor-pointer hover:bg-blue-50/20 transition-colors ${isTop1 ? 'bg-amber-50/40' : isTop2 ? 'bg-gray-50/30' : ''}`}
+                                                    onClick={() => {
+                                                        const reg = data.registrations?.find((r: any) => r.team === team._id || r.team?._id === team._id);
+                                                        setSelectedPlayer({ team, reg, placement: i, playerName });
+                                                    }}
+                                                >
+                                                    <div className="flex items-center gap-3">
+                                                        <div className="w-8 text-center flex-shrink-0">
+                                                            {isTop1 ? (
+                                                                <span className="inline-flex items-center justify-center w-7 h-7 rounded-full bg-gradient-to-br from-yellow-400 to-amber-500 text-white text-[10px] font-bold shadow-sm">1</span>
+                                                            ) : isTop2 ? (
+                                                                <span className="inline-flex items-center justify-center w-7 h-7 rounded-full bg-gradient-to-br from-slate-300 to-slate-500 text-white text-[10px] font-bold shadow-sm">2</span>
+                                                            ) : (
+                                                                <span className="text-sm font-bold text-slate-400">{i + 1}</span>
+                                                            )}
+                                                        </div>
+                                                        <div className="flex-1 min-w-0">
+                                                            <div className="flex items-center gap-1.5">
+                                                                <p className="text-[14px] font-semibold text-gray-900 truncate">{playerName}</p>
+                                                                {placement && <span className="text-xs">{placement}</span>}
+                                                            </div>
+                                                            <p className="text-[11px] text-gray-400 truncate">{team.name}</p>
+                                                        </div>
+                                                        <div className="flex items-center gap-3 flex-shrink-0">
+                                                            <div className="flex items-center gap-1.5 text-[10px]">
+                                                                <span className="text-emerald-600 font-bold">{team.stats?.wins || 0}W</span>
+                                                                <span className="text-gray-300">/</span>
+                                                                <span className="text-gray-500">{team.stats?.draws || 0}D</span>
+                                                                <span className="text-gray-300">/</span>
+                                                                <span className="text-rose-500">{team.stats?.losses || 0}L</span>
+                                                            </div>
+                                                            <span className="inline-flex items-center justify-center min-w-[28px] h-6 rounded-md bg-blue-50 text-efb-blue font-bold text-[11px] px-1.5">
                                                                 {team.stats?.points || 0}
                                                             </span>
-                                                        </td>
-                                                    </tr>
-                                                );
-                                            })}
-                                        </tbody>
-                                    </table>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
+
+                                    {teams.length === 0 && (
+                                        <div className="text-center py-16">
+                                            <Users className="w-12 h-12 text-gray-200 mx-auto mb-3" />
+                                            <p className="text-sm text-gray-400">Chưa có đội nào tham gia giải đấu này</p>
+                                        </div>
+                                    )}
                                 </div>
                             </div>
                         )}
@@ -1076,6 +1533,108 @@ export default function TournamentDetailClient({ initialData, id }: { initialDat
                 </div>
             </section>
 
+
+            {/* ===== Player Profile Dialog ===== */}
+            <Dialog open={!!selectedPlayer} onOpenChange={(open) => { if (!open) setSelectedPlayer(null); }}>
+                <DialogContent className="sm:max-w-md p-0 gap-0 rounded-2xl border-0 shadow-2xl">
+                    {selectedPlayer && (() => {
+                        const { team, reg, placement, playerName } = selectedPlayer;
+                        const placementLabel = t.status === 'completed'
+                            ? (placement === 0 ? '🥇 Vô địch' : placement === 1 ? '🥈 Á quân' : placement <= 3 ? '🥉 Top 4' : `#${placement + 1}`)
+                            : `#${placement + 1}`;
+
+                        return (
+                            <>
+                                {/* Header with gradient */}
+                                <div className="bg-gradient-to-br from-blue-600 via-blue-700 to-indigo-700 px-6 pt-6 pb-5 text-white relative overflow-hidden">
+                                    <div className="absolute inset-0 bg-[radial-gradient(circle_at_80%_20%,rgba(255,255,255,0.1),transparent_60%)]" />
+                                    <div className="relative z-10">
+                                        <div className="flex items-center gap-3 mb-3">
+                                            <div className="w-12 h-12 rounded-xl bg-white/15 backdrop-blur flex items-center justify-center shrink-0">
+                                                {team.logo ? <img src={team.logo} className="w-full h-full rounded-xl object-cover" alt="" /> : <User className="w-6 h-6 text-white/70" />}
+                                            </div>
+                                            <div className="min-w-0">
+                                                <h3 className="text-lg font-bold truncate">{playerName}</h3>
+                                                <p className="text-white/60 text-xs truncate">{team.name}{team.shortName ? ` (${team.shortName})` : ''}</p>
+                                            </div>
+                                        </div>
+                                        <div className="flex gap-2">
+                                            <span className="text-[10px] font-semibold bg-white/15 backdrop-blur px-2 py-1 rounded-md">{placementLabel}</span>
+                                            {t.efvTier && t.status === 'completed' && (() => {
+                                                const table: Record<string, Record<string, number>> = {
+                                                    efv_250: { champion: 250, runner_up: 200, top_4: 150, top_8: 100, top_16: 50, top_32: 40, participant: 30 },
+                                                    efv_500: { champion: 500, runner_up: 400, top_4: 300, top_8: 200, top_16: 100, top_32: 70, participant: 50 },
+                                                    efv_1000: { champion: 1000, runner_up: 800, top_4: 600, top_8: 400, top_16: 200, top_32: 150, participant: 100 },
+                                                };
+                                                const p = placement === 0 ? 'champion' : placement === 1 ? 'runner_up' : placement <= 3 ? 'top_4' : placement <= 7 ? 'top_8' : placement <= 15 ? 'top_16' : placement <= 31 ? 'top_32' : 'participant';
+                                                const pts = table[t.efvTier]?.[p] ?? 0;
+                                                return <span className="text-[10px] font-semibold bg-amber-400/20 text-amber-200 px-2 py-1 rounded-md">+{pts} EFV</span>;
+                                            })()}
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div className="px-6 py-5 space-y-4">
+                                    {/* Stats */}
+                                    <div className="grid grid-cols-4 gap-2">
+                                        {[
+                                            { label: "Trận", value: team.stats?.played || 0, color: "text-gray-700" },
+                                            { label: "Thắng", value: team.stats?.wins || 0, color: "text-emerald-600" },
+                                            { label: "Hòa", value: team.stats?.draws || 0, color: "text-gray-500" },
+                                            { label: "Thua", value: team.stats?.losses || 0, color: "text-rose-500" },
+                                        ].map(s => (
+                                            <div key={s.label} className="bg-gray-50 rounded-lg p-2.5 text-center">
+                                                <div className={`text-lg font-bold ${s.color}`}>{s.value}</div>
+                                                <div className="text-[10px] text-gray-400 font-medium">{s.label}</div>
+                                            </div>
+                                        ))}
+                                    </div>
+
+                                    {/* Player Info */}
+                                    <div className="space-y-2">
+                                        <h4 className="text-xs text-gray-400 font-semibold uppercase tracking-wider">Thông tin</h4>
+                                        <div className="space-y-2 text-[13px]">
+                                            {reg?.nickname && (
+                                                <div className="flex justify-between items-center"><span className="text-gray-400">Nickname</span><span className="font-semibold text-gray-900">{reg.nickname}</span></div>
+                                            )}
+                                            {reg?.gamerId && (
+                                                <div className="flex justify-between items-center"><span className="text-gray-400">Gamer ID</span><span className="font-semibold text-gray-900">{reg.gamerId}</span></div>
+                                            )}
+                                            {(reg?.facebookName || reg?.facebookLink) && (
+                                                <div className="flex justify-between items-center">
+                                                    <span className="text-gray-400 flex items-center gap-1.5"><Facebook className="w-3.5 h-3.5" />Facebook</span>
+                                                    {reg.facebookLink ? (
+                                                        <a href={reg.facebookLink} target="_blank" className="font-semibold text-blue-600 hover:underline text-right truncate max-w-[180px]">{reg.facebookName || 'Xem'}</a>
+                                                    ) : (
+                                                        <span className="font-semibold text-gray-900">{reg.facebookName}</span>
+                                                    )}
+                                                </div>
+                                            )}
+                                            {reg?.phone && (
+                                                <div className="flex justify-between items-center"><span className="text-gray-400 flex items-center gap-1.5"><Phone className="w-3.5 h-3.5" />SĐT</span><span className="font-semibold text-gray-900">{reg.phone}</span></div>
+                                            )}
+                                            {reg?.email && (
+                                                <div className="flex justify-between items-center"><span className="text-gray-400 flex items-center gap-1.5"><Mail className="w-3.5 h-3.5" />Email</span><span className="font-semibold text-gray-900 truncate max-w-[180px]">{reg.email}</span></div>
+                                            )}
+                                            {reg?.province && (
+                                                <div className="flex justify-between items-center"><span className="text-gray-400">Tỉnh/TP</span><span className="font-semibold text-gray-900">{reg.province}</span></div>
+                                            )}
+                                        </div>
+                                    </div>
+
+                                    {/* Points info */}
+                                    {team.stats?.points !== undefined && (
+                                        <div className="bg-blue-50 rounded-xl p-3 flex items-center justify-between">
+                                            <span className="text-xs text-blue-600 font-medium">Tổng điểm</span>
+                                            <span className="text-lg font-bold text-blue-700">{team.stats.points}</span>
+                                        </div>
+                                    )}
+                                </div>
+                            </>
+                        );
+                    })()}
+                </DialogContent>
+            </Dialog>
 
             {/* ===== Registration Dialog ===== */}
             <Dialog open={showRegDialog} onOpenChange={(open) => { setShowRegDialog(open); if (!open) setRegStep(1); }}>
@@ -1124,7 +1683,7 @@ export default function TournamentDetailClient({ initialData, id }: { initialDat
                                     </div>
                                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                                         <div className="space-y-1.5"><Label className="text-xs font-medium text-gray-500">Số điện thoại <span className="text-red-400">*</span></Label><div className="relative"><Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" /><Input placeholder="090xxxxxxx" value={regForm.phone} onChange={e => setRegForm({ ...regForm, phone: e.target.value })} required className="h-11 pl-10 rounded-lg border-gray-200 focus:border-efb-blue bg-gray-50/50 focus:bg-white transition-all text-sm" /></div></div>
-                                        <div className="space-y-1.5"><Label className="text-xs font-medium text-gray-500">Email</Label><div className="relative"><Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" /><Input type="email" placeholder="email@example.com" value={regForm.email} onChange={e => setRegForm({ ...regForm, email: e.target.value })} className="h-11 pl-10 rounded-lg border-gray-200 focus:border-efb-blue bg-gray-50/50 focus:bg-white transition-all text-sm" /></div></div>
+                                        <div className="space-y-1.5"><Label className="text-xs font-medium text-gray-500">Email <span className="text-[10px] text-gray-400">(không thể thay đổi)</span></Label><div className="relative"><Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" /><Input type="email" value={regForm.email} readOnly tabIndex={-1} className="h-11 pl-10 rounded-lg border-gray-200 bg-gray-100 text-gray-500 cursor-not-allowed text-sm" /></div></div>
                                     </div>
                                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                                         <div className="space-y-1.5">

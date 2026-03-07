@@ -7,7 +7,6 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Checkbox } from "@/components/ui/checkbox";
 import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Separator } from "@/components/ui/separator";
@@ -49,7 +48,7 @@ export default function DangKyPage() {
     const [addMode, setAddMode] = useState<"manual" | "excel">("manual");
     const [isAutoFormat, setIsAutoFormat] = useState(true);
     const [manualRows, setManualRows] = useState([
-        { clb: "", vdv1: "", vdv2: "", phone: "", seed: "", fee: false }
+        { teamName: "", teamShortName: "", playerName: "", gamerId: "", phone: "", email: "", nickname: "" }
     ]);
 
     // Payment proof viewer
@@ -136,22 +135,25 @@ export default function DangKyPage() {
     };
 
     const handleAddManualRows = (count: number) => {
-        const newRows = Array(count).fill(null).map(() => ({ clb: "", vdv1: "", vdv2: "", phone: "", seed: "", fee: false }));
+        const newRows = Array(count).fill(null).map(() => ({ teamName: "", teamShortName: "", playerName: "", gamerId: "", phone: "", email: "", nickname: "" }));
         setManualRows([...manualRows, ...newRows]);
     };
 
     const handleSaveManual = async () => {
-        const validRows = manualRows.filter(r => r.vdv1.length >= 2);
+        const validRows = manualRows.filter(r => r.playerName.trim().length >= 2);
         if (validRows.length === 0) {
-            return toast.error("Vui lòng nhập VĐV hợp lệ (VĐV 1 tối thiểu 2 ký tự)");
+            return toast.error("Vui lòng nhập tên VĐV hợp lệ (tối thiểu 2 ký tự)");
         }
 
         setIsUploading(true);
         const data = validRows.map(r => ({
-            teamName: r.clb || r.vdv1,
-            playerName: isAutoFormat ? autoFormatName(r.vdv1) : r.vdv1,
-            gamerId: r.vdv2,
-            phone: r.phone
+            teamName: r.teamName.trim() || r.playerName.trim(),
+            teamShortName: r.teamShortName.trim() || (r.teamName.trim() || r.playerName.trim()).substring(0, 3).toUpperCase(),
+            playerName: isAutoFormat ? autoFormatName(r.playerName.trim()) : r.playerName.trim(),
+            gamerId: r.gamerId.trim() || "TBD",
+            phone: r.phone.trim() || "000",
+            email: r.email.trim() || "noemail@vntournament.com",
+            nickname: r.nickname.trim() || "",
         }));
 
         try {
@@ -160,7 +162,7 @@ export default function DangKyPage() {
                 toast.success(res.message || "Đã thêm thành công");
                 loadRegistrations();
                 setIsAddModalOpen(false);
-                setManualRows([{ clb: "", vdv1: "", vdv2: "", phone: "", seed: "", fee: false }]);
+                setManualRows([{ teamName: "", teamShortName: "", playerName: "", gamerId: "", phone: "", email: "", nickname: "" }]);
             } else {
                 toast.error(res.message || "Thêm thất bại");
             }
@@ -265,7 +267,7 @@ export default function DangKyPage() {
         const data = registrations.map((r: any, idx: number) => {
             const row: Record<string, any> = {
                 "STT": idx + 1,
-                "EFV-ID": r.user?.efvId || "",
+                "EFV-ID": r.user?.efvId != null ? r.user.efvId : "",
                 "Tên VĐV": r.playerName || "",
                 "Nickname": r.nickname || "",
                 "ID Game": r.gamerId || "",
@@ -759,8 +761,8 @@ export default function DangKyPage() {
                                         >
                                             {playerDetailView.status === 'approved' ? 'Đã duyệt' : playerDetailView.status === 'rejected' ? 'Từ chối' : 'Chờ duyệt'}
                                         </Badge>
-                                        {playerDetailView.user?.efvId && (
-                                            <span className="text-[10px] font-mono text-gray-400">{playerDetailView.user.efvId}</span>
+                                        {playerDetailView.user?.efvId != null && (
+                                            <span className="text-[10px] font-mono text-gray-400">#{playerDetailView.user.efvId}</span>
                                         )}
                                     </div>
                                 </div>
@@ -985,29 +987,32 @@ export default function DangKyPage() {
                             <TabsContent value="manual" className="mt-0">
                                 <div className="space-y-4">
                                     <div className="overflow-x-auto custom-scrollbar">
-                                        <div className="min-w-[700px]">
+                                        <div className="min-w-[800px]">
                                             {/* Table Header */}
-                                            <div className="grid grid-cols-[40px_minmax(120px,1fr)_minmax(120px,1fr)_minmax(120px,1fr)_minmax(100px,1fr)_80px_60px] gap-3 items-center mb-3 px-2">
+                                            <div className="grid grid-cols-[40px_minmax(100px,1fr)_60px_minmax(120px,1.2fr)_minmax(100px,1fr)_minmax(90px,1fr)_minmax(120px,1fr)_minmax(90px,1fr)] gap-2 items-center mb-3 px-2">
                                                 <Label className="text-center text-[10px] font-bold text-gray-400 uppercase tracking-widest justify-center">
                                                     <Hash className="w-3 h-3" />
                                                 </Label>
                                                 <Label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">
-                                                    <Shield className="w-3 h-3 mr-1" /> CLB
-                                                </Label>
-                                                <Label className="text-[10px] font-bold text-blue-500 uppercase tracking-widest">
-                                                    <User className="w-3 h-3 mr-1" /> VĐV 1 *
+                                                    <Shield className="w-3 h-3 mr-1" /> Tên đội
                                                 </Label>
                                                 <Label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">
-                                                    <User className="w-3 h-3 mr-1" /> VĐV 2
+                                                    Viết tắt
+                                                </Label>
+                                                <Label className="text-[10px] font-bold text-blue-500 uppercase tracking-widest">
+                                                    <User className="w-3 h-3 mr-1" /> Tên VĐV *
+                                                </Label>
+                                                <Label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">
+                                                    ID Game
                                                 </Label>
                                                 <Label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">
                                                     <Phone className="w-3 h-3 mr-1" /> SĐT
                                                 </Label>
-                                                <Label className="text-center text-[10px] font-bold text-gray-400 uppercase tracking-widest justify-center">
-                                                    <Sparkles className="w-3 h-3" /> Seed
+                                                <Label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">
+                                                    Email
                                                 </Label>
-                                                <Label className="text-center text-[10px] font-bold text-gray-400 uppercase tracking-widest justify-center">
-                                                    Phí
+                                                <Label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">
+                                                    Nickname
                                                 </Label>
                                             </div>
 
@@ -1022,25 +1027,32 @@ export default function DangKyPage() {
                                                             initial={{ opacity: 0, y: 8 }}
                                                             animate={{ opacity: 1, y: 0 }}
                                                             transition={{ delay: index * 0.03 }}
-                                                            className="grid grid-cols-[40px_minmax(120px,1fr)_minmax(120px,1fr)_minmax(120px,1fr)_minmax(100px,1fr)_80px_60px] gap-3 items-center group/row"
+                                                            className="grid grid-cols-[40px_minmax(100px,1fr)_60px_minmax(120px,1.2fr)_minmax(100px,1fr)_minmax(90px,1fr)_minmax(120px,1fr)_minmax(90px,1fr)] gap-2 items-center group/row"
                                                         >
                                                             <div className="text-xs font-bold text-gray-300 text-center tabular-nums group-hover/row:text-blue-400 transition-colors">{index + 1}</div>
                                                             <Input
-                                                                value={row.clb}
-                                                                placeholder="Tên CLB"
-                                                                onChange={(e) => { const newRows = [...manualRows]; newRows[index].clb = e.target.value; setManualRows(newRows); }}
+                                                                value={row.teamName}
+                                                                placeholder="Tên đội"
+                                                                onChange={(e) => { const newRows = [...manualRows]; newRows[index].teamName = e.target.value; setManualRows(newRows); }}
                                                                 className="h-10 rounded-xl text-sm border-gray-200 focus-visible:ring-blue-500/30 focus-visible:border-blue-400 transition-all placeholder:text-gray-300"
                                                             />
                                                             <Input
-                                                                value={row.vdv1}
-                                                                placeholder="Họ tên VĐV 1"
-                                                                onChange={(e) => { const newRows = [...manualRows]; newRows[index].vdv1 = e.target.value; setManualRows(newRows); }}
+                                                                value={row.teamShortName}
+                                                                placeholder="VT"
+                                                                maxLength={4}
+                                                                onChange={(e) => { const newRows = [...manualRows]; newRows[index].teamShortName = e.target.value.toUpperCase(); setManualRows(newRows); }}
+                                                                className="h-10 rounded-xl text-sm border-gray-200 focus-visible:ring-blue-500/30 focus-visible:border-blue-400 transition-all text-center uppercase placeholder:text-gray-300"
+                                                            />
+                                                            <Input
+                                                                value={row.playerName}
+                                                                placeholder="Họ tên VĐV *"
+                                                                onChange={(e) => { const newRows = [...manualRows]; newRows[index].playerName = e.target.value; setManualRows(newRows); }}
                                                                 className="h-10 rounded-xl text-sm border-blue-200 bg-blue-50/30 focus-visible:ring-blue-500/30 focus-visible:border-blue-400 transition-all placeholder:text-blue-300 font-medium"
                                                             />
                                                             <Input
-                                                                value={row.vdv2}
-                                                                placeholder="Họ tên VĐV 2"
-                                                                onChange={(e) => { const newRows = [...manualRows]; newRows[index].vdv2 = e.target.value; setManualRows(newRows); }}
+                                                                value={row.gamerId}
+                                                                placeholder="In-game ID"
+                                                                onChange={(e) => { const newRows = [...manualRows]; newRows[index].gamerId = e.target.value; setManualRows(newRows); }}
                                                                 className="h-10 rounded-xl text-sm border-gray-200 focus-visible:ring-blue-500/30 focus-visible:border-blue-400 transition-all placeholder:text-gray-300"
                                                             />
                                                             <Input
@@ -1050,18 +1062,17 @@ export default function DangKyPage() {
                                                                 className="h-10 rounded-xl text-sm border-gray-200 focus-visible:ring-blue-500/30 focus-visible:border-blue-400 transition-all placeholder:text-gray-300"
                                                             />
                                                             <Input
-                                                                value={row.seed}
-                                                                placeholder="—"
-                                                                onChange={(e) => { const newRows = [...manualRows]; newRows[index].seed = e.target.value; setManualRows(newRows); }}
-                                                                className="h-10 rounded-xl text-sm border-gray-200 focus-visible:ring-blue-500/30 focus-visible:border-blue-400 transition-all text-center placeholder:text-gray-300"
+                                                                value={row.email}
+                                                                placeholder="email@..."
+                                                                onChange={(e) => { const newRows = [...manualRows]; newRows[index].email = e.target.value; setManualRows(newRows); }}
+                                                                className="h-10 rounded-xl text-sm border-gray-200 focus-visible:ring-blue-500/30 focus-visible:border-blue-400 transition-all placeholder:text-gray-300"
                                                             />
-                                                            <div className="flex justify-center">
-                                                                <Checkbox
-                                                                    checked={row.fee}
-                                                                    onCheckedChange={(checked) => { const newRows = [...manualRows]; newRows[index].fee = !!checked; setManualRows(newRows); }}
-                                                                    className="data-[state=checked]:bg-emerald-500 data-[state=checked]:border-emerald-500"
-                                                                />
-                                                            </div>
+                                                            <Input
+                                                                value={row.nickname}
+                                                                placeholder="Nickname"
+                                                                onChange={(e) => { const newRows = [...manualRows]; newRows[index].nickname = e.target.value; setManualRows(newRows); }}
+                                                                className="h-10 rounded-xl text-sm border-gray-200 focus-visible:ring-blue-500/30 focus-visible:border-blue-400 transition-all placeholder:text-gray-300"
+                                                            />
                                                         </motion.div>
                                                     ))}
                                                 </div>
@@ -1094,7 +1105,8 @@ export default function DangKyPage() {
                                         <div className="flex items-start gap-2 p-3 rounded-xl bg-blue-50/50 border border-blue-100/50">
                                             <AlertCircle className="w-4 h-4 text-blue-400 mt-0.5 flex-shrink-0" />
                                             <div className="text-xs text-blue-600/80 space-y-0.5">
-                                                <p>Mỗi lần tạo tối đa <span className="font-bold">20 đội</span>. VĐV 1 cần ít nhất <span className="font-bold">2 ký tự</span>.</p>
+                                                <p><span className="font-bold">Tên VĐV</span> là bắt buộc (tối thiểu 2 ký tự). Các trường khác để trống sẽ sử dụng giá trị mặc định.</p>
+                                                <p>Tên đội trống → auto lấy tên VĐV. Viết tắt trống → auto lấy 3 ký tự đầu.</p>
                                             </div>
                                         </div>
                                     </div>

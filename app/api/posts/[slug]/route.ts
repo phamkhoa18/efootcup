@@ -16,22 +16,46 @@ export async function GET(
             { slug, status: "published" },
             { $inc: { views: 1 } },
             { new: true }
-        ).populate("author", "name avatar");
+        )
+            .populate("author", "name avatar")
+            .populate("categoryRef", "name slug icon color gradient");
 
         if (!post) return apiError("Không tìm thấy bài viết", 404);
 
-        // Get related posts
-        const related = await Post.find({
-            _id: { $ne: post._id },
-            status: "published",
-            $or: [
-                { category: post.category },
-                { tags: { $in: post.tags || [] } },
-            ],
-        })
-            .sort({ publishedAt: -1 })
-            .limit(4)
-            .select("title slug excerpt coverImage category publishedAt readingTime");
+        // Build related posts query: same category OR same categoryRef OR shared tags
+        const orConditions: any[] = [];
+        if (post.category) orConditions.push({ category: post.category });
+        if (post.categoryRef) orConditions.push({ categoryRef: post.categoryRef._id || post.categoryRef });
+        if (post.tags && post.tags.length > 0) orConditions.push({ tags: { $in: post.tags } });
+
+        let related: any[] = [];
+        if (orConditions.length > 0) {
+            related = await Post.find({
+                _id: { $ne: post._id },
+                status: "published",
+                $or: orConditions,
+            })
+                .sort({ isPinned: -1, publishedAt: -1 })
+                .limit(6)
+                .select("title slug excerpt coverImage category categoryRef tags isPinned isFeatured views publishedAt createdAt readingTime author")
+                .populate("author", "name avatar")
+                .populate("categoryRef", "name slug icon color gradient");
+        }
+
+        // If not enough related, fill with featured/latest posts
+        if (related.length < 4) {
+            const existingIds = [post._id, ...related.map(r => r._id)];
+            const extra = await Post.find({
+                _id: { $nin: existingIds },
+                status: "published",
+            })
+                .sort({ isFeatured: -1, isPinned: -1, publishedAt: -1 })
+                .limit(6 - related.length)
+                .select("title slug excerpt coverImage category categoryRef tags isPinned isFeatured views publishedAt createdAt readingTime author")
+                .populate("author", "name avatar")
+                .populate("categoryRef", "name slug icon color gradient");
+            related = [...related, ...extra];
+        }
 
         return apiResponse({ post, related });
     } catch (error: any) {

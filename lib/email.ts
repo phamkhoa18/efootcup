@@ -196,6 +196,118 @@ export async function sendVerificationEmail(
 }
 
 // ============================================================
+// Send Reset Password email with 6-digit code
+// ============================================================
+export async function sendResetPasswordEmail(
+    email: string,
+    name: string,
+    code: string
+): Promise<{ success: boolean; previewUrl?: string }> {
+    try {
+        const config = await getSmtpConfig();
+        if (!config.emailEnabled && !config.smtpHost) {
+            console.log("Email not configured, skipping reset password email");
+            return { success: false };
+        }
+
+        const transporter = createTransporterFromConfig(config);
+        const fromAddress = `"${config.smtpFromName}" <${config.smtpFromEmail || "noreply@efootcup.vn"}>`;
+
+        const mailOptions = {
+            from: fromAddress,
+            to: email,
+            subject: `[eFootCup] Dat lai mat khau - Ma xac nhan: ${code}`,
+            html: `
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+</head>
+<body style="margin:0; padding:0; background-color:#f4f6f9; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;">
+    <table width="100%" cellpadding="0" cellspacing="0" style="background-color:#f4f6f9; padding:40px 20px;">
+        <tr>
+            <td align="center">
+                <table width="480" cellpadding="0" cellspacing="0" style="background-color:#ffffff; border-radius:16px; overflow:hidden; box-shadow:0 4px 24px rgba(0,0,0,0.08);">
+                    <!-- Header -->
+                    <tr>
+                        <td style="background: linear-gradient(135deg, #0A3D91 0%, #1E40AF 50%, #4338CA 100%); padding:32px 40px; text-align:center;">
+                            <h1 style="color:#ffffff; font-size:24px; font-weight:700; margin:0; letter-spacing:-0.5px;">
+                                eFootCup VN
+                            </h1>
+                            <p style="color:rgba(255,255,255,0.7); font-size:13px; margin:8px 0 0; font-weight:300;">
+                                Nen tang giai dau eFootball #1 Viet Nam
+                            </p>
+                        </td>
+                    </tr>
+                    
+                    <!-- Body -->
+                    <tr>
+                        <td style="padding:40px;">
+                            <p style="color:#1a1a2e; font-size:16px; margin:0 0 8px; font-weight:600;">
+                                Xin chao ${name},
+                            </p>
+                            <p style="color:#6b7280; font-size:14px; line-height:1.6; margin:0 0 28px;">
+                                Chung toi nhan duoc yeu cau dat lai mat khau cho tai khoan cua ban. Vui long su dung ma xac nhan ben duoi:
+                            </p>
+                            
+                            <!-- Code -->
+                            <div style="background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%); border:2px dashed #f59e0b; border-radius:12px; padding:24px; text-align:center; margin:0 0 28px;">
+                                <p style="color:#92400e; font-size:12px; text-transform:uppercase; letter-spacing:2px; margin:0 0 12px; font-weight:600;">
+                                    MA DAT LAI MAT KHAU
+                                </p>
+                                <div style="font-size:40px; font-weight:800; color:#b45309; letter-spacing:12px; font-family:'Courier New', monospace;">
+                                    ${code}
+                                </div>
+                            </div>
+                            
+                            <!-- Warning -->
+                            <div style="background:#fef2f2; border-left:4px solid #ef4444; border-radius:0 8px 8px 0; padding:14px 16px; margin:0 0 28px;">
+                                <p style="color:#991b1b; font-size:13px; margin:0; font-weight:500;">
+                                    Ma nay se het han sau <strong>15 phut</strong>. Neu ban khong yeu cau dat lai mat khau, vui long bo qua email nay va doi mat khau ngay.
+                                </p>
+                            </div>
+                            
+                            <p style="color:#9ca3af; font-size:13px; line-height:1.6; margin:0;">
+                                Neu ban khong yeu cau dat lai mat khau, vui long bo qua email nay. Tai khoan cua ban van an toan.
+                            </p>
+                        </td>
+                    </tr>
+                    
+                    <!-- Footer -->
+                    <tr>
+                        <td style="background-color:#f9fafb; padding:20px 40px; border-top:1px solid #e5e7eb; text-align:center;">
+                            <p style="color:#9ca3af; font-size:12px; margin:0;">
+                                &copy; 2026 eFootCup VN. All rights reserved.
+                            </p>
+                        </td>
+                    </tr>
+                </table>
+            </td>
+        </tr>
+    </table>
+</body>
+</html>
+            `,
+        };
+
+        const info = await transporter.sendMail(mailOptions);
+
+        const previewUrl = nodemailer.getTestMessageUrl(info);
+        if (previewUrl) {
+            console.log("Reset password email preview URL:", previewUrl);
+        } else {
+            console.log(`Reset password email sent to ${email} (messageId: ${info.messageId})`);
+        }
+
+        return { success: true, previewUrl: previewUrl || undefined };
+    } catch (error) {
+        console.error("Send reset password email error:", error);
+        return { success: false };
+    }
+}
+
+// ============================================================
 // Send generic notification email
 // ============================================================
 export async function sendNotificationEmail(

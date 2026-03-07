@@ -1,19 +1,18 @@
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import { motion, AnimatePresence } from "framer-motion";
 import {
     Newspaper, Search, Clock, Eye, ChevronRight, ChevronLeft,
-    Megaphone, BookOpen, RefreshCw, Pin, Star, Loader2,
-    Calendar, ArrowRight, TrendingUp, Flame, Zap, Trophy,
-    Filter, X, FolderTree
+    Pin, Star, Loader2, Calendar, ArrowRight, TrendingUp, Flame, Zap, Trophy,
+    Filter, X
 } from "lucide-react";
-import { format, formatDistanceToNow } from "date-fns";
+import { formatDistanceToNow } from "date-fns";
 import { vi } from "date-fns/locale";
 import { CategoryIcon } from "@/lib/category-icons";
 
-// Fallback for when no categories exist in DB
+// Fallback categories
 const fallbackCategories: Record<string, { label: string; color: string; bg: string; gradient: string }> = {
     news: { label: "Tin tức", color: "text-blue-600", bg: "bg-blue-500", gradient: "from-blue-500 to-blue-600" },
     announcement: { label: "Thông báo", color: "text-amber-600", bg: "bg-amber-500", gradient: "from-amber-500 to-orange-500" },
@@ -28,6 +27,7 @@ export default function NewsPage() {
     const [isLoading, setIsLoading] = useState(true);
     const [page, setPage] = useState(1);
     const [totalPages, setTotalPages] = useState(1);
+    const [totalPosts, setTotalPosts] = useState(0);
     const [search, setSearch] = useState("");
     const [searchOpen, setSearchOpen] = useState(false);
     const [category, setCategory] = useState("");
@@ -41,9 +41,8 @@ export default function NewsPage() {
             .catch(console.error);
     }, []);
 
-    // Helper: get category display info from slug or ref
+    // Helper: get category display info
     const getCategoryInfo = (post: any) => {
-        // First try to find in dynamic categories
         const slug = post.category;
         const refId = post.categoryRef?._id || post.categoryRef;
         const found = dbCategories.find(c => c.slug === slug || c._id === refId);
@@ -57,18 +56,15 @@ export default function NewsPage() {
                 iconName: found.icon || "Newspaper",
             };
         }
-        // Fallback to hardcoded
         const fb = fallbackCategories[slug] || fallbackCategories.news;
         return { ...fb, hexColor: "", iconName: "Newspaper" };
     };
 
     useEffect(() => { loadPosts(); }, [page, category]);
     useEffect(() => {
-        // Load featured
         fetch("/api/posts?featured=true&limit=5")
             .then(r => r.json())
             .then(data => { if (data.success) setFeatured(data.data.posts); });
-        // Load latest sidebar
         fetch("/api/posts?limit=6")
             .then(r => r.json())
             .then(data => { if (data.success) setLatest(data.data.posts); });
@@ -87,6 +83,7 @@ export default function NewsPage() {
             if (data.success) {
                 setPosts(data.data.posts);
                 setTotalPages(data.data.pagination.totalPages);
+                setTotalPosts(data.data.pagination.total);
             }
         } catch (e) { console.error(e); }
         finally { setIsLoading(false); }
@@ -101,22 +98,19 @@ export default function NewsPage() {
     const timeAgo = (date: string) => {
         try { return formatDistanceToNow(new Date(date), { addSuffix: true, locale: vi }); } catch { return ""; }
     };
-    const formatDate = (date: string) => {
-        try { return format(new Date(date), "dd/MM/yyyy", { locale: vi }); } catch { return ""; }
-    };
 
     const heroPost = featured[0];
     const sideFeatured = featured.slice(1, 4);
 
     return (
-        <div className="min-h-screen bg-[#f5f5f5] pt-16">
+        <div className="min-h-screen bg-[#f8f9fa] pt-16">
             {/* ===== Top Bar ===== */}
             <div className="bg-white border-b border-gray-100">
                 <div className="max-w-[1200px] mx-auto px-4 lg:px-6">
                     <div className="flex items-center justify-between h-10">
                         <div className="flex items-center gap-1.5 overflow-x-auto scrollbar-hide">
                             <Flame className="w-3.5 h-3.5 text-red-500 flex-shrink-0" />
-                            <span className="text-[11px] font-bold text-red-500 uppercase tracking-wider flex-shrink-0">HOT</span>
+                            <span className="text-[11px] font-semibold text-red-500 uppercase tracking-wider flex-shrink-0">HOT</span>
                             <div className="h-3 w-px bg-gray-200 mx-1.5 flex-shrink-0" />
                             {latest.slice(0, 3).map((p, i) => (
                                 <Link key={p._id} href={`/tin-tuc/${p.slug}`} className="text-[11px] text-gray-500 hover:text-gray-900 transition-colors whitespace-nowrap flex-shrink-0">
@@ -145,7 +139,7 @@ export default function NewsPage() {
                                         className="w-full h-10 pl-10 pr-4 rounded-lg bg-gray-50 border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-400"
                                         autoFocus />
                                 </div>
-                                <button type="submit" className="h-10 px-5 bg-[#1b64f2] text-white text-sm font-semibold rounded-lg hover:bg-[#1554d0] transition-colors">Tìm</button>
+                                <button type="submit" className="h-10 px-5 bg-[#1b64f2] text-white text-sm font-medium rounded-lg hover:bg-[#1554d0] transition-colors">Tìm</button>
                                 <button type="button" onClick={() => { setSearchOpen(false); setSearch(""); }} className="h-10 w-10 flex items-center justify-center rounded-lg hover:bg-gray-100">
                                     <X className="w-4 h-4 text-gray-400" />
                                 </button>
@@ -172,23 +166,23 @@ export default function NewsPage() {
                                     )}
                                     <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/30 to-transparent" />
                                     <div className="absolute bottom-0 left-0 right-0 p-5 lg:p-6">
-                                        {heroPost.isPinned && (
-                                            <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-red-500 text-white text-[10px] font-bold rounded uppercase tracking-wider mb-2">
-                                                <Zap className="w-2.5 h-2.5" /> NÓNG
-                                            </span>
-                                        )}
-                                        {(() => {
-                                            const hCat = getCategoryInfo(heroPost);
-                                            return (
-                                                <span
-                                                    className={`inline-flex items-center gap-1 px-2 py-0.5 bg-gradient-to-r ${hCat.gradient} text-white text-[10px] font-bold rounded uppercase tracking-wider mb-2 ml-1`}
-                                                >
-                                                    <CategoryIcon name={hCat.iconName} className="w-2.5 h-2.5" />
-                                                    {hCat.label}
+                                        <div className="flex items-center gap-1.5 mb-2.5 flex-wrap">
+                                            {heroPost.isPinned && (
+                                                <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-red-500 text-white text-[10px] font-semibold rounded uppercase tracking-wider">
+                                                    <Zap className="w-2.5 h-2.5" /> NÓNG
                                                 </span>
-                                            );
-                                        })()}
-                                        <h2 className="text-xl lg:text-2xl font-extrabold text-white leading-tight mb-2 group-hover:underline decoration-2 underline-offset-4 transition-all">{heroPost.title}</h2>
+                                            )}
+                                            {(() => {
+                                                const hCat = getCategoryInfo(heroPost);
+                                                return (
+                                                    <span className={`inline-flex items-center gap-1 px-2 py-0.5 bg-gradient-to-r ${hCat.gradient} text-white text-[10px] font-semibold rounded uppercase tracking-wider`}>
+                                                        <CategoryIcon name={hCat.iconName} className="w-2.5 h-2.5" />
+                                                        {hCat.label}
+                                                    </span>
+                                                );
+                                            })()}
+                                        </div>
+                                        <h2 className="text-xl lg:text-2xl font-semibold text-white leading-tight mb-2 group-hover:underline decoration-1 underline-offset-4 transition-all">{heroPost.title}</h2>
                                         {heroPost.excerpt && <p className="text-sm text-white/70 line-clamp-2 max-w-lg">{heroPost.excerpt}</p>}
                                         <div className="flex items-center gap-3 mt-3 text-[11px] text-white/50">
                                             <span className="flex items-center gap-1"><Clock className="w-3 h-3" /> {timeAgo(heroPost.publishedAt || heroPost.createdAt)}</span>
@@ -200,7 +194,7 @@ export default function NewsPage() {
 
                             {/* Side Featured */}
                             <div className="lg:col-span-2 flex flex-col gap-3">
-                                {sideFeatured.map((post, i) => {
+                                {sideFeatured.map((post) => {
                                     const cat = getCategoryInfo(post);
                                     return (
                                         <Link key={post._id} href={`/tin-tuc/${post.slug}`} className="group flex gap-3 p-2.5 rounded-xl hover:bg-gray-50 transition-colors">
@@ -220,12 +214,12 @@ export default function NewsPage() {
                                             </div>
                                             <div className="flex-1 min-w-0 flex flex-col justify-center">
                                                 <span
-                                                    className="text-[10px] font-bold uppercase tracking-wider mb-1"
+                                                    className="text-[10px] font-semibold uppercase tracking-wider mb-1"
                                                     style={cat.hexColor ? { color: cat.hexColor } : undefined}
                                                 >
                                                     {cat.label}
                                                 </span>
-                                                <h3 className="text-[13px] font-bold text-gray-900 line-clamp-2 leading-snug group-hover:text-[#1b64f2] transition-colors">{post.title}</h3>
+                                                <h3 className="text-[13px] font-medium text-gray-900 line-clamp-2 leading-snug group-hover:text-[#1b64f2] transition-colors">{post.title}</h3>
                                                 <span className="text-[10px] text-gray-400 mt-1.5 flex items-center gap-1.5">
                                                     <Clock className="w-2.5 h-2.5" /> {timeAgo(post.publishedAt || post.createdAt)}
                                                     <span className="mx-0.5">·</span>
@@ -252,7 +246,7 @@ export default function NewsPage() {
                             <Filter className="w-3.5 h-3.5 text-gray-400 flex-shrink-0" />
                             <button
                                 onClick={() => { setCategory(""); setPage(1); }}
-                                className={`px-3.5 py-1.5 rounded-full text-[11px] font-bold transition-all whitespace-nowrap ${!category
+                                className={`px-3.5 py-1.5 rounded-full text-[11px] font-medium transition-all whitespace-nowrap ${!category
                                     ? "bg-[#1b64f2] text-white shadow-sm"
                                     : "bg-white text-gray-500 hover:text-gray-900 border border-gray-200 hover:border-gray-300"}`}
                             >
@@ -262,7 +256,7 @@ export default function NewsPage() {
                                 dbCategories.map((cat) => (
                                     <button key={cat._id}
                                         onClick={() => { setCategory(cat.slug); setPage(1); }}
-                                        className={`px-3.5 py-1.5 rounded-full text-[11px] font-bold transition-all whitespace-nowrap flex items-center gap-1 ${category === cat.slug
+                                        className={`px-3.5 py-1.5 rounded-full text-[11px] font-medium transition-all whitespace-nowrap flex items-center gap-1 ${category === cat.slug
                                             ? "text-white shadow-sm"
                                             : "bg-white text-gray-500 hover:text-gray-900 border border-gray-200 hover:border-gray-300"}`}
                                         style={category === cat.slug ? { backgroundColor: cat.color || "#1b64f2" } : undefined}
@@ -278,7 +272,7 @@ export default function NewsPage() {
                                 Object.entries(fallbackCategories).map(([key, val]) => (
                                     <button key={key}
                                         onClick={() => { setCategory(key); setPage(1); }}
-                                        className={`px-3.5 py-1.5 rounded-full text-[11px] font-bold transition-all whitespace-nowrap flex items-center gap-1 ${category === key
+                                        className={`px-3.5 py-1.5 rounded-full text-[11px] font-medium transition-all whitespace-nowrap flex items-center gap-1 ${category === key
                                             ? "bg-[#1b64f2] text-white shadow-sm"
                                             : "bg-white text-gray-500 hover:text-gray-900 border border-gray-200 hover:border-gray-300"}`}
                                     >
@@ -289,15 +283,20 @@ export default function NewsPage() {
                         </div>
 
                         {/* Section Title */}
-                        <div className="flex items-center gap-2.5 mb-4">
-                            <div className="w-1 h-5 rounded-full bg-[#1b64f2]" />
-                            <h2 className="text-base font-extrabold text-gray-900 uppercase tracking-tight">
-                                {(() => {
-                                    if (!category) return "Tất cả bài viết";
-                                    const found = dbCategories.find(c => c.slug === category);
-                                    return found?.name || fallbackCategories[category]?.label || "Bài viết";
-                                })()}
-                            </h2>
+                        <div className="flex items-center justify-between mb-4">
+                            <div className="flex items-center gap-2.5">
+                                <div className="w-1 h-5 rounded-full bg-[#1b64f2]" />
+                                <h2 className="text-sm font-semibold text-gray-900 uppercase tracking-tight">
+                                    {(() => {
+                                        if (!category) return "Tất cả bài viết";
+                                        const found = dbCategories.find(c => c.slug === category);
+                                        return found?.name || fallbackCategories[category]?.label || "Bài viết";
+                                    })()}
+                                </h2>
+                            </div>
+                            {totalPosts > 0 && (
+                                <span className="text-[11px] text-gray-400">{totalPosts} bài viết</span>
+                            )}
                         </div>
 
                         {/* Posts */}
@@ -308,7 +307,7 @@ export default function NewsPage() {
                         ) : posts.length === 0 ? (
                             <div className="text-center py-20 bg-white rounded-xl border border-gray-100">
                                 <Newspaper className="w-14 h-14 text-gray-200 mx-auto mb-3" />
-                                <h3 className="text-sm font-bold text-gray-600 mb-1">Chưa có bài viết nào</h3>
+                                <h3 className="text-sm font-medium text-gray-600 mb-1">Chưa có bài viết nào</h3>
                                 <p className="text-xs text-gray-400">Hãy quay lại sau để xem tin mới nhất</p>
                             </div>
                         ) : (
@@ -332,7 +331,7 @@ export default function NewsPage() {
                                                             const fCat = getCategoryInfo(first);
                                                             return (
                                                                 <div
-                                                                    className={`absolute top-3 left-3 px-2 py-0.5 bg-gradient-to-r ${fCat.gradient} text-white text-[10px] font-bold rounded uppercase tracking-wider inline-flex items-center gap-1`}
+                                                                    className={`absolute top-3 left-3 px-2 py-0.5 bg-gradient-to-r ${fCat.gradient} text-white text-[10px] font-medium rounded uppercase tracking-wider inline-flex items-center gap-1`}
                                                                 >
                                                                     <CategoryIcon name={fCat.iconName} className="w-2.5 h-2.5" />
                                                                     {fCat.label}
@@ -341,7 +340,7 @@ export default function NewsPage() {
                                                         })()}
                                                     </div>
                                                     <div className="p-5 flex flex-col justify-center">
-                                                        <h3 className="text-lg font-extrabold text-gray-900 leading-snug mb-2 group-hover:text-[#1b64f2] transition-colors">{first.title}</h3>
+                                                        <h3 className="text-lg font-semibold text-gray-900 leading-snug mb-2 group-hover:text-[#1b64f2] transition-colors">{first.title}</h3>
                                                         {first.excerpt && <p className="text-sm text-gray-500 line-clamp-3 mb-3 leading-relaxed">{first.excerpt}</p>}
                                                         <div className="flex items-center gap-3 text-[11px] text-gray-400">
                                                             {first.author?.name && (
@@ -349,7 +348,7 @@ export default function NewsPage() {
                                                                     {first.author?.avatar ? (
                                                                         <img src={first.author.avatar} alt="" className="w-4 h-4 rounded-full" />
                                                                     ) : (
-                                                                        <div className="w-4 h-4 rounded-full bg-blue-500 flex items-center justify-center text-white text-[7px] font-bold">{first.author.name.charAt(0)}</div>
+                                                                        <div className="w-4 h-4 rounded-full bg-blue-500 flex items-center justify-center text-white text-[7px] font-medium">{first.author.name.charAt(0)}</div>
                                                                     )}
                                                                     <span className="font-medium text-gray-600">{first.author.name}</span>
                                                                 </div>
@@ -392,7 +391,7 @@ export default function NewsPage() {
                                                                 const pCat = getCategoryInfo(post);
                                                                 return (
                                                                     <span
-                                                                        className={`text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded text-white inline-flex items-center gap-0.5`}
+                                                                        className="text-[9px] font-semibold uppercase tracking-wider px-1.5 py-0.5 rounded text-white inline-flex items-center gap-0.5"
                                                                         style={pCat.hexColor ? { backgroundColor: pCat.hexColor } : undefined}
                                                                     >
                                                                         <CategoryIcon name={pCat.iconName} className="w-2.5 h-2.5" />
@@ -401,7 +400,7 @@ export default function NewsPage() {
                                                                 );
                                                             })()}
                                                         </div>
-                                                        <h3 className="text-[13px] font-bold text-gray-900 line-clamp-2 leading-snug group-hover:text-[#1b64f2] transition-colors">{post.title}</h3>
+                                                        <h3 className="text-[13px] font-medium text-gray-900 line-clamp-2 leading-snug group-hover:text-[#1b64f2] transition-colors">{post.title}</h3>
                                                         <div className="flex items-center gap-2 mt-1.5 text-[10px] text-gray-400">
                                                             <span>{timeAgo(post.publishedAt || post.createdAt)}</span>
                                                             <span>·</span>
@@ -422,7 +421,7 @@ export default function NewsPage() {
                                 {totalPages > 1 && (
                                     <div className="flex items-center justify-center gap-1.5 pt-8 pb-4">
                                         <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page <= 1}
-                                            className="w-8 h-8 rounded-lg flex items-center justify-center bg-white border border-gray-200 text-gray-400 hover:text-gray-600 hover:border-gray-300 disabled:opacity-30 transition-all text-xs">
+                                            className="w-9 h-9 rounded-lg flex items-center justify-center bg-white border border-gray-200 text-gray-400 hover:text-gray-600 hover:border-gray-300 disabled:opacity-30 transition-all text-xs">
                                             <ChevronLeft className="w-3.5 h-3.5" />
                                         </button>
                                         {Array.from({ length: totalPages }, (_, i) => i + 1)
@@ -431,7 +430,7 @@ export default function NewsPage() {
                                                 <span key={p}>
                                                     {idx > 0 && arr[idx - 1] !== p - 1 && <span className="px-1 text-gray-300 text-xs">···</span>}
                                                     <button onClick={() => setPage(p)}
-                                                        className={`w-8 h-8 rounded-lg text-xs font-bold transition-all ${p === page
+                                                        className={`w-9 h-9 rounded-lg text-xs font-medium transition-all ${p === page
                                                             ? "bg-[#1b64f2] text-white shadow-sm"
                                                             : "bg-white border border-gray-200 text-gray-500 hover:border-gray-300 hover:text-gray-700"}`}>
                                                         {p}
@@ -439,7 +438,7 @@ export default function NewsPage() {
                                                 </span>
                                             ))}
                                         <button onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={page >= totalPages}
-                                            className="w-8 h-8 rounded-lg flex items-center justify-center bg-white border border-gray-200 text-gray-400 hover:text-gray-600 hover:border-gray-300 disabled:opacity-30 transition-all text-xs">
+                                            className="w-9 h-9 rounded-lg flex items-center justify-center bg-white border border-gray-200 text-gray-400 hover:text-gray-600 hover:border-gray-300 disabled:opacity-30 transition-all text-xs">
                                             <ChevronRight className="w-3.5 h-3.5" />
                                         </button>
                                     </div>
@@ -454,16 +453,16 @@ export default function NewsPage() {
                         <div className="bg-white rounded-xl border border-gray-100 overflow-hidden">
                             <div className="flex items-center gap-2 px-4 py-3 border-b border-gray-50">
                                 <TrendingUp className="w-4 h-4 text-red-500" />
-                                <h3 className="text-xs font-extrabold text-gray-900 uppercase tracking-wider">Đọc nhiều nhất</h3>
+                                <h3 className="text-xs font-semibold text-gray-900 uppercase tracking-wider">Đọc nhiều nhất</h3>
                             </div>
                             <div className="divide-y divide-gray-50">
                                 {latest.map((post, i) => (
                                     <Link key={post._id} href={`/tin-tuc/${post.slug}`} className="group flex items-start gap-3 px-4 py-3 hover:bg-gray-50/50 transition-colors">
-                                        <span className={`text-xl font-black leading-none mt-0.5 flex-shrink-0 ${i < 3 ? "text-[#1b64f2]" : "text-gray-200"}`}>
+                                        <span className={`text-xl font-semibold leading-none mt-0.5 flex-shrink-0 tabular-nums ${i < 3 ? "text-[#1b64f2]" : "text-gray-200"}`}>
                                             {String(i + 1).padStart(2, "0")}
                                         </span>
                                         <div className="flex-1 min-w-0">
-                                            <h4 className="text-[12px] font-bold text-gray-800 line-clamp-2 leading-snug group-hover:text-[#1b64f2] transition-colors">{post.title}</h4>
+                                            <h4 className="text-[12px] font-medium text-gray-800 line-clamp-2 leading-snug group-hover:text-[#1b64f2] transition-colors">{post.title}</h4>
                                             <span className="text-[10px] text-gray-400 mt-1 block">{timeAgo(post.publishedAt || post.createdAt)}</span>
                                         </div>
                                     </Link>
@@ -474,7 +473,7 @@ export default function NewsPage() {
                         {/* Categories Widget */}
                         <div className="bg-white rounded-xl border border-gray-100 overflow-hidden">
                             <div className="px-4 py-3 border-b border-gray-50">
-                                <h3 className="text-xs font-extrabold text-gray-900 uppercase tracking-wider">Danh mục</h3>
+                                <h3 className="text-xs font-semibold text-gray-900 uppercase tracking-wider">Danh mục</h3>
                             </div>
                             <div className="p-3 space-y-1">
                                 {(dbCategories.length > 0 ? dbCategories : Object.entries(fallbackCategories).map(([key, val]) => ({
@@ -491,7 +490,7 @@ export default function NewsPage() {
                                         <div className={`w-7 h-7 rounded-lg bg-gradient-to-br ${cat.gradient || "from-blue-500 to-blue-600"} flex items-center justify-center flex-shrink-0`}>
                                             <CategoryIcon name={cat.icon} className="w-3.5 h-3.5 text-white" />
                                         </div>
-                                        <span className="text-xs font-semibold flex-1">{cat.name}</span>
+                                        <span className="text-xs font-medium flex-1">{cat.name}</span>
                                         {cat.postCount > 0 && (
                                             <span className="text-[10px] text-gray-400 font-medium">{cat.postCount}</span>
                                         )}
@@ -504,11 +503,11 @@ export default function NewsPage() {
                         {/* Tags Cloud */}
                         <div className="bg-white rounded-xl border border-gray-100 overflow-hidden">
                             <div className="px-4 py-3 border-b border-gray-50">
-                                <h3 className="text-xs font-extrabold text-gray-900 uppercase tracking-wider">Tags phổ biến</h3>
+                                <h3 className="text-xs font-semibold text-gray-900 uppercase tracking-wider">Tags phổ biến</h3>
                             </div>
                             <div className="p-3 flex flex-wrap gap-1.5">
                                 {["eFootball", "PES", "Giải đấu", "FIFA", "Meta", "Chiến thuật", "Cầu thủ", "Cập nhật", "Mẹo chơi", "Sự kiện"].map(tag => (
-                                    <span key={tag} className="px-2.5 py-1 bg-gray-50 text-[10px] font-semibold text-gray-500 rounded-md hover:bg-[#1b64f2]/5 hover:text-[#1b64f2] transition-colors cursor-pointer">
+                                    <span key={tag} className="px-2.5 py-1 bg-gray-50 text-[10px] font-medium text-gray-500 rounded-md hover:bg-[#1b64f2]/5 hover:text-[#1b64f2] transition-colors cursor-pointer">
                                         #{tag}
                                     </span>
                                 ))}
@@ -521,9 +520,9 @@ export default function NewsPage() {
                             <div className="absolute bottom-0 left-0 w-20 h-20 bg-white/5 rounded-full translate-y-6 -translate-x-6" />
                             <div className="relative z-10">
                                 <Trophy className="w-8 h-8 text-white/20 mb-3" />
-                                <h3 className="text-sm font-extrabold mb-1.5">Tham gia giải đấu</h3>
+                                <h3 className="text-sm font-semibold mb-1.5">Tham gia giải đấu</h3>
                                 <p className="text-[11px] text-blue-100 leading-relaxed mb-4">Đăng ký ngay để thi đấu cùng các game thủ hàng đầu Việt Nam</p>
-                                <Link href="/giai-dau" className="inline-flex items-center gap-1.5 px-4 py-2 bg-white text-[#1b64f2] text-xs font-bold rounded-lg hover:bg-blue-50 transition-colors">
+                                <Link href="/giai-dau" className="inline-flex items-center gap-1.5 px-4 py-2 bg-white text-[#1b64f2] text-xs font-medium rounded-lg hover:bg-blue-50 transition-colors">
                                     Xem giải đấu <ArrowRight className="w-3 h-3" />
                                 </Link>
                             </div>

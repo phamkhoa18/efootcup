@@ -8,7 +8,7 @@ export async function PUT(
     { params }: { params: Promise<{ id: string }> }
 ) {
     try {
-        const authResult = await requireRole(req, ["manager"]);
+        const authResult = await requireRole(req, ["manager", "admin"]);
         if (authResult instanceof Response) return authResult;
 
         await dbConnect();
@@ -51,7 +51,7 @@ export async function DELETE(
     { params }: { params: Promise<{ id: string }> }
 ) {
     try {
-        const authResult = await requireRole(req, ["manager"]);
+        const authResult = await requireRole(req, ["manager", "admin"]);
         if (authResult instanceof Response) return authResult;
 
         await dbConnect();

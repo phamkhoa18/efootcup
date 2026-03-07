@@ -26,6 +26,12 @@ export async function GET(req: NextRequest) {
             phone: user.phone,
             bio: user.bio,
             gamerId: user.gamerId,
+            dateOfBirth: user.dateOfBirth,
+            country: user.country,
+            province: user.province,
+            nickname: user.nickname,
+            facebookName: user.facebookName,
+            facebookLink: user.facebookLink,
             stats: user.stats,
             isActive: user.isActive,
             lastLogin: user.lastLogin,
@@ -46,7 +52,7 @@ export async function PUT(req: NextRequest) {
         await dbConnect();
 
         const body = await req.json();
-        const { name, phone, bio, gamerId, avatar } = body;
+        const { name, phone, bio, gamerId, avatar, dateOfBirth, country, province, nickname, facebookName, facebookLink } = body;
 
         const user = await User.findByIdAndUpdate(
             authResult.user._id,
@@ -56,6 +62,12 @@ export async function PUT(req: NextRequest) {
                 ...(bio !== undefined && { bio }),
                 ...(gamerId !== undefined && { gamerId }),
                 ...(avatar !== undefined && { avatar }),
+                ...(dateOfBirth !== undefined && { dateOfBirth }),
+                ...(country !== undefined && { country }),
+                ...(province !== undefined && { province }),
+                ...(nickname !== undefined && { nickname }),
+                ...(facebookName !== undefined && { facebookName }),
+                ...(facebookLink !== undefined && { facebookLink }),
             },
             { new: true, runValidators: true }
         );
@@ -75,6 +87,12 @@ export async function PUT(req: NextRequest) {
                 phone: user.phone,
                 bio: user.bio,
                 gamerId: user.gamerId,
+                dateOfBirth: user.dateOfBirth,
+                country: user.country,
+                province: user.province,
+                nickname: user.nickname,
+                facebookName: user.facebookName,
+                facebookLink: user.facebookLink,
                 stats: user.stats,
             },
             200,

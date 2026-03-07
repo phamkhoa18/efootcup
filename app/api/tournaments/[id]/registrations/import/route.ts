@@ -68,9 +68,10 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
                 teamName: teamName,
                 teamShortName: data.teamShortName || data.shortName || data['Tên Viết Tắt'] || teamName.substring(0, 3).toUpperCase(),
                 playerName: String(player1).trim() || authResult.user.name,
-                gamerId: data.gamerId || data.ingameId || data['In-game ID'] || data['VĐV 2'] || 'TBD',
+                gamerId: data.gamerId || data.ingameId || data['In-game ID'] || data['ID Game'] || 'TBD',
                 phone: data.phone || data['Số điện thoại'] || data['SĐT'] || '000',
                 email: data.email || data['Email'] || 'noemail@vntournament.com',
+                nickname: data.nickname || data['Nickname'] || '',
                 status: "approved", // Automatically approve imported teams
                 paymentStatus: "paid", // Data shows 'Lệ phí' column, ignoring for now or defaulting to paid
                 approvedBy: authResult.user._id as any,

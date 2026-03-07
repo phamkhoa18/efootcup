@@ -1,187 +1,117 @@
-# ⚽ eFootCup VN — Nền tảng Quản lý Giải đấu eFootball
+# ⚽ EFV CUP VN — Nền Tảng Tổ Chức Giải Đấu eFootball
 
-<p align="center">
-  <img src="public/assets/efootball_bg.webp" alt="eFootCup Banner" width="100%" />
-</p>
+<div align="center">
 
-<p align="center">
-  <strong>Nền tảng quản lý giải đấu eFootball chuyên nghiệp hàng đầu Việt Nam</strong><br/>
-  Tổ chức — Đăng ký — Thanh toán — Thi đấu — Kết quả — Tất cả trong một
-</p>
+![Next.js](https://img.shields.io/badge/Next.js-16-black?style=for-the-badge&logo=next.js)
+![React](https://img.shields.io/badge/React-19-61DAFB?style=for-the-badge&logo=react)
+![MongoDB](https://img.shields.io/badge/MongoDB-Mongoose-47A248?style=for-the-badge&logo=mongodb)
+![TailwindCSS](https://img.shields.io/badge/Tailwind-4-06B6D4?style=for-the-badge&logo=tailwindcss)
+![TypeScript](https://img.shields.io/badge/TypeScript-5-3178C6?style=for-the-badge&logo=typescript)
 
-<p align="center">
-  <img src="https://img.shields.io/badge/Next.js-16.1.6-000000?logo=next.js" alt="Next.js" />
-  <img src="https://img.shields.io/badge/React-19.2-61DAFB?logo=react" alt="React" />
-  <img src="https://img.shields.io/badge/MongoDB-Mongoose%209-47A248?logo=mongodb" alt="MongoDB" />
-  <img src="https://img.shields.io/badge/TypeScript-5-3178C6?logo=typescript" alt="TypeScript" />
-  <img src="https://img.shields.io/badge/TailwindCSS-4-06B6D4?logo=tailwindcss" alt="Tailwind" />
-  <img src="https://img.shields.io/badge/PayOS-Thanh%20toán-FF6B2B" alt="PayOS" />
-</p>
+**Nền tảng tổ chức và quản lý giải đấu eFootball chuyên nghiệp hàng đầu Việt Nam.**
+
+[Demo Live](https://efvcup.vn) · [Báo Lỗi](https://github.com/phamkhoa18/efootcup/issues)
+
+</div>
 
 ---
 
-## 📌 Giới thiệu
+## 📋 Giới Thiệu
 
-**eFootCup VN** là nền tảng trực tuyến giúp cộng đồng eFootball tại Việt Nam dễ dàng tổ chức, quản lý và tham gia các giải đấu — từ nghiệp dư đến chuyên nghiệp. Hệ thống tự động hóa toàn bộ quy trình: đăng ký, thanh toán, bốc thăm, lập sơ đồ thi đấu, gửi kết quả, và thống kê.
+**EFV CUP VN** là nền tảng fullstack cho phép tổ chức, quản lý và theo dõi các giải đấu eFootball trực tuyến. Hệ thống hỗ trợ đầy đủ quy trình từ đăng ký, thanh toán, xếp lịch, nhánh thi đấu đến bảng xếp hạng điểm EFV.
 
-## 🚀 Tính năng chính
+### ✨ Tính Năng Chính
 
-### 🏆 Quản lý Giải đấu (Manager)
+- 🏆 **Quản lý giải đấu** — Tạo, cấu hình, quản lý giải đấu với nhiều thể thức (loại trực tiếp, vòng tròn, Swiss...)
+- 📊 **Sơ đồ thi đấu (Bracket)** — Bracket tự động với drag-to-scroll, tìm kiếm đối thủ, click xem thông tin VĐV
+- 💰 **Thanh toán tự động** — Tích hợp PayOS cho thanh toán lệ phí qua mã VietQR tự động
+- 👥 **Hệ thống VĐV** — Đăng ký, quản lý profile, hệ thống EFV-ID riêng biệt
+- 🏅 **Bảng xếp hạng EFV** — Hệ thống điểm EFV 250/500/1000 với BXH tự động cập nhật
+- 📝 **Quản lý bài viết** — Rich text editor (TipTap) cho tin tức, thể lệ
+- 📱 **Responsive** — Tối ưu giao diện cho cả desktop và mobile
+- 🔐 **Phân quyền** — 3 role: Admin, Manager (Quản lý giải), User
 
-| Tính năng | Mô tả |
-|---|---|
-| **Tạo giải đấu** | Tùy chỉnh thể thức (Loại trực tiếp, Vòng tròn), luật chơi, giải thưởng, banner |
-| **Quản lý đăng ký** | Duyệt/từ chối VĐV, xem chi tiết thông tin, xuất Excel danh sách |
-| **Tự động bốc thăm** | Tạo bracket theo chuẩn seeding chuyên nghiệp (byes, power-of-2) |
-| **Lịch thi đấu** | Quản lý lịch trình, trạng thái trận đấu, cập nhật tỉ số |
-| **Xem kết quả VĐV gửi** | Icon 👁 mở popup xem tỉ số + ảnh minh chứng VĐV đã gửi |
-| **Xuất PDF** | Tải lịch thi đấu bản in chuyên nghiệp |
-| **BXH & Thống kê** | Bảng xếp hạng, thống kê bàn thắng, phong độ đội |
-| **Báo cáo** | Dashboard tổng quan giải đấu |
+---
 
-### 🎮 Người chơi (User)
+## 🛠 Tech Stack
 
-| Tính năng | Mô tả |
-|---|---|
-| **Hồ sơ cá nhân (EFV-ID)** | Mã định danh duy nhất, avatar, thông tin cá nhân |
-| **Đăng ký giải đấu** | Form thông minh với tỉnh/huyện/xã Việt Nam, DatePicker chính xác |
-| **Thanh toán tự động** | Tích hợp PayOS, quét VietQR, xác nhận webhook realtime |
-| **Lịch thi đấu cá nhân** | Xem trận sắp tới, trận đã đấu trên trang cá nhân |
-| **Gửi kết quả trận đấu** | Upload tỉ số + ảnh minh chứng (tối đa 3), gửi 1 lần rồi khóa |
-| **Thông báo** | Nhận thông báo qua website khi có thay đổi giải đấu |
+| Layer | Công Nghệ |
+|-------|-----------|
+| **Framework** | Next.js 16 (App Router) |
+| **Frontend** | React 19, TypeScript 5 |
+| **Styling** | Tailwind CSS 4, Framer Motion |
+| **UI Components** | Shadcn/UI, Radix UI, Lucide Icons |
+| **Database** | MongoDB + Mongoose 9 |
+| **Auth** | JWT (jsonwebtoken) + bcryptjs |
+| **Payment** | PayOS (VietQR) |
+| **Rich Editor** | TipTap |
+| **Email** | Nodemailer |
+| **Export** | jsPDF, xlsx |
 
-### 👑 Quản trị hệ thống (Admin)
+---
 
-| Tính năng | Mô tả |
-|---|---|
-| **Dashboard** | Thống kê tổng quan: user, giải đấu, bài viết, doanh thu |
-| **Quản lý người dùng** | Xem, phân quyền, quản lý tài khoản |
-| **Quản lý bài viết** | Rich text editor (TipTap), quản lý danh mục tin tức |
-| **Cấu hình thanh toán** | Thiết lập cổng PayOS (Client ID, API Key, Checksum) |
-| **Cài đặt hệ thống** | Logo, favicon, SEO, social links, maintenance mode |
-| **Menu & Navigation** | Quản lý menu navbar/footer linh hoạt |
-
-## 🔄 Quy trình Gửi & Duyệt kết quả
-
-```
-┌──────────────────────────────────────────────────────────────┐
-│                     FLOW GỬI KẾT QUẢ                        │
-├──────────────────────────────────────────────────────────────┤
-│                                                              │
-│  [VĐV] Trang cá nhân → Gửi kết quả (tỉ số + ảnh + note)    │
-│    ↓                                                         │
-│  [API] Xác thực → Check team → $push vào resultSubmissions   │
-│    ↓                                                         │
-│  [VĐV] Hiện "Đã gửi kết quả — chờ quản lý duyệt" 🔒        │
-│    ↓                                                         │
-│  [Manager] Thấy icon 👁 → Click xem submissions              │
-│    ↓                                                         │
-│  [Manager] Xem tỉ số + ảnh minh chứng → Nhập tỉ số chính    │
-│    ↓                                                         │
-│  [VĐV] Hiện "Kết quả chính thức" 🔒 Đã khóa                │
-│                                                              │
-└──────────────────────────────────────────────────────────────┘
-```
-
-## 🛠 Công nghệ sử dụng
-
-### Core Stack
-- **Framework**: [Next.js 16](https://nextjs.org/) (App Router, Server Components)
-- **UI Library**: [React 19](https://react.dev/)
-- **Language**: [TypeScript 5](https://www.typescriptlang.org/)
-- **Styling**: [Tailwind CSS 4](https://tailwindcss.com/)
-- **Animation**: [Framer Motion 12](https://www.framer.com/motion/)
-
-### Backend & Database
-- **API**: Next.js API Routes (Serverless Functions)
-- **Database**: [MongoDB](https://www.mongodb.com/) + [Mongoose 9](https://mongoosejs.com/)
-- **Authentication**: JWT (jsonwebtoken) + Bcryptjs
-- **File Storage**: Local filesystem (`/uploads`) + API serving
-
-### Thanh toán & Tích hợp
-- **Payment Gateway**: [PayOS](https://payos.vn/) (VietQR, webhook verification)
-- **Email**: [Nodemailer](https://nodemailer.com/)
-
-### UI Components & Utilities
-- **Icons**: [Lucide React](https://lucide.dev/)
-- **Rich Editor**: [TipTap](https://tiptap.dev/) (bài viết, tin tức)
-- **PDF Export**: [jsPDF](https://github.com/parallax/jsPDF) + jsPDF-AutoTable
-- **Excel**: [SheetJS (xlsx)](https://sheetjs.com/) — Import/Export danh sách VĐV
-- **Date Picker**: [React Day Picker](https://react-day-picker.js.org/)
-- **UI Primitives**: [Radix UI](https://www.radix-ui.com/) + [shadcn/ui](https://ui.shadcn.com/)
-- **Toast**: [Sonner](https://sonner.emilkowal.dev/)
-
-## 📦 Cấu trúc dự án
+## 📁 Cấu Trúc Dự Án
 
 ```
 efootcup/
 ├── app/
-│   ├── (auth)/                    # 🔐 Đăng nhập, Đăng ký
-│   ├── (main)/                    # 🌐 Trang công khai
-│   │   ├── page.tsx               #     Trang chủ
-│   │   ├── giai-dau/              #     Danh sách & chi tiết giải đấu
-│   │   ├── tin-tuc/               #     Tin tức eFootball
-│   │   ├── bxh/                   #     Bảng xếp hạng
-│   │   └── trang-ca-nhan/         #     Hồ sơ cá nhân + lịch thi đấu
-│   ├── (manager)/manager/         # 🏟️ Quản lý giải đấu (BTC)
-│   │   ├── giai-dau/[id]/         #     Chi tiết giải: đăng ký, lịch, sơ đồ, BXH
-│   │   ├── tao-giai-dau/          #     Tạo giải đấu mới
-│   │   ├── vdv/                   #     Quản lý vận động viên
-│   │   ├── bxh/                   #     Bảng xếp hạng giải
-│   │   ├── thong-ke/              #     Thống kê
-│   │   └── bao-cao/               #     Báo cáo
-│   ├── (admin)/admin/             # 👑 Quản trị hệ thống
-│   │   ├── nguoi-dung/            #     Quản lý user
-│   │   ├── bai-viet/              #     Quản lý bài viết & danh mục
-│   │   ├── giai-dau/              #     Quản lý giải đấu
-│   │   ├── thanh-toan/            #     Quản lý thanh toán
-│   │   ├── menu/                  #     Quản lý menu
-│   │   └── cai-dat/               #     Cài đặt hệ thống
-│   └── api/                       # ⚡ REST API Endpoints
-│       ├── auth/                  #     Đăng ký, đăng nhập, profile, participation
-│       ├── tournaments/           #     CRUD giải đấu, brackets, matches, submit-result
-│       ├── payment/               #     PayOS create, verify, webhook
-│       ├── posts/                 #     CRUD bài viết
-│       ├── upload/                #     Upload file
-│       └── ...                    #     Notifications, BXH, Settings, Menus
+│   ├── (main)/                # Trang công khai
+│   │   ├── giai-dau/          # Danh sách & chi tiết giải đấu
+│   │   ├── tin-tuc/           # Tin tức
+│   │   ├── bxh/               # Bảng xếp hạng EFV
+│   │   ├── trang-ca-nhan/     # Profile người dùng
+│   │   └── xac-nhan-thanh-toan/ # Kết quả thanh toán
+│   │
+│   ├── (admin)/admin/         # Admin Dashboard
+│   │   ├── giai-dau/          # Quản lý giải đấu
+│   │   ├── nguoi-dung/        # Quản lý người dùng
+│   │   ├── bai-viet/          # Quản lý bài viết
+│   │   ├── danh-muc/          # Quản lý danh mục
+│   │   ├── thanh-toan/        # Cấu hình thanh toán
+│   │   ├── menu/              # Quản lý menu
+│   │   └── cai-dat/           # Cài đặt hệ thống
+│   │
+│   ├── (manager)/manager/     # Manager Dashboard
+│   │   ├── giai-dau/          # Quản lý giải đấu (bracket, kết quả, đăng ký...)
+│   │   ├── tao-giai-dau/      # Tạo giải đấu mới
+│   │   ├── vdv/               # Quản lý VĐV
+│   │   ├── bxh/               # Quản lý BXH
+│   │   └── thong-ke/          # Thống kê
+│   │
+│   ├── (auth)/                # Đăng nhập / Đăng ký
+│   ├── api/                   # REST API Routes
+│   └── globals.css            # Global styles & animations
+│
 ├── components/
-│   ├── ui/                        #     Shadcn UI components (Button, Dialog, Input...)
-│   ├── sections/                  #     Homepage sections (Hero, Features, CTA...)
-│   ├── Navbar.tsx                 #     Navigation bar (responsive, mega menu)
-│   └── Footer.tsx                 #     Footer
-├── contexts/
-│   └── AuthContext.tsx             #     Global authentication state
-├── hooks/
-│   └── useConfirmDialog.tsx        #     Confirmation dialog hook
-├── lib/
-│   ├── mongodb.ts                 #     Database connection
-│   ├── auth.ts                    #     JWT helpers, middleware (requireAuth, requireManager, requireAdmin)
-│   ├── api.ts                     #     Client-side API helpers
-│   └── utils.ts                   #     Utility functions
-├── models/                        # 📊 Mongoose Schemas
-│   ├── User.ts                    #     Người dùng (EFV-ID, role, avatar)
-│   ├── Tournament.ts              #     Giải đấu (format, rules, prizes)
-│   ├── Registration.ts            #     Đăng ký (thông tin, team, payment status)
-│   ├── Team.ts                    #     Đội (captain, members, stats)
-│   ├── Match.ts                   #     Trận đấu (score, events, resultSubmissions)
-│   ├── Post.ts                    #     Bài viết (TipTap content)
-│   ├── PaymentConfig.ts           #     Cấu hình thanh toán PayOS
-│   ├── SiteSettings.ts            #     Cài đặt website
-│   ├── Notification.ts            #     Thông báo
-│   ├── Bxh.ts                     #     Bảng xếp hạng
-│   └── ...                        #     Category, Feedback, SiteMenu, Counter
-├── public/                        # 🖼️ Static assets
-├── scripts/                       # 🔧 Migration scripts
-└── uploads/                       # 📁 User-uploaded files
+│   └── ui/                    # Shadcn UI components
+│
+├── contexts/                  # React Context (AuthContext)
+├── hooks/                     # Custom hooks
+├── lib/                       # Utilities, API client, DB connection
+├── models/                    # Mongoose models
+│   ├── Tournament.ts          # Giải đấu
+│   ├── Match.ts               # Trận đấu
+│   ├── Team.ts                # Đội
+│   ├── Registration.ts        # Đăng ký
+│   ├── User.ts                # Người dùng
+│   ├── Bxh.ts                 # Bảng xếp hạng
+│   ├── EfvPointLog.ts         # Lịch sử điểm EFV
+│   ├── Post.ts                # Bài viết
+│   ├── PaymentConfig.ts       # Cấu hình thanh toán
+│   └── ...
+├── public/assets/             # Ảnh, logo, banners
+└── scripts/                   # Scripts hỗ trợ
 ```
 
-## ⚙️ Cài đặt & Chạy dự án
+---
 
-### Yêu cầu
+## 🚀 Cài Đặt & Chạy
 
-- **Node.js** >= 18.x
+### Yêu Cầu
+
+- **Node.js** >= 18
 - **MongoDB** (local hoặc MongoDB Atlas)
-- **PayOS Account** (cho tính năng thanh toán)
+- **npm** hoặc **yarn**
 
 ### 1. Clone repository
 
@@ -198,148 +128,125 @@ npm install
 
 ### 3. Cấu hình biến môi trường
 
-Tạo file `.env.local`:
+Tạo file `.env.local` tại thư mục gốc:
 
 ```env
-# Database
-MONGODB_URI=mongodb+srv://your_connection_string
+# MongoDB
+MONGODB_URI=mongodb+srv://<user>:<password>@cluster.mongodb.net/efootcup
 
-# Authentication
+# JWT
 JWT_SECRET=your_jwt_secret_key
 
-# App URL
-NEXT_PUBLIC_APP_URL=http://localhost:3000
+# App
+NEXT_PUBLIC_BASE_URL=http://localhost:3000
 
-# PayOS Payment Gateway
+# PayOS (thanh toán)
 PAYOS_CLIENT_ID=your_payos_client_id
 PAYOS_API_KEY=your_payos_api_key
 PAYOS_CHECKSUM_KEY=your_payos_checksum_key
 
-# Email (Nodemailer - Gmail App Password)
-EMAIL_USER=your_email@gmail.com
-EMAIL_PASS=your_app_password
+# Email (Nodemailer)
+SMTP_HOST=smtp.gmail.com
+SMTP_PORT=587
+SMTP_USER=your_email@gmail.com
+SMTP_PASS=your_app_password
 ```
 
-### 4. Chạy Development Server
+### 4. Chạy development server
 
 ```bash
 npm run dev
 ```
 
-Truy cập [http://localhost:3000](http://localhost:3000)
+Mở [http://localhost:3000](http://localhost:3000) trên trình duyệt.
 
-### 5. Build Production
+### 5. Build production
 
 ```bash
 npm run build
 npm start
 ```
 
-## 🗄️ Database Models
+---
 
-```mermaid
-erDiagram
-    User ||--o{ Registration : "đăng ký"
-    User ||--o{ Tournament : "tạo giải"
-    User ||--o{ Notification : "nhận"
-    Tournament ||--o{ Registration : "có"
-    Tournament ||--o{ Match : "gồm"
-    Tournament ||--o{ Team : "gồm"
-    Registration ||--|| Team : "thuộc"
-    Match ||--o| Team : "homeTeam"
-    Match ||--o| Team : "awayTeam"
-    Match ||--o| Team : "winner"
-    
-    User {
-        string name
-        string email
-        string efvId
-        string role
-        string avatar
-    }
-    Tournament {
-        string title
-        string slug
-        string format
-        string status
-        number entryFee
-    }
-    Registration {
-        string playerName
-        string gamerId
-        string status
-        string paymentStatus
-    }
-    Match {
-        number round
-        string roundName
-        number homeScore
-        number awayScore
-        string status
-        array resultSubmissions
-    }
-    Team {
-        string name
-        string shortName
-        ObjectId captain
-        array members
-    }
-```
+## 🔑 Phân Quyền Hệ Thống
 
-## 🔒 Phân quyền hệ thống
-
-| Role | Quyền |
-|---|---|
-| **User** | Đăng ký giải, xem lịch, gửi kết quả, quản lý hồ sơ |
-| **Manager** | Tạo/quản lý giải đấu, duyệt đăng ký, cập nhật tỉ số, xem kết quả VĐV |
-| **Admin** | Toàn quyền hệ thống: user, bài viết, thanh toán, cài đặt website |
-
-## 📱 API Endpoints chính
-
-```
-AUTH
-  POST   /api/auth/register          Đăng ký tài khoản
-  POST   /api/auth/login             Đăng nhập
-  GET    /api/auth/me                Thông tin user hiện tại
-  GET    /api/auth/me/participation   Lịch sử thi đấu cá nhân
-
-TOURNAMENTS
-  GET    /api/tournaments             Danh sách giải đấu (phân trang)
-  POST   /api/tournaments             Tạo giải đấu mới
-  GET    /api/tournaments/[id]        Chi tiết giải đấu
-  POST   /api/tournaments/[id]/brackets   Tạo sơ đồ thi đấu
-  GET    /api/tournaments/[id]/brackets   Lấy brackets + matches
-  POST   /api/tournaments/[id]/matches/submit-result   VĐV gửi kết quả
-
-PAYMENT
-  POST   /api/tournaments/[id]/pay    Tạo link thanh toán PayOS
-  POST   /api/payment/payos-webhook   Webhook xác nhận thanh toán
-
-ADMIN
-  GET    /api/admin/stats             Thống kê dashboard
-  CRUD   /api/posts                   Quản lý bài viết
-  CRUD   /api/admin/users             Quản lý người dùng
-```
-
-## 📈 SEO & Performance
-
-- ✅ **Server Components** — Pre-render nội dung cho SEO
-- ✅ **Dynamic Metadata** — Title, description tự động theo từng trang
-- ✅ **Sitemap.xml** & **Robots.txt** — Tự động cập nhật
-- ✅ **Image Optimization** — `next/image` với lazy loading
-- ✅ **Code Splitting** — Tự động bởi Next.js App Router
-
-## 🎨 Screenshots
-
-> Thêm ảnh demo các trang chính tại đây
-
-## 📄 License
-
-Dự án thuộc bản quyền của đội ngũ phát triển eFootCup VN.
+| Role | Đường dẫn | Quyền |
+|------|-----------|-------|
+| **Admin** | `/admin` | Toàn quyền: quản lý user, giải đấu, bài viết, cài đặt hệ thống |
+| **Manager** | `/manager` | Tạo & quản lý giải đấu, cập nhật kết quả, duyệt đăng ký, quản lý BXH |
+| **User** | `/` | Xem giải đấu, đăng ký thi đấu, thanh toán, xem BXH |
 
 ---
 
-<p align="center">
-  <strong>⚽ eFootCup VN</strong> — Nơi kết nối cộng đồng eFootball Việt Nam<br/>
-  Thiết kế và phát triển bởi <a href="https://github.com/phamkhoa18">Phạm Đăng Khoa</a>
-</p>
+## 📸 Screenshots
+
+### Trang chi tiết giải đấu
+- Hero section sáng, gọn với thông tin giải đấu
+- Tabs: Tổng quan, Sơ đồ thi đấu, Danh sách VĐV, Lịch thi đấu
+- Stats: Số đội, Giải thưởng, Lệ phí
+
+### Sơ đồ thi đấu (Bracket)
+- Bracket visualization với drag-to-scroll
+- Ô tìm kiếm đối thủ/đội
+- Click vào VĐV để xem thông tin cá nhân
+- Tên VĐV nổi bật, tên đội hiển thị phụ bên dưới
+
+### Player Profile Dialog
+- Thông tin VĐV: Nickname, Gamer ID, Facebook, SĐT, Email
+- Stats: Trận / Thắng / Hòa / Thua
+- Xếp hạng & Điểm EFV
+
+---
+
+## 🗄 API Routes
+
+| Prefix | Mô tả |
+|--------|--------|
+| `/api/auth/*` | Đăng nhập, đăng ký, refresh token, profile |
+| `/api/tournaments/*` | CRUD giải đấu, brackets, registrations, matches |
+| `/api/payment/*` | Tạo thanh toán PayOS, webhook xử lý kết quả |
+| `/api/payment-config` | Cấu hình phương thức thanh toán |
+| `/api/posts/*` | CRUD bài viết |
+| `/api/categories/*` | CRUD danh mục |
+| `/api/bxh/*` | Bảng xếp hạng, tính điểm EFV |
+| `/api/dashboard` | Thống kê tổng quan |
+| `/api/upload` | Upload ảnh |
+| `/api/admin/*` | Admin-only endpoints |
+| `/api/manager/*` | Manager-only endpoints |
+
+---
+
+## 🏅 Hệ Thống Điểm EFV
+
+Mỗi giải đấu có thể gắn tier EFV:
+
+| Xếp hạng | EFV 250 | EFV 500 | EFV 1000 |
+|-----------|---------|---------|----------|
+| 🥇 Vô địch | 250 | 500 | 1000 |
+| 🥈 Á quân | 200 | 400 | 800 |
+| 🥉 Top 4 | 150 | 300 | 600 |
+| Top 8 | 100 | 200 | 400 |
+| Top 16 | 50 | 100 | 200 |
+| Top 32 | 40 | 70 | 150 |
+| Tham gia | 30 | 50 | 100 |
+
+---
+
+## 👨‍💻 Tác Giả
+
+**Phạm Đăng Khoa**
+
+- GitHub: [@phamkhoa18](https://github.com/phamkhoa18)
+
+---
+
+## 📄 License
+
+Dự án này được phát triển cho mục đích **thực tập tốt nghiệp**.
+
+---
+
+<div align="center">
+  <sub>Built with ❤️ using Next.js, MongoDB & TailwindCSS</sub>
+</div>

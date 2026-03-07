@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import { Plus, Search, Trophy, Medal, Edit, Trash2, Loader2, Award, Upload, FileSpreadsheet, Download } from "lucide-react";
+import { Plus, Search, Trophy, Medal, Edit, Trash2, Loader2, Award, Upload, FileSpreadsheet, Download, RefreshCw, Database } from "lucide-react";
 import * as XLSX from "xlsx";
 import { toast } from "sonner";
 import { useConfirmDialog } from "@/components/ui/confirm-dialog";
@@ -41,6 +41,7 @@ export default function ManagerBxhPage() {
     });
 
     const [error, setError] = useState<string | null>(null);
+    const [isReloading, setIsReloading] = useState(false);
 
     useEffect(() => {
         loadData();
@@ -314,6 +315,32 @@ export default function ManagerBxhPage() {
         }
     };
 
+    const handleReloadSystem = async () => {
+        const yes = await confirm({
+            title: "Reload BXH từ hệ thống?",
+            description: "Toàn bộ BXH hiện tại sẽ được xóa và thay bằng dữ liệu tính từ các giải đấu EFV trong hệ thống (cơ chế 5 giải gần nhất). Dữ liệu Excel sẽ bị thay thế.",
+            confirmText: "Reload",
+            variant: "warning",
+        });
+        if (!yes) return;
+
+        setIsReloading(true);
+        try {
+            const res = await fetch("/api/bxh/reload-system", { method: "POST" });
+            const json = await res.json();
+            if (json.success !== false) {
+                toast.success(`✅ ${json.message}`);
+                await loadData();
+            } else {
+                toast.error(`❌ ${json.message}`);
+            }
+        } catch (error) {
+            toast.error("Có lỗi xảy ra khi reload BXH");
+        } finally {
+            setIsReloading(false);
+        }
+    };
+
     const filtered = (Array.isArray(players) ? players : []).filter(p =>
         (p.name && String(p.name).toLowerCase().includes(search.toLowerCase())) ||
         (p.id && String(p.id).toLowerCase().includes(search.toLowerCase())) ||
@@ -336,7 +363,19 @@ export default function ManagerBxhPage() {
                     </h1>
                     <p className="text-sm text-slate-500 mt-1">Cập nhật điểm và thứ hạng của các VĐV.</p>
                 </div>
-                <div className="flex items-center gap-2 w-full sm:w-auto">
+                <div className="flex items-center gap-2 w-full sm:w-auto flex-wrap">
+                    <Button
+                        onClick={handleReloadSystem}
+                        disabled={isReloading}
+                        variant="outline"
+                        className="border-amber-300 text-amber-700 hover:bg-amber-50 rounded-xl shadow-sm flex-1 sm:flex-none"
+                    >
+                        {isReloading ? (
+                            <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Đang reload...</>
+                        ) : (
+                            <><Database className="w-4 h-4 mr-2" /> Reload từ hệ thống</>
+                        )}
+                    </Button>
                     {players.length > 0 && (
                         <Button variant="destructive" onClick={handleDeleteAll} className="bg-rose-500 hover:bg-rose-600 text-white rounded-xl shadow-sm flex-1 sm:flex-none">
                             <Trash2 className="w-4 h-4 mr-2" /> Xóa toàn bộ

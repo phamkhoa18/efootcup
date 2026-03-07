@@ -14,10 +14,11 @@ import {
     Trophy, ArrowLeft, ArrowRight, Loader2, Calendar as CalendarIcon, Users,
     DollarSign, Settings, Info, Gamepad2, Monitor, Smartphone,
     Globe, MapPin, Wifi, CheckCircle2, BarChart3, Zap, Shield,
-    Hash, Award
+    Hash, Award, Crown
 } from "lucide-react";
 import { tournamentAPI } from "@/lib/api";
 import { useAuth } from "@/contexts/AuthContext";
+import { EFV_TIER_OPTIONS } from "@/lib/efv-points";
 
 /* ===== Helpers ===== */
 
@@ -171,6 +172,10 @@ export default function TaoGiaiDauPage() {
     const [description, setDescription] = useState("");
     const [gameVersion, setGameVersion] = useState("eFootball 2025");
     const [tags, setTags] = useState("");
+
+    // Mode & EFV Tier
+    const [mode, setMode] = useState<"mobile" | "pc">("mobile");
+    const [efvTier, setEfvTier] = useState<string | null>(null);
 
     // Format & Settings
     const [format, setFormat] = useState("single_elimination");
@@ -346,6 +351,8 @@ export default function TaoGiaiDauPage() {
                 isPublic,
                 tags: tags.split(",").map((t) => t.trim()).filter(Boolean),
                 status: "draft",
+                mode,
+                efvTier: mode === "mobile" ? efvTier : null,
             };
 
             const res = await tournamentAPI.create(tournamentData);
@@ -462,6 +469,98 @@ export default function TaoGiaiDauPage() {
                             className="h-12 rounded-xl"
                         />
                     </div>
+
+                    {/* Mode: Mobile / PC */}
+                    <div className="space-y-3 pt-4 border-t border-gray-100">
+                        <Label className="text-sm font-medium">Chế độ thi đấu *</Label>
+                        <div className="grid grid-cols-2 gap-3">
+                            <button
+                                type="button"
+                                onClick={() => { setMode("mobile"); }}
+                                className={`flex items-center gap-3 p-4 rounded-xl border-2 transition-all ${mode === "mobile"
+                                    ? "border-efb-blue bg-efb-blue/5"
+                                    : "border-gray-200 hover:border-gray-300"
+                                    }`}
+                            >
+                                <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${mode === "mobile" ? "bg-efb-blue/10" : "bg-gray-100"
+                                    }`}>
+                                    <Smartphone className={`w-5 h-5 ${mode === "mobile" ? "text-efb-blue" : "text-gray-400"}`} />
+                                </div>
+                                <div className="text-left">
+                                    <div className={`text-sm font-semibold ${mode === "mobile" ? "text-efb-blue" : "text-gray-600"}`}>Mobile</div>
+                                    <div className="text-[11px] text-gray-400">eFootball Mobile</div>
+                                </div>
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => { setMode("pc"); setEfvTier(null); }}
+                                className={`flex items-center gap-3 p-4 rounded-xl border-2 transition-all ${mode === "pc"
+                                    ? "border-efb-blue bg-efb-blue/5"
+                                    : "border-gray-200 hover:border-gray-300"
+                                    }`}
+                            >
+                                <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${mode === "pc" ? "bg-efb-blue/10" : "bg-gray-100"
+                                    }`}>
+                                    <Monitor className={`w-5 h-5 ${mode === "pc" ? "text-efb-blue" : "text-gray-400"}`} />
+                                </div>
+                                <div className="text-left">
+                                    <div className={`text-sm font-semibold ${mode === "pc" ? "text-efb-blue" : "text-gray-600"}`}>PC</div>
+                                    <div className="text-[11px] text-gray-400">eFootball PC/Console</div>
+                                </div>
+                            </button>
+                        </div>
+                    </div>
+
+                    {/* EFV Tier (only for Mobile) */}
+                    {mode === "mobile" && (
+                        <motion.div
+                            initial={{ opacity: 0, height: 0 }}
+                            animate={{ opacity: 1, height: "auto" }}
+                            className="space-y-3"
+                        >
+                            <div className="flex items-center gap-2">
+                                <Crown className="w-4 h-4 text-amber-500" />
+                                <Label className="text-sm font-medium">Hạng điểm EFV *</Label>
+                            </div>
+                            <p className="text-xs text-efb-text-muted -mt-1">
+                                Chọn hạng giải để tự động trao điểm EFV cho VĐV khi giải kết thúc
+                            </p>
+                            <div className="grid grid-cols-3 gap-3">
+                                {EFV_TIER_OPTIONS.map((tier) => (
+                                    <button
+                                        key={tier.value}
+                                        type="button"
+                                        onClick={() => setEfvTier(tier.value)}
+                                        className={`relative p-4 rounded-xl border-2 transition-all text-center group ${efvTier === tier.value
+                                            ? `${tier.borderColor} ${tier.bgColor}`
+                                            : "border-gray-200 hover:border-gray-300"
+                                            }`}
+                                    >
+                                        <div className={`w-10 h-10 rounded-xl mx-auto mb-2.5 bg-gradient-to-br ${tier.color} flex items-center justify-center shadow-sm group-hover:scale-105 transition-transform`}>
+                                            <Crown className="w-5 h-5 text-white" />
+                                        </div>
+                                        <div className={`text-sm font-bold ${efvTier === tier.value ? tier.textColor : "text-gray-700"}`}>
+                                            {tier.label}
+                                        </div>
+                                        <div className="text-[10px] text-gray-400 mt-0.5">
+                                            {tier.description}
+                                        </div>
+                                        <div className={`text-[10px] font-semibold mt-1.5 px-2 py-0.5 rounded-full inline-block ${efvTier === tier.value
+                                            ? `${tier.bgColor} ${tier.textColor}`
+                                            : "bg-gray-100 text-gray-500"
+                                            }`}>
+                                            {tier.pointRange}
+                                        </div>
+                                        {efvTier === tier.value && (
+                                            <div className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full bg-efb-blue flex items-center justify-center">
+                                                <CheckCircle2 className="w-3.5 h-3.5 text-white" />
+                                            </div>
+                                        )}
+                                    </button>
+                                ))}
+                            </div>
+                        </motion.div>
+                    )}
                 </motion.div>
             )}
 
@@ -672,7 +771,7 @@ export default function TaoGiaiDauPage() {
                                 onBlur={() => {
                                     const n = parseInt(maxTeamsStr, 10);
                                     if (!n || n < 2) setMaxTeamsStr("2");
-                                    else if (n > 256) setMaxTeamsStr("256");
+                                    else if (n > 1024) setMaxTeamsStr("1024");
                                 }}
                                 placeholder="16"
                                 className="h-12 rounded-xl"
@@ -953,34 +1052,111 @@ export default function TaoGiaiDauPage() {
                     <div className="pt-4 border-t border-gray-100">
                         <h3 className="text-sm font-semibold text-efb-dark mb-3">📋 Tóm tắt giải đấu</h3>
                         <div className="grid grid-cols-2 gap-2 text-sm">
-                            <div className="p-2.5 rounded-lg bg-gray-50/80">
-                                <p className="text-[11px] text-gray-400">Tên</p>
+                            <div className="p-2.5 rounded-lg bg-gray-50/80 col-span-2">
+                                <p className="text-[11px] text-gray-400">Tên giải đấu</p>
                                 <p className="font-medium text-gray-900 truncate">{title || "—"}</p>
                             </div>
+                            <div className="p-2.5 rounded-lg bg-gray-50/80">
+                                <p className="text-[11px] text-gray-400">Chế độ</p>
+                                <p className="font-medium text-gray-900">{mode === "mobile" ? "📱 Mobile" : "🖥 PC"}</p>
+                            </div>
+                            {mode === "mobile" && efvTier && (
+                                <div className="p-2.5 rounded-lg bg-amber-50/80">
+                                    <p className="text-[11px] text-gray-400">Hạng EFV</p>
+                                    <p className="font-medium text-amber-700">
+                                        {EFV_TIER_OPTIONS.find(t => t.value === efvTier)?.label || "—"}
+                                    </p>
+                                </div>
+                            )}
                             <div className="p-2.5 rounded-lg bg-gray-50/80">
                                 <p className="text-[11px] text-gray-400">Thể thức</p>
                                 <p className="font-medium text-gray-900">{selectedFormat?.label || "—"}</p>
                             </div>
                             <div className="p-2.5 rounded-lg bg-gray-50/80">
-                                <p className="text-[11px] text-gray-400">Số đội</p>
+                                <p className="text-[11px] text-gray-400">Số đội tối đa</p>
                                 <p className="font-medium text-gray-900">{maxTeams}</p>
                             </div>
                             <div className="p-2.5 rounded-lg bg-gray-50/80">
                                 <p className="text-[11px] text-gray-400">Số trận dự kiến</p>
                                 <p className="font-medium text-gray-900">{formatInfo.matches}</p>
                             </div>
+                            <div className="p-2.5 rounded-lg bg-gray-50/80">
+                                <p className="text-[11px] text-gray-400">Kích thước đội</p>
+                                <p className="font-medium text-gray-900">{teamSize}v{teamSize}</p>
+                            </div>
+                            <div className="p-2.5 rounded-lg bg-gray-50/80">
+                                <p className="text-[11px] text-gray-400">Nền tảng</p>
+                                <p className="font-medium text-gray-900">{platformOptions.find(p => p.value === platform)?.label || platform}</p>
+                            </div>
+                            <div className="p-2.5 rounded-lg bg-gray-50/80">
+                                <p className="text-[11px] text-gray-400">Hình thức</p>
+                                <p className="font-medium text-gray-900">{isOnline ? "🌐 Online" : "📍 Offline"}</p>
+                            </div>
+                            <div className="p-2.5 rounded-lg bg-gray-50/80">
+                                <p className="text-[11px] text-gray-400">Thời lượng trận</p>
+                                <p className="font-medium text-gray-900">{matchDuration} phút · {legsPerRound === 2 ? "2 lượt" : "1 lượt"}</p>
+                            </div>
+                            <div className="p-2.5 rounded-lg bg-gray-50/80">
+                                <p className="text-[11px] text-gray-400">Hiệp phụ / Penalty</p>
+                                <p className="font-medium text-gray-900">{extraTime ? "✅" : "❌"} HP · {penalties ? "✅" : "❌"} PEN</p>
+                            </div>
+                            {registrationStart && (
+                                <div className="p-2.5 rounded-lg bg-gray-50/80">
+                                    <p className="text-[11px] text-gray-400">Mở đăng ký</p>
+                                    <p className="font-medium text-gray-900">{formatDate(registrationStart, "dd/MM/yyyy", { locale: vi })}</p>
+                                </div>
+                            )}
+                            {registrationEnd && (
+                                <div className="p-2.5 rounded-lg bg-gray-50/80">
+                                    <p className="text-[11px] text-gray-400">Đóng đăng ký</p>
+                                    <p className="font-medium text-gray-900">{formatDate(registrationEnd, "dd/MM/yyyy", { locale: vi })}</p>
+                                </div>
+                            )}
+                            {tournamentStart && (
+                                <div className="p-2.5 rounded-lg bg-gray-50/80">
+                                    <p className="text-[11px] text-gray-400">Bắt đầu giải</p>
+                                    <p className="font-medium text-gray-900">{formatDate(tournamentStart, "dd/MM/yyyy", { locale: vi })}</p>
+                                </div>
+                            )}
+                            {tournamentEnd && (
+                                <div className="p-2.5 rounded-lg bg-gray-50/80">
+                                    <p className="text-[11px] text-gray-400">Kết thúc giải</p>
+                                    <p className="font-medium text-gray-900">{formatDate(tournamentEnd, "dd/MM/yyyy", { locale: vi })}</p>
+                                </div>
+                            )}
                             {prizeTotal && (
-                                <div className="p-2.5 rounded-lg bg-gray-50/80 col-span-2">
+                                <div className="p-2.5 rounded-lg bg-emerald-50/80 col-span-2">
                                     <p className="text-[11px] text-gray-400">Tổng giải thưởng</p>
-                                    <p className="font-medium text-gray-900">{formatVNCurrency(prizeTotal)} VNĐ</p>
+                                    <p className="font-medium text-emerald-700">{formatVNCurrency(prizeTotal)} VNĐ</p>
+                                    <div className="flex gap-3 mt-1 text-xs text-gray-500">
+                                        {prizeFirst && <span>🥇 {formatVNCurrency(prizeFirst)}</span>}
+                                        {prizeSecond && <span>🥈 {formatVNCurrency(prizeSecond)}</span>}
+                                        {prizeThird && <span>🥉 {formatVNCurrency(prizeThird)}</span>}
+                                    </div>
+                                </div>
+                            )}
+                            {entryFee && parseVNCurrency(entryFee) > 0 && (
+                                <div className="p-2.5 rounded-lg bg-blue-50/80 col-span-2">
+                                    <p className="text-[11px] text-gray-400">Phí tham gia</p>
+                                    <p className="font-medium text-blue-700">{formatVNCurrency(entryFee)} VNĐ</p>
                                 </div>
                             )}
                             {showScoringConfig && (
                                 <div className="p-2.5 rounded-lg bg-gray-50/80 col-span-2">
-                                    <p className="text-[11px] text-gray-400">Tính điểm</p>
+                                    <p className="text-[11px] text-gray-400">Cấu hình tính điểm</p>
                                     <p className="font-medium text-gray-900">
                                         Thắng={pointsPerWin}đ, Hòa={pointsPerDraw}đ, Thua={pointsPerLoss}đ
                                     </p>
+                                </div>
+                            )}
+                            <div className="p-2.5 rounded-lg bg-gray-50/80">
+                                <p className="text-[11px] text-gray-400">Hiển thị</p>
+                                <p className="font-medium text-gray-900">{isPublic ? "🌐 Công khai" : "🔒 Riêng tư"}</p>
+                            </div>
+                            {gameVersion && (
+                                <div className="p-2.5 rounded-lg bg-gray-50/80">
+                                    <p className="text-[11px] text-gray-400">Phiên bản</p>
+                                    <p className="font-medium text-gray-900">{gameVersion}</p>
                                 </div>
                             )}
                         </div>

@@ -44,7 +44,7 @@ export async function GET(req: NextRequest) {
 // POST /api/bxh — Create BXH entry (manager only)
 export async function POST(req: NextRequest) {
     try {
-        const authResult = await requireRole(req, ["manager"]);
+        const authResult = await requireRole(req, ["manager", "admin"]);
         if (authResult instanceof Response) return authResult;
 
         await dbConnect();
@@ -102,7 +102,7 @@ export async function POST(req: NextRequest) {
 // DELETE /api/bxh — Clear all BXH (manager only)
 export async function DELETE(req: NextRequest) {
     try {
-        const authResult = await requireRole(req, ["manager"]);
+        const authResult = await requireRole(req, ["manager", "admin"]);
         if (authResult instanceof Response) return authResult;
 
         await dbConnect();

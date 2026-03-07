@@ -192,6 +192,28 @@ export const tournamentAPI = {
             method: "PUT",
             body: JSON.stringify(data),
         }),
+
+    // Expenses
+    getExpenses: (tournamentId: string) =>
+        apiFetch(`/tournaments/${tournamentId}/expenses`),
+
+    addExpense: (tournamentId: string, data: any) =>
+        apiFetch(`/tournaments/${tournamentId}/expenses`, {
+            method: "POST",
+            body: JSON.stringify(data),
+        }),
+
+    updateExpense: (tournamentId: string, data: any) =>
+        apiFetch(`/tournaments/${tournamentId}/expenses`, {
+            method: "PUT",
+            body: JSON.stringify(data),
+        }),
+
+    deleteExpense: (tournamentId: string, expenseId: string) =>
+        apiFetch(`/tournaments/${tournamentId}/expenses`, {
+            method: "DELETE",
+            body: JSON.stringify({ expenseId }),
+        }),
 };
 
 // ====== Dashboard ======
