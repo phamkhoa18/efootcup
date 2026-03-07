@@ -11,7 +11,7 @@ export async function POST(req: NextRequest) {
         await dbConnect();
 
         const body = await req.json();
-        const { name, email, password, confirmPassword, role, teamName } = body;
+        const { name, email, password, confirmPassword, role, teamName, nickname, phone, facebookLink } = body;
 
         // Validate
         if (!name || !email || !password) {
@@ -45,6 +45,9 @@ export async function POST(req: NextRequest) {
                 existingUser.password = hashedPassword;
                 existingUser.role = role === "manager" ? "manager" : "user";
                 if (teamName) existingUser.teamName = teamName;
+                if (nickname) existingUser.nickname = nickname;
+                if (phone) existingUser.phone = phone;
+                if (facebookLink) existingUser.facebookLink = facebookLink;
                 existingUser.verificationCode = code;
                 existingUser.verificationCodeExpires = codeExpires;
                 await existingUser.save();
@@ -80,6 +83,9 @@ export async function POST(req: NextRequest) {
             password: hashedPassword,
             role: role === "manager" ? "manager" : "user",
             ...(teamName ? { teamName } : {}),
+            ...(nickname ? { nickname } : {}),
+            ...(phone ? { phone } : {}),
+            ...(facebookLink ? { facebookLink } : {}),
             isVerified: false,
             verificationCode: code,
             verificationCodeExpires: codeExpires,

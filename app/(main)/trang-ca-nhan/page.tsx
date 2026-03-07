@@ -12,7 +12,8 @@ import {
     Save, Loader2, CheckCircle2, ArrowLeft, Shield,
     Trophy, Swords, Target, CalendarDays, Edit3, X,
     Clock, ExternalLink, ChevronRight, Activity, XCircle, Upload,
-    Star, Crown, Medal, Award, TrendingUp, Hash, ChevronDown, Monitor, Smartphone
+    Star, Crown, Medal, Award, TrendingUp, Hash, ChevronDown, Monitor, Smartphone,
+    MapPin, Globe, Facebook
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -59,6 +60,12 @@ export default function TrangCaNhanPage() {
         phone: "",
         bio: "",
         gamerId: "",
+        nickname: "",
+        teamName: "",
+        facebookName: "",
+        facebookLink: "",
+        dateOfBirth: "",
+        province: "",
     });
 
     useEffect(() => {
@@ -68,6 +75,12 @@ export default function TrangCaNhanPage() {
                 phone: user.phone || "",
                 bio: user.bio || "",
                 gamerId: user.gamerId || "",
+                nickname: user.nickname || "",
+                teamName: user.teamName || "",
+                facebookName: user.facebookName || "",
+                facebookLink: user.facebookLink || "",
+                dateOfBirth: user.dateOfBirth || "",
+                province: user.province || "",
             });
         }
     }, [user]);
@@ -194,6 +207,12 @@ export default function TrangCaNhanPage() {
                 phone: user.phone || "",
                 bio: user.bio || "",
                 gamerId: user.gamerId || "",
+                nickname: user.nickname || "",
+                teamName: user.teamName || "",
+                facebookName: user.facebookName || "",
+                facebookLink: user.facebookLink || "",
+                dateOfBirth: user.dateOfBirth || "",
+                province: user.province || "",
             });
         }
         setIsEditing(false);
@@ -453,8 +472,8 @@ export default function TrangCaNhanPage() {
                                     <button
                                         onClick={() => setEfvTab('mobile')}
                                         className={`flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg text-xs font-semibold transition-all duration-200 ${efvTab === 'mobile'
-                                                ? 'bg-white text-amber-700 shadow-sm'
-                                                : 'text-gray-400 hover:text-gray-600'
+                                            ? 'bg-white text-amber-700 shadow-sm'
+                                            : 'text-gray-400 hover:text-gray-600'
                                             }`}
                                     >
                                         <Smartphone className="w-3.5 h-3.5" />
@@ -463,8 +482,8 @@ export default function TrangCaNhanPage() {
                                     <button
                                         onClick={() => setEfvTab('console')}
                                         className={`flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg text-xs font-semibold transition-all duration-200 ${efvTab === 'console'
-                                                ? 'bg-white text-cyan-700 shadow-sm'
-                                                : 'text-gray-400 hover:text-gray-600'
+                                            ? 'bg-white text-cyan-700 shadow-sm'
+                                            : 'text-gray-400 hover:text-gray-600'
                                             }`}
                                     >
                                         <Monitor className="w-3.5 h-3.5" />
@@ -1059,6 +1078,28 @@ export default function TrangCaNhanPage() {
                                 )}
                             </div>
 
+                            {/* Nickname */}
+                            <div className="space-y-2">
+                                <Label htmlFor="nickname" className="text-sm font-medium text-gray-700 flex items-center gap-1.5">
+                                    <Gamepad2 className="w-3.5 h-3.5 text-gray-400" />
+                                    Nickname
+                                </Label>
+                                {isEditing ? (
+                                    <Input
+                                        id="nickname"
+                                        value={form.nickname}
+                                        onChange={(e) => setForm({ ...form, nickname: e.target.value })}
+                                        className="h-11 rounded-xl border-gray-200 bg-white focus:border-efb-blue focus:ring-efb-blue/20"
+                                        placeholder="Tên trong game"
+                                        maxLength={50}
+                                    />
+                                ) : (
+                                    <p className="h-11 flex items-center text-sm text-gray-900 px-3 bg-gray-50/50 rounded-xl border border-gray-100">
+                                        {user.nickname || <span className="text-gray-400">Chưa cập nhật</span>}
+                                    </p>
+                                )}
+                            </div>
+
                             {/* Email (read-only) */}
                             <div className="space-y-2">
                                 <Label className="text-sm font-medium text-gray-700 flex items-center gap-1.5">
@@ -1111,6 +1152,116 @@ export default function TrangCaNhanPage() {
                                 ) : (
                                     <p className="h-11 flex items-center text-sm text-gray-900 px-3 bg-gray-50/50 rounded-xl border border-gray-100">
                                         {user.gamerId || <span className="text-gray-400">Chưa cập nhật</span>}
+                                    </p>
+                                )}
+                            </div>
+
+                            {/* Team Name */}
+                            <div className="space-y-2">
+                                <Label htmlFor="teamName" className="text-sm font-medium text-gray-700 flex items-center gap-1.5">
+                                    <Shield className="w-3.5 h-3.5 text-gray-400" />
+                                    Tên Team
+                                </Label>
+                                {isEditing ? (
+                                    <Input
+                                        id="teamName"
+                                        value={form.teamName}
+                                        onChange={(e) => setForm({ ...form, teamName: e.target.value })}
+                                        className="h-11 rounded-xl border-gray-200 bg-white focus:border-efb-blue focus:ring-efb-blue/20"
+                                        placeholder="VD: FC Saigon"
+                                        maxLength={100}
+                                    />
+                                ) : (
+                                    <p className="h-11 flex items-center text-sm text-gray-900 px-3 bg-gray-50/50 rounded-xl border border-gray-100">
+                                        {user.teamName || <span className="text-gray-400">Chưa cập nhật</span>}
+                                    </p>
+                                )}
+                            </div>
+
+                            {/* Facebook Name */}
+                            <div className="space-y-2">
+                                <Label htmlFor="facebookName" className="text-sm font-medium text-gray-700 flex items-center gap-1.5">
+                                    <Facebook className="w-3.5 h-3.5 text-gray-400" />
+                                    Tên Facebook
+                                </Label>
+                                {isEditing ? (
+                                    <Input
+                                        id="facebookName"
+                                        value={form.facebookName}
+                                        onChange={(e) => setForm({ ...form, facebookName: e.target.value })}
+                                        className="h-11 rounded-xl border-gray-200 bg-white focus:border-efb-blue focus:ring-efb-blue/20"
+                                        placeholder="Tên Facebook của bạn"
+                                    />
+                                ) : (
+                                    <p className="h-11 flex items-center text-sm text-gray-900 px-3 bg-gray-50/50 rounded-xl border border-gray-100">
+                                        {user.facebookName || <span className="text-gray-400">Chưa cập nhật</span>}
+                                    </p>
+                                )}
+                            </div>
+
+                            {/* Facebook Link */}
+                            <div className="space-y-2">
+                                <Label htmlFor="facebookLink" className="text-sm font-medium text-gray-700 flex items-center gap-1.5">
+                                    <ExternalLink className="w-3.5 h-3.5 text-gray-400" />
+                                    Link Facebook
+                                </Label>
+                                {isEditing ? (
+                                    <Input
+                                        id="facebookLink"
+                                        value={form.facebookLink}
+                                        onChange={(e) => setForm({ ...form, facebookLink: e.target.value })}
+                                        className="h-11 rounded-xl border-gray-200 bg-white focus:border-efb-blue focus:ring-efb-blue/20"
+                                        placeholder="https://facebook.com/yourprofile"
+                                    />
+                                ) : (
+                                    <p className="h-11 flex items-center text-sm px-3 bg-gray-50/50 rounded-xl border border-gray-100">
+                                        {user.facebookLink ? (
+                                            <a href={user.facebookLink} target="_blank" rel="noopener" className="text-blue-600 hover:underline truncate">{user.facebookLink}</a>
+                                        ) : (
+                                            <span className="text-gray-400">Chưa cập nhật</span>
+                                        )}
+                                    </p>
+                                )}
+                            </div>
+
+                            {/* Date of Birth */}
+                            <div className="space-y-2">
+                                <Label htmlFor="dateOfBirth" className="text-sm font-medium text-gray-700 flex items-center gap-1.5">
+                                    <CalendarDays className="w-3.5 h-3.5 text-gray-400" />
+                                    Ngày sinh
+                                </Label>
+                                {isEditing ? (
+                                    <Input
+                                        id="dateOfBirth"
+                                        type="date"
+                                        value={form.dateOfBirth}
+                                        onChange={(e) => setForm({ ...form, dateOfBirth: e.target.value })}
+                                        className="h-11 rounded-xl border-gray-200 bg-white focus:border-efb-blue focus:ring-efb-blue/20"
+                                    />
+                                ) : (
+                                    <p className="h-11 flex items-center text-sm text-gray-900 px-3 bg-gray-50/50 rounded-xl border border-gray-100">
+                                        {user.dateOfBirth ? new Date(user.dateOfBirth).toLocaleDateString("vi-VN") : <span className="text-gray-400">Chưa cập nhật</span>}
+                                    </p>
+                                )}
+                            </div>
+
+                            {/* Province */}
+                            <div className="space-y-2">
+                                <Label htmlFor="province" className="text-sm font-medium text-gray-700 flex items-center gap-1.5">
+                                    <MapPin className="w-3.5 h-3.5 text-gray-400" />
+                                    Tỉnh/Thành phố
+                                </Label>
+                                {isEditing ? (
+                                    <Input
+                                        id="province"
+                                        value={form.province}
+                                        onChange={(e) => setForm({ ...form, province: e.target.value })}
+                                        className="h-11 rounded-xl border-gray-200 bg-white focus:border-efb-blue focus:ring-efb-blue/20"
+                                        placeholder="VD: TP. Hồ Chí Minh"
+                                    />
+                                ) : (
+                                    <p className="h-11 flex items-center text-sm text-gray-900 px-3 bg-gray-50/50 rounded-xl border border-gray-100">
+                                        {user.province || <span className="text-gray-400">Chưa cập nhật</span>}
                                     </p>
                                 )}
                             </div>

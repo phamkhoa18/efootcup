@@ -1,9 +1,10 @@
 "use client";
 import { useState, useEffect, useMemo } from "react";
+import Link from "next/link";
 import {
     Search, Trophy, Crown, Medal, ChevronLeft, ChevronRight,
     Users, ExternalLink, Gamepad2, Award, X, CheckCircle2, XCircle,
-    Loader2, Monitor,
+    Loader2, Monitor, Eye, Phone, Mail, MapPin, Shield, User as UserIcon, Facebook,
 } from "lucide-react";
 import Image from "next/image";
 import { PLACEMENT_LABELS, EFV_TIER_WINDOWS, getTierLabel } from "@/lib/efv-points";
@@ -20,6 +21,7 @@ type Player = {
     pointsEfv50?: number;
     pointsEfv100?: number;
     pointsEfv200?: number;
+    efvId?: number | string;
 };
 
 type PointLog = {
@@ -34,7 +36,20 @@ type PointLog = {
 };
 
 type HistoryData = {
-    user: { name: string; efvId: number };
+    user: {
+        name: string;
+        efvId: number;
+        avatar?: string;
+        nickname?: string;
+        teamName?: string;
+        phone?: string;
+        email?: string;
+        facebookName?: string;
+        facebookLink?: string;
+        gamerId?: string;
+        province?: string;
+        bio?: string;
+    };
     logs: PointLog[];
     activeTotal: number;
     tierPoints: Record<string, number>;
@@ -238,7 +253,7 @@ export default function BXHConsolePage() {
                     ) : (
                         <div className="bg-white rounded-2xl overflow-hidden shadow-xl border border-slate-200">
                             {/* Table header */}
-                            <div className="hidden md:grid grid-cols-[55px_120px_1fr_120px_120px_90px_45px] px-5 py-3 text-[10px] font-bold text-slate-400 uppercase tracking-widest bg-slate-50 border-b border-slate-100">
+                            <div className="hidden md:grid grid-cols-[55px_120px_1fr_120px_120px_90px_45px_45px] px-5 py-3 text-[10px] font-bold text-slate-400 uppercase tracking-widest bg-slate-50 border-b border-slate-100">
                                 <span className="text-center">#</span>
                                 <span>EFV ID</span>
                                 <span>Họ Tên VĐV</span>
@@ -246,6 +261,7 @@ export default function BXHConsolePage() {
                                 <span>Nickname</span>
                                 <span className="text-right">Điểm</span>
                                 <span className="text-center">FB</span>
+                                <span className="text-center">Xem</span>
                             </div>
 
                             {paged.map((p, idx) => {
@@ -267,7 +283,7 @@ export default function BXHConsolePage() {
                                         className={`${rowBg} border-b border-slate-100 last:border-b-0 hover:bg-teal-50/50 transition-colors inline-block w-full cursor-pointer`}
                                     >
                                         {/* Desktop */}
-                                        <div className="hidden md:grid grid-cols-[55px_120px_1fr_120px_120px_90px_45px] px-5 py-3.5 items-center group">
+                                        <div className="hidden md:grid grid-cols-[55px_120px_1fr_120px_120px_90px_45px_45px] px-5 py-3.5 items-center group">
                                             <div className="flex justify-center">
                                                 {isTop1 ? (
                                                     <div className="w-8 h-8 rounded-full bg-gradient-to-br from-cyan-400 to-teal-600 flex items-center justify-center shadow-md">
@@ -308,12 +324,23 @@ export default function BXHConsolePage() {
                                             </div>
                                             <div className="flex justify-center">
                                                 {p.facebook ? (
-                                                    <a href={String(p.facebook)} target="_blank" rel="noopener" className="w-8 h-8 rounded-lg bg-blue-50 flex items-center justify-center text-blue-500 hover:bg-blue-100 hover:scale-110 transition-all border border-blue-100">
+                                                    <a href={String(p.facebook)} target="_blank" rel="noopener" onClick={(e) => e.stopPropagation()} className="w-8 h-8 rounded-lg bg-blue-50 flex items-center justify-center text-blue-500 hover:bg-blue-100 hover:scale-110 transition-all border border-blue-100">
                                                         <ExternalLink size={13} />
                                                     </a>
                                                 ) : (
                                                     <span className="text-slate-200">—</span>
                                                 )}
+                                            </div>
+                                            {/* Profile */}
+                                            <div className="flex justify-center">
+                                                <Link
+                                                    href={`/profile/${p.efvId || p.id}`}
+                                                    onClick={(e) => e.stopPropagation()}
+                                                    className="w-8 h-8 rounded-lg bg-emerald-50 flex items-center justify-center text-emerald-500 hover:bg-emerald-100 hover:scale-110 transition-all border border-emerald-100"
+                                                    title="Xem hồ sơ"
+                                                >
+                                                    <Eye size={13} />
+                                                </Link>
                                             </div>
                                         </div>
 
@@ -348,9 +375,19 @@ export default function BXHConsolePage() {
                                                         {p.team && <span className="text-[10px] bg-slate-100 text-slate-600 px-2 py-0.5 rounded-full font-medium">{p.team}</span>}
                                                     </div>
                                                 </div>
-                                                <div className="text-right shrink-0">
-                                                    <span className={`font-extrabold text-[18px] ${r <= 3 ? "text-cyan-600" : "text-slate-800"}`}>{String(p.points)}</span>
-                                                    <p className="text-[8px] text-slate-400 uppercase tracking-widest">ĐIỂM</p>
+                                                <div className="text-right shrink-0 flex items-center gap-2">
+                                                    <div>
+                                                        <span className={`font-extrabold text-[18px] ${r <= 3 ? "text-cyan-600" : "text-slate-800"}`}>{String(p.points)}</span>
+                                                        <p className="text-[8px] text-slate-400 uppercase tracking-widest">ĐIỂM</p>
+                                                    </div>
+                                                    <Link
+                                                        href={`/profile/${p.efvId || p.id}`}
+                                                        onClick={(e) => e.stopPropagation()}
+                                                        className="w-8 h-8 rounded-lg bg-emerald-50 flex items-center justify-center text-emerald-500 hover:bg-emerald-100 transition-all border border-emerald-100 flex-shrink-0"
+                                                        title="Xem hồ sơ"
+                                                    >
+                                                        <Eye size={14} />
+                                                    </Link>
                                                 </div>
                                             </div>
                                         </div>
@@ -405,18 +442,31 @@ export default function BXHConsolePage() {
                     <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[85vh] overflow-hidden flex flex-col animate-in fade-in zoom-in-95 duration-200">
                         {/* Header */}
                         <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 bg-gradient-to-r from-cyan-50 to-white">
-                            <div>
-                                <h3 className="text-lg font-bold text-slate-800 flex items-center gap-2">
-                                    <Monitor className="w-5 h-5 text-cyan-500" />
-                                    {historyData?.user?.name || "Đang tải..."}
-                                </h3>
-                                {historyData?.user?.efvId != null && (
-                                    <p className="text-xs text-slate-500 mt-0.5">EFV-ID: #{historyData.user.efvId}</p>
+                            <div className="flex items-center gap-3 min-w-0">
+                                {historyData?.user?.avatar ? (
+                                    <img src={historyData.user.avatar} alt="" className="w-10 h-10 rounded-xl object-cover border border-slate-200 flex-shrink-0" />
+                                ) : (
+                                    <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-cyan-400 to-teal-600 flex items-center justify-center text-white font-bold text-sm flex-shrink-0">
+                                        {historyData?.user?.name?.charAt(0) || "?"}
+                                    </div>
                                 )}
+                                <div className="min-w-0">
+                                    <h3 className="text-base font-bold text-slate-800 truncate">
+                                        {historyData?.user?.name || "Đang tải..."}
+                                    </h3>
+                                    <div className="flex items-center gap-2 flex-wrap">
+                                        {historyData?.user?.efvId != null && (
+                                            <span className="text-[10px] font-bold text-cyan-600 bg-cyan-50 px-1.5 py-0.5 rounded border border-cyan-100">EFV #{historyData.user.efvId}</span>
+                                        )}
+                                        {historyData?.user?.nickname && (
+                                            <span className="text-[10px] text-slate-500">"{historyData.user.nickname}"</span>
+                                        )}
+                                    </div>
+                                </div>
                             </div>
                             <button
                                 onClick={() => setHistoryOpen(false)}
-                                className="w-8 h-8 rounded-lg bg-slate-100 flex items-center justify-center hover:bg-slate-200 transition-colors"
+                                className="w-8 h-8 rounded-lg bg-slate-100 flex items-center justify-center hover:bg-slate-200 transition-colors flex-shrink-0 ml-2"
                             >
                                 <X size={16} />
                             </button>
@@ -428,103 +478,164 @@ export default function BXHConsolePage() {
                                 <div className="flex items-center justify-center py-12">
                                     <Loader2 className="w-8 h-8 animate-spin text-teal-500" />
                                 </div>
-                            ) : !historyData || historyData.logs.length === 0 ? (
+                            ) : !historyData ? (
                                 <div className="text-center py-12">
                                     <Monitor className="w-12 h-12 text-slate-200 mx-auto mb-3" />
-                                    <p className="text-slate-500 font-medium">Chưa có lịch sử điểm EFV Console</p>
-                                    <p className="text-xs text-slate-400 mt-1">VĐV này chưa tham gia giải EFV Console nào</p>
+                                    <p className="text-slate-500 font-medium">Chưa có dữ liệu</p>
                                 </div>
                             ) : (
                                 <div className="space-y-4">
-                                    {/* Per-tier breakdown */}
-                                    <div className="grid grid-cols-3 gap-2">
-                                        <div className="p-3 rounded-xl bg-teal-50 border border-teal-200 text-center">
-                                            <p className="text-[10px] text-teal-500 font-bold uppercase tracking-wide">EFV 50</p>
-                                            <p className="text-lg font-black text-teal-700">{historyData.tierPoints?.efv_50 ?? 0}</p>
-                                            <p className="text-[9px] text-teal-400">Top {EFV_TIER_WINDOWS.efv_50} giải</p>
+                                    {/* ── User Info Card ── */}
+                                    <div className="bg-slate-50 rounded-xl border border-slate-100 p-4">
+                                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-3">THÔNG TIN VĐV</p>
+                                        <div className="grid grid-cols-2 gap-2">
+                                            {historyData.user.teamName && (
+                                                <div className="flex items-center gap-2 text-sm">
+                                                    <Shield className="w-3.5 h-3.5 text-indigo-400 flex-shrink-0" />
+                                                    <span className="text-slate-700 truncate">{historyData.user.teamName}</span>
+                                                </div>
+                                            )}
+                                            {historyData.user.gamerId && (
+                                                <div className="flex items-center gap-2 text-sm">
+                                                    <Gamepad2 className="w-3.5 h-3.5 text-slate-400 flex-shrink-0" />
+                                                    <span className="text-slate-700 truncate">ID: {historyData.user.gamerId}</span>
+                                                </div>
+                                            )}
+                                            {historyData.user.phone && (
+                                                <div className="flex items-center gap-2 text-sm">
+                                                    <Phone className="w-3.5 h-3.5 text-emerald-400 flex-shrink-0" />
+                                                    <span className="text-slate-700 truncate">{historyData.user.phone}</span>
+                                                </div>
+                                            )}
+                                            {historyData.user.email && (
+                                                <div className="flex items-center gap-2 text-sm">
+                                                    <Mail className="w-3.5 h-3.5 text-blue-400 flex-shrink-0" />
+                                                    <span className="text-slate-700 truncate">{historyData.user.email}</span>
+                                                </div>
+                                            )}
+                                            {historyData.user.province && (
+                                                <div className="flex items-center gap-2 text-sm">
+                                                    <MapPin className="w-3.5 h-3.5 text-rose-400 flex-shrink-0" />
+                                                    <span className="text-slate-700 truncate">{historyData.user.province}</span>
+                                                </div>
+                                            )}
+                                            {historyData.user.facebookLink && (
+                                                <div className="flex items-center gap-2 text-sm">
+                                                    <Facebook className="w-3.5 h-3.5 text-blue-500 flex-shrink-0" />
+                                                    <a href={historyData.user.facebookLink} target="_blank" rel="noopener" className="text-blue-600 hover:underline truncate">
+                                                        {historyData.user.facebookName || "Facebook"}
+                                                    </a>
+                                                </div>
+                                            )}
                                         </div>
-                                        <div className="p-3 rounded-xl bg-cyan-50 border border-cyan-200 text-center">
-                                            <p className="text-[10px] text-cyan-500 font-bold uppercase tracking-wide">EFV 100</p>
-                                            <p className="text-lg font-black text-cyan-700">{historyData.tierPoints?.efv_100 ?? 0}</p>
-                                            <p className="text-[9px] text-cyan-400">Top {EFV_TIER_WINDOWS.efv_100} giải</p>
-                                        </div>
-                                        <div className="p-3 rounded-xl bg-rose-50 border border-rose-200 text-center">
-                                            <p className="text-[10px] text-rose-500 font-bold uppercase tracking-wide">EFV 200</p>
-                                            <p className="text-lg font-black text-rose-700">{historyData.tierPoints?.efv_200 ?? 0}</p>
-                                            <p className="text-[9px] text-rose-400">Top {EFV_TIER_WINDOWS.efv_200} giải</p>
-                                        </div>
-                                    </div>
-                                    {/* Total */}
-                                    <div className="flex items-center justify-between p-4 rounded-xl bg-gradient-to-r from-cyan-50 to-teal-50 border border-cyan-200">
-                                        <div>
-                                            <p className="text-xs text-cyan-700 font-medium">BXH Tổng Console</p>
-                                            <p className="text-xs text-cyan-600/70 mt-0.5">= EFV50 + EFV100 + EFV200</p>
-                                        </div>
-                                        <div className="text-3xl font-black text-cyan-600">
-                                            {historyData.activeTotal}
-                                        </div>
+                                        {/* View full profile link */}
+                                        <Link
+                                            href={`/profile/${historyData.user.efvId}`}
+                                            className="mt-3 flex items-center gap-1.5 text-xs font-medium text-blue-600 hover:text-blue-700 transition-colors"
+                                        >
+                                            <Eye className="w-3.5 h-3.5" />
+                                            Xem profile đầy đủ
+                                        </Link>
                                     </div>
 
-                                    {/* Logs */}
-                                    <div className="space-y-2">
-                                        {historyData.logs.map((log) => {
-                                            const tierLabel = getTierLabel(log.efvTier);
-                                            const placementLabel = PLACEMENT_LABELS[log.placement] || log.placement;
+                                    {historyData.logs.length === 0 ? (
+                                        <div className="text-center py-8">
+                                            <Monitor className="w-10 h-10 text-slate-200 mx-auto mb-2" />
+                                            <p className="text-slate-400 text-sm">Chưa có lịch sử điểm EFV Console</p>
+                                        </div>
+                                    ) : (
+                                        <>
+                                            {/* Per-tier breakdown */}
+                                            <div className="grid grid-cols-3 gap-2">
+                                                <div className="p-3 rounded-xl bg-teal-50 border border-teal-200 text-center">
+                                                    <p className="text-[10px] text-teal-500 font-bold uppercase tracking-wide">EFV 50</p>
+                                                    <p className="text-lg font-black text-teal-700">{historyData.tierPoints?.efv_50 ?? 0}</p>
+                                                    <p className="text-[9px] text-teal-400">Top {EFV_TIER_WINDOWS.efv_50} giải</p>
+                                                </div>
+                                                <div className="p-3 rounded-xl bg-cyan-50 border border-cyan-200 text-center">
+                                                    <p className="text-[10px] text-cyan-500 font-bold uppercase tracking-wide">EFV 100</p>
+                                                    <p className="text-lg font-black text-cyan-700">{historyData.tierPoints?.efv_100 ?? 0}</p>
+                                                    <p className="text-[9px] text-cyan-400">Top {EFV_TIER_WINDOWS.efv_100} giải</p>
+                                                </div>
+                                                <div className="p-3 rounded-xl bg-rose-50 border border-rose-200 text-center">
+                                                    <p className="text-[10px] text-rose-500 font-bold uppercase tracking-wide">EFV 200</p>
+                                                    <p className="text-lg font-black text-rose-700">{historyData.tierPoints?.efv_200 ?? 0}</p>
+                                                    <p className="text-[9px] text-rose-400">Top {EFV_TIER_WINDOWS.efv_200} giải</p>
+                                                </div>
+                                            </div>
+                                            {/* Total */}
+                                            <div className="flex items-center justify-between p-4 rounded-xl bg-gradient-to-r from-cyan-50 to-teal-50 border border-cyan-200">
+                                                <div>
+                                                    <p className="text-xs text-cyan-700 font-medium">BXH Tổng Console</p>
+                                                    <p className="text-xs text-cyan-600/70 mt-0.5">= EFV50 + EFV100 + EFV200</p>
+                                                </div>
+                                                <div className="text-3xl font-black text-cyan-600">
+                                                    {historyData.activeTotal}
+                                                </div>
+                                            </div>
 
-                                            return (
-                                                <div key={log._id}>
-                                                    <div className={`flex items-center gap-3 p-3 rounded-xl border transition-all ${log.isActive
-                                                        ? "bg-white border-slate-200 hover:border-teal-200"
-                                                        : "bg-slate-50/50 border-slate-100 opacity-60"
-                                                        }`}>
-                                                        <div className="flex-shrink-0">
-                                                            {log.isActive ? (
-                                                                <CheckCircle2 className="w-4 h-4 text-emerald-500" />
-                                                            ) : (
-                                                                <XCircle className="w-4 h-4 text-slate-300" />
-                                                            )}
-                                                        </div>
-                                                        <div className="flex-1 min-w-0">
-                                                            <p className="text-sm font-semibold text-slate-800 truncate">
-                                                                {log.tournamentTitle}
-                                                            </p>
-                                                            <div className="flex items-center gap-2 mt-0.5">
-                                                                <span className="text-[10px] font-bold text-teal-600 bg-teal-50 px-1.5 py-0.5 rounded">
-                                                                    {tierLabel}
-                                                                </span>
-                                                                <span className="text-[11px] text-slate-500">
-                                                                    {placementLabel}
-                                                                </span>
+                                            {/* Logs */}
+                                            <div className="space-y-2">
+                                                {historyData.logs.map((log) => {
+                                                    const tierLabel = getTierLabel(log.efvTier);
+                                                    const placementLabel = PLACEMENT_LABELS[log.placement] || log.placement;
+
+                                                    return (
+                                                        <div key={log._id}>
+                                                            <div className={`flex items-center gap-3 p-3 rounded-xl border transition-all ${log.isActive
+                                                                ? "bg-white border-slate-200 hover:border-teal-200"
+                                                                : "bg-slate-50/50 border-slate-100 opacity-60"
+                                                                }`}>
+                                                                <div className="flex-shrink-0">
+                                                                    {log.isActive ? (
+                                                                        <CheckCircle2 className="w-4 h-4 text-emerald-500" />
+                                                                    ) : (
+                                                                        <XCircle className="w-4 h-4 text-slate-300" />
+                                                                    )}
+                                                                </div>
+                                                                <div className="flex-1 min-w-0">
+                                                                    <p className="text-sm font-semibold text-slate-800 truncate">
+                                                                        {log.tournamentTitle}
+                                                                    </p>
+                                                                    <div className="flex items-center gap-2 mt-0.5">
+                                                                        <span className="text-[10px] font-bold text-teal-600 bg-teal-50 px-1.5 py-0.5 rounded">
+                                                                            {tierLabel}
+                                                                        </span>
+                                                                        <span className="text-[11px] text-slate-500">
+                                                                            {placementLabel}
+                                                                        </span>
+                                                                    </div>
+                                                                </div>
+                                                                <div className="text-right flex-shrink-0">
+                                                                    <span className={`text-lg font-bold ${log.isActive ? "text-emerald-600" : "text-slate-400 line-through"
+                                                                        }`}>
+                                                                        +{log.points}
+                                                                    </span>
+                                                                </div>
                                                             </div>
                                                         </div>
-                                                        <div className="text-right flex-shrink-0">
-                                                            <span className={`text-lg font-bold ${log.isActive ? "text-emerald-600" : "text-slate-400 line-through"
-                                                                }`}>
-                                                                +{log.points}
-                                                            </span>
-                                                        </div>
+                                                    );
+                                                })}
+                                            </div>
+
+                                            {/* Legend */}
+                                            <div className="flex flex-col gap-2 pt-3 border-t border-slate-100">
+                                                <div className="flex items-center gap-4">
+                                                    <div className="flex items-center gap-1.5 text-[11px] text-slate-500">
+                                                        <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500" />
+                                                        Tính vào BXH
+                                                    </div>
+                                                    <div className="flex items-center gap-1.5 text-[11px] text-slate-400">
+                                                        <XCircle className="w-3.5 h-3.5 text-slate-300" />
+                                                        Ngoài cửa sổ
                                                     </div>
                                                 </div>
-                                            );
-                                        })}
-                                    </div>
-
-                                    {/* Legend */}
-                                    <div className="flex flex-col gap-2 pt-3 border-t border-slate-100">
-                                        <div className="flex items-center gap-4">
-                                            <div className="flex items-center gap-1.5 text-[11px] text-slate-500">
-                                                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500" />
-                                                Tính vào BXH
+                                                <p className="text-[10px] text-slate-400">
+                                                    EFV50: {EFV_TIER_WINDOWS.efv_50} giải · EFV100: {EFV_TIER_WINDOWS.efv_100} giải · EFV200: {EFV_TIER_WINDOWS.efv_200} giải
+                                                </p>
                                             </div>
-                                            <div className="flex items-center gap-1.5 text-[11px] text-slate-400">
-                                                <XCircle className="w-3.5 h-3.5 text-slate-300" />
-                                                Ngoài cửa sổ
-                                            </div>
-                                        </div>
-                                        <p className="text-[10px] text-slate-400">
-                                            EFV50: {EFV_TIER_WINDOWS.efv_50} giải · EFV100: {EFV_TIER_WINDOWS.efv_100} giải · EFV200: {EFV_TIER_WINDOWS.efv_200} giải
-                                        </p>
-                                    </div>
+                                        </>
+                                    )}
                                 </div>
                             )}
                         </div>

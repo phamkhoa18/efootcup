@@ -10,7 +10,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
-    Eye, EyeOff, Mail, Lock, User, ArrowRight, Trophy, Loader2, Shield
+    Eye, EyeOff, Mail, Lock, User, ArrowRight, Trophy, Loader2, Shield,
+    Gamepad2, Phone, ExternalLink
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useSiteSettings } from "@/hooks/useSiteSettings";
@@ -26,6 +27,9 @@ export default function DangKyPage() {
         password: "",
         confirmPassword: "",
         teamName: "",
+        nickname: "",
+        phone: "",
+        facebookLink: "",
         role: "user" as const,
     });
     const { register: registerUser } = useAuth();
@@ -218,6 +222,67 @@ export default function DangKyPage() {
                                     className="pl-10 h-12 rounded-xl border-gray-200 bg-gray-50/50 focus:bg-white focus:border-efb-blue focus:ring-efb-blue/20 transition-all text-sm"
                                     disabled={isSubmitting}
                                     maxLength={100}
+                                />
+                            </div>
+                        </div>
+
+                        {/* Nickname (required) */}
+                        <div className="space-y-2">
+                            <Label htmlFor="nickname" className="text-sm font-medium text-efb-dark">
+                                Nickname
+                            </Label>
+                            <div className="relative">
+                                <Gamepad2 className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-efb-text-muted" />
+                                <Input
+                                    id="nickname"
+                                    type="text"
+                                    placeholder="Tên trong game"
+                                    value={form.nickname}
+                                    onChange={(e) => updateField("nickname", e.target.value)}
+                                    className="pl-10 h-12 rounded-xl border-gray-200 bg-gray-50/50 focus:bg-white focus:border-efb-blue focus:ring-efb-blue/20 transition-all text-sm"
+                                    required
+                                    disabled={isSubmitting}
+                                    maxLength={50}
+                                />
+                            </div>
+                        </div>
+
+                        {/* Phone (required) */}
+                        <div className="space-y-2">
+                            <Label htmlFor="phone" className="text-sm font-medium text-efb-dark">
+                                Số điện thoại
+                            </Label>
+                            <div className="relative">
+                                <Phone className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-efb-text-muted" />
+                                <Input
+                                    id="phone"
+                                    type="tel"
+                                    placeholder="0912 345 678"
+                                    value={form.phone}
+                                    onChange={(e) => updateField("phone", e.target.value)}
+                                    className="pl-10 h-12 rounded-xl border-gray-200 bg-gray-50/50 focus:bg-white focus:border-efb-blue focus:ring-efb-blue/20 transition-all text-sm"
+                                    required
+                                    disabled={isSubmitting}
+                                />
+                            </div>
+                        </div>
+
+                        {/* Facebook (required) */}
+                        <div className="space-y-2">
+                            <Label htmlFor="facebookLink" className="text-sm font-medium text-efb-dark">
+                                Link Facebook
+                            </Label>
+                            <div className="relative">
+                                <ExternalLink className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-efb-text-muted" />
+                                <Input
+                                    id="facebookLink"
+                                    type="url"
+                                    placeholder="https://facebook.com/yourprofile"
+                                    value={form.facebookLink}
+                                    onChange={(e) => updateField("facebookLink", e.target.value)}
+                                    className="pl-10 h-12 rounded-xl border-gray-200 bg-gray-50/50 focus:bg-white focus:border-efb-blue focus:ring-efb-blue/20 transition-all text-sm"
+                                    required
+                                    disabled={isSubmitting}
                                 />
                             </div>
                         </div>

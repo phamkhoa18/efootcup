@@ -30,6 +30,7 @@ export async function GET(req: NextRequest) {
             country: user.country,
             province: user.province,
             nickname: user.nickname,
+            teamName: user.teamName,
             facebookName: user.facebookName,
             facebookLink: user.facebookLink,
             stats: user.stats,
@@ -52,7 +53,7 @@ export async function PUT(req: NextRequest) {
         await dbConnect();
 
         const body = await req.json();
-        const { name, phone, bio, gamerId, avatar, dateOfBirth, country, province, nickname, facebookName, facebookLink } = body;
+        const { name, phone, bio, gamerId, avatar, dateOfBirth, country, province, nickname, teamName, facebookName, facebookLink } = body;
 
         const user = await User.findByIdAndUpdate(
             authResult.user._id,
@@ -66,6 +67,7 @@ export async function PUT(req: NextRequest) {
                 ...(country !== undefined && { country }),
                 ...(province !== undefined && { province }),
                 ...(nickname !== undefined && { nickname }),
+                ...(teamName !== undefined && { teamName }),
                 ...(facebookName !== undefined && { facebookName }),
                 ...(facebookLink !== undefined && { facebookLink }),
             },
@@ -91,6 +93,7 @@ export async function PUT(req: NextRequest) {
                 country: user.country,
                 province: user.province,
                 nickname: user.nickname,
+                teamName: user.teamName,
                 facebookName: user.facebookName,
                 facebookLink: user.facebookLink,
                 stats: user.stats,

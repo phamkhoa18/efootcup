@@ -56,6 +56,9 @@ interface RegisterData {
     confirmPassword: string;
     role?: "admin" | "manager" | "user";
     teamName?: string;
+    nickname?: string;
+    phone?: string;
+    facebookLink?: string;
 }
 
 const AuthContext = createContext<AuthContextType | null>(null);
