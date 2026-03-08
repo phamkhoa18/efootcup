@@ -192,7 +192,7 @@ export default function PublicProfilePage() {
                                 transition={{ delay: 0.2, type: "spring", stiffness: 200 }}
                                 className="flex-shrink-0 self-center sm:self-start"
                             >
-                                <div className="w-28 h-28 sm:w-36 sm:h-36 rounded-2xl border-4 border-white shadow-xl ring-2 ring-gray-100 bg-gradient-to-br from-efb-blue to-indigo-600 flex items-center justify-center overflow-hidden">
+                                <div className="w-28 h-28 sm:w-36 sm:h-36 rounded-full border-4 border-white shadow-xl ring-2 ring-gray-100 bg-gradient-to-br from-efb-blue to-indigo-600 flex items-center justify-center overflow-hidden">
                                     {profile.avatar ? (
                                         <img
                                             src={profile.avatar}

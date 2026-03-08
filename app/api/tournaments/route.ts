@@ -1,6 +1,7 @@
 import { NextRequest } from "next/server";
 import dbConnect from "@/lib/mongodb";
 import Tournament, { SCORING_DEFAULTS } from "@/models/Tournament";
+import "@/models/User"; // Required for .populate("createdBy")
 import { requireAuth, requireManager, apiResponse, apiError } from "@/lib/auth";
 
 // GET /api/tournaments — List all tournaments (public)

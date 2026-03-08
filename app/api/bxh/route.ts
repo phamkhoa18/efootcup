@@ -62,15 +62,20 @@ export async function POST(req: NextRequest) {
 
         let bxhData = body;
         let replaceAll = false;
+        let mode = body?.mode || "mobile";
 
         if (body && typeof body === "object" && !Array.isArray(body) && Array.isArray(body.data)) {
             replaceAll = body.replaceAll === true;
+            mode = body.mode || "mobile";
             bxhData = body.data;
         }
 
         if (Array.isArray(bxhData)) {
+            // Ensure every entry has the correct mode
+            bxhData = bxhData.map((item: any) => ({ ...item, mode }));
+
             if (replaceAll) {
-                await Bxh.deleteMany({});
+                await Bxh.deleteMany({ mode });
                 if (bxhData.length > 0) {
                     await Bxh.insertMany(bxhData);
                 }
@@ -79,7 +84,7 @@ export async function POST(req: NextRequest) {
                 // Bulk upsert
                 const ops = bxhData.map((item: any) => ({
                     updateOne: {
-                        filter: { gamerId: item.gamerId, mode: item.mode || "mobile" },
+                        filter: { gamerId: item.gamerId, mode },
                         update: { $set: item },
                         upsert: true
                     }
@@ -90,12 +95,12 @@ export async function POST(req: NextRequest) {
                 return apiResponse(null, 201, `Đã cập nhật/thêm ${ops.length} VĐV thành công`);
             }
         } else {
-            const exists = await Bxh.findOne({ gamerId: body.gamerId, mode: body.mode || "mobile" });
+            const exists = await Bxh.findOne({ gamerId: body.gamerId, mode });
             if (exists) {
                 return apiError("ID VĐV đã tồn tại trong bảng xếp hạng", 400);
             }
 
-            const newBxh = await Bxh.create(body);
+            const newBxh = await Bxh.create({ ...body, mode });
 
             return apiResponse(newBxh, 201, "Thêm VĐV vào BXH thành công");
         }
@@ -109,16 +114,21 @@ export async function POST(req: NextRequest) {
     }
 }
 
-// DELETE /api/bxh — Clear all BXH (manager only)
+// DELETE /api/bxh — Clear all BXH for a specific mode (manager only)
 export async function DELETE(req: NextRequest) {
     try {
         const authResult = await requireRole(req, ["manager", "admin"]);
         if (authResult instanceof Response) return authResult;
 
         await dbConnect();
-        await Bxh.deleteMany({});
 
-        return apiResponse(null, 200, "Đã xóa toàn bộ VĐV khỏi BXH");
+        const { searchParams } = new URL(req.url);
+        const mode = searchParams.get("mode") || "mobile";
+
+        await Bxh.deleteMany({ mode });
+
+        const modeLabel = mode === "pc" ? "Console" : "Mobile";
+        return apiResponse(null, 200, `Đã xóa toàn bộ VĐV khỏi BXH ${modeLabel}`);
     } catch (error) {
         console.error("Delete all BXH error:", error);
         return apiError("Có lỗi xảy ra", 500);

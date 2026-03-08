@@ -82,6 +82,8 @@ const MatchCard = ({ match, onClick }: { match: any; onClick: () => void }) => {
     const homeP2 = match.homeTeam?.player2 && match.homeTeam.player2 !== "TBD" ? match.homeTeam.player2 : "";
     const awayP1 = match.awayTeam?.player1 || match.p2?.name || "Chờ kết quả";
     const awayP2 = match.awayTeam?.player2 && match.awayTeam.player2 !== "TBD" ? match.awayTeam.player2 : "";
+    const homeEfvId = match.homeTeam?.efvId;
+    const awayEfvId = match.awayTeam?.efvId;
 
     if (isWalkover) {
         return (
@@ -95,6 +97,7 @@ const MatchCard = ({ match, onClick }: { match: any; onClick: () => void }) => {
                     className="w-full bg-white rounded-[6px] border border-[#E2E8F0] shadow-sm flex flex-col justify-center cursor-pointer overflow-hidden z-20 relative px-2.5 py-2 h-[50px]"
                 >
                     <span className={`truncate text-[12px] font-bold text-gray-800 ${!match.homeTeam && !match.p1 ? "text-gray-400 italic font-medium" : ""}`}>
+                        {homeEfvId != null && <span className="text-[9px] font-bold text-amber-600 bg-amber-50 border border-amber-200 px-1 py-px rounded mr-1">#{homeEfvId}</span>}
                         {homeP1}
                     </span>
                     {homeP2 && <span className="truncate text-[11px] text-gray-700 font-semibold">{homeP2}</span>}
@@ -126,6 +129,7 @@ const MatchCard = ({ match, onClick }: { match: any; onClick: () => void }) => {
                     <div className="flex justify-between items-start">
                         <div className="flex flex-col min-w-0 pr-1 leading-[1.2] flex-1">
                             <span className={`truncate text-[12px] ${homeWin ? "text-blue-700 font-bold" : "text-gray-900 font-semibold"} ${!match.homeTeam && !match.p1 ? "text-gray-400 italic font-normal" : ""}`}>
+                                {homeEfvId != null && <span className="text-[9px] font-bold text-amber-600 bg-amber-50 border border-amber-200 px-1 py-px rounded mr-1">#{homeEfvId}</span>}
                                 {homeP1}
                             </span>
                             {homeP2 && (
@@ -144,6 +148,7 @@ const MatchCard = ({ match, onClick }: { match: any; onClick: () => void }) => {
                     <div className="flex justify-between items-start">
                         <div className="flex flex-col min-w-0 pr-1 leading-[1.2] flex-1">
                             <span className={`truncate text-[12px] ${awayWin ? "text-blue-700 font-bold" : "text-gray-900 font-semibold"} ${!match.awayTeam && !match.p2 ? "text-gray-400 italic font-normal" : ""}`}>
+                                {awayEfvId != null && <span className="text-[9px] font-bold text-amber-600 bg-amber-50 border border-amber-200 px-1 py-px rounded mr-1">#{awayEfvId}</span>}
                                 {awayP1}
                             </span>
                             {awayP2 && (
@@ -1323,7 +1328,9 @@ export default function TournamentDetailClient({ initialData, id }: { initialDat
                                                                 const matchesSearch = bracketSearch.trim() === "" || [
                                                                     match.homeTeam?.name, match.homeTeam?.shortName, match.homeTeam?.player1, match.homeTeam?.player2,
                                                                     match.awayTeam?.name, match.awayTeam?.shortName, match.awayTeam?.player1, match.awayTeam?.player2,
-                                                                    match.p1?.name, match.p2?.name
+                                                                    match.p1?.name, match.p2?.name,
+                                                                    match.homeTeam?.efvId != null ? String(match.homeTeam.efvId) : null,
+                                                                    match.awayTeam?.efvId != null ? String(match.awayTeam.efvId) : null,
                                                                 ].some(v => v && v.toLowerCase().includes(bracketSearch.toLowerCase()));
 
                                                                 return (
@@ -1488,10 +1495,12 @@ export default function TournamentDetailClient({ initialData, id }: { initialDat
                                                     const placement = t.status === 'completed' ? (i === 0 ? '🥇' : i === 1 ? '🥈' : i <= 3 ? '🥉' : '') : '';
 
                                                     return (
-                                                        <tr key={team._id} className={`border-b border-gray-50 last:border-0 hover:bg-blue-50/30 transition-colors cursor-pointer ${isTop1 ? 'bg-amber-50/40' : isTop2 ? 'bg-gray-50/40' : ''}`}
+                                                        <tr key={team._id} className={`border-b border-gray-50 last:border-0 transition-colors ${reg?.user?.efvId ? 'hover:bg-blue-50/30 cursor-pointer' : ''} ${isTop1 ? 'bg-amber-50/40' : isTop2 ? 'bg-gray-50/40' : ''}`}
                                                             onClick={() => {
                                                                 const reg = data.registrations?.find((r: any) => r.team === team._id || r.team?._id === team._id);
-                                                                setSelectedPlayer({ team, reg, placement: i, playerName });
+                                                                if (reg?.user?.efvId) {
+                                                                    router.push(`/profile/${reg.user.efvId}`);
+                                                                }
                                                             }}
                                                         >
                                                             <td className="px-4 py-3.5 text-center">
@@ -1512,8 +1521,8 @@ export default function TournamentDetailClient({ initialData, id }: { initialDat
                                                             </td>
                                                             <td className="px-4 py-3.5">
                                                                 <div className="flex items-center gap-3">
-                                                                    <div className="w-9 h-9 rounded-lg bg-gray-100 flex-shrink-0 flex items-center justify-center overflow-hidden">
-                                                                        {team.logo ? <img src={team.logo} className="w-full h-full object-cover" alt="" /> : <Users className="w-4 h-4 text-gray-300" />}
+                                                                    <div className="w-9 h-9 rounded-full bg-gray-100 flex-shrink-0 flex items-center justify-center overflow-hidden">
+                                                                        {(reg?.user?.avatar || team.logo) ? <img src={reg?.user?.avatar || team.logo} className="w-full h-full object-cover" alt="" /> : <Users className="w-4 h-4 text-gray-300" />}
                                                                     </div>
                                                                     <div className="min-w-0">
                                                                         <div className="flex items-center gap-2">
@@ -1566,10 +1575,12 @@ export default function TournamentDetailClient({ initialData, id }: { initialDat
                                             const placement = t.status === 'completed' ? (i === 0 ? '🥇' : i === 1 ? '🥈' : i <= 3 ? '🥉' : '') : '';
 
                                             return (
-                                                <div key={team._id} className={`px-4 py-3.5 cursor-pointer hover:bg-blue-50/20 transition-colors ${isTop1 ? 'bg-amber-50/40' : isTop2 ? 'bg-gray-50/30' : ''}`}
+                                                <div key={team._id} className={`px-4 py-3.5 ${reg?.user?.efvId ? 'cursor-pointer hover:bg-blue-50/20' : ''} transition-colors ${isTop1 ? 'bg-amber-50/40' : isTop2 ? 'bg-gray-50/30' : ''}`}
                                                     onClick={() => {
                                                         const reg = data.registrations?.find((r: any) => r.team === team._id || r.team?._id === team._id);
-                                                        setSelectedPlayer({ team, reg, placement: i, playerName });
+                                                        if (reg?.user?.efvId) {
+                                                            router.push(`/profile/${reg.user.efvId}`);
+                                                        }
                                                     }}
                                                 >
                                                     <div className="flex items-center gap-3">
@@ -1846,6 +1857,17 @@ export default function TournamentDetailClient({ initialData, id }: { initialDat
                                             <span className="text-xs text-blue-600 font-medium">Tổng điểm</span>
                                             <span className="text-lg font-bold text-blue-700">{team.stats.points}</span>
                                         </div>
+                                    )}
+
+                                    {/* View full profile button */}
+                                    {reg?.user?.efvId && (
+                                        <Link
+                                            href={`/profile/${reg.user.efvId}`}
+                                            className="flex items-center justify-center gap-2 w-full py-2.5 rounded-xl bg-gradient-to-r from-efb-blue to-indigo-600 text-white text-sm font-semibold hover:opacity-90 transition-opacity shadow-sm"
+                                        >
+                                            <ExternalLink className="w-4 h-4" />
+                                            Xem profile đầy đủ
+                                        </Link>
                                     )}
                                 </div>
                             </>

@@ -38,7 +38,7 @@ export async function GET(req: NextRequest, { params }: RouteParams) {
                 .sort({ "stats.points": -1, "stats.goalDifference": -1 })
                 .lean(),
             Registration.find({ tournament: id })
-                .populate("user", "name email avatar")
+                .populate("user", "name email avatar efvId")
                 .sort({ createdAt: -1 })
                 .lean(),
             Match.find({ tournament: id })

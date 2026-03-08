@@ -130,7 +130,7 @@ export default function ManagerBxhPage() {
         if (!ok) return;
 
         try {
-            const res = await fetch(`/api/bxh`, { method: "DELETE" });
+            const res = await fetch(`/api/bxh?mode=${activeMode}`, { method: "DELETE" });
             const data = await res.json();
             if (!res.ok) throw new Error(data.message || "Xóa thất bại");
 
@@ -162,6 +162,7 @@ export default function ManagerBxhPage() {
                 ...form,
                 points: Number(form.points),
                 rank: Number(form.rank),
+                mode: activeMode,
             };
 
             const res = await fetch(url, {
@@ -300,7 +301,8 @@ export default function ManagerBxhPage() {
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
                     data: excelPreview,
-                    replaceAll: excelReplaceAll
+                    replaceAll: excelReplaceAll,
+                    mode: activeMode,
                 }),
             });
 
