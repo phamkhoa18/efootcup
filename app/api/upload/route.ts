@@ -33,12 +33,6 @@ export async function POST(req: NextRequest) {
             return apiError("Chỉ chấp nhận file hình ảnh", 400);
         }
 
-        // Validate file size (max 10MB)
-        const maxSize = 10 * 1024 * 1024;
-        if (file.size > maxSize) {
-            return apiError("File quá lớn (tối đa 10MB)", 400);
-        }
-
         // Determine upload subdirectory based on type
         const subDir = type === "avatar" ? "avatars"
             : type === "payment_proof" ? "payment_proof"
