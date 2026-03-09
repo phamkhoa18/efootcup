@@ -265,6 +265,14 @@ export default function DangKyPage() {
         }
 
         const data = registrations.map((r: any, idx: number) => {
+            // Parse paymentNote JSON to extract PayOS details
+            let noteData: any = {};
+            try {
+                noteData = JSON.parse(r.paymentNote || "{}");
+            } catch {
+                // Not JSON — use raw string
+            }
+
             const row: Record<string, any> = {
                 "STT": idx + 1,
                 "EFV-ID": r.user?.efvId != null ? r.user.efvId : "",
@@ -283,11 +291,23 @@ export default function DangKyPage() {
                 "Ảnh đội hình": r.teamLineupPhoto ? `${window.location.origin}${r.teamLineupPhoto}` : "",
                 "Ghi chú": r.notes || "",
                 "Trạng thái": r.status === 'approved' ? 'Đã duyệt' : r.status === 'rejected' ? 'Từ chối' : r.status === 'cancelled' ? 'Đã hủy' : 'Chờ duyệt',
+                // === THANH TOÁN ===
                 "Thanh toán": r.paymentStatus === 'paid' ? 'Đã thanh toán' : r.paymentStatus === 'pending_verification' ? 'Chờ xác nhận' : r.paymentStatus === 'refunded' ? 'Đã hoàn tiền' : 'Chưa thanh toán',
                 "Số tiền (VNĐ)": r.paymentAmount || 0,
                 "Phương thức TT": r.paymentMethod || "",
                 "Ngày TT": r.paymentDate ? new Date(r.paymentDate).toLocaleString('vi-VN') : "",
                 "Xác nhận TT lúc": r.paymentConfirmedAt ? new Date(r.paymentConfirmedAt).toLocaleString('vi-VN') : "",
+                // === THÔNG TIN PAYOS (ĐỐI CHIẾU) ===
+                "PayOS OrderCode": noteData.orderCode || "",
+                "PayOS LinkId": noteData.paymentLinkId || "",
+                "Mã GD Ngân hàng": noteData.reference || "",
+                "Thời gian GD": noteData.transactionDateTime || "",
+                "Nguồn xác nhận": noteData.confirmedByWebhook ? "Webhook (tự động)" : noteData.confirmedByVerify ? "Verify (thủ công)" : noteData.confirmedBy || "",
+                "Tên TK đối ứng": noteData.payosCounterAccountName || "",
+                "STK đối ứng": noteData.payosCounterAccountNumber || "",
+                "Ngân hàng đối ứng": noteData.payosCounterAccountBankName || "",
+                "Cảnh báo số tiền": noteData.amountMismatch ? `⚠️ Nhận ${noteData.receivedAmount}, cần ${noteData.expectedAmount}` : "",
+                // === KHÁC ===
                 "Minh chứng TT": r.paymentProof ? `${window.location.origin}${r.paymentProof}` : "",
                 "Duyệt bởi": r.approvedBy?.name || "",
                 "Duyệt lúc": r.approvedAt ? new Date(r.approvedAt).toLocaleString('vi-VN') : "",
@@ -634,106 +654,188 @@ export default function DangKyPage() {
 
             {/* Payment Detail Modal */}
             <Dialog open={!!paymentDetailView} onOpenChange={(open) => !open && setPaymentDetailView(null)}>
-                <DialogContent className="max-w-lg bg-white rounded-2xl border-0 shadow-xl p-0 overflow-hidden">
+                <DialogContent className="max-w-lg bg-white rounded-2xl border-0 shadow-xl p-0 overflow-hidden max-h-[90vh]">
                     <div className="p-6 border-b border-gray-100">
                         <DialogTitle className="text-lg font-bold text-gray-900 flex items-center gap-2">
                             <CreditCard className="w-5 h-5 text-efb-blue" />
                             Chi tiết thanh toán
                         </DialogTitle>
                     </div>
-                    {paymentDetailView && (
-                        <div className="p-6 space-y-5">
-                            {/* Player Info */}
-                            <div className="flex items-center gap-3 p-3 rounded-xl bg-gray-50">
-                                <div className="w-10 h-10 rounded-lg bg-efb-blue/10 flex items-center justify-center">
-                                    <Users className="w-5 h-5 text-efb-blue" />
+                    {paymentDetailView && (() => {
+                        // Parse paymentNote JSON for PayOS details
+                        let noteData: any = {};
+                        try {
+                            noteData = JSON.parse(paymentDetailView.paymentNote || "{}");
+                        } catch {
+                            // Not JSON
+                        }
+                        return (
+                            <div className="overflow-y-auto p-6 space-y-5" style={{ maxHeight: 'calc(90vh - 80px)' }}>
+                                {/* Player Info */}
+                                <div className="flex items-center gap-3 p-3 rounded-xl bg-gray-50">
+                                    <div className="w-10 h-10 rounded-lg bg-efb-blue/10 flex items-center justify-center">
+                                        <Users className="w-5 h-5 text-efb-blue" />
+                                    </div>
+                                    <div>
+                                        <div className="text-sm font-bold text-gray-900">{paymentDetailView.playerName}</div>
+                                        <div className="text-xs text-gray-400">{paymentDetailView.teamName}</div>
+                                    </div>
                                 </div>
-                                <div>
-                                    <div className="text-sm font-bold text-gray-900">{paymentDetailView.playerName}</div>
-                                    <div className="text-xs text-gray-400">{paymentDetailView.teamName}</div>
-                                </div>
-                            </div>
 
-                            {/* Payment Info */}
-                            <div className="grid grid-cols-2 gap-3">
-                                <div className="p-3 rounded-xl bg-gray-50">
-                                    <div className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Trạng thái</div>
-                                    <Badge
-                                        variant="outline"
-                                        className={`mt-1.5 ${paymentStatusConfig[paymentDetailView.paymentStatus]?.color || ""}`}
-                                    >
-                                        {paymentStatusConfig[paymentDetailView.paymentStatus]?.label || "N/A"}
-                                    </Badge>
-                                </div>
-                                <div className="p-3 rounded-xl bg-gray-50">
-                                    <div className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Phương thức</div>
-                                    <div className="text-sm font-medium text-gray-800 mt-1.5">{paymentDetailView.paymentMethod || "N/A"}</div>
-                                </div>
-                                {paymentDetailView.paymentDate && (
-                                    <div className="p-3 rounded-xl bg-gray-50">
-                                        <div className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Ngày thanh toán</div>
-                                        <div className="text-sm font-medium text-gray-800 mt-1.5">
-                                            {new Date(paymentDetailView.paymentDate).toLocaleString("vi-VN")}
+                                {/* Amount Mismatch Warning */}
+                                {noteData.amountMismatch && (
+                                    <div className="p-3 rounded-xl bg-red-50 border border-red-200 flex items-start gap-2.5">
+                                        <AlertTriangle className="w-4.5 h-4.5 text-red-500 mt-0.5 flex-shrink-0" />
+                                        <div>
+                                            <div className="text-xs font-bold text-red-700">⚠️ Số tiền không khớp!</div>
+                                            <div className="text-[11px] text-red-600 mt-0.5">
+                                                Nhận: {noteData.receivedAmount?.toLocaleString("vi-VN")}đ — Lệ phí: {noteData.expectedAmount?.toLocaleString("vi-VN")}đ
+                                            </div>
                                         </div>
                                     </div>
                                 )}
-                                {paymentDetailView.paymentNote && (
+
+                                {/* Payment Info */}
+                                <div className="grid grid-cols-2 gap-3">
                                     <div className="p-3 rounded-xl bg-gray-50">
-                                        <div className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Ghi chú</div>
-                                        <div className="text-sm text-gray-800 mt-1.5">{paymentDetailView.paymentNote}</div>
+                                        <div className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Trạng thái</div>
+                                        <Badge
+                                            variant="outline"
+                                            className={`mt-1.5 ${paymentStatusConfig[paymentDetailView.paymentStatus]?.color || ""}`}
+                                        >
+                                            {paymentStatusConfig[paymentDetailView.paymentStatus]?.label || "N/A"}
+                                        </Badge>
+                                    </div>
+                                    <div className="p-3 rounded-xl bg-gray-50">
+                                        <div className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Phương thức</div>
+                                        <div className="text-sm font-medium text-gray-800 mt-1.5 capitalize">{paymentDetailView.paymentMethod || "N/A"}</div>
+                                    </div>
+                                    <div className="p-3 rounded-xl bg-gray-50">
+                                        <div className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Số tiền</div>
+                                        <div className="text-sm font-bold text-gray-900 mt-1.5">
+                                            {(paymentDetailView.paymentAmount || 0)?.toLocaleString("vi-VN")} VNĐ
+                                        </div>
+                                    </div>
+                                    {paymentDetailView.paymentDate && (
+                                        <div className="p-3 rounded-xl bg-gray-50">
+                                            <div className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Ngày thanh toán</div>
+                                            <div className="text-sm font-medium text-gray-800 mt-1.5">
+                                                {new Date(paymentDetailView.paymentDate).toLocaleString("vi-VN")}
+                                            </div>
+                                        </div>
+                                    )}
+                                </div>
+
+                                {/* PayOS Transaction Details */}
+                                {paymentDetailView.paymentMethod === "payos" && (noteData.orderCode || noteData.reference) && (
+                                    <div>
+                                        <div className="text-[10px] font-bold text-indigo-500 uppercase tracking-wider mb-2.5 flex items-center gap-1.5">
+                                            <Shield className="w-3 h-3" />
+                                            Thông tin PayOS (đối chiếu)
+                                        </div>
+                                        <div className="rounded-xl border border-indigo-100 bg-indigo-50/30 overflow-hidden">
+                                            {noteData.orderCode && (
+                                                <div className="px-4 py-2.5 flex items-center justify-between border-b border-indigo-100/50">
+                                                    <span className="text-[11px] text-gray-500">Mã đơn hàng (OrderCode)</span>
+                                                    <span className="text-[12px] font-mono font-bold text-indigo-700 bg-indigo-100 px-2 py-0.5 rounded-md">{noteData.orderCode}</span>
+                                                </div>
+                                            )}
+                                            {noteData.paymentLinkId && (
+                                                <div className="px-4 py-2.5 flex items-center justify-between border-b border-indigo-100/50">
+                                                    <span className="text-[11px] text-gray-500">PayOS Link ID</span>
+                                                    <span className="text-[11px] font-mono text-gray-700 truncate max-w-[180px]">{noteData.paymentLinkId}</span>
+                                                </div>
+                                            )}
+                                            {noteData.reference && (
+                                                <div className="px-4 py-2.5 flex items-center justify-between border-b border-indigo-100/50">
+                                                    <span className="text-[11px] text-gray-500">Mã GD ngân hàng</span>
+                                                    <span className="text-[12px] font-mono font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-md">{noteData.reference}</span>
+                                                </div>
+                                            )}
+                                            {noteData.transactionDateTime && (
+                                                <div className="px-4 py-2.5 flex items-center justify-between border-b border-indigo-100/50">
+                                                    <span className="text-[11px] text-gray-500">Thời gian GD</span>
+                                                    <span className="text-[11px] text-gray-700">{noteData.transactionDateTime}</span>
+                                                </div>
+                                            )}
+                                            {noteData.payosCounterAccountName && (
+                                                <div className="px-4 py-2.5 flex items-center justify-between border-b border-indigo-100/50">
+                                                    <span className="text-[11px] text-gray-500">Tên TK chuyển</span>
+                                                    <span className="text-[11px] font-medium text-gray-800">{noteData.payosCounterAccountName}</span>
+                                                </div>
+                                            )}
+                                            {noteData.payosCounterAccountNumber && (
+                                                <div className="px-4 py-2.5 flex items-center justify-between border-b border-indigo-100/50">
+                                                    <span className="text-[11px] text-gray-500">STK chuyển</span>
+                                                    <span className="text-[11px] font-mono text-gray-700">{noteData.payosCounterAccountNumber}</span>
+                                                </div>
+                                            )}
+                                            {noteData.payosCounterAccountBankName && (
+                                                <div className="px-4 py-2.5 flex items-center justify-between border-b border-indigo-100/50">
+                                                    <span className="text-[11px] text-gray-500">Ngân hàng</span>
+                                                    <span className="text-[11px] text-gray-700">{noteData.payosCounterAccountBankName}</span>
+                                                </div>
+                                            )}
+                                            <div className="px-4 py-2.5 flex items-center justify-between">
+                                                <span className="text-[11px] text-gray-500">Nguồn xác nhận</span>
+                                                <Badge variant="outline" className={`text-[10px] ${noteData.confirmedByWebhook ? 'bg-emerald-50 text-emerald-600 border-emerald-200' : 'bg-blue-50 text-blue-600 border-blue-200'}`}>
+                                                    {noteData.confirmedByWebhook ? "✅ Webhook (tự động)" : noteData.confirmedByVerify ? "🔍 Verify (kiểm tra)" : noteData.confirmedBy || "Chưa xác nhận"}
+                                                </Badge>
+                                            </div>
+                                        </div>
+                                    </div>
+                                )}
+
+                                {/* Payment Proof Image */}
+                                {paymentDetailView.paymentProof && (
+                                    <div>
+                                        <div className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-2">Minh chứng thanh toán</div>
+                                        <div className="rounded-xl overflow-hidden border border-gray-200 bg-gray-50">
+                                            <img
+                                                src={paymentDetailView.paymentProof}
+                                                alt="Payment proof"
+                                                className="w-full max-h-[400px] object-contain cursor-pointer"
+                                                onClick={() => window.open(paymentDetailView.paymentProof, "_blank")}
+                                            />
+                                        </div>
+                                        <button
+                                            onClick={() => window.open(paymentDetailView.paymentProof, "_blank")}
+                                            className="text-xs text-blue-500 hover:text-blue-700 font-medium flex items-center gap-1 mt-2 transition-colors"
+                                        >
+                                            <Eye className="w-3.5 h-3.5" /> Xem ảnh gốc
+                                        </button>
+                                    </div>
+                                )}
+
+                                {/* Actions */}
+                                {paymentDetailView.paymentStatus === "pending_verification" && (
+                                    <div className="flex gap-3 pt-2">
+                                        <Button
+                                            onClick={() => {
+                                                handleConfirmPayment(paymentDetailView._id);
+                                                setPaymentDetailView(null);
+                                            }}
+                                            className="flex-1 bg-emerald-500 text-white hover:bg-emerald-600 rounded-xl h-11 font-bold"
+                                        >
+                                            <CheckCircle2 className="w-4 h-4 mr-2" />
+                                            Xác nhận thanh toán
+                                        </Button>
+                                        <Button
+                                            variant="outline"
+                                            onClick={() => {
+                                                handleRejectPayment(paymentDetailView._id);
+                                                setPaymentDetailView(null);
+                                            }}
+                                            className="flex-1 rounded-xl h-11 font-bold text-red-500 hover:text-red-600 hover:bg-red-50"
+                                        >
+                                            <XCircle className="w-4 h-4 mr-2" />
+                                            Từ chối
+                                        </Button>
                                     </div>
                                 )}
                             </div>
-
-                            {/* Payment Proof Image */}
-                            {paymentDetailView.paymentProof && (
-                                <div>
-                                    <div className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-2">Minh chứng thanh toán</div>
-                                    <div className="rounded-xl overflow-hidden border border-gray-200 bg-gray-50">
-                                        <img
-                                            src={paymentDetailView.paymentProof}
-                                            alt="Payment proof"
-                                            className="w-full max-h-[400px] object-contain cursor-pointer"
-                                            onClick={() => window.open(paymentDetailView.paymentProof, "_blank")}
-                                        />
-                                    </div>
-                                    <button
-                                        onClick={() => window.open(paymentDetailView.paymentProof, "_blank")}
-                                        className="text-xs text-blue-500 hover:text-blue-700 font-medium flex items-center gap-1 mt-2 transition-colors"
-                                    >
-                                        <Eye className="w-3.5 h-3.5" /> Xem ảnh gốc
-                                    </button>
-                                </div>
-                            )}
-
-                            {/* Actions */}
-                            {paymentDetailView.paymentStatus === "pending_verification" && (
-                                <div className="flex gap-3 pt-2">
-                                    <Button
-                                        onClick={() => {
-                                            handleConfirmPayment(paymentDetailView._id);
-                                            setPaymentDetailView(null);
-                                        }}
-                                        className="flex-1 bg-emerald-500 text-white hover:bg-emerald-600 rounded-xl h-11 font-bold"
-                                    >
-                                        <CheckCircle2 className="w-4 h-4 mr-2" />
-                                        Xác nhận thanh toán
-                                    </Button>
-                                    <Button
-                                        variant="outline"
-                                        onClick={() => {
-                                            handleRejectPayment(paymentDetailView._id);
-                                            setPaymentDetailView(null);
-                                        }}
-                                        className="flex-1 rounded-xl h-11 font-bold text-red-500 hover:text-red-600 hover:bg-red-50"
-                                    >
-                                        <XCircle className="w-4 h-4 mr-2" />
-                                        Từ chối
-                                    </Button>
-                                </div>
-                            )}
-                        </div>
-                    )}
+                        );
+                    })()}
                 </DialogContent>
             </Dialog>
 
@@ -1222,7 +1324,7 @@ export default function DangKyPage() {
                         </Button>
                     </div>
                 </DialogContent>
-            </Dialog>
-        </div>
+            </Dialog >
+        </div >
     );
 }

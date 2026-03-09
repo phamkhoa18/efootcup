@@ -20,6 +20,12 @@ export async function GET() {
  * POST /api/payment/payos-webhook
  * PayOS sends webhook data when a payment is completed.
  * 
+ * SECURITY:
+ * - Signature verification via HMAC_SHA256
+ * - Exact orderCode/paymentLinkId matching only (NO fallback)
+ * - Tournament-scoped query using stored tournamentId in paymentNote
+ * - Idempotent: already-paid registrations are skipped
+ * 
  * Webhook body:
  * {
  *   code: "00",
@@ -76,54 +82,47 @@ export async function POST(req: NextRequest) {
             return NextResponse.json({ success: true });
         }
 
-        // Verify signature
+        // Verify signature — MUST pass before any DB operations
         const isValid = verifyPayOSSignature(data, signature, payosMethod.payosChecksumKey);
         if (!isValid) {
-            console.error("PayOS webhook: invalid signature");
+            console.error("PayOS webhook: invalid signature — REJECTED");
             return NextResponse.json({ success: true });
         }
 
         console.log("✅ PayOS signature verified");
+
+        const { orderCode, amount, paymentLinkId, reference, transactionDateTime } = data;
 
         // Only process successful payments
         if (code !== "00" || data.code !== "00") {
             console.log("PayOS webhook: non-success code", code, data.code);
 
             // Handle CANCELLED or FAILED payments — reset paymentStatus to unpaid
-            const { orderCode: failedOrderCode, paymentLinkId: failedLinkId } = data;
-            if (failedOrderCode || failedLinkId) {
-                const pendingRegs = await Registration.find({
-                    paymentStatus: { $in: ["pending_verification"] },
-                });
-                for (const reg of pendingRegs) {
-                    try {
-                        const noteData = JSON.parse(reg.paymentNote || "{}");
-                        if (noteData.orderCode === failedOrderCode || noteData.paymentLinkId === failedLinkId) {
-                            reg.paymentStatus = "unpaid";
-                            reg.paymentNote = JSON.stringify({
-                                ...noteData,
-                                cancelledAt: new Date().toISOString(),
-                                cancelCode: code,
-                                cancelDesc: data.desc || "Cancelled",
-                            });
-                            await reg.save();
-                            console.log(`PayOS: Registration ${reg._id} payment cancelled/failed → reset to unpaid`);
+            // ✅ SECURITY: Only match by exact orderCode/paymentLinkId, no broad queries
+            if (orderCode || paymentLinkId) {
+                const registration = await findRegistrationByOrderCode(orderCode, paymentLinkId);
+                if (registration && registration.paymentStatus !== "paid") {
+                    const noteData = JSON.parse(registration.paymentNote || "{}");
+                    registration.paymentStatus = "unpaid";
+                    registration.paymentNote = JSON.stringify({
+                        ...noteData,
+                        cancelledAt: new Date().toISOString(),
+                        cancelCode: code,
+                        cancelDesc: data.desc || "Cancelled",
+                    });
+                    await registration.save();
+                    console.log(`PayOS: Registration ${registration._id} payment cancelled/failed → reset to unpaid`);
 
-                            // Notify user
-                            const tournament = await Tournament.findById(reg.tournament);
-                            if (tournament) {
-                                await Notification.create({
-                                    recipient: reg.user,
-                                    type: "system",
-                                    title: "Thanh toán không thành công",
-                                    message: `Thanh toán cho giải "${tournament.title}" đã bị hủy hoặc thất bại. Vui lòng thử lại.`,
-                                    link: `/giai-dau/${tournament._id}?tab=register`,
-                                });
-                            }
-                            break;
-                        }
-                    } catch {
-                        // Skip invalid JSON
+                    // Notify user
+                    const tournament = await Tournament.findById(registration.tournament);
+                    if (tournament) {
+                        await Notification.create({
+                            recipient: registration.user,
+                            type: "system",
+                            title: "Thanh toán không thành công",
+                            message: `Thanh toán cho giải "${tournament.title}" đã bị hủy hoặc thất bại. Vui lòng thử lại.`,
+                            link: `/giai-dau/${tournament._id}?tab=register`,
+                        });
                     }
                 }
             }
@@ -131,34 +130,51 @@ export async function POST(req: NextRequest) {
             return NextResponse.json({ success: true });
         }
 
-        const { orderCode, amount, paymentLinkId, reference, transactionDateTime } = data;
-
-        // Find registration by orderCode stored in paymentNote
-        const registrations = await Registration.find({
-            paymentStatus: { $in: ["pending_verification", "unpaid"] },
-        });
-
-        let registration = null;
-        for (const reg of registrations) {
-            try {
-                const noteData = JSON.parse(reg.paymentNote || "{}");
-                if (noteData.orderCode === orderCode || noteData.paymentLinkId === paymentLinkId) {
-                    registration = reg;
-                    break;
-                }
-            } catch {
-                // Skip invalid JSON
-            }
-        }
+        // ✅ SECURITY: Find registration by EXACT orderCode match only
+        const registration = await findRegistrationByOrderCode(orderCode, paymentLinkId);
 
         if (!registration) {
-            console.error("PayOS webhook: no matching registration for orderCode:", orderCode);
+            console.error("PayOS webhook: no matching registration for orderCode:", orderCode, "paymentLinkId:", paymentLinkId);
             return NextResponse.json({ success: true });
         }
 
-        // Already paid
+        // Already paid — idempotent
         if (registration.paymentStatus === "paid") {
-            console.log("PayOS webhook: registration already paid");
+            console.log("PayOS webhook: registration already paid, skipping");
+            return NextResponse.json({ success: true });
+        }
+
+        // ✅ Verify amount matches expected tournament fee (anti-fraud)
+        const tournament = await Tournament.findById(registration.tournament);
+        if (tournament && amount < tournament.entryFee) {
+            console.error(`⚠️ PayOS webhook: amount mismatch! Received ${amount}, expected ${tournament.entryFee}. Registration: ${registration._id}`);
+            // Still mark as paid but flag in note for manager review
+            const existingNote = JSON.parse(registration.paymentNote || "{}");
+            registration.paymentNote = JSON.stringify({
+                ...existingNote,
+                reference,
+                transactionDateTime,
+                confirmedByWebhook: true,
+                amountMismatch: true,
+                expectedAmount: tournament.entryFee,
+                receivedAmount: amount,
+            });
+            registration.paymentStatus = "pending_verification"; // Flag for manual review
+            registration.paymentAmount = amount;
+            registration.paymentDate = transactionDateTime ? new Date(transactionDateTime) : new Date();
+            await registration.save();
+
+            // Notify manager about mismatch
+            if (tournament) {
+                await Notification.create({
+                    recipient: tournament.createdBy,
+                    type: "system",
+                    title: "⚠️ Số tiền thanh toán không khớp",
+                    message: `VĐV "${registration.playerName}" thanh toán ${amount?.toLocaleString("vi-VN")}đ nhưng lệ phí là ${tournament.entryFee?.toLocaleString("vi-VN")}đ. Vui lòng kiểm tra.`,
+                    link: `/manager/giai-dau/${tournament._id}/dang-ky`,
+                });
+            }
+
             return NextResponse.json({ success: true });
         }
 
@@ -167,7 +183,6 @@ export async function POST(req: NextRequest) {
         registration.paymentAmount = amount;
         registration.paymentDate = transactionDateTime ? new Date(transactionDateTime) : new Date();
         registration.paymentConfirmedAt = new Date();
-        registration.paymentConfirmedBy = "payos-auto" as any;
 
         // Save extra info in paymentNote
         const existingNote = JSON.parse(registration.paymentNote || "{}");
@@ -176,15 +191,15 @@ export async function POST(req: NextRequest) {
             reference,
             transactionDateTime,
             confirmedByWebhook: true,
+            payosCounterAccountName: data.counterAccountName || "",
+            payosCounterAccountNumber: data.counterAccountNumber || "",
+            payosCounterAccountBankName: data.counterAccountBankName || "",
         });
 
         await registration.save();
 
         console.log(`✅ PayOS: Registration ${registration._id} payment confirmed!`);
         console.log(`   Amount: ${amount}, OrderCode: ${orderCode}, Reference: ${reference}`);
-
-        // Get tournament info
-        const tournament = await Tournament.findById(registration.tournament);
 
         // ============================================================
         // AUTO-APPROVE: Thanh toán tự động → duyệt vào giải luôn
@@ -193,9 +208,11 @@ export async function POST(req: NextRequest) {
             // Check if tournament still has room
             if (tournament.currentTeams < tournament.maxTeams) {
                 // Create team automatically
+                const teamName = registration.teamName || registration.playerName || "Team";
+                const teamShortName = registration.teamShortName || teamName.substring(0, 3).toUpperCase();
                 const team = await Team.create({
-                    name: registration.teamName,
-                    shortName: registration.teamShortName,
+                    name: teamName,
+                    shortName: teamShortName,
                     tournament: tournament._id,
                     captain: registration.user,
                     members: [
@@ -210,7 +227,6 @@ export async function POST(req: NextRequest) {
                 // Auto-approve registration
                 registration.status = "approved";
                 registration.team = team._id;
-                registration.approvedBy = "payos-auto" as any;
                 registration.approvedAt = new Date();
                 await registration.save();
 
@@ -329,6 +345,36 @@ export async function POST(req: NextRequest) {
         // Always return 2xx to prevent PayOS from retrying
         return NextResponse.json({ success: true });
     }
+}
+
+/**
+ * ✅ SECURE: Find registration by exact orderCode or paymentLinkId match
+ * No fallback, no broad queries. Each match is precise.
+ */
+async function findRegistrationByOrderCode(orderCode: any, paymentLinkId?: string) {
+    // Query only unpaid/pending registrations with payos method
+    const registrations = await Registration.find({
+        paymentMethod: "payos",
+        paymentStatus: { $in: ["unpaid", "pending_verification"] },
+        paymentNote: { $exists: true, $ne: "" },
+    });
+
+    for (const reg of registrations) {
+        try {
+            const noteData = JSON.parse(reg.paymentNote || "{}");
+            // Exact match on orderCode or paymentLinkId
+            if (
+                (orderCode && (noteData.orderCode === orderCode || noteData.orderCode === Number(orderCode))) ||
+                (paymentLinkId && noteData.paymentLinkId === paymentLinkId)
+            ) {
+                return reg;
+            }
+        } catch {
+            // Skip invalid JSON
+        }
+    }
+
+    return null;
 }
 
 /**

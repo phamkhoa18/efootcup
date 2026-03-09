@@ -55,7 +55,8 @@ function PaymentResultContent() {
                     return;
                 }
                 if (payosStatus === "PAID" || payosCode === "00") {
-                    // Call verify API to confirm payment and auto-approve
+                    // Verify trực tiếp với PayOS API qua endpoint an toàn (có requireAuth)
+                    // Endpoint chỉ confirm cho registration của user đang đăng nhập
                     try {
                         const verifyRes = await fetch(`/api/payment/payos-verify`, {
                             method: "POST",
@@ -72,24 +73,46 @@ function PaymentResultContent() {
                             setStatus("success");
                             return;
                         }
+
+                        // alreadyProcessed = webhook đã xử lý rồi
+                        if (verifyData.alreadyProcessed) {
+                            setStatus("success");
+                            return;
+                        }
+
+                        // orderCode mismatch — security issue
+                        if (verifyData.mismatch) {
+                            console.warn("PayOS verify: orderCode mismatch detected");
+                            setStatus("failed");
+                            return;
+                        }
                     } catch (err) {
                         console.error("PayOS verify error:", err);
                     }
 
-                    // Fallback: wait and recheck registration
+                    // Nếu verify không thành công ngay, đợi webhook xử lý
+                    // (webhook có thể mất vài giây)
                     await new Promise(r => setTimeout(r, 3000));
-                    const rRes = await tournamentAPI.getRegistrations(tournamentId);
-                    if (rRes.success) {
-                        const regs = rRes.data?.registrations || rRes.data || [];
-                        const myReg = regs.find((r: any) =>
-                            r.paymentNote?.includes(payosOrderCode || "") ||
-                            r.paymentStatus === "paid"
-                        );
-                        if (myReg?.paymentStatus === "paid") {
+
+                    // Retry verify một lần nữa (webhook có thể đã confirm)
+                    try {
+                        const retryRes = await fetch(`/api/payment/payos-verify`, {
+                            method: "POST",
+                            headers: { "Content-Type": "application/json" },
+                            body: JSON.stringify({
+                                tournamentId,
+                                orderCode: payosOrderCode,
+                            }),
+                        });
+                        const retryData = await retryRes.json();
+                        if ((retryData.success && retryData.payosStatus === "PAID") || retryData.alreadyProcessed) {
                             setStatus("success");
                             return;
                         }
+                    } catch {
+                        // Ignore retry errors
                     }
+
                     setStatus("pending");
                 } else {
                     setStatus("failed");
@@ -97,16 +120,7 @@ function PaymentResultContent() {
                 return;
             }
 
-            // Default: check registration directly
-            const rRes = await tournamentAPI.getRegistrations(tournamentId);
-            if (rRes.success) {
-                const regs = rRes.data?.registrations || rRes.data || [];
-                const myReg = regs.find((r: any) => r.paymentStatus === "paid");
-                if (myReg) {
-                    setStatus("success");
-                    return;
-                }
-            }
+            // Default (non-PayOS): show pending
             setStatus("pending");
         } catch (error) {
             console.error("Load payment result error:", error);

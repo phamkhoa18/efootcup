@@ -83,12 +83,70 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
                                     amount: checkData.data.amount,
                                 }, 200, "Link thanh toán PayOS đang chờ");
                             } else if (linkStatus === "PAID") {
-                                // Already paid! Update status
+                                // Already paid! Update status + AUTO-APPROVE
+                                const paidAmount = checkData.data.amountPaid || checkData.data.amount;
+                                const paidRef = checkData.data.transactions?.[0]?.reference || "";
+                                const paidTime = checkData.data.transactions?.[0]?.transactionDateTime || new Date().toISOString();
+
                                 registration.paymentStatus = "paid";
-                                registration.paymentAmount = checkData.data.amountPaid || checkData.data.amount;
+                                registration.paymentAmount = paidAmount;
+                                registration.paymentDate = new Date(paidTime);
                                 registration.paymentConfirmedAt = new Date();
-                                // paymentConfirmedBy stored in paymentNote as "payos-check"
+
+                                const existingNote = JSON.parse(registration.paymentNote || "{}");
+                                registration.paymentNote = JSON.stringify({
+                                    ...existingNote,
+                                    reference: paidRef,
+                                    transactionDateTime: paidTime,
+                                    confirmedBy: "payos-recheck",
+                                    payosAmountPaid: checkData.data.amountPaid,
+                                });
+
                                 await registration.save();
+
+                                // ✅ AUTO-APPROVE if still pending and tournament has room
+                                if (registration.status === "pending" && tournament.currentTeams < tournament.maxTeams) {
+                                    const Team = (await import("@/models/Team")).default;
+                                    const Notification = (await import("@/models/Notification")).default;
+
+                                    const team = await Team.create({
+                                        name: registration.teamName || registration.playerName || "Team",
+                                        shortName: registration.teamShortName || (registration.teamName || registration.playerName || "TEA").substring(0, 3).toUpperCase(),
+                                        tournament: tournament._id,
+                                        captain: registration.user,
+                                        members: [{
+                                            user: registration.user,
+                                            role: "captain",
+                                            joinedAt: new Date(),
+                                        }],
+                                    });
+
+                                    registration.status = "approved";
+                                    registration.team = team._id;
+                                    registration.approvedAt = new Date();
+                                    await registration.save();
+
+                                    await Tournament.findByIdAndUpdate(tournament._id, { $inc: { currentTeams: 1 } });
+
+                                    await Notification.create({
+                                        recipient: registration.user,
+                                        type: "system",
+                                        title: "🎉 Đăng ký thành công!",
+                                        message: `Thanh toán ${paidAmount?.toLocaleString("vi-VN")}đ đã được xác nhận. Bạn đã chính thức tham gia giải "${tournament.title}"!`,
+                                        link: `/giai-dau/${tournament._id}`,
+                                    });
+
+                                    await Notification.create({
+                                        recipient: tournament.createdBy,
+                                        type: "system",
+                                        title: "✅ VĐV mới tự động duyệt",
+                                        message: `VĐV "${registration.playerName}" đã thanh toán qua PayOS và được tự động duyệt vào giải "${tournament.title}".`,
+                                        link: `/manager/giai-dau/${tournament._id}/dang-ky`,
+                                    });
+
+                                    console.log(`🎉 Pay route: Auto-approved registration ${registration._id} (detected PAID on re-check)`);
+                                }
+
                                 return apiError("Bạn đã thanh toán rồi", 400);
                             }
                             // CANCELLED/EXPIRED → allow creating new link below

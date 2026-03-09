@@ -59,12 +59,41 @@ export async function GET(req: NextRequest) {
         registration.paymentConfirmedAt = new Date();
         await registration.save();
 
+        // ✅ AUTO-APPROVE if still pending and tournament has room
+        if (registration.status === "pending" && tournament.currentTeams < tournament.maxTeams) {
+            const Team = (await import("@/models/Team")).default;
+
+            const team = await Team.create({
+                name: registration.teamName || registration.playerName || "Team",
+                shortName: registration.teamShortName || (registration.teamName || registration.playerName || "TEA").substring(0, 3).toUpperCase(),
+                tournament: tournament._id,
+                captain: registration.user,
+                members: [{
+                    user: registration.user,
+                    role: "captain",
+                    joinedAt: new Date(),
+                }],
+            });
+
+            registration.status = "approved";
+            registration.team = team._id;
+            registration.approvedAt = new Date();
+            registration.approvedBy = authResult.user._id as any;
+            await registration.save();
+
+            await Tournament.findByIdAndUpdate(tournament._id, { $inc: { currentTeams: 1 } });
+
+            console.log(`🎉 Quick-confirm: Auto-approved registration ${registration._id}`);
+        }
+
         // Notify user
         await Notification.create({
             recipient: registration.user,
             type: "system",
-            title: "✅ Thanh toán đã xác nhận",
-            message: `Thanh toán cho giải "${tournament.title}" đã được xác nhận thành công.`,
+            title: "🎉 Thanh toán đã xác nhận",
+            message: registration.status === "approved"
+                ? `Thanh toán cho giải "${tournament.title}" đã được xác nhận và bạn đã được duyệt vào giải!`
+                : `Thanh toán cho giải "${tournament.title}" đã được xác nhận thành công.`,
             link: `/giai-dau/${tournament._id}`,
         });
 

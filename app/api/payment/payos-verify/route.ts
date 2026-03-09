@@ -6,18 +6,27 @@ import Team from "@/models/Team";
 import Notification from "@/models/Notification";
 import PaymentConfig from "@/models/PaymentConfig";
 import { sendPaymentInvoiceEmail } from "@/lib/email";
+import { requireAuth } from "@/lib/auth";
 
 /**
  * POST /api/payment/payos-verify
  * Called from PayOS return URL page to verify and confirm payment.
- * This is needed because webhooks don't work on localhost.
+ * 
+ * SECURITY:
+ * - Requires authentication (requireAuth)
+ * - Only processes the CURRENT USER's registration (filter by user ID)
+ * - NO fallback matching — only exact orderCode match
+ * - Always verifies with PayOS API before confirming
  * 
  * Body: { tournamentId, orderCode }
- * 
- * Checks PayOS API for payment status and updates registration.
  */
 export async function POST(req: NextRequest) {
     try {
+        // ✅ FIX #1: Require authentication — only logged-in users can verify
+        const authResult = await requireAuth(req);
+        if (authResult instanceof Response) return authResult;
+        const userId = authResult.user._id;
+
         const body = await req.json();
         const { tournamentId, orderCode } = body;
 
@@ -37,8 +46,8 @@ export async function POST(req: NextRequest) {
             return NextResponse.json({ success: false, message: "PayOS not configured" }, { status: 500 });
         }
 
-        // Query PayOS API for payment status
-        console.log(`🔍 Verifying PayOS payment: orderCode=${orderCode}`);
+        // Query PayOS API for payment status — ALWAYS verify with PayOS first
+        console.log(`🔍 Verifying PayOS payment: orderCode=${orderCode}, user=${userId}`);
         const payosRes = await fetch(`https://api-merchant.payos.vn/v2/payment-requests/${orderCode}`, {
             method: "GET",
             headers: {
@@ -65,48 +74,52 @@ export async function POST(req: NextRequest) {
             });
         }
 
-        // Payment is PAID — find and update registration
-        const registrations = await Registration.find({
+        // ✅ FIX #2: Only find THIS USER's registration for THIS tournament
+        // No fallback to other users' registrations!
+        const registration = await Registration.findOne({
             tournament: tournamentId,
+            user: userId,
             paymentStatus: { $in: ["unpaid", "pending_verification"] },
         });
 
-        let registration = null;
-        // Try exact orderCode match first
-        for (const reg of registrations) {
-            try {
-                const noteData = JSON.parse(reg.paymentNote || "{}");
-                if (noteData.orderCode === Number(orderCode) || noteData.orderCode === orderCode) {
-                    registration = reg;
-                    break;
-                }
-            } catch {
-                // Skip invalid JSON
-            }
-        }
-
-        // Fallback: if no exact match, find any unpaid payos registration for this tournament
-        // This handles the case where user clicked pay multiple times (different orderCodes)
         if (!registration) {
-            registration = registrations.find((r: any) => r.paymentMethod === "payos") || registrations[0] || null;
-            if (registration) {
-                console.log(`⚠️ PayOS verify: orderCode mismatch, using fallback registration ${registration._id}`);
-            }
-        }
-
-        if (!registration) {
-            // Maybe already processed by webhook or verify
+            // Check if this user already has a paid registration
             const alreadyPaid = await Registration.findOne({
                 tournament: tournamentId,
+                user: userId, // ✅ FIX #3: Only check THIS user, not any random user
                 paymentStatus: "paid",
             });
             if (alreadyPaid) {
                 return NextResponse.json({ success: true, message: "Already confirmed", payosStatus: "PAID", alreadyProcessed: true });
             }
-            return NextResponse.json({ success: false, message: "Registration not found", payosStatus: "PAID" });
+            return NextResponse.json({ success: false, message: "Registration not found for this user", payosStatus: "PAID" });
         }
 
-        // Update registration
+        // ✅ FIX #4: Verify orderCode matches this registration's paymentNote
+        // Prevent user from using someone else's paid orderCode to confirm their registration
+        let orderCodeMatches = false;
+        try {
+            const noteData = JSON.parse(registration.paymentNote || "{}");
+            if (noteData.orderCode === Number(orderCode) || noteData.orderCode === orderCode) {
+                orderCodeMatches = true;
+            }
+        } catch {
+            // Invalid JSON in paymentNote
+        }
+
+        if (!orderCodeMatches) {
+            // The orderCode from PayOS doesn't match this registration's stored orderCode
+            // This could mean the user paid with a different link or is trying to use someone else's code
+            console.warn(`⚠️ PayOS verify: orderCode ${orderCode} does NOT match registration ${registration._id}'s stored orderCode. Rejecting.`);
+            return NextResponse.json({
+                success: false,
+                message: "Order code mismatch — this payment does not belong to your registration. Please contact support.",
+                payosStatus: "PAID",
+                mismatch: true,
+            });
+        }
+
+        // ✅ Payment verified by PayOS AND orderCode matches — safe to confirm
         const amount = paymentInfo.amount || paymentInfo.amountPaid;
         const reference = paymentInfo.transactions?.[0]?.reference || "";
         const transactionDateTime = paymentInfo.transactions?.[0]?.transactionDateTime || new Date().toISOString();
@@ -123,19 +136,23 @@ export async function POST(req: NextRequest) {
             transactionDateTime,
             confirmedBy: "payos-verify",
             confirmedByVerify: true,
+            payosAmountPaid: paymentInfo.amountPaid,
+            payosTransactions: paymentInfo.transactions || [],
         });
 
         await registration.save();
-        console.log(`✅ PayOS verify: Registration ${registration._id} payment confirmed!`);
+        console.log(`✅ PayOS verify: Registration ${registration._id} payment confirmed! (user: ${userId})`);
 
         // Get tournament
         const tournament = await Tournament.findById(tournamentId);
 
         // AUTO-APPROVE
         if (tournament && registration.status === "pending" && tournament.currentTeams < tournament.maxTeams) {
+            const teamName = registration.teamName || registration.playerName || "Team";
+            const teamShortName = registration.teamShortName || teamName.substring(0, 3).toUpperCase();
             const team = await Team.create({
-                name: registration.teamName,
-                shortName: registration.teamShortName,
+                name: teamName,
+                shortName: teamShortName,
                 tournament: tournament._id,
                 captain: registration.user,
                 members: [{
