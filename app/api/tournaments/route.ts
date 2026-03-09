@@ -128,6 +128,8 @@ export async function POST(req: NextRequest) {
             teamSize: body.teamSize || 1,
             isOnline: body.isOnline !== undefined ? body.isOnline : true,
             location: body.location || "",
+            banner: body.banner || "",
+            thumbnail: body.thumbnail || "",
             schedule,
             prize,
             scoring,
