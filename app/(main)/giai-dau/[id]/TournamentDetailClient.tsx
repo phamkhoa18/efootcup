@@ -64,14 +64,15 @@ const UNIT_HEIGHT = 110;
 
 const MatchCard = ({ match, onClick }: { match: any; onClick: () => void }) => {
     const isWalkover = match.status === "walkover";
+    const isBye = match.status === "bye";
     const bracketNumber = match.bracketPosition?.y !== undefined ? match.bracketPosition.y + 1 : (match.matchNumber || 0);
 
-    const isMatchScheduled = !isWalkover && (!match.homeTeam || !match.awayTeam);
+    const isMatchScheduled = !isWalkover && !isBye && (!match.homeTeam || !match.awayTeam);
 
-    const homeName = match.homeTeam?.name || match.homeTeam?.shortName || match.p1?.name || (isWalkover ? "Tự do" : "Chờ kết quả");
-    const awayName = match.awayTeam?.name || match.awayTeam?.shortName || match.p2?.name || (isWalkover ? "Tự do" : "Chờ kết quả");
-    const homeScore = isWalkover ? "0" : (match.homeScore ?? match.p1?.score ?? "");
-    const awayScore = isWalkover ? "0" : (match.awayScore ?? match.p2?.score ?? "");
+    const homeName = match.homeTeam?.name || match.homeTeam?.shortName || match.p1?.name || (isWalkover || isBye ? "Tự do" : "Chờ kết quả");
+    const awayName = match.awayTeam?.name || match.awayTeam?.shortName || match.p2?.name || (isWalkover || isBye ? "Tự do" : "Chờ kết quả");
+    const homeScore = (isWalkover || isBye) ? "" : (match.homeScore ?? match.p1?.score ?? "");
+    const awayScore = (isWalkover || isBye) ? "" : (match.awayScore ?? match.p2?.score ?? "");
     const isCompleted = match.status === "completed" || match.status === "Kết thúc" || isWalkover;
     const isLive = match.status === "live" || match.status === "Đang diễn ra";
     const homeWin = isCompleted && (match.winner === (match.homeTeam?._id || match.homeTeam?.id) || (homeScore !== "" && awayScore !== "" && Number(homeScore) > Number(awayScore)));
@@ -84,6 +85,36 @@ const MatchCard = ({ match, onClick }: { match: any; onClick: () => void }) => {
     const awayP2 = match.awayTeam?.player2 && match.awayTeam.player2 !== "TBD" ? match.awayTeam.player2 : "";
     const homeEfvId = match.homeTeam?.efvId;
     const awayEfvId = match.awayTeam?.efvId;
+
+    // BYE match - compact single-team card with BYE badge
+    if (isBye) {
+        const byeP1 = match.homeTeam?.player1 || match.p1?.name || "Tự do";
+        const byeP2 = match.homeTeam?.player2 && match.homeTeam.player2 !== "TBD" ? match.homeTeam.player2 : "";
+        const byeTeamName = match.homeTeam?.name || match.homeTeam?.shortName || "";
+        const byeEfvId = match.homeTeam?.efvId;
+
+        return (
+            <div className="flex items-center relative z-20 w-[200px]">
+                <div className="absolute -left-2 top-1/2 -translate-y-1/2 w-4 h-4 bg-[#F8FAFC] border border-[#CBD5E1] rounded-full flex items-center justify-center text-[7px] font-bold text-gray-500 z-30">
+                    {bracketNumber}
+                </div>
+                <div className="w-full bg-gradient-to-r from-gray-50 to-white rounded-[6px] border border-dashed border-gray-200 flex flex-col justify-center overflow-hidden z-20 relative px-2.5 py-1.5 h-[88px] opacity-70">
+                    <div className="flex items-center justify-between mb-0.5">
+                        <div className="flex items-center gap-1 min-w-0 flex-1">
+                            {byeEfvId != null && <span className="text-[9px] font-bold text-amber-600 bg-amber-50 border border-amber-200 px-1 py-px rounded flex-shrink-0">#{byeEfvId}</span>}
+                            <span className="truncate text-[11px] text-gray-700 font-semibold">{byeP1}</span>
+                        </div>
+                        <span className="text-[8px] font-bold text-emerald-600 bg-emerald-50 border border-emerald-200 px-1.5 py-px rounded-full ml-1 flex-shrink-0">BYE</span>
+                    </div>
+                    {byeP2 && <span className="truncate text-[10px] text-gray-500">{byeP2}</span>}
+                    {byeTeamName && <span className="truncate text-[8px] text-gray-400 mt-0.5">{byeTeamName}</span>}
+                    <div className="mt-1 pt-1 border-t border-dashed border-gray-200">
+                        <span className="text-[10px] text-gray-300 italic">— Không có đối thủ —</span>
+                    </div>
+                </div>
+            </div>
+        );
+    }
 
     if (isWalkover) {
         return (
@@ -168,21 +199,23 @@ const MatchDetailViewModal = ({ match, tournament, onClose, user, myRegistration
     const homeScore = match.homeScore ?? "";
     const awayScore = match.awayScore ?? "";
 
-    const [showSubmitForm, setShowSubmitForm] = useState(false);
-    const [submitHomeScore, setSubmitHomeScore] = useState("");
-    const [submitAwayScore, setSubmitAwayScore] = useState("");
-    const [submitNotes, setSubmitNotes] = useState("");
-    const [submitScreenshots, setSubmitScreenshots] = useState<string[]>([]);
-    const [isSubmitting, setIsSubmitting] = useState(false);
-    const [isUploadingShot, setIsUploadingShot] = useState(false);
-
     // Check if user is part of this match
     const userTeamId = (myRegistration?.team?._id || myRegistration?.team)?.toString?.();
     const isUserInMatch = userTeamId && (
         (match.homeTeam?._id || match.homeTeam)?.toString?.() === userTeamId ||
         (match.awayTeam?._id || match.awayTeam)?.toString?.() === userTeamId
     );
+    const isLiveMatch = match.status === "live" || match.status === "scheduled";
     const canSubmitResult = user && isUserInMatch && match.status !== "completed";
+
+    // Auto-open submit form when match is live/scheduled and user is a participant
+    const [showSubmitForm, setShowSubmitForm] = useState(!!user && !!isUserInMatch && isLiveMatch);
+    const [submitHomeScore, setSubmitHomeScore] = useState("");
+    const [submitAwayScore, setSubmitAwayScore] = useState("");
+    const [submitNotes, setSubmitNotes] = useState("");
+    const [submitScreenshots, setSubmitScreenshots] = useState<string[]>([]);
+    const [isSubmitting, setIsSubmitting] = useState(false);
+    const [isUploadingShot, setIsUploadingShot] = useState(false);
 
     // Check if user already submitted
     const mySubmission = match.resultSubmissions?.find(
@@ -203,7 +236,7 @@ const MatchDetailViewModal = ({ match, tournament, onClose, user, myRegistration
         try {
             const formData = new FormData();
             formData.append("file", file);
-            formData.append("type", "registration");
+            formData.append("type", "screenshot");
             const headers: Record<string, string> = {};
             const savedToken = localStorage.getItem("efootcup_token");
             if (savedToken) headers.Authorization = `Bearer ${savedToken}`;
@@ -853,6 +886,17 @@ export default function TournamentDetailClient({ initialData, id }: { initialDat
     const handleRegister = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!isAuthenticated) return;
+
+        // Validate required photos
+        if (!regForm.personalPhoto) {
+            toast.error('Vui lòng tải lên hình ảnh cá nhân (rõ mặt)');
+            return;
+        }
+        if (!regForm.teamLineupPhoto) {
+            toast.error('Vui lòng tải lên hình đội hình thẻ thi đấu');
+            return;
+        }
+
         setIsRegistering(true);
         try {
             const res = await tournamentAPI.register(id, {
@@ -935,7 +979,7 @@ export default function TournamentDetailClient({ initialData, id }: { initialDat
         .sort(([, a], [, b]) => (a[0]?.round ?? 0) - (b[0]?.round ?? 0))
         .map(([name, roundMatches]) => ({
             name,
-            matches: roundMatches.filter(m => m.status !== "walkover")
+            matches: roundMatches
         }))
         .filter(round => round.matches.length > 0);
 
@@ -2018,8 +2062,8 @@ export default function TournamentDetailClient({ initialData, id }: { initialDat
                             )}
                             {regStep === 3 && (
                                 <motion.div key="s3" initial={{ opacity: 0, x: 15 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -15 }} className="space-y-4">
-                                    <div className="space-y-1.5"><Label className="text-xs font-medium text-gray-500">Hình cá nhân (rõ mặt)</Label><div className="flex items-start gap-4">{regForm.personalPhoto ? (<div className="relative group"><img src={regForm.personalPhoto} alt="Ảnh" className="w-24 h-24 object-cover rounded-xl border-2 border-gray-200" /><button type="button" onClick={() => setRegForm(prev => ({ ...prev, personalPhoto: '' }))} className="absolute -top-2 -right-2 w-6 h-6 rounded-full bg-red-500 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity shadow-lg"><X className="w-3.5 h-3.5" /></button></div>) : (<label className="cursor-pointer flex-1"><div className="flex items-center gap-3 p-4 rounded-xl border-2 border-dashed border-gray-200 hover:border-efb-blue hover:bg-blue-50/30 transition-all">{uploadingPersonal ? <Loader2 className="w-5 h-5 animate-spin text-efb-blue" /> : <div className="w-10 h-10 rounded-lg bg-blue-50 flex items-center justify-center"><Camera className="w-5 h-5 text-efb-blue" /></div>}<div><p className="text-sm font-medium text-gray-700">Tải ảnh cá nhân</p><p className="text-[11px] text-gray-400">JPG, PNG — tối đa 5MB</p></div></div><input type="file" accept="image/*" className="hidden" disabled={uploadingPersonal} onChange={(e) => { const f = e.target.files?.[0]; if (f) handleUploadRegImage(f, 'personalPhoto'); e.target.value = ''; }} /></label>)}</div></div>
-                                    <div className="space-y-1.5"><Label className="text-xs font-medium text-gray-500">Hình đội hình thẻ thi đấu</Label><div className="flex items-start gap-4">{regForm.teamLineupPhoto ? (<div className="relative group"><img src={regForm.teamLineupPhoto} alt="Đội hình" className="w-40 h-24 object-cover rounded-xl border-2 border-gray-200" /><button type="button" onClick={() => setRegForm(prev => ({ ...prev, teamLineupPhoto: '' }))} className="absolute -top-2 -right-2 w-6 h-6 rounded-full bg-red-500 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity shadow-lg"><X className="w-3.5 h-3.5" /></button></div>) : (<label className="cursor-pointer flex-1"><div className="flex items-center gap-3 p-4 rounded-xl border-2 border-dashed border-gray-200 hover:border-efb-blue hover:bg-blue-50/30 transition-all">{uploadingLineup ? <Loader2 className="w-5 h-5 animate-spin text-efb-blue" /> : <div className="w-10 h-10 rounded-lg bg-emerald-50 flex items-center justify-center"><ImageIcon className="w-5 h-5 text-emerald-600" /></div>}<div><p className="text-sm font-medium text-gray-700">Tải ảnh đội hình</p><p className="text-[11px] text-gray-400">Screenshot — JPG, PNG (tối đa 5MB)</p></div></div><input type="file" accept="image/*" className="hidden" disabled={uploadingLineup} onChange={(e) => { const f = e.target.files?.[0]; if (f) handleUploadRegImage(f, 'teamLineupPhoto'); e.target.value = ''; }} /></label>)}</div></div>
+                                    <div className="space-y-1.5"><Label className="text-xs font-medium text-gray-500">Hình cá nhân (rõ mặt) <span className="text-red-500">*</span></Label><div className="flex items-start gap-4">{regForm.personalPhoto ? (<div className="relative group"><img src={regForm.personalPhoto} alt="Ảnh" className="w-24 h-24 object-cover rounded-xl border-2 border-emerald-300" /><button type="button" onClick={() => setRegForm(prev => ({ ...prev, personalPhoto: '' }))} className="absolute -top-2 -right-2 w-6 h-6 rounded-full bg-red-500 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity shadow-lg"><X className="w-3.5 h-3.5" /></button></div>) : (<label className="cursor-pointer flex-1"><div className="flex items-center gap-3 p-4 rounded-xl border-2 border-dashed border-red-200 hover:border-efb-blue hover:bg-blue-50/30 transition-all bg-red-50/30">{uploadingPersonal ? <Loader2 className="w-5 h-5 animate-spin text-efb-blue" /> : <div className="w-10 h-10 rounded-lg bg-blue-50 flex items-center justify-center"><Camera className="w-5 h-5 text-efb-blue" /></div>}<div><p className="text-sm font-medium text-gray-700">Tải ảnh cá nhân <span className="text-red-500 text-xs">(bắt buộc)</span></p><p className="text-[11px] text-gray-400">Mọi định dạng ảnh — tối đa 10MB</p></div></div><input type="file" accept="image/*" className="hidden" disabled={uploadingPersonal} onChange={(e) => { const f = e.target.files?.[0]; if (f) handleUploadRegImage(f, 'personalPhoto'); e.target.value = ''; }} /></label>)}</div></div>
+                                    <div className="space-y-1.5"><Label className="text-xs font-medium text-gray-500">Hình đội hình thẻ thi đấu <span className="text-red-500">*</span></Label><div className="flex items-start gap-4">{regForm.teamLineupPhoto ? (<div className="relative group"><img src={regForm.teamLineupPhoto} alt="Đội hình" className="w-40 h-24 object-cover rounded-xl border-2 border-emerald-300" /><button type="button" onClick={() => setRegForm(prev => ({ ...prev, teamLineupPhoto: '' }))} className="absolute -top-2 -right-2 w-6 h-6 rounded-full bg-red-500 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity shadow-lg"><X className="w-3.5 h-3.5" /></button></div>) : (<label className="cursor-pointer flex-1"><div className="flex items-center gap-3 p-4 rounded-xl border-2 border-dashed border-red-200 hover:border-efb-blue hover:bg-blue-50/30 transition-all bg-red-50/30">{uploadingLineup ? <Loader2 className="w-5 h-5 animate-spin text-efb-blue" /> : <div className="w-10 h-10 rounded-lg bg-emerald-50 flex items-center justify-center"><ImageIcon className="w-5 h-5 text-emerald-600" /></div>}<div><p className="text-sm font-medium text-gray-700">Tải ảnh đội hình <span className="text-red-500 text-xs">(bắt buộc)</span></p><p className="text-[11px] text-gray-400">Mọi định dạng ảnh — tối đa 10MB</p></div></div><input type="file" accept="image/*" className="hidden" disabled={uploadingLineup} onChange={(e) => { const f = e.target.files?.[0]; if (f) handleUploadRegImage(f, 'teamLineupPhoto'); e.target.value = ''; }} /></label>)}</div></div>
                                     {t.entryFee > 0 && (<div className="p-3 rounded-xl bg-amber-50 border border-amber-200 flex items-center gap-3"><DollarSign className="w-5 h-5 text-amber-600 flex-shrink-0" /><div><p className="text-xs font-medium text-amber-800">Lệ phí: {t.entryFee?.toLocaleString('vi-VN')} {t.currency || 'VNĐ'}</p><p className="text-[10px] text-amber-600/70 mt-0.5">Thanh toán sau đăng ký.</p></div></div>)}
                                     <div className="p-4 rounded-xl bg-gray-50 border border-gray-100 space-y-2"><p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">Tóm tắt</p><div className="grid grid-cols-2 gap-x-4 gap-y-1.5 text-sm"><div><span className="text-gray-400">Họ tên:</span> <span className="font-medium text-gray-700">{regForm.playerName}</span></div><div><span className="text-gray-400">SĐT:</span> <span className="font-medium text-gray-700">{regForm.phone}</span></div><div><span className="text-gray-400">ID Game:</span> <span className="font-medium text-gray-700">{regForm.gamerId}</span></div>{regForm.teamName && <div><span className="text-gray-400">Team:</span> <span className="font-medium text-gray-700">{regForm.teamName}</span></div>}{regForm.nickname && <div><span className="text-gray-400">Nickname:</span> <span className="font-medium text-gray-700">{regForm.nickname}</span></div>}{regForm.province && <div><span className="text-gray-400">Tỉnh/TP:</span> <span className="font-medium text-gray-700">{regForm.province}</span></div>}</div></div>
                                     <div className="pt-3 flex justify-between"><Button type="button" variant="outline" onClick={() => setRegStep(2)} className="h-11 px-6 rounded-lg font-medium border-gray-200 flex items-center gap-2"><ChevronLeft className="w-4 h-4" /> Quay lại</Button><Button type="submit" className="h-11 px-8 bg-gradient-to-r from-efb-blue to-blue-600 text-white rounded-lg font-medium shadow-sm flex items-center gap-2" disabled={isRegistering}>{isRegistering ? <Loader2 className="w-5 h-5 animate-spin" /> : <>Xác nhận <ChevronRight className="w-4 h-4" /></>}</Button></div>

@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
-import { Calendar, Download, Edit3, Filter, Settings2, Share2, Play, Users, X, Info, ChevronDown, CheckCircle2, Bone, Hexagon, SplitSquareHorizontal, Loader2, ArrowLeftRight, FileBarChart, Eye } from "lucide-react";
+import { Calendar, Download, Edit3, Filter, Settings2, Share2, Play, Users, X, Info, ChevronDown, CheckCircle2, Bone, Hexagon, SplitSquareHorizontal, Loader2, ArrowLeftRight, FileBarChart, Eye, ArrowUp, ArrowDown, Shuffle, Hash, Trophy } from "lucide-react";
 import { tournamentAPI } from "@/lib/api";
 import { toast } from "sonner";
 import { useConfirmDialog } from "@/components/ui/confirm-dialog";
@@ -37,9 +37,10 @@ export default function LichThiDauPage() {
     const [isSwapModalOpen, setIsSwapModalOpen] = useState(false);
     const [team1Id, setTeam1Id] = useState("");
     const [team2Id, setTeam2Id] = useState("");
-    const [selectedFormatType, setSelectedFormatType] = useState('standard');
     const [editingMatch, setEditingMatch] = useState<any>(null);
     const [viewingSubmissions, setViewingSubmissions] = useState<any>(null);
+    const [seedMode, setSeedMode] = useState<'random' | 'manual'>('random');
+    const [seedOrder, setSeedOrder] = useState<any[]>([]);
     const { confirm, alert: showAlert } = useConfirmDialog();
 
     const handleDownloadPDF = async () => {
@@ -142,7 +143,11 @@ export default function LichThiDauPage() {
         setIsGeneratingModalOpen(false);
         setIsUpdating(true);
         try {
-            const res = await tournamentAPI.generateBrackets(id, { formatType: selectedFormatType });
+            const payload: any = {};
+            if (seedMode === 'manual' && seedOrder.length > 0) {
+                payload.seeds = seedOrder.map((t: any) => t._id || t.id);
+            }
+            const res = await tournamentAPI.generateBrackets(id, payload);
             if (res.success) {
                 loadData();
             } else {
@@ -153,6 +158,33 @@ export default function LichThiDauPage() {
         } finally {
             setIsUpdating(false);
         }
+    };
+
+    // Load teams for seeding when modal opens
+    const openGenerateModal = async () => {
+        setIsGeneratingModalOpen(true);
+        try {
+            const res = await tournamentAPI.getById(id);
+            if (res.success) {
+                const teams = res.data?.teams || [];
+                setSeedOrder([...teams]);
+            }
+        } catch (e) {
+            console.error(e);
+        }
+    };
+
+    const moveSeed = (index: number, direction: 'up' | 'down') => {
+        const newOrder = [...seedOrder];
+        const targetIndex = direction === 'up' ? index - 1 : index + 1;
+        if (targetIndex < 0 || targetIndex >= newOrder.length) return;
+        [newOrder[index], newOrder[targetIndex]] = [newOrder[targetIndex], newOrder[index]];
+        setSeedOrder(newOrder);
+    };
+
+    const shuffleSeeds = () => {
+        const shuffled = [...seedOrder].sort(() => Math.random() - 0.5);
+        setSeedOrder(shuffled);
     };
 
     const handleSwapTeams = async () => {
@@ -204,7 +236,7 @@ export default function LichThiDauPage() {
     });
     const uniqueTeams = Array.from(uniqueTeamsMap.values());
 
-    const actualMatches = matches.filter(m => m.status !== 'walkover');
+    const actualMatches = matches.filter(m => m.status !== 'walkover' && m.status !== 'bye');
     const completedMatches = actualMatches.filter(m => m.status === 'completed').length;
     const totalMatches = actualMatches.length;
 
@@ -226,7 +258,7 @@ export default function LichThiDauPage() {
                 </div>
                 <div className="flex gap-2">
                     <Button
-                        onClick={() => setIsGeneratingModalOpen(true)}
+                        onClick={openGenerateModal}
                         variant="outline"
                         className="border-gray-200 text-gray-700 hover:bg-gray-50 rounded-md h-9 text-sm font-semibold shadow-sm"
                     >
@@ -279,7 +311,7 @@ export default function LichThiDauPage() {
                     <Button variant="outline" size="icon" className="h-8 w-8 rounded text-gray-500 border-gray-200">
                         <Filter className="w-4 h-4" />
                     </Button>
-                    <Button variant="outline" size="icon" className="h-8 w-8 rounded text-gray-500 border-gray-200" onClick={() => setIsGeneratingModalOpen(true)}>
+                    <Button variant="outline" size="icon" className="h-8 w-8 rounded text-gray-500 border-gray-200" onClick={openGenerateModal}>
                         <Settings2 className="w-4 h-4" />
                     </Button>
                 </div>
@@ -298,7 +330,7 @@ export default function LichThiDauPage() {
                     </div>
                 ) : (
                     Object.entries(rounds).map(([roundName, roundMatches]) => {
-                        if (roundMatches.filter((m: any) => m.status !== 'walkover').length === 0) return null;
+                        if (roundMatches.filter((m: any) => m.status !== 'walkover' && m.status !== 'bye').length === 0) return null;
 
                         return (
                             <div key={roundName}>
@@ -321,7 +353,7 @@ export default function LichThiDauPage() {
 
                                 {/* Match Rows */}
                                 <div className="divide-y divide-gray-100">
-                                    {roundMatches.filter((m: any) => m.status !== 'walkover').map((m: any, index: number) => {
+                                    {roundMatches.filter((m: any) => m.status !== 'walkover' && m.status !== 'bye').map((m: any, index: number) => {
                                         const homeName = m.homeTeam?.name || "Tự do";
                                         const awayName = m.awayTeam?.name || "Tự do";
                                         const p1Name = m.homeTeam?.player1 || "—";
@@ -487,69 +519,109 @@ export default function LichThiDauPage() {
             </AnimatePresence>
 
             <Dialog open={isGeneratingModalOpen} onOpenChange={setIsGeneratingModalOpen}>
-                <DialogContent className="w-[95vw] max-w-5xl p-0 overflow-hidden border-0 rounded-[16px] bg-[#F7F8FA] flex flex-col max-h-[90vh]" showCloseButton={false}>
-                    <div className="bg-white px-6 sm:px-8 py-6 border-b border-gray-100 flex-shrink-0 relative">
+                <DialogContent className="w-[95vw] max-w-2xl p-0 overflow-hidden border-0 rounded-[16px] bg-white flex flex-col max-h-[90vh]" showCloseButton={false}>
+                    <div className="px-6 sm:px-8 py-6 border-b border-gray-100 flex-shrink-0 relative">
                         <DialogTitle className="text-xl sm:text-2xl font-bold text-gray-900 mb-1">Tạo lịch thi đấu</DialogTitle>
-                        <p className="text-gray-500 text-xs sm:text-sm font-medium">Sắp xếp lại vị trí thi đấu cho tất cả VĐV theo tùy chỉnh dưới đây. Hành động này sẽ TẠO LẠI TOÀN BỘ LỊCH TRÌNH VÀ XOÁ DỮ LIỆU ĐÃ CÓ.</p>
+                        <p className="text-gray-500 text-xs sm:text-sm font-medium">Hành động này sẽ TẠO LẠI TOÀN BỘ LỊCH TRÌNH VÀ XOÁ DỮ LIỆU ĐÃ CÓ.</p>
                         <button onClick={() => setIsGeneratingModalOpen(false)} className="absolute top-6 right-6 text-gray-400 hover:text-gray-600">
                             <X className="w-5 h-5" />
                         </button>
                     </div>
-                    <div className="p-6 sm:p-8 overflow-y-auto custom-scrollbar">
-                        <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
-                            {/* Empty Schedule */}
-                            <div
-                                onClick={() => setSelectedFormatType('empty')}
-                                className={`cursor-pointer rounded-2xl bg-white border px-6 py-8 transition-all hover:shadow flex flex-col items-center text-center ${selectedFormatType === 'empty' ? 'border-[#3B82F6] ring-1 ring-[#3B82F6]' : 'border-gray-200'}`}
-                            >
-                                <Bone className="w-8 h-8 text-[#3B82F6] mb-4" />
-                                <h3 className="font-bold text-gray-900 text-lg mb-3">Lịch thi đấu trống</h3>
-                                <p className="text-sm text-gray-500 leading-relaxed mb-4">
-                                    Chỉ tạo sơ đồ thi đấu tương ứng với số VĐV đã đăng ký tham gia. Ban tổ chức tự sắp xếp vị trí thi đấu cho VĐV.
-                                </p>
-                                <p className="text-[12px] text-orange-500 font-semibold mt-auto leading-relaxed">
-                                    * Phù hợp với giải đấu muốn tự sắp xếp vị trí thi đấu cho VĐV.
-                                </p>
+                    <div className="p-6 sm:p-8 overflow-y-auto custom-scrollbar flex-1">
+                        {/* Seed Mode Toggle */}
+                        <div className="bg-gray-50 rounded-2xl p-5 mb-6">
+                            <h3 className="text-sm font-bold text-gray-900 mb-3 flex items-center gap-2">
+                                <Hash className="w-4 h-4 text-blue-500" /> Chế độ hạt giống
+                            </h3>
+                            <div className="flex gap-3">
+                                <button
+                                    onClick={() => setSeedMode('random')}
+                                    className={`flex-1 py-3 px-4 rounded-xl text-sm font-semibold transition-all flex items-center justify-center gap-2 ${seedMode === 'random'
+                                        ? 'bg-blue-50 text-blue-700 border-2 border-blue-200'
+                                        : 'bg-white text-gray-500 border-2 border-transparent hover:border-gray-200'}`}
+                                >
+                                    <Shuffle className="w-4 h-4" /> Ngẫu nhiên
+                                </button>
+                                <button
+                                    onClick={() => setSeedMode('manual')}
+                                    className={`flex-1 py-3 px-4 rounded-xl text-sm font-semibold transition-all flex items-center justify-center gap-2 ${seedMode === 'manual'
+                                        ? 'bg-amber-50 text-amber-700 border-2 border-amber-200'
+                                        : 'bg-white text-gray-500 border-2 border-transparent hover:border-gray-200'}`}
+                                >
+                                    <Hash className="w-4 h-4" /> Chọn hạt giống thủ công
+                                </button>
                             </div>
-
-                            {/* Standard */}
-                            <div
-                                onClick={() => setSelectedFormatType('standard')}
-                                className={`cursor-pointer rounded-2xl bg-white border px-6 py-8 transition-all hover:shadow flex flex-col items-center text-center ${selectedFormatType === 'standard' ? 'border-[#3B82F6] ring-1 ring-[#3B82F6]' : 'border-gray-200'}`}
-                            >
-                                <Hexagon className="w-8 h-8 text-[#3B82F6] mb-4" />
-                                <h3 className="font-bold text-gray-900 text-lg mb-3">Tiêu chuẩn</h3>
-                                <p className="text-sm text-gray-500 leading-relaxed mb-4">
-                                    <span className="text-orange-500 font-bold">Ưu tiên các đội hạt giống (nếu có)</span> được miễn vòng đầu và không gặp nhau sớm. Các vị trí còn lại sẽ được chọn ngẫu nhiên.
-                                </p>
-                                <p className="text-[12px] text-orange-500 font-semibold mt-auto leading-relaxed">
-                                    * Các đội cùng 1 CLB vẫn có thể gặp nhau ở vòng đầu tiên.
-                                </p>
-                            </div>
-
-                            {/* Custom */}
-                            <div
-                                onClick={() => setSelectedFormatType('custom')}
-                                className={`cursor-pointer rounded-2xl bg-white border px-6 py-8 transition-all hover:shadow flex flex-col items-center text-center ${selectedFormatType === 'custom' ? 'border-[#3B82F6] ring-1 ring-[#3B82F6]' : 'border-gray-200'}`}
-                            >
-                                <SplitSquareHorizontal className="w-8 h-8 text-[#3B82F6] transform rotate-90 mb-4" />
-                                <h3 className="font-bold text-gray-900 text-lg mb-3">Tùy chỉnh</h3>
-                                <p className="text-sm text-gray-500 leading-relaxed mb-4">
-                                    Tách các đội <span className="text-orange-500 font-bold">cùng CLB ra nhánh khác nhau</span><br />(không tính CLB Tự do).
-                                </p>
-                                <p className="text-[12px] text-orange-500 font-semibold mt-auto leading-relaxed">
-                                    * Không hỗ trợ tính năng hạt giống.
-                                </p>
-                            </div>
+                            <p className="text-xs text-gray-400 mt-3">
+                                {seedMode === 'random'
+                                    ? 'Đội sẽ được xếp ngẫu nhiên. Hạt giống #1 sẽ gặp hạt giống thấp nhất.'
+                                    : 'Sắp xếp thứ tự hạt giống. #1 là mạnh nhất (được ưu tiên BYE nếu có).'}
+                            </p>
                         </div>
 
-                        <div className="flex justify-end gap-3 mt-8">
-                            <Button variant="outline" onClick={() => setIsGeneratingModalOpen(false)} className="px-6 h-11 rounded border-gray-200 hover:bg-gray-100 text-gray-700 font-semibold" disabled={isUpdating}>
+                        {/* Manual Seed List */}
+                        {seedMode === 'manual' && seedOrder.length > 0 && (
+                            <div className="bg-gray-50 rounded-2xl p-5 mb-6">
+                                <div className="flex items-center justify-between mb-4">
+                                    <h3 className="text-sm font-bold text-gray-900 flex items-center gap-2">
+                                        <Trophy className="w-4 h-4 text-amber-500" /> Thứ tự hạt giống ({seedOrder.length} đội)
+                                    </h3>
+                                    <button
+                                        onClick={shuffleSeeds}
+                                        className="text-xs text-blue-600 hover:text-blue-700 font-semibold flex items-center gap-1 px-3 py-1.5 rounded-lg hover:bg-blue-50 transition-colors"
+                                    >
+                                        <Shuffle className="w-3.5 h-3.5" /> Trộn ngẫu nhiên
+                                    </button>
+                                </div>
+                                <div className="space-y-1.5 max-h-[300px] overflow-y-auto custom-scrollbar">
+                                    {seedOrder.map((team: any, idx: number) => (
+                                        <div
+                                            key={team._id || team.id}
+                                            className="flex items-center gap-3 px-3 py-2.5 rounded-xl bg-white hover:bg-gray-100 transition-colors group"
+                                        >
+                                            <div className={`w-8 h-8 rounded-lg flex items-center justify-center text-xs font-bold flex-shrink-0 ${idx === 0 ? 'bg-amber-100 text-amber-700 border border-amber-200' :
+                                                idx === 1 ? 'bg-gray-200 text-gray-700 border border-gray-300' :
+                                                    idx === 2 ? 'bg-orange-100 text-orange-700 border border-orange-200' :
+                                                        'bg-white text-gray-500 border border-gray-200'
+                                                }`}>
+                                                #{idx + 1}
+                                            </div>
+                                            <div className="flex-1 min-w-0">
+                                                <div className="text-sm font-semibold text-gray-900 truncate">
+                                                    {team.name || team.shortName}
+                                                </div>
+                                                <div className="text-[10px] text-gray-400 truncate">
+                                                    {team.captain?.name || ''}
+                                                </div>
+                                            </div>
+                                            <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                                <button
+                                                    onClick={() => moveSeed(idx, 'up')}
+                                                    disabled={idx === 0}
+                                                    className="w-7 h-7 rounded-lg bg-white border border-gray-200 flex items-center justify-center hover:bg-blue-50 hover:border-blue-200 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                                                >
+                                                    <ArrowUp className="w-3.5 h-3.5 text-gray-600" />
+                                                </button>
+                                                <button
+                                                    onClick={() => moveSeed(idx, 'down')}
+                                                    disabled={idx === seedOrder.length - 1}
+                                                    className="w-7 h-7 rounded-lg bg-white border border-gray-200 flex items-center justify-center hover:bg-blue-50 hover:border-blue-200 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                                                >
+                                                    <ArrowDown className="w-3.5 h-3.5 text-gray-600" />
+                                                </button>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
+
+                        <div className="flex justify-end gap-3">
+                            <Button variant="outline" onClick={() => setIsGeneratingModalOpen(false)} className="px-6 h-11 rounded-xl border-gray-200 hover:bg-gray-100 text-gray-700 font-semibold" disabled={isUpdating}>
                                 Hủy
                             </Button>
-                            <Button onClick={confirmGenerateBrackets} disabled={isUpdating} className="bg-[#81A8FF] px-8 h-11 rounded text-white font-semibold hover:bg-[#6e97f5]">
-                                {isUpdating ? <Loader2 className="w-5 h-5 animate-spin mx-auto mr-2" /> : null}
-                                Trộn lịch thi đấu
+                            <Button onClick={confirmGenerateBrackets} disabled={isUpdating} className="bg-gradient-to-r from-blue-600 to-indigo-600 px-8 h-11 rounded-xl text-white font-semibold hover:from-blue-700 hover:to-indigo-700 shadow-lg shadow-blue-200">
+                                {isUpdating ? <Loader2 className="w-5 h-5 animate-spin mr-2" /> : null}
+                                Tạo lịch thi đấu
                             </Button>
                         </div>
                     </div>

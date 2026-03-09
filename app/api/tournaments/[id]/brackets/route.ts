@@ -28,6 +28,15 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
         if (tournament.createdBy.toString() !== authResult.user._id)
             return apiError("Không có quyền", 403);
 
+        // Parse optional seeds from request body
+        let seeds: string[] = [];
+        try {
+            const body = await req.json();
+            if (body?.seeds && Array.isArray(body.seeds)) {
+                seeds = body.seeds;
+            }
+        } catch { }
+
         // Reset any previously eliminated teams back to active
         await Team.updateMany(
             { tournament: id, status: "eliminated" },
@@ -42,13 +51,13 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
         let matches;
         switch (tournament.format) {
             case "single_elimination":
-                matches = await generateSingleElimination(id.toString(), teams);
+                matches = await generateSingleElimination(id.toString(), teams, seeds);
                 break;
             case "round_robin":
                 matches = await generateRoundRobin(id.toString(), teams);
                 break;
             default:
-                matches = await generateSingleElimination(id.toString(), teams);
+                matches = await generateSingleElimination(id.toString(), teams, seeds);
         }
 
         tournament.status = "ongoing";
@@ -114,19 +123,23 @@ export async function GET(req: NextRequest, { params }: RouteParams) {
 }
 
 /**
- * Standard Professional Bracket Generation
+ * Standard Professional Bracket Generation (Complete - shows all players including BYEs)
+ * 
  * 1. Find S = next power of 2 >= N (number of teams)
- * 2. Calculate Byes = S - N. These teams go directly to Round 2.
- * 3. Round 1 contains (N - S/2) matches.
- * 4. Sum of winners from Round 1 + Bye teams = S/2 teams for Round 2.
- * 5. Strictly creates N-1 matches total.
+ * 2. Calculate Byes = S - N. These teams get a BYE in Round 1.
+ * 3. ALL S/2 Round 1 slots are created as matches.
+ *    - Real matches: 2 teams present → status "scheduled"
+ *    - BYE matches: only 1 team → status "bye", team auto-promoted to Round 2
+ *    - Empty slots: no teams → not created (shouldn't happen with proper seeding)
+ * 4. This ensures EVERY player appears on the bracket from Round 1.
+ * 5. Total real matches = N - 1. BYE matches are visual-only.
  */
-async function generateSingleElimination(tournamentId: string, teams: any[]) {
+async function generateSingleElimination(tournamentId: string, teams: any[], seeds: string[] = []) {
     const N = teams.length;
     let S = 2; while (S < N) S *= 2;
     const totalRounds = Math.log2(S);
 
-    // Standard Seeding (1 vs 32, 2 vs 31, etc.)
+    // Standard Seeding (1 vs S, 2 vs S-1, etc.)
     const getSeedOrder = (size: number): number[] => {
         let order = [1];
         while (order.length < size) {
@@ -137,13 +150,31 @@ async function generateSingleElimination(tournamentId: string, teams: any[]) {
     };
     const seedOrder = getSeedOrder(S);
 
-    // Shuffle and assign to seeds
-    const shuffledTeams = [...teams].sort(() => Math.random() - 0.5);
+    // Order teams: use manual seeds if provided, otherwise random shuffle
+    let orderedTeams: any[];
+    if (seeds.length > 0) {
+        // Manual seeding: order teams by the provided seed IDs
+        const teamMap = new Map(teams.map(t => [t._id.toString(), t]));
+        orderedTeams = [];
+        for (const seedId of seeds) {
+            const team = teamMap.get(seedId);
+            if (team) {
+                orderedTeams.push(team);
+                teamMap.delete(seedId);
+            }
+        }
+        // Add any remaining teams not in seeds (shouldn't happen, but safety)
+        for (const team of teamMap.values()) {
+            orderedTeams.push(team);
+        }
+    } else {
+        orderedTeams = [...teams].sort(() => Math.random() - 0.5);
+    }
+
     const teamSlots = new Array(S).fill(null);
     for (let i = 0; i < N; i++) {
-        // Assign i-th team to seed i+1
         const slotIndex = seedOrder.indexOf(i + 1);
-        teamSlots[slotIndex] = shuffledTeams[i];
+        teamSlots[slotIndex] = orderedTeams[i];
     }
 
     const allMatches: any[] = [];
@@ -157,7 +188,7 @@ async function generateSingleElimination(tournamentId: string, teams: any[]) {
         return `Vòng ${teamsInRound}`;
     };
 
-    // 1. Pre-create all matches from Round 2 onwards to build the structure
+    // 1. Pre-create all matches from Round 2 onwards
     for (let r = 2; r <= totalRounds; r++) {
         matchesMap.set(r, new Map());
         const matchCount = S / Math.pow(2, r);
@@ -176,14 +207,18 @@ async function generateSingleElimination(tournamentId: string, teams: any[]) {
         }
     }
 
-    // 2. Handle Round 1 (Play-ins) and Byes
+    // 2. Create ALL Round 1 matches (including BYEs)
     matchesMap.set(1, new Map());
     for (let i = 0; i < S / 2; i++) {
         const teamA = teamSlots[i * 2];
         const teamB = teamSlots[i * 2 + 1];
 
+        const nextIdx = Math.floor(i / 2);
+        const side = i % 2 === 0 ? "homeTeam" : "awayTeam";
+        const r2Match = matchesMap.get(2)!.get(nextIdx);
+
         if (teamA && teamB) {
-            // Both slots filled -> Create Round 1 Match
+            // Both slots filled → Real match
             const match = await Match.create({
                 tournament: tournamentId,
                 round: 1,
@@ -193,30 +228,39 @@ async function generateSingleElimination(tournamentId: string, teams: any[]) {
                 awayTeam: teamB._id,
                 status: "scheduled",
                 bracketPosition: { x: 0, y: i },
+                nextMatch: r2Match._id,
+            });
+            matchesMap.get(1)!.set(i, match);
+            allMatches.push(match);
+        } else if (teamA || teamB) {
+            // Only one team → BYE match (visual slot, team auto-promoted)
+            const byeTeam = teamA || teamB;
+
+            const match = await Match.create({
+                tournament: tournamentId,
+                round: 1,
+                roundName: getRoundName(1, totalRounds, S),
+                matchNumber: i + 1,
+                homeTeam: byeTeam._id,
+                awayTeam: null,
+                homeScore: 0,
+                awayScore: 0,
+                winner: byeTeam._id,
+                status: "bye",
+                bracketPosition: { x: 0, y: i },
+                nextMatch: r2Match._id,
             });
             matchesMap.get(1)!.set(i, match);
             allMatches.push(match);
 
-            // Link to Round 2
-            const nextIdx = Math.floor(i / 2);
-            const side = i % 2 === 0 ? "homeTeam" : "awayTeam";
-            const r2Match = matchesMap.get(2)!.get(nextIdx);
-            match.nextMatch = r2Match._id;
-            await match.save();
-        } else if (teamA || teamB) {
-            // Only one team -> Bye to Round 2
-            const byeTeam = teamA || teamB;
-            const nextIdx = Math.floor(i / 2);
-            const side = i % 2 === 0 ? "homeTeam" : "awayTeam";
-            const r2Match = matchesMap.get(2)!.get(nextIdx);
-
+            // Auto-promote BYE team to Round 2
             r2Match[side] = byeTeam._id;
             await r2Match.save();
-            // No Round 1 match created
         }
+        // If both null → skip (shouldn't happen with proper seeding)
     }
 
-    // 3. Link Round 2+ matches to their successors and finalize them
+    // 3. Link Round 2+ matches to their successors
     for (let r = 2; r <= totalRounds; r++) {
         const roundMatches = matchesMap.get(r)!;
         for (const [idx, match] of roundMatches.entries()) {

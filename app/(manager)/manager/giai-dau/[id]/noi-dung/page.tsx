@@ -52,6 +52,9 @@ export default function NoiDungThiDauPage() {
 
     // Attendance tracking (local state)
     const [attendance, setAttendance] = useState<Record<string, boolean>>({});
+    // Seed tracking
+    const [teamSeeds, setTeamSeeds] = useState<Record<string, number | null>>({});
+    const [teams, setTeams] = useState<any[]>([]);
 
     useEffect(() => {
         loadData();
@@ -72,6 +75,20 @@ export default function NoiDungThiDauPage() {
                 regs = regs.filter((r: any) => r.status === "approved" || r.status === "confirmed");
                 setRegistrations(regs);
             }
+
+            // Load teams to get seed data
+            try {
+                const teamsRes = await tournamentAPI.getTeams(id);
+                if (teamsRes.success) {
+                    const t = teamsRes.data?.teams || [];
+                    setTeams(t);
+                    const seedMap: Record<string, number | null> = {};
+                    t.forEach((team: any) => {
+                        if (team.seed != null) seedMap[team._id] = team.seed;
+                    });
+                    setTeamSeeds(seedMap);
+                }
+            } catch { }
         } catch (error) {
             console.error(error);
             toast.error("Không thể tải dữ liệu");
@@ -96,6 +113,23 @@ export default function NoiDungThiDauPage() {
     const toggleAttendance = (rId: string) => {
         setAttendance(prev => ({ ...prev, [rId]: !prev[rId] }));
     };
+
+    // ----- Seed -----
+    const handleSeedChange = async (teamId: string, value: string) => {
+        const seedNum = value === '' ? null : parseInt(value);
+        if (value !== '' && (isNaN(seedNum!) || seedNum! < 0)) return;
+
+        setTeamSeeds(prev => ({ ...prev, [teamId]: seedNum }));
+
+        try {
+            await tournamentAPI.updateTeamSeed(id, { teamId, seed: seedNum });
+        } catch (e) {
+            console.error('Failed to update seed:', e);
+        }
+    };
+
+    // Helper: get teamId from registration
+    const getTeamId = (r: any) => r.team?._id || r.team;
 
     // ----- Sorting -----
     const handleSort = (field: string) => {
@@ -391,6 +425,11 @@ export default function NoiDungThiDauPage() {
                             <tr className="border-b border-gray-100 bg-gradient-to-r from-gray-50/50 to-slate-50/50">
                                 <th className="px-4 py-3.5 text-center text-[10px] font-bold text-gray-400 uppercase tracking-widest w-12">#</th>
                                 <th className="px-4 py-3.5 text-center text-[10px] font-bold text-amber-500 uppercase tracking-widest">EFV ID</th>
+                                <th className="px-4 py-3.5 text-center text-[10px] font-bold text-purple-500 uppercase tracking-widest w-20">
+                                    <div className="flex items-center justify-center gap-1">
+                                        <Hash className="w-3 h-3" /> Seed
+                                    </div>
+                                </th>
                                 <SortHeader field="teamName" label="Tên đội" />
                                 <SortHeader field="playerName" label="Tên VĐV" />
                                 <SortHeader field="gamerId" label="ID Game" />
@@ -404,7 +443,7 @@ export default function NoiDungThiDauPage() {
                         <tbody>
                             {paginatedData.length === 0 ? (
                                 <tr>
-                                    <td colSpan={10} className="px-5 py-16 text-center">
+                                    <td colSpan={11} className="px-5 py-16 text-center">
                                         <div className="flex flex-col items-center">
                                             <div className="w-14 h-14 rounded-2xl bg-gray-50 flex items-center justify-center mb-3">
                                                 <Users className="w-6 h-6 text-gray-300" />
@@ -438,6 +477,21 @@ export default function NoiDungThiDauPage() {
                                                 ) : (
                                                     <span className="text-[11px] text-gray-300">—</span>
                                                 )}
+                                            </td>
+                                            <td className="px-4 py-3.5 text-center">
+                                                <input
+                                                    type="number"
+                                                    min={1}
+                                                    value={teamSeeds[getTeamId(r)] ?? ''}
+                                                    onChange={(e) => handleSeedChange(getTeamId(r), e.target.value)}
+                                                    placeholder="—"
+                                                    className={`w-14 h-7 text-center text-xs font-bold rounded-lg border outline-none transition-all ${teamSeeds[getTeamId(r)] === 1 ? 'bg-amber-50 text-amber-700 border-amber-300 ring-1 ring-amber-200' :
+                                                        teamSeeds[getTeamId(r)] === 2 ? 'bg-gray-100 text-gray-700 border-gray-300' :
+                                                            teamSeeds[getTeamId(r)] === 3 ? 'bg-orange-50 text-orange-700 border-orange-300' :
+                                                                teamSeeds[getTeamId(r)] != null ? 'bg-blue-50 text-blue-700 border-blue-200' :
+                                                                    'bg-gray-50 text-gray-400 border-gray-200'
+                                                        } focus:ring-2 focus:ring-blue-300 focus:border-blue-400`}
+                                                />
                                             </td>
                                             <td className="px-4 py-3.5">
                                                 <div className="flex items-center gap-2">

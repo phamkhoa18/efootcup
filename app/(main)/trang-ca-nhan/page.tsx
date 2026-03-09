@@ -320,7 +320,7 @@ export default function TrangCaNhanPage() {
                                 <input
                                     ref={fileInputRef}
                                     type="file"
-                                    accept="image/jpeg,image/png,image/webp,image/gif"
+                                    accept="image/*"
                                     onChange={handleAvatarUpload}
                                     className="hidden"
                                 />

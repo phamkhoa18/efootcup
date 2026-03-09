@@ -81,7 +81,148 @@ export async function PUT(req: NextRequest, { params }: RouteParams) {
         const match = await Match.findById(matchId);
         if (!match) return apiError("Không tìm thấy trận đấu", 404);
 
-        // Update match
+        // --- Helper: find which slot this match occupies in its next match ---
+        const findSlotInNextMatch = async (currentMatch: any): Promise<"homeTeam" | "awayTeam"> => {
+            const siblings = await Match.find({
+                tournament: id,
+                round: currentMatch.round,
+                nextMatch: currentMatch.nextMatch,
+            }).sort({ "bracketPosition.y": 1, matchNumber: 1 });
+
+            const idx = siblings.findIndex(m => m._id.toString() === currentMatch._id.toString());
+            return idx === 0 ? "homeTeam" : "awayTeam";
+        };
+
+        // --- Helper: cascade rollback from a match through future rounds ---
+        const cascadeRollback = async (fromMatchId: mongoose.Types.ObjectId, teamIdToRemove: mongoose.Types.ObjectId | null) => {
+            if (!teamIdToRemove) return;
+
+            let currentMatchId: mongoose.Types.ObjectId | null = fromMatchId;
+            let teamId: mongoose.Types.ObjectId | null = teamIdToRemove;
+
+            while (currentMatchId && teamId) {
+                const nextMatch: any = await Match.findById(currentMatchId);
+                if (!nextMatch) break;
+
+                // Remove this team from the next match
+                const teamStr = teamId.toString();
+                if (nextMatch.homeTeam?.toString() === teamStr) {
+                    nextMatch.homeTeam = null;
+                } else if (nextMatch.awayTeam?.toString() === teamStr) {
+                    nextMatch.awayTeam = null;
+                } else {
+                    break; // Team not found in this match, stop cascading
+                }
+
+                // If this match had a result and the removed team was involved, reset it
+                if (nextMatch.status === "completed" && nextMatch.winner) {
+                    const oldWinner = nextMatch.winner;
+                    const oldLoser = nextMatch.homeTeam?.toString() === oldWinner.toString()
+                        ? nextMatch.awayTeam : nextMatch.homeTeam;
+
+                    // Un-eliminate the loser of this match
+                    if (oldLoser && tournament.format === "single_elimination") {
+                        await Team.findByIdAndUpdate(oldLoser, { status: "active" });
+                    }
+
+                    // Reset this match
+                    nextMatch.homeScore = null;
+                    nextMatch.awayScore = null;
+                    nextMatch.winner = null;
+                    nextMatch.status = "scheduled";
+                    nextMatch.completedAt = undefined;
+                    await nextMatch.save();
+
+                    // Continue cascading: remove the old winner from the next-next match
+                    if (nextMatch.nextMatch) {
+                        currentMatchId = nextMatch.nextMatch;
+                        teamId = oldWinner;
+                    } else {
+                        break;
+                    }
+                } else {
+                    await nextMatch.save();
+                    break; // Match not completed, stop cascading
+                }
+            }
+        };
+
+        // ========================================
+        // PHASE 1: ROLLBACK if match was previously completed
+        // ========================================
+        const wasCompleted = match.status === "completed";
+        const previousWinner = match.winner;
+        const isResetting = status === "scheduled" || status === "live";
+        const isChangingResult = status === "completed" && wasCompleted;
+
+        if (wasCompleted && (isResetting || isChangingResult)) {
+            // 1a. Rollback team stats from previous result
+            if (match.homeTeam && match.awayTeam && match.homeScore !== null && match.awayScore !== null) {
+                const prevHS = match.homeScore;
+                const prevAS = match.awayScore;
+
+                const reverseHome: any = {
+                    $inc: {
+                        "stats.played": -1,
+                        "stats.goalsFor": -prevHS,
+                        "stats.goalsAgainst": -prevAS,
+                        "stats.goalDifference": -(prevHS - prevAS),
+                    },
+                };
+                const reverseAway: any = {
+                    $inc: {
+                        "stats.played": -1,
+                        "stats.goalsFor": -prevAS,
+                        "stats.goalsAgainst": -prevHS,
+                        "stats.goalDifference": -(prevAS - prevHS),
+                    },
+                };
+
+                if (prevHS > prevAS) {
+                    reverseHome.$inc["stats.wins"] = -1;
+                    reverseHome.$inc["stats.points"] = -3;
+                    reverseAway.$inc["stats.losses"] = -1;
+                } else if (prevAS > prevHS) {
+                    reverseAway.$inc["stats.wins"] = -1;
+                    reverseAway.$inc["stats.points"] = -3;
+                    reverseHome.$inc["stats.losses"] = -1;
+                } else {
+                    reverseHome.$inc["stats.draws"] = -1;
+                    reverseHome.$inc["stats.points"] = -1;
+                    reverseAway.$inc["stats.draws"] = -1;
+                    reverseAway.$inc["stats.points"] = -1;
+                }
+
+                await Team.findByIdAndUpdate(match.homeTeam, reverseHome);
+                await Team.findByIdAndUpdate(match.awayTeam, reverseAway);
+            }
+
+            // 1b. Un-eliminate the previous loser
+            if (previousWinner && tournament.format === "single_elimination") {
+                const previousLoserId = previousWinner.toString() === match.homeTeam?.toString()
+                    ? match.awayTeam : match.homeTeam;
+                if (previousLoserId) {
+                    await Team.findByIdAndUpdate(previousLoserId, { status: "active" });
+                }
+            }
+
+            // 1c. Cascade rollback: remove previous winner from next match and future rounds
+            if (match.nextMatch && previousWinner) {
+                await cascadeRollback(match.nextMatch, previousWinner);
+            }
+
+            // 1d. Clear old result on the current match
+            match.winner = null;
+            match.completedAt = undefined;
+            if (isResetting) {
+                match.homeScore = null;
+                match.awayScore = null;
+            }
+        }
+
+        // ========================================
+        // PHASE 2: APPLY new values
+        // ========================================
         if (homeScore !== undefined) match.homeScore = homeScore;
         if (awayScore !== undefined) match.awayScore = awayScore;
         if (homePenalty !== undefined) match.homePenalty = homePenalty;
@@ -91,7 +232,13 @@ export async function PUT(req: NextRequest, { params }: RouteParams) {
         if (scheduledAt) match.scheduledAt = scheduledAt;
         if (notes !== undefined) match.notes = notes;
 
-        // Determine winner
+        if (status === "live") {
+            match.startedAt = new Date();
+        }
+
+        // ========================================
+        // PHASE 3: ADVANCE winner if status is completed
+        // ========================================
         if (status === "completed" && homeScore !== undefined && awayScore !== undefined) {
             match.completedAt = new Date();
 
@@ -162,38 +309,19 @@ export async function PUT(req: NextRequest, { params }: RouteParams) {
 
             // Advance winner to next match
             if (match.nextMatch && winnerId) {
+                const slot = await findSlotInNextMatch(match);
                 const nextMatch = await Match.findById(match.nextMatch);
                 if (nextMatch) {
-                    // Find which slot this match feeds into
-                    const currentRoundMatches = await Match.find({
-                        tournament: id,
-                        round: match.round,
-                        nextMatch: match.nextMatch,
-                    }).sort({ matchNumber: 1 });
-
-                    const slotIndex = currentRoundMatches.findIndex(
-                        (m) => m._id.toString() === match._id.toString()
-                    );
-
-                    if (slotIndex === 0) {
-                        nextMatch.homeTeam = winnerId;
-                    } else {
-                        nextMatch.awayTeam = winnerId;
-                    }
+                    nextMatch[slot] = winnerId;
                     await nextMatch.save();
                 }
             }
-        }
-
-        if (status === "live") {
-            match.startedAt = new Date();
         }
 
         await match.save();
 
         // Notify players involved in the match
         try {
-            const tournament = await Tournament.findById(match.tournament);
             const teamIds = [match.homeTeam, match.awayTeam].filter(Boolean);
             const teams = await Team.find({ _id: { $in: teamIds } });
             const userIds = teams.map(t => t.captain).filter(Boolean);
@@ -251,3 +379,4 @@ export async function PUT(req: NextRequest, { params }: RouteParams) {
         return apiError("Có lỗi xảy ra", 500);
     }
 }
+

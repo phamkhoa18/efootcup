@@ -18,28 +18,28 @@ export async function POST(req: NextRequest) {
         }
 
         // Allowed types for authenticated users
-        const allowedTypes = ["general", "avatar", "payment_proof", "registration"];
+        const allowedTypes = ["general", "avatar", "payment_proof", "registration", "screenshot"];
         if (!allowedTypes.includes(type)) {
             return apiError("Loại file không hợp lệ", 400);
         }
 
-        // Validate file type
-        const allowedMimeTypes = ["image/jpeg", "image/png", "image/webp", "image/gif"];
-        if (!allowedMimeTypes.includes(file.type)) {
-            return apiError("Chỉ chấp nhận file ảnh (JPG, PNG, WebP, GIF)", 400);
+        // Validate file type — accept any image format
+        if (!file.type.startsWith("image/")) {
+            return apiError("Chỉ chấp nhận file hình ảnh", 400);
         }
 
-        // Validate file size (max 5MB)
-        const maxSize = 5 * 1024 * 1024;
+        // Validate file size (max 10MB)
+        const maxSize = 10 * 1024 * 1024;
         if (file.size > maxSize) {
-            return apiError("File quá lớn (tối đa 5MB)", 400);
+            return apiError("File quá lớn (tối đa 10MB)", 400);
         }
 
         // Determine upload subdirectory based on type
         const subDir = type === "avatar" ? "avatars"
             : type === "payment_proof" ? "payment_proof"
                 : type === "registration" ? "registration"
-                    : "general";
+                    : type === "screenshot" ? "screenshots"
+                        : "general";
 
         // Create uploads directory
         const uploadsDir = path.join(process.cwd(), "uploads", subDir);

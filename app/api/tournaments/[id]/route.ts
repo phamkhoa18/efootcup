@@ -178,11 +178,99 @@ export async function DELETE(req: NextRequest, { params }: RouteParams) {
             return apiError("Bạn không có quyền xóa giải đấu này", 403);
         }
 
+        // If EFV points were awarded, clean up BXH
+        if (tournament.efvPointsAwarded && tournament.efvTier) {
+            try {
+                const EfvPointLog = (await import('@/models/EfvPointLog')).default;
+                const Bxh = (await import('@/models/Bxh')).default;
+                const User = (await import('@/models/User')).default;
+                const { EFV_TIER_WINDOWS, getTiersForMode } = await import('@/lib/efv-points');
+
+                // Find all affected users before deleting logs
+                const affectedLogs = await EfvPointLog.find({ tournament: id }).lean();
+                const affectedUserIds = [...new Set(affectedLogs.map(l => l.user.toString()))];
+                const mode = tournament.mode || "mobile";
+
+                // Delete the point logs for this tournament
+                await EfvPointLog.deleteMany({ tournament: id });
+
+                // Recalculate BXH for each affected user
+                const tiers = getTiersForMode(mode);
+                for (const userId of affectedUserIds) {
+                    const allLogs = await EfvPointLog.find({ user: userId, mode })
+                        .sort({ awardedAt: -1 })
+                        .lean();
+
+                    if (allLogs.length === 0) {
+                        // No more logs → remove from BXH
+                        const user = await User.findById(userId).lean() as any;
+                        if (user) {
+                            await Bxh.deleteOne({ gamerId: String(user.efvId || userId), mode });
+                        }
+                        continue;
+                    }
+
+                    // Recalculate per-tier points
+                    const tierPoints: Record<string, number> = {};
+                    const tierCounts: Record<string, number> = {};
+                    for (const t of tiers) { tierPoints[t] = 0; tierCounts[t] = 0; }
+
+                    for (const log of allLogs) {
+                        const tier = log.efvTier;
+                        if (!tiers.includes(tier)) continue;
+                        const maxWindow = EFV_TIER_WINDOWS[tier] ?? 5;
+                        if (tierCounts[tier] < maxWindow) {
+                            tierCounts[tier]++;
+                            tierPoints[tier] += log.points;
+                        }
+                    }
+
+                    const totalPoints = Object.values(tierPoints).reduce((a, b) => a + b, 0);
+                    const latestTeamName = allLogs[0]?.teamName || "";
+                    const user = await User.findById(userId).lean() as any;
+                    if (!user) continue;
+
+                    await Bxh.findOneAndUpdate(
+                        { gamerId: String(user.efvId || userId), mode },
+                        {
+                            $set: {
+                                points: totalPoints,
+                                team: latestTeamName,
+                                pointsEfv250: tierPoints["efv_250"] || 0,
+                                pointsEfv500: tierPoints["efv_500"] || 0,
+                                pointsEfv1000: tierPoints["efv_1000"] || 0,
+                                pointsEfv50: tierPoints["efv_50"] || 0,
+                                pointsEfv100: tierPoints["efv_100"] || 0,
+                                pointsEfv200: tierPoints["efv_200"] || 0,
+                            },
+                        }
+                    );
+                }
+
+                // Recalculate ranks
+                const allBxh = await Bxh.find({ mode }).sort({ points: -1 }).lean();
+                const bulkOps = allBxh.map((entry, index) => ({
+                    updateOne: {
+                        filter: { _id: entry._id },
+                        update: { $set: { rank: index + 1 } },
+                    },
+                }));
+                if (bulkOps.length > 0) {
+                    await Bxh.bulkWrite(bulkOps);
+                }
+            } catch (bxhErr) {
+                console.error("BXH cleanup error on tournament delete:", bxhErr);
+                // Continue with tournament deletion even if BXH cleanup fails
+            }
+        }
+
         // Delete related data
+        const EfvPointLogModel = (await import('@/models/EfvPointLog')).default;
         await Promise.all([
             Team.deleteMany({ tournament: id }),
             Match.deleteMany({ tournament: id }),
             Registration.deleteMany({ tournament: id }),
+            EfvPointLogModel.deleteMany({ tournament: id }),
             Tournament.findByIdAndDelete(id),
         ]);
 
@@ -192,3 +280,4 @@ export async function DELETE(req: NextRequest, { params }: RouteParams) {
         return apiError("Có lỗi xảy ra", 500);
     }
 }
+

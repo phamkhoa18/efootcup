@@ -94,3 +94,50 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
         return apiError("Có lỗi xảy ra", 500);
     }
 }
+
+// PUT /api/tournaments/[id]/teams — Update team seed (manager only)
+export async function PUT(req: NextRequest, { params }: RouteParams) {
+    try {
+        const authResult = await requireManager(req);
+        if (authResult instanceof Response) return authResult;
+
+        await dbConnect();
+        const { id: idOrSlug } = await params;
+        const query = mongoose.Types.ObjectId.isValid(idOrSlug) ? { _id: idOrSlug } : { slug: idOrSlug };
+
+        const tournament = await Tournament.findOne(query);
+        if (!tournament) return apiError("Không tìm thấy giải đấu", 404);
+        if (tournament.createdBy.toString() !== authResult.user._id)
+            return apiError("Không có quyền", 403);
+
+        const body = await req.json();
+
+        // Batch update seeds: { seeds: [{ teamId, seed }] }
+        if (body.seeds && Array.isArray(body.seeds)) {
+            const bulkOps = body.seeds.map((s: { teamId: string; seed: number | null }) => ({
+                updateOne: {
+                    filter: { _id: s.teamId, tournament: tournament._id },
+                    update: { $set: { seed: s.seed } },
+                },
+            }));
+            await Team.bulkWrite(bulkOps);
+            return apiResponse(null, 200, "Cập nhật hạt giống thành công");
+        }
+
+        // Single team update: { teamId, seed }
+        if (body.teamId) {
+            const team = await Team.findOneAndUpdate(
+                { _id: body.teamId, tournament: tournament._id },
+                { $set: { seed: body.seed ?? null } },
+                { new: true }
+            );
+            if (!team) return apiError("Không tìm thấy đội", 404);
+            return apiResponse(team, 200, "Cập nhật hạt giống thành công");
+        }
+
+        return apiError("Thiếu dữ liệu", 400);
+    } catch (error) {
+        console.error("Update team seed error:", error);
+        return apiError("Có lỗi xảy ra", 500);
+    }
+}

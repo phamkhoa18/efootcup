@@ -16,7 +16,7 @@ export interface IMatch extends Document {
     homeExtraTime?: number;
     awayExtraTime?: number;
     winner: mongoose.Types.ObjectId | null;
-    status: "scheduled" | "live" | "completed" | "postponed" | "cancelled" | "walkover";
+    status: "scheduled" | "live" | "completed" | "postponed" | "cancelled" | "walkover" | "bye";
     scheduledAt?: Date;
     startedAt?: Date;
     completedAt?: Date;
@@ -76,7 +76,7 @@ const MatchSchema = new Schema<IMatch>(
         winner: { type: Schema.Types.ObjectId, ref: "Team", default: null },
         status: {
             type: String,
-            enum: ["scheduled", "live", "completed", "postponed", "cancelled", "walkover"],
+            enum: ["scheduled", "live", "completed", "postponed", "cancelled", "walkover", "bye"],
             default: "scheduled",
         },
         scheduledAt: { type: Date },

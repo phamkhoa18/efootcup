@@ -112,6 +112,12 @@ export const tournamentAPI = {
             body: JSON.stringify(data),
         }),
 
+    updateTeamSeed: (tournamentId: string, data: any) =>
+        apiFetch(`/tournaments/${tournamentId}/teams`, {
+            method: "PUT",
+            body: JSON.stringify(data),
+        }),
+
     // Matches
     getMatches: (tournamentId: string, params?: Record<string, string>) => {
         const searchParams = new URLSearchParams(params || {});

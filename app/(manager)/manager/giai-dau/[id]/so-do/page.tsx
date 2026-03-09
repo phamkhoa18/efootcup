@@ -1,7 +1,7 @@
 "use client";
 
 import { motion, AnimatePresence } from "framer-motion";
-import { Swords, Trophy, Users, Search, X, Copy, QrCode, Share2, Check, CheckCircle2, Info, Loader2, Download } from "lucide-react";
+import { Swords, Trophy, Users, Search, X, Copy, QrCode, Share2, Check, CheckCircle2, Info, Loader2, Download, ArrowUp, ArrowDown, Shuffle, Hash, RotateCcw } from "lucide-react";
 import { useState, useEffect } from "react";
 import { useParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
@@ -18,18 +18,47 @@ const UNIT_HEIGHT = 110;
 
 const MatchCard = ({ match, onClick }: { match: any; onClick: () => void }) => {
     const isWalkover = match.status === "walkover";
+    const isBye = match.status === "bye";
     const bracketNumber = match.bracketPosition?.y !== undefined ? match.bracketPosition.y + 1 : (match.matchNumber || 0);
 
-    const isMatchScheduled = !isWalkover && (!match.homeTeam || !match.awayTeam);
+    const isMatchScheduled = !isWalkover && !isBye && (!match.homeTeam || !match.awayTeam);
 
-    const homeName = match.homeTeam?.name || match.homeTeam?.shortName || match.p1?.name || (isWalkover ? "Tự do" : "Chờ kết quả");
-    const awayName = match.awayTeam?.name || match.awayTeam?.shortName || match.p2?.name || (isWalkover ? "Tự do" : "Chờ kết quả");
-    const homeScore = isWalkover ? "0" : (match.homeScore ?? match.p1?.score ?? "");
-    const awayScore = isWalkover ? "0" : (match.awayScore ?? match.p2?.score ?? "");
+    const homeName = match.homeTeam?.name || match.homeTeam?.shortName || match.p1?.name || (isWalkover || isBye ? "Tự do" : "Chờ kết quả");
+    const awayName = match.awayTeam?.name || match.awayTeam?.shortName || match.p2?.name || (isWalkover || isBye ? "Tự do" : "Chờ kết quả");
+    const homeScore = (isWalkover || isBye) ? "" : (match.homeScore ?? match.p1?.score ?? "");
+    const awayScore = (isWalkover || isBye) ? "" : (match.awayScore ?? match.p2?.score ?? "");
     const isCompleted = match.status === "completed" || match.status === "Kết thúc" || isWalkover;
     const isLive = match.status === "live" || match.status === "Đang diễn ra";
     const homeWin = isCompleted && (match.winner === (match.homeTeam?._id || match.homeTeam?.id) || (homeScore !== "" && awayScore !== "" && Number(homeScore) > Number(awayScore)));
     const awayWin = isCompleted && (match.winner === (match.awayTeam?._id || match.awayTeam?.id) || (homeScore !== "" && awayScore !== "" && Number(awayScore) > Number(homeScore)));
+
+    // BYE match - compact single-team card with BYE badge
+    if (isBye) {
+        const p1Name = match.homeTeam?.player1 || match.p1?.name || "Tự do";
+        const p2Name = match.homeTeam?.player2 && match.homeTeam.player2 !== "TBD" ? match.homeTeam.player2 : "";
+        const teamName = match.homeTeam?.name || match.homeTeam?.shortName || "";
+
+        return (
+            <div className="flex items-center relative z-20 w-[200px]">
+                <div className="absolute -left-2 top-1/2 -translate-y-1/2 w-4 h-4 bg-[#F8FAFC] border border-[#CBD5E1] rounded-full flex items-center justify-center text-[7px] font-bold text-gray-500 z-30">
+                    {bracketNumber}
+                </div>
+                <div className="w-full bg-gradient-to-r from-gray-50 to-white rounded-[6px] border border-dashed border-gray-200 flex flex-col justify-center overflow-hidden z-20 relative px-2.5 py-1.5 h-[88px] opacity-70">
+                    {/* Top row: player info */}
+                    <div className="flex items-center justify-between mb-0.5">
+                        <span className="truncate text-[11px] text-gray-700 font-semibold flex-1">{p1Name}</span>
+                        <span className="text-[8px] font-bold text-emerald-600 bg-emerald-50 border border-emerald-200 px-1.5 py-px rounded-full ml-1 flex-shrink-0">BYE</span>
+                    </div>
+                    {p2Name && <span className="truncate text-[10px] text-gray-500">{p2Name}</span>}
+                    {teamName && <span className="truncate text-[8px] text-gray-400 mt-0.5">{teamName}</span>}
+                    {/* Bottom row: empty opponent placeholder */}
+                    <div className="mt-1 pt-1 border-t border-dashed border-gray-200">
+                        <span className="text-[10px] text-gray-300 italic">— Không có đối thủ —</span>
+                    </div>
+                </div>
+            </div>
+        );
+    }
 
     if (isWalkover) {
         const hName = match.homeTeam?.name || match.homeTeam?.shortName || match.p1?.ingame || "Tự do";
@@ -37,7 +66,7 @@ const MatchCard = ({ match, onClick }: { match: any; onClick: () => void }) => {
         const p2Name = match.homeTeam?.player2 && match.homeTeam.player2 !== "TBD" ? match.homeTeam.player2 : "";
 
         return (
-            <div className="flex items-center relative z-20 w-[180px]">
+            <div className="flex items-center relative z-20 w-[200px]">
                 <div className="absolute -left-2 top-1/2 -translate-y-1/2 w-4 h-4 bg-[#F8FAFC] border border-[#CBD5E1] rounded-full flex items-center justify-center text-[7px] font-bold text-gray-500 z-30">
                     {bracketNumber}
                 </div>
@@ -64,7 +93,7 @@ const MatchCard = ({ match, onClick }: { match: any; onClick: () => void }) => {
     }
 
     return (
-        <div className="flex items-center relative z-20 w-[180px]">
+        <div className="flex items-center relative z-20 w-[200px]">
             <div className="absolute -left-2 top-1/2 -translate-y-1/2 w-4 h-4 bg-[#F8FAFC] border border-[#CBD5E1] rounded-full flex items-center justify-center text-[7px] font-bold text-gray-500 z-30">
                 {bracketNumber}
             </div>
@@ -179,6 +208,32 @@ const MatchDetailModal = ({ match, tournament, onClose, onSaved }: { match: any;
             }
         } catch (e) {
             console.error(e);
+        } finally {
+            setIsSaving(false);
+        }
+    };
+
+    const handleReset = async () => {
+        if (!confirm("Bạn có chắc muốn hủy kết quả trận đấu này? Đội thắng sẽ bị rút khỏi vòng tiếp theo.")) return;
+        setIsSaving(true);
+        try {
+            const payload = {
+                matchId: match._id || match.id,
+                homeScore: 0,
+                awayScore: 0,
+                status: "scheduled",
+            };
+            const res = await tournamentAPI.updateMatch(tournament._id, payload);
+            if (res.success) {
+                toast.success("Đã hủy kết quả trận đấu");
+                onSaved();
+                onClose();
+            } else {
+                toast.error(res.message);
+            }
+        } catch (e) {
+            console.error(e);
+            toast.error("Có lỗi xảy ra");
         } finally {
             setIsSaving(false);
         }
@@ -333,13 +388,27 @@ const MatchDetailModal = ({ match, tournament, onClose, onSaved }: { match: any;
                 </div>
 
                 {/* Footer fixed */}
-                <div className="border-t border-gray-100 p-4 bg-white flex justify-end gap-3 flex-shrink-0">
-                    <Button variant="outline" onClick={onClose} className="px-6 h-10 rounded border-gray-200 text-gray-700 font-bold hover:bg-gray-50">
-                        Hủy
-                    </Button>
-                    <Button onClick={handleSave} disabled={isSaving} className="bg-[#81A8FF] px-8 h-10 rounded text-white font-bold hover:bg-[#6e97f5]">
-                        {isSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : "Lưu"}
-                    </Button>
+                <div className="border-t border-gray-100 p-4 bg-white flex items-center justify-between flex-shrink-0">
+                    <div>
+                        {match.status === "completed" && (
+                            <Button
+                                variant="outline"
+                                onClick={handleReset}
+                                disabled={isSaving}
+                                className="px-5 h-10 rounded border-red-200 text-red-600 font-bold hover:bg-red-50 hover:border-red-300"
+                            >
+                                {isSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : "Hủy kết quả"}
+                            </Button>
+                        )}
+                    </div>
+                    <div className="flex gap-3">
+                        <Button variant="outline" onClick={onClose} className="px-6 h-10 rounded border-gray-200 text-gray-700 font-bold hover:bg-gray-50">
+                            Đóng
+                        </Button>
+                        <Button onClick={handleSave} disabled={isSaving} className="bg-[#81A8FF] px-8 h-10 rounded text-white font-bold hover:bg-[#6e97f5]">
+                            {isSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : "Lưu"}
+                        </Button>
+                    </div>
                 </div>
             </motion.div>
         </motion.div>
@@ -408,6 +477,214 @@ const ShareTournamentModal = ({ tournamentName, onClose }: { tournamentName: str
                 </div>
             </motion.div>
         </motion.div>
+    );
+};
+
+// --- Bracket Creator with Seeding ---
+
+const BracketCreator = ({ tournamentId, tournament, onCreated }: { tournamentId: string; tournament: any; onCreated: () => void }) => {
+    const [teams, setTeams] = useState<any[]>([]);
+    const [seedOrder, setSeedOrder] = useState<any[]>([]);
+    const [seedMode, setSeedMode] = useState<'random' | 'manual'>('random');
+    const [isLoading, setIsLoading] = useState(true);
+    const [isCreating, setIsCreating] = useState(false);
+
+    useEffect(() => {
+        loadTeams();
+    }, [tournamentId]);
+
+    const loadTeams = async () => {
+        setIsLoading(true);
+        try {
+            const res = await tournamentAPI.getById(tournamentId);
+            if (res.success) {
+                const t = res.data?.teams || [];
+                setTeams(t);
+                setSeedOrder([...t]);
+            }
+        } catch (e) {
+            console.error(e);
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
+    const moveSeed = (index: number, direction: 'up' | 'down') => {
+        const newOrder = [...seedOrder];
+        const targetIndex = direction === 'up' ? index - 1 : index + 1;
+        if (targetIndex < 0 || targetIndex >= newOrder.length) return;
+        [newOrder[index], newOrder[targetIndex]] = [newOrder[targetIndex], newOrder[index]];
+        setSeedOrder(newOrder);
+    };
+
+    const shuffleSeeds = () => {
+        const shuffled = [...seedOrder].sort(() => Math.random() - 0.5);
+        setSeedOrder(shuffled);
+    };
+
+    const handleGenerate = async () => {
+        setIsCreating(true);
+        try {
+            const payload: any = {};
+            if (seedMode === 'manual') {
+                payload.seeds = seedOrder.map(t => t._id);
+            }
+            const res = await tournamentAPI.generateBrackets(tournamentId, payload);
+            if (res.success) {
+                toast.success(`Đã tạo sơ đồ thi đấu với ${res.data?.totalMatches || 0} trận!`);
+                onCreated();
+            } else {
+                toast.error(res.message || "Lỗi tạo sơ đồ");
+            }
+        } catch (e) {
+            console.error(e);
+            toast.error("Có lỗi xảy ra");
+        } finally {
+            setIsCreating(false);
+        }
+    };
+
+    if (isLoading) {
+        return (
+            <div className="flex-1 flex items-center justify-center bg-[#FDFDFD] rounded-[24px] border border-gray-100">
+                <Loader2 className="w-8 h-8 animate-spin text-efb-blue" />
+            </div>
+        );
+    }
+
+    if (teams.length < 2) {
+        return (
+            <div className="flex-1 flex items-center justify-center bg-[#FDFDFD] rounded-[24px] border border-gray-100">
+                <div className="text-center">
+                    <Users className="w-14 h-14 text-gray-200 mx-auto mb-4" />
+                    <h3 className="text-lg font-semibold text-gray-700 mb-1">Chưa đủ đội</h3>
+                    <p className="text-sm text-gray-400">Cần ít nhất 2 đội được duyệt để tạo sơ đồ thi đấu</p>
+                </div>
+            </div>
+        );
+    }
+
+    return (
+        <div className="flex-1 bg-[#FDFDFD] rounded-[24px] border border-gray-100 p-8 overflow-auto">
+            <div className="max-w-2xl mx-auto">
+                {/* Header */}
+                <div className="text-center mb-8">
+                    <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center mx-auto mb-4 shadow-lg shadow-blue-200">
+                        <Swords className="w-8 h-8 text-white" />
+                    </div>
+                    <h2 className="text-2xl font-extrabold text-gray-900 mb-2">Tạo sơ đồ thi đấu</h2>
+                    <p className="text-sm text-gray-400">
+                        {teams.length} đội tham gia · Loại trực tiếp (Single Elimination)
+                    </p>
+                </div>
+
+                {/* Seed Mode Toggle */}
+                <div className="bg-white rounded-2xl border border-gray-100 p-5 shadow-sm mb-6">
+                    <h3 className="text-sm font-bold text-gray-900 mb-3 flex items-center gap-2">
+                        <Hash className="w-4 h-4 text-blue-500" /> Chế độ hạt giống
+                    </h3>
+                    <div className="flex gap-3">
+                        <button
+                            onClick={() => setSeedMode('random')}
+                            className={`flex-1 py-3 px-4 rounded-xl text-sm font-semibold transition-all flex items-center justify-center gap-2 ${seedMode === 'random'
+                                ? 'bg-blue-50 text-blue-700 border-2 border-blue-200'
+                                : 'bg-gray-50 text-gray-500 border-2 border-transparent hover:border-gray-200'}`}
+                        >
+                            <Shuffle className="w-4 h-4" /> Ngẫu nhiên
+                        </button>
+                        <button
+                            onClick={() => setSeedMode('manual')}
+                            className={`flex-1 py-3 px-4 rounded-xl text-sm font-semibold transition-all flex items-center justify-center gap-2 ${seedMode === 'manual'
+                                ? 'bg-amber-50 text-amber-700 border-2 border-amber-200'
+                                : 'bg-gray-50 text-gray-500 border-2 border-transparent hover:border-gray-200'}`}
+                        >
+                            <Hash className="w-4 h-4" /> Chọn hạt giống thủ công
+                        </button>
+                    </div>
+                    <p className="text-xs text-gray-400 mt-3">
+                        {seedMode === 'random'
+                            ? '\u0110\u1ed9i s\u1ebd \u0111\u01b0\u1ee3c x\u1ebfp ng\u1eabu nhi\u00ean khi t\u1ea1o s\u01a1 \u0111\u1ed3. H\u1ea1t gi\u1ed1ng #1 s\u1ebd g\u1eb7p h\u1ea1t gi\u1ed1ng th\u1ea5p nh\u1ea5t.'
+                            : 'K\u00e9o th\u1ea3 \u0111\u1ec3 s\u1eafp x\u1ebfp th\u1ee9 t\u1ef1 h\u1ea1t gi\u1ed1ng. #1 l\u00e0 m\u1ea1nh nh\u1ea5t (\u0111\u01b0\u1ee3c \u01b0u ti\u00ean BYE n\u1ebfu c\u00f3).'}
+                    </p>
+                </div>
+
+                {/* Manual Seed List */}
+                {seedMode === 'manual' && (
+                    <div className="bg-white rounded-2xl border border-gray-100 p-5 shadow-sm mb-6">
+                        <div className="flex items-center justify-between mb-4">
+                            <h3 className="text-sm font-bold text-gray-900 flex items-center gap-2">
+                                <Trophy className="w-4 h-4 text-amber-500" /> Thứ tự hạt giống
+                            </h3>
+                            <button
+                                onClick={shuffleSeeds}
+                                className="text-xs text-blue-600 hover:text-blue-700 font-semibold flex items-center gap-1 px-3 py-1.5 rounded-lg hover:bg-blue-50 transition-colors"
+                            >
+                                <Shuffle className="w-3.5 h-3.5" /> Trộn ngẫu nhiên
+                            </button>
+                        </div>
+                        <div className="space-y-1.5 max-h-[400px] overflow-y-auto custom-scrollbar">
+                            {seedOrder.map((team, idx) => (
+                                <motion.div
+                                    key={team._id}
+                                    layout
+                                    className="flex items-center gap-3 px-3 py-2.5 rounded-xl bg-gray-50 hover:bg-gray-100 transition-colors group"
+                                >
+                                    {/* Seed number */}
+                                    <div className={`w-8 h-8 rounded-lg flex items-center justify-center text-xs font-bold flex-shrink-0 ${idx === 0 ? 'bg-amber-100 text-amber-700 border border-amber-200' :
+                                        idx === 1 ? 'bg-gray-200 text-gray-700 border border-gray-300' :
+                                            idx === 2 ? 'bg-orange-100 text-orange-700 border border-orange-200' :
+                                                'bg-white text-gray-500 border border-gray-200'
+                                        }`}>
+                                        #{idx + 1}
+                                    </div>
+
+                                    {/* Team info */}
+                                    <div className="flex-1 min-w-0">
+                                        <div className="text-sm font-semibold text-gray-900 truncate">
+                                            {team.name || team.shortName}
+                                        </div>
+                                        <div className="text-[10px] text-gray-400 truncate">
+                                            {team.captain?.name || ''}
+                                        </div>
+                                    </div>
+
+                                    {/* Move buttons */}
+                                    <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                        <button
+                                            onClick={() => moveSeed(idx, 'up')}
+                                            disabled={idx === 0}
+                                            className="w-7 h-7 rounded-lg bg-white border border-gray-200 flex items-center justify-center hover:bg-blue-50 hover:border-blue-200 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                                        >
+                                            <ArrowUp className="w-3.5 h-3.5 text-gray-600" />
+                                        </button>
+                                        <button
+                                            onClick={() => moveSeed(idx, 'down')}
+                                            disabled={idx === seedOrder.length - 1}
+                                            className="w-7 h-7 rounded-lg bg-white border border-gray-200 flex items-center justify-center hover:bg-blue-50 hover:border-blue-200 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                                        >
+                                            <ArrowDown className="w-3.5 h-3.5 text-gray-600" />
+                                        </button>
+                                    </div>
+                                </motion.div>
+                            ))}
+                        </div>
+                    </div>
+                )}
+
+                {/* Generate Button */}
+                <Button
+                    onClick={handleGenerate}
+                    disabled={isCreating}
+                    className="w-full h-14 bg-gradient-to-r from-blue-600 to-indigo-600 text-white hover:from-blue-700 hover:to-indigo-700 rounded-2xl text-base font-bold shadow-lg shadow-blue-200 transition-all"
+                >
+                    {isCreating ? (
+                        <><Loader2 className="w-5 h-5 animate-spin mr-2" /> Đang tạo sơ đồ...</>
+                    ) : (
+                        <><Swords className="w-5 h-5 mr-2" /> Tạo sơ đồ thi đấu</>
+                    )}
+                </Button>
+            </div>
+        </div>
     );
 };
 
@@ -485,7 +762,7 @@ export default function SoDoThiDauPage() {
                 })
                 .map(([name, roundMatches]) => ({
                     name,
-                    matches: (roundMatches as any[]).filter((m: any) => m.status !== "walkover")
+                    matches: roundMatches as any[]
                 }))
                 .filter(round => (round.matches as any[]).length > 0);
 
@@ -497,18 +774,8 @@ export default function SoDoThiDauPage() {
         }
     };
 
-    // Filter by search
-    const filteredRounds = search.trim()
-        ? bracketRounds.map((r) => ({
-            ...r,
-            matches: r.matches.filter((m) => {
-                const q = search.toLowerCase();
-                const homeName = (m.homeTeam?.name || "").toLowerCase();
-                const awayName = (m.awayTeam?.name || "").toLowerCase();
-                return homeName.includes(q) || awayName.includes(q);
-            }),
-        })).filter((r) => r.matches.length > 0)
-        : bracketRounds;
+    // filteredRounds is used only for the empty-state check (show BracketCreator)
+    const filteredRounds = bracketRounds;
 
     const totalTeams = bracketRounds.reduce((sum, r) => sum + r.matches.filter((m: any) => m.status !== 'walkover').length, 0);
     const totalRounds = bracketRounds.length;
@@ -551,6 +818,22 @@ export default function SoDoThiDauPage() {
                         />
                     </div>
                     <Button
+                        onClick={async () => {
+                            if (!confirm('Bạn có chắc muốn tạo lại sơ đồ? Toàn bộ kết quả sẽ bị xóa.')) return;
+                            const res = await tournamentAPI.generateBrackets(id);
+                            if (res.success) {
+                                toast.success('Đã tạo lại sơ đồ!');
+                                loadData();
+                            } else {
+                                toast.error(res.message || 'Lỗi tạo lại');
+                            }
+                        }}
+                        variant="outline"
+                        className="h-11 px-5 rounded-[14px] border-red-200 text-red-600 hover:bg-red-50 font-bold flex items-center gap-2"
+                    >
+                        <RotateCcw className="w-4 h-4" /> Tạo lại
+                    </Button>
+                    <Button
                         onClick={handleDownloadPDF}
                         disabled={isLoading}
                         variant="outline"
@@ -570,25 +853,19 @@ export default function SoDoThiDauPage() {
 
             {/* Tournament Stage */}
             {filteredRounds.length === 0 ? (
-                <div className="flex-1 flex items-center justify-center bg-[#FDFDFD] rounded-[24px] border border-gray-100">
-                    <div className="text-center">
-                        <Swords className="w-14 h-14 text-gray-200 mx-auto mb-4" />
-                        <h3 className="text-lg font-semibold text-efb-dark mb-1">Chưa có bracket</h3>
-                        <p className="text-sm text-efb-text-muted">Bracket sẽ được tạo khi giải đấu bắt đầu</p>
-                    </div>
-                </div>
+                <BracketCreator tournamentId={id} tournament={tournament} onCreated={loadData} />
             ) : (
                 <div id="bracket-capture-area" className="flex-1 overflow-auto bg-[#FDFDFD] rounded-[24px] border border-gray-100 relative custom-scrollbar shadow-inner">
                     <div className="absolute inset-0 opacity-[0.4] pointer-events-none" style={{ backgroundImage: `radial-gradient(#E2E8F0 1.2px, transparent 1.2px)`, backgroundSize: '32px 32px' }} />
-                    <div className="inline-flex p-24">
+                    <div className="inline-flex p-12 min-w-full relative z-10">
                         {bracketRounds.map((round, rIndex) => {
                             const isLastRound = rIndex === bracketRounds.length - 1;
                             const scale = Math.pow(2, rIndex);
-                            const GAP = 80; // gap between round columns
+                            const GAP = 128;
 
                             return (
                                 <div key={rIndex} className="flex">
-                                    <div className="flex flex-col w-[180px]">
+                                    <div className="flex flex-col w-[200px]">
                                         <div className="h-10 flex items-center justify-center mb-12">
                                             <div className="w-[140px] py-1.5 rounded-sm bg-[#FEEBDB] flex items-center justify-center">
                                                 <span className="text-[12px] font-bold text-gray-800">{round.name}</span>
@@ -599,10 +876,19 @@ export default function SoDoThiDauPage() {
                                                 const topPadding = (scale - 1) * (UNIT_HEIGHT / 2);
                                                 const yOffset = topPadding + (match.bracketPosition?.y || 0) * UNIT_HEIGHT * scale;
 
+                                                // Search highlight
+                                                const matchesSearch = search.trim() === '' || [
+                                                    match.homeTeam?.name, match.homeTeam?.shortName, match.homeTeam?.player1, match.homeTeam?.player2,
+                                                    match.awayTeam?.name, match.awayTeam?.shortName, match.awayTeam?.player1, match.awayTeam?.player2,
+                                                    match.p1?.name, match.p2?.name,
+                                                    match.homeTeam?.efvId != null ? String(match.homeTeam.efvId) : null,
+                                                    match.awayTeam?.efvId != null ? String(match.awayTeam.efvId) : null,
+                                                ].some(v => v && v.toLowerCase().includes(search.toLowerCase()));
+
                                                 return (
                                                     <div
                                                         key={match._id || match.id}
-                                                        className="absolute left-0 flex items-center"
+                                                        className={`absolute left-0 flex items-center transition-opacity ${matchesSearch ? 'opacity-100' : 'opacity-20'}`}
                                                         style={{
                                                             top: `${yOffset}px`,
                                                             height: `${UNIT_HEIGHT}px`,
