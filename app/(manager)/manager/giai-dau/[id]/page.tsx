@@ -5,7 +5,7 @@ import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, CheckCircle2, Clock, Edit3, Flame, Loader2, Pause, Play, Settings, Trophy, Users, AlertCircle, Ban, Eye, FileText, Calendar, Gamepad2, Bone, Hexagon, SplitSquareHorizontal, MapPin, Globe, DollarSign, X, Crown, Award } from "lucide-react";
+import { ArrowLeft, CheckCircle2, Clock, Edit3, Flame, Loader2, Pause, Play, Settings, Trophy, Users, AlertCircle, Ban, Eye, FileText, Calendar, Gamepad2, Bone, Hexagon, SplitSquareHorizontal, MapPin, Globe, DollarSign, X, Crown, Award, Camera, ImageIcon } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useAuth } from "@/contexts/AuthContext";
 import { tournamentAPI } from "@/lib/api";
@@ -45,6 +45,7 @@ export default function TournamentDetailPage() {
     const [selectedFormatType, setSelectedFormatType] = useState('standard');
     const [isAwardingEfv, setIsAwardingEfv] = useState(false);
     const [efvAwardResult, setEfvAwardResult] = useState<any>(null);
+    const [isUploadingBanner, setIsUploadingBanner] = useState(false);
 
     const loadTournament = async () => {
         try {
@@ -118,6 +119,62 @@ export default function TournamentDetailPage() {
             toast.error("Có lỗi xảy ra khi trao điểm EFV");
         } finally {
             setIsAwardingEfv(false);
+        }
+    };
+
+    const handleUploadBanner = async (file: File) => {
+        if (!file.type.startsWith("image/")) {
+            toast.error("Chỉ chấp nhận file hình ảnh");
+            return;
+        }
+        if (file.size > 10 * 1024 * 1024) {
+            toast.error("File quá lớn (tối đa 10MB)");
+            return;
+        }
+        setIsUploadingBanner(true);
+        try {
+            const formData = new FormData();
+            formData.append("file", file);
+            formData.append("type", "banner");
+            const headers: Record<string, string> = {};
+            const savedToken = localStorage.getItem("efootcup_token");
+            if (savedToken) headers.Authorization = `Bearer ${savedToken}`;
+            const uploadRes = await fetch("/api/upload", { method: "POST", headers, body: formData });
+            const uploadData = await uploadRes.json();
+            const url = uploadData.data?.url || uploadData.url;
+            if (url) {
+                const updateRes = await tournamentAPI.update(id, { banner: url });
+                if (updateRes.success) {
+                    setData((prev: any) => ({
+                        ...prev,
+                        tournament: { ...prev.tournament, banner: url },
+                    }));
+                    toast.success("Đã cập nhật banner giải đấu!");
+                } else {
+                    toast.error("Lỗi cập nhật banner");
+                }
+            } else {
+                toast.error(uploadData.message || "Lỗi upload banner");
+            }
+        } catch {
+            toast.error("Có lỗi xảy ra khi upload banner");
+        } finally {
+            setIsUploadingBanner(false);
+        }
+    };
+
+    const handleRemoveBanner = async () => {
+        try {
+            const res = await tournamentAPI.update(id, { banner: "" });
+            if (res.success) {
+                setData((prev: any) => ({
+                    ...prev,
+                    tournament: { ...prev.tournament, banner: "" },
+                }));
+                toast.success("Đã xóa banner");
+            }
+        } catch {
+            toast.error("Lỗi xóa banner");
         }
     };
 
@@ -282,6 +339,83 @@ export default function TournamentDetailPage() {
                 </div>
             </div>
 
+            {/* Banner */}
+            <div className="card-white p-5">
+                <h3 className="text-sm font-semibold text-efb-dark flex items-center gap-2 mb-3">
+                    <ImageIcon className="w-4 h-4 text-efb-blue" />
+                    Ảnh banner giải đấu
+                </h3>
+                {t.banner ? (
+                    <div className="relative rounded-xl overflow-hidden border border-gray-200 group">
+                        <img
+                            src={t.banner}
+                            alt="Banner"
+                            className="w-full h-48 object-cover"
+                        />
+                        <div className="absolute inset-0 bg-black/0 group-hover:bg-black/40 transition-all flex items-center justify-center gap-3">
+                            <label className="opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer">
+                                <div className="w-10 h-10 rounded-full bg-white text-efb-blue flex items-center justify-center shadow-lg hover:bg-blue-50">
+                                    <Camera className="w-5 h-5" />
+                                </div>
+                                <input
+                                    type="file"
+                                    accept="image/*"
+                                    className="hidden"
+                                    disabled={isUploadingBanner}
+                                    onChange={(e) => {
+                                        const f = e.target.files?.[0];
+                                        if (f) handleUploadBanner(f);
+                                        e.target.value = "";
+                                    }}
+                                />
+                            </label>
+                            <button
+                                type="button"
+                                onClick={handleRemoveBanner}
+                                className="opacity-0 group-hover:opacity-100 transition-opacity w-10 h-10 rounded-full bg-red-500 text-white flex items-center justify-center shadow-lg hover:bg-red-600"
+                            >
+                                <X className="w-5 h-5" />
+                            </button>
+                        </div>
+                        {isUploadingBanner && (
+                            <div className="absolute inset-0 bg-white/70 flex items-center justify-center">
+                                <Loader2 className="w-8 h-8 animate-spin text-efb-blue" />
+                            </div>
+                        )}
+                    </div>
+                ) : (
+                    <label className="cursor-pointer block">
+                        <div className={`w-full h-48 rounded-xl border-2 border-dashed flex flex-col items-center justify-center transition-all ${isUploadingBanner ? 'border-blue-300 bg-blue-50/30' : 'border-gray-200 hover:border-efb-blue hover:bg-blue-50/20'}`}>
+                            {isUploadingBanner ? (
+                                <>
+                                    <Loader2 className="w-8 h-8 animate-spin text-efb-blue mb-2" />
+                                    <span className="text-xs text-efb-blue font-medium">Đang tải lên...</span>
+                                </>
+                            ) : (
+                                <>
+                                    <div className="w-14 h-14 rounded-2xl bg-gray-100 flex items-center justify-center mb-3">
+                                        <Camera className="w-6 h-6 text-gray-400" />
+                                    </div>
+                                    <span className="text-sm font-medium text-gray-500">Bấm để chọn ảnh banner</span>
+                                    <span className="text-xs text-gray-400 mt-1">Mọi định dạng ảnh — tối đa 10MB — khuyến nghị 16:9</span>
+                                </>
+                            )}
+                        </div>
+                        <input
+                            type="file"
+                            accept="image/*"
+                            className="hidden"
+                            disabled={isUploadingBanner}
+                            onChange={(e) => {
+                                const f = e.target.files?.[0];
+                                if (f) handleUploadBanner(f);
+                                e.target.value = "";
+                            }}
+                        />
+                    </label>
+                )}
+            </div>
+
             {/* Tournament Info */}
             <div className="grid lg:grid-cols-2 gap-6">
                 {/* Details */}
@@ -383,7 +517,7 @@ export default function TournamentDetailPage() {
                     <div className="flex items-center justify-between mb-4">
                         <h3 className="text-sm font-semibold text-efb-dark flex items-center gap-2">
                             <Users className="w-4 h-4 text-efb-blue" />
-                            Đội tham gia ({data.teams?.length || 0})
+                            Đội tham gia ({data.teams?.length || 0}/{t.maxTeams})
                         </h3>
                         <Link
                             href={`/manager/giai-dau/${id}/dang-ky`}
@@ -399,40 +533,118 @@ export default function TournamentDetailPage() {
                             <p className="text-sm text-efb-text-muted">Chưa có đội nào</p>
                         </div>
                     ) : (
-                        <div className="space-y-2 max-h-[300px] overflow-y-auto">
-                            {data.teams?.map((team: any, i: number) => (
-                                <div
-                                    key={team._id}
-                                    className="flex items-center gap-3 p-2.5 rounded-lg hover:bg-gray-50 transition-colors"
-                                >
-                                    <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-efb-blue/10 to-indigo-100 flex items-center justify-center text-xs font-bold text-efb-blue">
-                                        {team.shortName || (i + 1)}
-                                    </div>
-                                    <div className="flex-1 min-w-0">
-                                        <div className="text-sm font-medium text-efb-dark truncate">
-                                            {team.name}
+                        <>
+                            {/* Table header */}
+                            <div className="grid grid-cols-[36px_1fr_80px_120px_70px] gap-2 px-2.5 py-2 text-[10px] font-semibold text-gray-400 uppercase tracking-wider border-b border-gray-100 mb-1">
+                                <div>#</div>
+                                <div>VĐV / Đội</div>
+                                <div className="text-center">Seed</div>
+                                <div className="text-center">Thống kê</div>
+                                <div className="text-center">Trạng thái</div>
+                            </div>
+                            <div className="space-y-0.5 max-h-[400px] overflow-y-auto">
+                                {data.teams?.map((team: any, i: number) => {
+                                    // Find registration for this team to get player details
+                                    const reg = data.registrations?.find((r: any) => {
+                                        const regTeamId = (r.team?._id || r.team)?.toString?.();
+                                        return regTeamId === team._id?.toString?.();
+                                    });
+                                    const captainName = team.captain?.name || reg?.playerName || "N/A";
+                                    const captainEfvId = team.captain?.efvId || reg?.user?.efvId;
+                                    const playerNickname = reg?.nickname || "";
+                                    const gamerId = reg?.gamerId || "";
+                                    const totalMatches = (team.stats?.wins || 0) + (team.stats?.draws || 0) + (team.stats?.losses || 0);
+
+                                    return (
+                                        <div
+                                            key={team._id}
+                                            className="grid grid-cols-[36px_1fr_80px_120px_70px] gap-2 items-center p-2.5 rounded-lg hover:bg-gray-50 transition-colors group"
+                                        >
+                                            {/* Number */}
+                                            <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-efb-blue/10 to-indigo-100 flex items-center justify-center text-xs font-bold text-efb-blue">
+                                                {i + 1}
+                                            </div>
+
+                                            {/* Player Info */}
+                                            <div className="min-w-0">
+                                                <div className="flex items-center gap-1.5">
+                                                    {captainEfvId && (
+                                                        <span className="text-[10px] font-bold text-efb-blue bg-efb-blue/10 px-1.5 py-0.5 rounded flex-shrink-0">
+                                                            #{captainEfvId}
+                                                        </span>
+                                                    )}
+                                                    <span className="text-sm font-semibold text-efb-dark truncate">
+                                                        {captainName}
+                                                    </span>
+                                                </div>
+                                                <div className="flex items-center gap-2 mt-0.5">
+                                                    <span className="text-[11px] text-efb-text-muted truncate">
+                                                        {team.name}
+                                                    </span>
+                                                    {playerNickname && (
+                                                        <span className="text-[10px] text-gray-400 truncate">
+                                                            · {playerNickname}
+                                                        </span>
+                                                    )}
+                                                    {gamerId && (
+                                                        <span className="text-[10px] text-amber-500 font-medium truncate">
+                                                            ID: {gamerId}
+                                                        </span>
+                                                    )}
+                                                </div>
+                                            </div>
+
+                                            {/* Seed */}
+                                            <div className="text-center">
+                                                {team.seed ? (
+                                                    <span className="inline-flex items-center gap-0.5 text-[11px] font-bold text-amber-600 bg-amber-50 px-2 py-0.5 rounded-full">
+                                                        🌱 {team.seed}
+                                                    </span>
+                                                ) : (
+                                                    <span className="text-[11px] text-gray-300">—</span>
+                                                )}
+                                            </div>
+
+                                            {/* Stats */}
+                                            <div className="text-center">
+                                                <div className="flex items-center justify-center gap-1 text-[11px]">
+                                                    <span className="font-bold text-emerald-600">{team.stats?.wins || 0}W</span>
+                                                    <span className="text-gray-300">·</span>
+                                                    <span className="font-bold text-amber-500">{team.stats?.draws || 0}D</span>
+                                                    <span className="text-gray-300">·</span>
+                                                    <span className="font-bold text-red-500">{team.stats?.losses || 0}L</span>
+                                                </div>
+                                                <div className="text-[10px] text-gray-400 mt-0.5">
+                                                    {team.stats?.goalsFor || 0}:{team.stats?.goalsAgainst || 0} ({team.stats?.goalDifference > 0 ? '+' : ''}{team.stats?.goalDifference || 0})
+                                                </div>
+                                            </div>
+
+                                            {/* Status */}
+                                            <div className="text-center">
+                                                <span
+                                                    className={`text-[10px] px-2 py-0.5 rounded-full font-medium inline-block ${team.status === "active"
+                                                        ? "bg-emerald-50 text-emerald-600"
+                                                        : team.status === "eliminated"
+                                                            ? "bg-red-50 text-red-500"
+                                                            : team.status === "withdrawn"
+                                                                ? "bg-gray-100 text-gray-500"
+                                                                : "bg-orange-50 text-orange-500"
+                                                        }`}
+                                                >
+                                                    {team.status === "active"
+                                                        ? "Thi đấu"
+                                                        : team.status === "eliminated"
+                                                            ? "Bị loại"
+                                                            : team.status === "withdrawn"
+                                                                ? "Rút lui"
+                                                                : "Loại"}
+                                                </span>
+                                            </div>
                                         </div>
-                                        <div className="text-[11px] text-efb-text-muted">
-                                            {team.stats?.played || 0}P {team.stats?.wins || 0}W {team.stats?.draws || 0}D {team.stats?.losses || 0}L · {team.stats?.points || 0} pts
-                                        </div>
-                                    </div>
-                                    <span
-                                        className={`text-[10px] px-2 py-0.5 rounded-full font-medium ${team.status === "active"
-                                            ? "bg-emerald-50 text-emerald-600"
-                                            : team.status === "eliminated"
-                                                ? "bg-red-50 text-red-500"
-                                                : "bg-gray-100 text-gray-500"
-                                            }`}
-                                    >
-                                        {team.status === "active"
-                                            ? "Đang thi đấu"
-                                            : team.status === "eliminated"
-                                                ? "Bị loại"
-                                                : team.status}
-                                    </span>
-                                </div>
-                            ))}
-                        </div>
+                                    );
+                                })}
+                            </div>
+                        </>
                     )}
                 </div>
             </div>

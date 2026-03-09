@@ -18,7 +18,7 @@ export async function POST(req: NextRequest) {
         }
 
         // Allowed types for authenticated users
-        const allowedTypes = ["general", "avatar", "payment_proof", "registration", "screenshot"];
+        const allowedTypes = ["general", "avatar", "payment_proof", "registration", "screenshot", "banner"];
         if (!allowedTypes.includes(type)) {
             return apiError("Loại file không hợp lệ", 400);
         }
@@ -39,7 +39,8 @@ export async function POST(req: NextRequest) {
             : type === "payment_proof" ? "payment_proof"
                 : type === "registration" ? "registration"
                     : type === "screenshot" ? "screenshots"
-                        : "general";
+                        : type === "banner" ? "banners"
+                            : "general";
 
         // Create uploads directory
         const uploadsDir = path.join(process.cwd(), "uploads", subDir);

@@ -14,7 +14,7 @@ import {
     Trophy, ArrowLeft, ArrowRight, Loader2, Calendar as CalendarIcon, Users,
     DollarSign, Settings, Info, Gamepad2, Monitor, Smartphone,
     Globe, MapPin, Wifi, CheckCircle2, BarChart3, Zap, Shield,
-    Hash, Award, Crown
+    Hash, Award, Crown, Camera, X, ImageIcon
 } from "lucide-react";
 import { tournamentAPI } from "@/lib/api";
 import { useAuth } from "@/contexts/AuthContext";
@@ -225,6 +225,43 @@ export default function TaoGiaiDauPage() {
     // Derived values
     const maxTeams = parseInt(maxTeamsStr, 10) || 2;
 
+    // Banner upload
+    const [bannerUrl, setBannerUrl] = useState("");
+    const [isUploadingBanner, setIsUploadingBanner] = useState(false);
+
+    const handleUploadBanner = async (file: File) => {
+        if (!file.type.startsWith("image/")) {
+            setError("Chỉ chấp nhận file hình ảnh");
+            return;
+        }
+        if (file.size > 10 * 1024 * 1024) {
+            setError("File quá lớn (tối đa 10MB)");
+            return;
+        }
+        setIsUploadingBanner(true);
+        setError("");
+        try {
+            const formData = new FormData();
+            formData.append("file", file);
+            formData.append("type", "banner");
+            const headers: Record<string, string> = {};
+            const savedToken = localStorage.getItem("efootcup_token");
+            if (savedToken) headers.Authorization = `Bearer ${savedToken}`;
+            const res = await fetch("/api/upload", { method: "POST", headers, body: formData });
+            const data = await res.json();
+            const url = data.data?.url || data.url;
+            if (url) {
+                setBannerUrl(url);
+            } else {
+                setError(data.message || "Lỗi upload banner");
+            }
+        } catch {
+            setError("Có lỗi xảy ra khi upload banner");
+        } finally {
+            setIsUploadingBanner(false);
+        }
+    };
+
     const handleFormatChange = (newFormat: string) => {
         setFormat(newFormat);
         switch (newFormat) {
@@ -353,6 +390,7 @@ export default function TaoGiaiDauPage() {
                 status: "draft",
                 mode,
                 efvTier: efvTier || null,
+                banner: bannerUrl || "",
             };
 
             const res = await tournamentAPI.create(tournamentData);
@@ -468,6 +506,66 @@ export default function TaoGiaiDauPage() {
                             placeholder="efootball, tournament, vietnam"
                             className="h-12 rounded-xl"
                         />
+                    </div>
+
+                    {/* Banner Upload */}
+                    <div className="space-y-2">
+                        <Label className="text-sm font-medium flex items-center gap-1.5">
+                            <ImageIcon className="w-4 h-4 text-blue-500" />
+                            Ảnh banner giải đấu
+                        </Label>
+                        <p className="text-xs text-gray-400 -mt-1">Ảnh hiển thị trên trang giải đấu và danh sách. Mọi định dạng ảnh — tối đa 10MB</p>
+                        {bannerUrl ? (
+                            <div className="relative rounded-xl overflow-hidden border border-gray-200 group">
+                                <img
+                                    src={bannerUrl}
+                                    alt="Banner"
+                                    className="w-full h-44 object-cover"
+                                />
+                                <div className="absolute inset-0 bg-black/0 group-hover:bg-black/30 transition-all flex items-center justify-center">
+                                    <button
+                                        type="button"
+                                        onClick={() => setBannerUrl("")}
+                                        className="opacity-0 group-hover:opacity-100 transition-opacity w-10 h-10 rounded-full bg-red-500 text-white flex items-center justify-center shadow-lg hover:bg-red-600"
+                                    >
+                                        <X className="w-5 h-5" />
+                                    </button>
+                                </div>
+                                <div className="absolute bottom-2 right-2 bg-emerald-500 text-white text-[10px] font-bold px-2 py-0.5 rounded-full flex items-center gap-1">
+                                    <CheckCircle2 className="w-3 h-3" /> Đã tải lên
+                                </div>
+                            </div>
+                        ) : (
+                            <label className="cursor-pointer block">
+                                <div className={`w-full h-44 rounded-xl border-2 border-dashed flex flex-col items-center justify-center transition-all ${isUploadingBanner ? 'border-blue-300 bg-blue-50/30' : 'border-gray-200 hover:border-efb-blue hover:bg-blue-50/20'}`}>
+                                    {isUploadingBanner ? (
+                                        <>
+                                            <Loader2 className="w-8 h-8 animate-spin text-efb-blue mb-2" />
+                                            <span className="text-xs text-efb-blue font-medium">Đang tải lên...</span>
+                                        </>
+                                    ) : (
+                                        <>
+                                            <div className="w-14 h-14 rounded-2xl bg-gray-100 flex items-center justify-center mb-3">
+                                                <Camera className="w-6 h-6 text-gray-400" />
+                                            </div>
+                                            <span className="text-sm font-medium text-gray-500">Bấm để chọn ảnh banner</span>
+                                            <span className="text-xs text-gray-400 mt-1">Khuyến nghị tỉ lệ 16:9 (1200×675)</span>
+                                        </>
+                                    )}
+                                </div>
+                                <input
+                                    type="file"
+                                    accept="image/*"
+                                    className="hidden"
+                                    disabled={isUploadingBanner}
+                                    onChange={(e) => {
+                                        const f = e.target.files?.[0];
+                                        if (f) handleUploadBanner(f);
+                                        e.target.value = "";
+                                    }}
+                                />
+                            </label>
+                        )}
                     </div>
 
                     {/* Mode: Mobile / Console / Free */}

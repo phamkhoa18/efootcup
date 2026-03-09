@@ -988,7 +988,7 @@ export default function TournamentDetailClient({ initialData, id }: { initialDat
             <section className="relative pt-24 pb-14">
                 {/* Bright Background */}
                 <div className="absolute inset-0 overflow-hidden">
-                    <Image src={t.banner || t.thumbnail || "/assets/efootball_bg.webp"} alt="" fill className="object-cover" priority />
+                    <Image src={"/assets/efootball_bg.webp"} alt="" fill className="object-cover" priority />
                     <div className="absolute inset-0 bg-gradient-to-b from-[#0A3D91]/70 via-[#1E40AF]/50 to-white" />
                 </div>
 
