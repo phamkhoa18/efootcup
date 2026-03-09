@@ -627,6 +627,7 @@ export default function TournamentDetailClient({ initialData, id }: { initialDat
     const [countryOpen, setCountryOpen] = useState(false);
     const [bracketSearch, setBracketSearch] = useState("");
     const [playerSearch, setPlayerSearch] = useState("");
+    const [scheduleFilter, setScheduleFilter] = useState<'all' | 'live' | 'completed' | 'upcoming'>('all');
     const [selectedPlayer, setSelectedPlayer] = useState<any>(null);
 
     useEffect(() => {
@@ -861,6 +862,16 @@ export default function TournamentDetailClient({ initialData, id }: { initialDat
         const setter = field === 'personalPhoto' ? setUploadingPersonal : setUploadingLineup;
         setter(true);
         try {
+            // Client-side validation
+            if (!file.type.startsWith('image/') && !/\.(jpe?g|jfif|png|gif|webp|bmp|avif|heic|heif|tiff?)$/i.test(file.name)) {
+                toast.error('Vui lòng chọn file hình ảnh');
+                return;
+            }
+            if (file.size > 10 * 1024 * 1024) {
+                toast.error('File quá lớn (tối đa 10MB)');
+                return;
+            }
+
             const formData = new FormData();
             formData.append('file', file);
             formData.append('type', 'registration');
@@ -868,10 +879,26 @@ export default function TournamentDetailClient({ initialData, id }: { initialDat
             const savedToken = localStorage.getItem("efootcup_token");
             if (savedToken) headers.Authorization = `Bearer ${savedToken}`;
             const res = await fetch('/api/upload', { method: 'POST', headers, body: formData });
+
+            if (!res.ok) {
+                const errText = await res.text().catch(() => '');
+                console.error('Upload HTTP error:', res.status, errText);
+                if (res.status === 401) {
+                    toast.error('Phiên đăng nhập hết hạn, vui lòng đăng nhập lại');
+                } else if (res.status === 413) {
+                    toast.error('File quá lớn');
+                } else {
+                    toast.error(`Upload thất bại (lỗi ${res.status})`);
+                }
+                return;
+            }
+
             const data = await res.json();
             const url = data.data?.url || data.url;
             if (url) {
-                setRegForm(prev => ({ ...prev, [field]: url }));
+                // Add cache-bust to prevent stale cached 404/error responses
+                const bustUrl = url + (url.includes('?') ? '&' : '?') + 't=' + Date.now();
+                setRegForm(prev => ({ ...prev, [field]: bustUrl }));
             } else {
                 toast.error(data.message || 'Upload thất bại');
             }
@@ -899,8 +926,12 @@ export default function TournamentDetailClient({ initialData, id }: { initialDat
 
         setIsRegistering(true);
         try {
+            // Strip cache-bust params from photo URLs before saving
+            const cleanUrl = (u: string) => u.split('?')[0];
             const res = await tournamentAPI.register(id, {
                 ...regForm,
+                personalPhoto: cleanUrl(regForm.personalPhoto),
+                teamLineupPhoto: cleanUrl(regForm.teamLineupPhoto),
                 teamShortName: regForm.teamShortName.toUpperCase(),
                 playerName: regForm.playerName || user?.name,
                 phone: regForm.phone,
@@ -1676,128 +1707,233 @@ export default function TournamentDetailClient({ initialData, id }: { initialDat
                         )}
 
                         {activeTab === "schedule" && (() => {
-                            // Use bracket-enriched matches (with player names) if available, fallback to raw matches
                             const scheduleMatches = brackets?.matches || matches;
-                            // Group matches by round
                             const roundMap: Record<string, any[]> = {};
-                            scheduleMatches.filter((m: any) => m.status !== 'walkover').forEach((m: any) => {
+                            scheduleMatches.filter((m: any) => m.status !== 'walkover' && m.status !== 'bye').forEach((m: any) => {
                                 const rn = m.roundName || `Vòng ${m.round}`;
                                 if (!roundMap[rn]) roundMap[rn] = [];
                                 roundMap[rn].push(m);
                             });
-                            const roundEntries = Object.entries(roundMap).sort(([, a], [, b]) => {
-                                return (a[0]?.round ?? 0) - (b[0]?.round ?? 0);
-                            });
+                            const roundEntries = Object.entries(roundMap).sort(([, a], [, b]) => (a[0]?.round ?? 0) - (b[0]?.round ?? 0));
+
+                            const allSchedMatches = roundEntries.flatMap(([, rm]) => rm);
+                            const completedCount = allSchedMatches.filter((m: any) => m.status === 'completed').length;
+                            const liveCount = allSchedMatches.filter((m: any) => m.status === 'live').length;
+                            const totalCount = allSchedMatches.length;
+
+                            const matchesFilter = (m: any) => {
+                                if (bracketSearch.trim()) {
+                                    const q = bracketSearch.toLowerCase();
+                                    const fields = [m.homeTeam?.name, m.homeTeam?.shortName, m.homeTeam?.player1, m.homeTeam?.player2, m.awayTeam?.name, m.awayTeam?.shortName, m.awayTeam?.player1, m.awayTeam?.player2, m.homeTeam?.efvId != null ? String(m.homeTeam.efvId) : null, m.awayTeam?.efvId != null ? String(m.awayTeam.efvId) : null, m.matchNumber != null ? String(m.matchNumber) : null];
+                                    if (!fields.some(v => v && v.toLowerCase().includes(q))) return false;
+                                }
+                                if (scheduleFilter === 'live') return m.status === 'live';
+                                if (scheduleFilter === 'completed') return m.status === 'completed';
+                                if (scheduleFilter === 'upcoming') return m.status !== 'completed' && m.status !== 'live';
+                                return true;
+                            };
 
                             return (
-                                <div className="space-y-6">
-                                    {roundEntries.length === 0 ? (
-                                        <div className="text-center py-16">
-                                            <Calendar className="w-10 h-10 text-gray-200 mx-auto mb-3" />
-                                            <p className="text-gray-400 text-sm font-medium">Chưa có lịch thi đấu</p>
+                                <div className="space-y-0">
+                                    {/* Header + Search */}
+                                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
+                                        <div>
+                                            <h3 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
+                                                <Calendar className="w-5 h-5 text-efb-blue" /> Lịch thi đấu
+                                            </h3>
+                                            <p className="text-xs text-gray-400 mt-0.5 ml-7">
+                                                {completedCount}/{totalCount} trận đã kết thúc
+                                                {liveCount > 0 && <span className="text-red-500 font-semibold ml-2">• {liveCount} LIVE</span>}
+                                            </p>
                                         </div>
-                                    ) : (
-                                        roundEntries.map(([roundName, roundMatches]) => (
-                                            <div key={roundName}>
-                                                {/* Round header */}
-                                                <div className="flex items-center gap-3 mb-3">
-                                                    <div className="w-1 h-5 bg-efb-blue rounded-full" />
-                                                    <h3 className="text-sm font-bold text-gray-800 uppercase tracking-wide">{roundName}</h3>
-                                                    <span className="text-[10px] text-gray-400 font-medium">{roundMatches.length} trận</span>
-                                                </div>
+                                        <div className="relative">
+                                            <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                                            <Input placeholder="Tìm VĐV, team, EFV ID..." value={bracketSearch} onChange={(e) => setBracketSearch(e.target.value)} className="pl-9 h-9 text-sm rounded-lg border-gray-200 w-[220px] focus:border-efb-blue" />
+                                            {bracketSearch && <button onClick={() => setBracketSearch("")} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-300 hover:text-gray-500"><X className="w-3.5 h-3.5" /></button>}
+                                        </div>
+                                    </div>
 
-                                                <div className="space-y-2.5">
-                                                    {roundMatches.map((m: any) => {
-                                                        const isCompleted = m.status === 'completed';
-                                                        const isLive = m.status === 'live';
-                                                        const homePlayer = m.homeTeam?.player1 || "Chờ kết quả";
-                                                        const awayPlayer = m.awayTeam?.player1 || "Chờ kết quả";
-                                                        const homeCLB = m.homeTeam?.name || "";
-                                                        const awayCLB = m.awayTeam?.name || "";
-                                                        const homeEfvId = m.homeTeam?.efvId;
-                                                        const awayEfvId = m.awayTeam?.efvId;
-                                                        const homeWin = isCompleted && (m.winner === (m.homeTeam?._id || m.homeTeam?.id) || (m.homeScore ?? 0) > (m.awayScore ?? 0));
-                                                        const awayWin = isCompleted && (m.winner === (m.awayTeam?._id || m.awayTeam?.id) || (m.awayScore ?? 0) > (m.homeScore ?? 0));
+                                    {/* Filter Tabs */}
+                                    <div className="flex gap-1.5 mb-4 flex-wrap">
+                                        {([
+                                            { key: 'all' as const, label: 'Tất cả', count: totalCount },
+                                            ...(liveCount > 0 ? [{ key: 'live' as const, label: '🔴 LIVE', count: liveCount }] : []),
+                                            { key: 'completed' as const, label: 'Kết thúc', count: completedCount },
+                                            { key: 'upcoming' as const, label: 'Chưa đấu', count: totalCount - completedCount - liveCount },
+                                        ]).map(f => (
+                                            <button key={f.key} onClick={() => setScheduleFilter(f.key)} className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${scheduleFilter === f.key ? (f.key === 'live' ? 'bg-red-500 text-white shadow-sm' : 'bg-efb-blue text-white shadow-sm') : 'bg-gray-50 text-gray-500 hover:bg-gray-100 border border-gray-100'}`}>
+                                                {f.label} <span className="opacity-70 ml-0.5">({f.count})</span>
+                                            </button>
+                                        ))}
+                                    </div>
 
-                                                        return (
-                                                            <motion.div
-                                                                key={m._id}
-                                                                initial={{ opacity: 0, y: 4 }}
-                                                                animate={{ opacity: 1, y: 0 }}
-                                                                onClick={() => setSelectedMatch(m)}
-                                                                className={`relative bg-white border rounded-xl p-3.5 sm:p-4 cursor-pointer transition-all hover:shadow-md group ${isLive ? 'border-red-200 ring-1 ring-red-100' : isCompleted ? 'border-gray-100' : 'border-gray-100 hover:border-blue-200'
-                                                                    }`}
-                                                            >
-                                                                {/* LIVE badge */}
-                                                                {isLive && (
-                                                                    <div className="absolute top-2.5 right-3 flex items-center gap-1 bg-red-500 text-white text-[9px] font-bold px-2 py-0.5 rounded-full animate-pulse">
-                                                                        <span className="w-1.5 h-1.5 bg-white rounded-full" /> LIVE
-                                                                    </div>
-                                                                )}
-
-                                                                {/* Match number + round info */}
-                                                                <div className="flex items-center gap-2 mb-3">
-                                                                    <span className="text-[10px] font-bold text-gray-300 bg-gray-50 px-2 py-0.5 rounded">#{m.matchNumber}</span>
-                                                                    {m.scheduledAt && (
-                                                                        <span className="text-[10px] text-gray-400 flex items-center gap-1">
-                                                                            <Clock className="w-3 h-3" />
-                                                                            {new Date(m.scheduledAt).toLocaleString("vi-VN", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" })}
-                                                                        </span>
-                                                                    )}
-                                                                    {isCompleted && (
-                                                                        <span className="text-[10px] font-semibold text-emerald-500 flex items-center gap-0.5 ml-auto">
-                                                                            <CheckCircle2 className="w-3 h-3" /> Kết thúc
-                                                                        </span>
-                                                                    )}
-                                                                </div>
-
-                                                                {/* Match content: Home vs Away */}
-                                                                <div className="flex items-center gap-2 sm:gap-4">
-                                                                    {/* Home side */}
-                                                                    <div className={`flex-1 min-w-0 text-right ${homeWin ? '' : isCompleted ? 'opacity-50' : ''}`}>
-                                                                        <div className="flex items-center justify-end gap-1.5 mb-0.5">
-                                                                            {homeEfvId != null && (
-                                                                                <span className="text-[9px] font-bold text-amber-600 bg-amber-50 border border-amber-200 px-1.5 py-px rounded flex-shrink-0">#{homeEfvId}</span>
-                                                                            )}
-                                                                            <span className={`text-sm font-bold truncate ${homeWin ? 'text-blue-700' : 'text-gray-800'}`}>
-                                                                                {homePlayer}
-                                                                            </span>
-                                                                        </div>
-                                                                        {homeCLB && (
-                                                                            <p className="text-[10px] text-gray-400 truncate">{homeCLB}</p>
-                                                                        )}
-                                                                    </div>
-
-                                                                    {/* Score */}
-                                                                    <div className={`flex-shrink-0 w-[72px] sm:w-[80px] text-center py-1.5 rounded-lg ${isCompleted ? 'bg-gray-900 text-white' : isLive ? 'bg-red-500 text-white' : 'bg-gray-50 text-gray-300'
-                                                                        }`}>
-                                                                        <span className="text-base sm:text-lg font-black tabular-nums tracking-wider">
-                                                                            {isCompleted || isLive ? `${m.homeScore ?? 0} - ${m.awayScore ?? 0}` : 'VS'}
-                                                                        </span>
-                                                                    </div>
-
-                                                                    {/* Away side */}
-                                                                    <div className={`flex-1 min-w-0 text-left ${awayWin ? '' : isCompleted ? 'opacity-50' : ''}`}>
-                                                                        <div className="flex items-center gap-1.5 mb-0.5">
-                                                                            <span className={`text-sm font-bold truncate ${awayWin ? 'text-blue-700' : 'text-gray-800'}`}>
-                                                                                {awayPlayer}
-                                                                            </span>
-                                                                            {awayEfvId != null && (
-                                                                                <span className="text-[9px] font-bold text-amber-600 bg-amber-50 border border-amber-200 px-1.5 py-px rounded flex-shrink-0">#{awayEfvId}</span>
-                                                                            )}
-                                                                        </div>
-                                                                        {awayCLB && (
-                                                                            <p className="text-[10px] text-gray-400 truncate">{awayCLB}</p>
-                                                                        )}
-                                                                    </div>
-                                                                </div>
-                                                            </motion.div>
-                                                        );
-                                                    })}
-                                                </div>
+                                    {/* Info bar */}
+                                    <div className="flex items-center justify-between bg-blue-50/60 px-4 py-2.5 rounded-xl border border-blue-100 mb-4">
+                                        <div className="flex items-center gap-4 text-xs text-gray-600">
+                                            <div className="flex items-center gap-1.5">
+                                                <Info className="w-3.5 h-3.5 text-blue-400" />
+                                                <span>Hình thức: <span className="font-semibold text-gray-800">{t.format === 'round_robin' ? 'Vòng tròn' : t.format === 'group_stage' ? 'Vòng bảng' : 'Loại trực tiếp'}</span></span>
                                             </div>
-                                        ))
-                                    )}
+                                            <span className="hidden sm:inline text-blue-500 font-semibold">{completedCount}/{totalCount} trận hoàn thành</span>
+                                        </div>
+                                        <div className="flex items-center gap-3 text-[10px]">
+                                            <span className="flex items-center gap-1 text-gray-400"><span className="w-2 h-2 rounded-full bg-emerald-500" /> Xong</span>
+                                            <span className="flex items-center gap-1 text-gray-400"><span className="w-2 h-2 rounded-full bg-red-500 animate-pulse" /> LIVE</span>
+                                            <span className="flex items-center gap-1 text-gray-400"><span className="w-2 h-2 rounded-full bg-blue-300" /> Chờ</span>
+                                        </div>
+                                    </div>
+
+                                    {/* Match Table */}
+                                    <div className="bg-white border border-gray-100 rounded-2xl overflow-hidden shadow-sm">
+                                        {roundEntries.length === 0 ? (
+                                            <div className="text-center py-20 bg-gray-50/50">
+                                                <Calendar className="w-12 h-12 text-gray-200 mx-auto mb-3" />
+                                                <h3 className="text-gray-700 font-semibold mb-1">Chưa có lịch thi đấu</h3>
+                                                <p className="text-gray-400 text-sm">Lịch sẽ được cập nhật khi giải đấu bắt đầu.</p>
+                                            </div>
+                                        ) : (<>
+                                            {/* Desktop */}
+                                            <div className="hidden sm:block overflow-x-auto">
+                                                {roundEntries.map(([roundName, roundMatches]) => {
+                                                    const filtered = roundMatches.filter(matchesFilter);
+                                                    if (filtered.length === 0) return null;
+                                                    return (
+                                                        <div key={roundName}>
+                                                            <div className="bg-[#D9EAF7] flex items-center justify-center py-2.5 px-4 border-b border-white">
+                                                                <span className="text-red-500 font-bold text-sm">{roundName}</span>
+                                                                <span className="text-gray-600 font-semibold text-sm ml-1.5">| {t.title}</span>
+                                                            </div>
+                                                            <div className="grid grid-cols-12 gap-4 py-2 px-4 border-b border-gray-200 font-bold text-[11px] text-gray-500 bg-gray-50/80 uppercase tracking-wider">
+                                                                <div className="col-span-1">#</div>
+                                                                <div className="col-span-2">CLB</div>
+                                                                <div className="col-span-4">Cặp đấu</div>
+                                                                <div className="col-span-2 text-center">Kết quả</div>
+                                                                <div className="col-span-1 text-center">Ngày</div>
+                                                                <div className="col-span-2 text-center">Trạng thái</div>
+                                                            </div>
+                                                            <div className="divide-y divide-gray-50">
+                                                                {filtered.map((m: any) => {
+                                                                    const homeName = m.homeTeam?.name || "Chờ kết quả";
+                                                                    const awayName = m.awayTeam?.name || "Chờ kết quả";
+                                                                    const p1Name = m.homeTeam?.player1 || "—";
+                                                                    const p1Sub = m.homeTeam?.player2 && m.homeTeam.player2 !== "TBD" ? ` / ${m.homeTeam.player2}` : "";
+                                                                    const p2Name = m.awayTeam?.player1 || "—";
+                                                                    const p2Sub = m.awayTeam?.player2 && m.awayTeam.player2 !== "TBD" ? ` / ${m.awayTeam.player2}` : "";
+                                                                    const isCompleted = m.status === 'completed';
+                                                                    const isLive = m.status === 'live';
+                                                                    const isHomeWin = isCompleted && (m.winner === (m.homeTeam?._id || m.homeTeam?.id) || (m.homeScore || 0) > (m.awayScore || 0));
+                                                                    const isAwayWin = isCompleted && (m.winner === (m.awayTeam?._id || m.awayTeam?.id) || (m.awayScore || 0) > (m.homeScore || 0));
+                                                                    return (
+                                                                        <div key={m._id} className={`grid grid-cols-12 gap-4 items-center py-2.5 px-4 hover:bg-blue-50/30 transition-colors cursor-pointer ${isLive ? 'bg-red-50/30' : ''}`} onClick={() => setSelectedMatch(m)}>
+                                                                            <div className="col-span-1 text-gray-900 font-bold text-sm">{m.matchNumber}</div>
+                                                                            <div className="col-span-2 flex flex-col gap-1.5">
+                                                                                <div className="border border-gray-200 rounded px-1.5 py-0.5 shadow-sm bg-white text-[11px] font-semibold text-gray-700 truncate w-fit max-w-full flex items-center gap-1">
+                                                                                    <div className="w-1.5 h-1.5 rounded-full bg-blue-400 flex-shrink-0" />
+                                                                                    {m.homeTeam?.efvId != null && <span className="text-[9px] font-bold text-amber-600 bg-amber-50 border border-amber-200 px-1 py-px rounded flex-shrink-0">#{m.homeTeam.efvId}</span>}
+                                                                                    <span className="truncate">{homeName}</span>
+                                                                                </div>
+                                                                                <div className="border border-gray-200 rounded px-1.5 py-0.5 shadow-sm bg-white text-[11px] font-semibold text-gray-700 truncate w-fit max-w-full flex items-center gap-1">
+                                                                                    <div className="w-1.5 h-1.5 rounded-full bg-red-400 flex-shrink-0" />
+                                                                                    {m.awayTeam?.efvId != null && <span className="text-[9px] font-bold text-amber-600 bg-amber-50 border border-amber-200 px-1 py-px rounded flex-shrink-0">#{m.awayTeam.efvId}</span>}
+                                                                                    <span className="truncate">{awayName}</span>
+                                                                                </div>
+                                                                            </div>
+                                                                            <div className="col-span-4 flex flex-col gap-1.5 text-[13px] font-medium">
+                                                                                <div className={`truncate ${isCompleted ? (isHomeWin ? "font-bold text-gray-900" : "text-gray-400 line-through") : isLive ? "text-gray-800" : "text-purple-600"}`}>{p1Name}{p1Sub}</div>
+                                                                                <div className={`truncate ${isCompleted ? (isAwayWin ? "font-bold text-gray-900" : "text-gray-400 line-through") : isLive ? "text-gray-800" : "text-purple-600"}`}>{p2Name}{p2Sub}</div>
+                                                                            </div>
+                                                                            <div className="col-span-2 flex justify-center">
+                                                                                {isCompleted || isLive ? (
+                                                                                    <div className={`px-3 py-1 rounded-lg text-sm font-black tabular-nums tracking-wider ${isLive ? 'bg-red-500 text-white animate-pulse' : 'bg-gray-900 text-white'}`}>{m.homeScore ?? 0} - {m.awayScore ?? 0}</div>
+                                                                                ) : (<span className="text-gray-300 text-sm font-bold">VS</span>)}
+                                                                            </div>
+                                                                            <div className="col-span-1 text-center text-[10px] text-gray-400">
+                                                                                {m.scheduledAt ? (<div className="flex flex-col items-center"><span>{new Date(m.scheduledAt).toLocaleDateString("vi-VN", { day: "2-digit", month: "2-digit" })}</span><span className="text-gray-300">{new Date(m.scheduledAt).toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" })}</span></div>) : (<span className="text-gray-300">—</span>)}
+                                                                            </div>
+                                                                            <div className="col-span-2 flex items-center justify-center">
+                                                                                <div className={`px-2.5 py-1 rounded-md text-[11px] font-semibold ${isCompleted ? "bg-emerald-50 text-emerald-600 border border-emerald-100" : isLive ? "bg-red-50 text-red-600 border border-red-100 animate-pulse" : "bg-blue-50/50 border border-blue-100 text-blue-400"}`}>
+                                                                                    {isCompleted ? "Kết thúc" : isLive ? "🔴 LIVE" : "Chờ thi đấu"}
+                                                                                </div>
+                                                                            </div>
+                                                                        </div>
+                                                                    );
+                                                                })}
+                                                            </div>
+                                                        </div>
+                                                    );
+                                                })}
+                                            </div>
+                                            {/* Mobile */}
+                                            <div className="sm:hidden">
+                                                {roundEntries.map(([roundName, roundMatches]) => {
+                                                    const filtered = roundMatches.filter(matchesFilter);
+                                                    if (filtered.length === 0) return null;
+                                                    return (
+                                                        <div key={roundName}>
+                                                            <div className="bg-[#D9EAF7] flex items-center justify-center py-2 px-4 border-b border-white">
+                                                                <span className="text-red-500 font-bold text-xs">{roundName}</span>
+                                                                <span className="text-gray-600 font-semibold text-xs ml-1.5">| {t.title}</span>
+                                                            </div>
+                                                            <div className="divide-y divide-gray-50">
+                                                                {filtered.map((m: any) => {
+                                                                    const homePlayer = m.homeTeam?.player1 || "Chờ kết quả";
+                                                                    const awayPlayer = m.awayTeam?.player1 || "Chờ kết quả";
+                                                                    const homeCLB = m.homeTeam?.name || "";
+                                                                    const awayCLB = m.awayTeam?.name || "";
+                                                                    const homeEfvId = m.homeTeam?.efvId;
+                                                                    const awayEfvId = m.awayTeam?.efvId;
+                                                                    const isCompleted = m.status === 'completed';
+                                                                    const isLive = m.status === 'live';
+                                                                    const homeWin = isCompleted && (m.winner === (m.homeTeam?._id || m.homeTeam?.id) || (m.homeScore ?? 0) > (m.awayScore ?? 0));
+                                                                    const awayWin = isCompleted && (m.winner === (m.awayTeam?._id || m.awayTeam?.id) || (m.awayScore ?? 0) > (m.homeScore ?? 0));
+                                                                    return (
+                                                                        <div key={m._id} className={`px-4 py-3 cursor-pointer active:bg-gray-50 transition-colors ${isLive ? 'bg-red-50/30' : ''}`} onClick={() => setSelectedMatch(m)}>
+                                                                            <div className="flex items-center justify-between mb-2">
+                                                                                <div className="flex items-center gap-2">
+                                                                                    <span className="text-[10px] font-bold text-gray-300 bg-gray-50 px-1.5 py-0.5 rounded">#{m.matchNumber}</span>
+                                                                                    {m.scheduledAt && <span className="text-[10px] text-gray-400 flex items-center gap-1"><Clock className="w-3 h-3" />{new Date(m.scheduledAt).toLocaleString("vi-VN", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" })}</span>}
+                                                                                </div>
+                                                                                <div className={`px-2 py-0.5 rounded text-[10px] font-semibold ${isCompleted ? "bg-emerald-50 text-emerald-600" : isLive ? "bg-red-50 text-red-600 animate-pulse" : "bg-blue-50/50 text-blue-400"}`}>
+                                                                                    {isCompleted ? "Kết thúc" : isLive ? "🔴 LIVE" : "Chờ đấu"}
+                                                                                </div>
+                                                                            </div>
+                                                                            <div className="flex items-center gap-2">
+                                                                                <div className={`flex-1 min-w-0 text-right ${homeWin ? '' : isCompleted ? 'opacity-50' : ''}`}>
+                                                                                    <div className="flex items-center justify-end gap-1 mb-0.5">
+                                                                                        {homeEfvId != null && <span className="text-[8px] font-bold text-amber-600 bg-amber-50 border border-amber-200 px-1 py-px rounded flex-shrink-0">#{homeEfvId}</span>}
+                                                                                        <span className={`text-xs font-bold truncate ${homeWin ? 'text-blue-700' : 'text-gray-800'}`}>{homePlayer}</span>
+                                                                                    </div>
+                                                                                    {homeCLB && <p className="text-[9px] text-gray-400 truncate">{homeCLB}</p>}
+                                                                                </div>
+                                                                                <div className={`flex-shrink-0 w-[60px] text-center py-1 rounded-lg ${isCompleted ? 'bg-gray-900 text-white' : isLive ? 'bg-red-500 text-white' : 'bg-gray-50 text-gray-300'}`}>
+                                                                                    <span className="text-sm font-black tabular-nums tracking-wider">{isCompleted || isLive ? `${m.homeScore ?? 0} - ${m.awayScore ?? 0}` : 'VS'}</span>
+                                                                                </div>
+                                                                                <div className={`flex-1 min-w-0 text-left ${awayWin ? '' : isCompleted ? 'opacity-50' : ''}`}>
+                                                                                    <div className="flex items-center gap-1 mb-0.5">
+                                                                                        <span className={`text-xs font-bold truncate ${awayWin ? 'text-blue-700' : 'text-gray-800'}`}>{awayPlayer}</span>
+                                                                                        {awayEfvId != null && <span className="text-[8px] font-bold text-amber-600 bg-amber-50 border border-amber-200 px-1 py-px rounded flex-shrink-0">#{awayEfvId}</span>}
+                                                                                    </div>
+                                                                                    {awayCLB && <p className="text-[9px] text-gray-400 truncate">{awayCLB}</p>}
+                                                                                </div>
+                                                                            </div>
+                                                                        </div>
+                                                                    );
+                                                                })}
+                                                            </div>
+                                                        </div>
+                                                    );
+                                                })}
+                                            </div>
+                                            {/* No results */}
+                                            {roundEntries.every(([, rm]) => rm.filter(matchesFilter).length === 0) && (
+                                                <div className="text-center py-12">
+                                                    <Search className="w-8 h-8 text-gray-200 mx-auto mb-2" />
+                                                    <p className="text-sm text-gray-400">Không tìm thấy trận đấu phù hợp</p>
+                                                    {bracketSearch && <button onClick={() => setBracketSearch("")} className="text-xs text-efb-blue hover:underline mt-1">Xóa tìm kiếm</button>}
+                                                </div>
+                                            )}
+                                        </>)}
+                                    </div>
                                 </div>
                             );
                         })()}

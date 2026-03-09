@@ -6,6 +6,8 @@ import path from "path";
 const MIME_TYPES: Record<string, string> = {
     jpg: "image/jpeg",
     jpeg: "image/jpeg",
+    jpe: "image/jpeg",
+    jfif: "image/jpeg",
     png: "image/png",
     gif: "image/gif",
     webp: "image/webp",
@@ -13,6 +15,10 @@ const MIME_TYPES: Record<string, string> = {
     ico: "image/x-icon",
     bmp: "image/bmp",
     avif: "image/avif",
+    heic: "image/heic",
+    heif: "image/heif",
+    tif: "image/tiff",
+    tiff: "image/tiff",
 };
 
 /**
@@ -56,7 +62,11 @@ export async function GET(
         try {
             await stat(filePath);
         } catch {
-            return NextResponse.json({ error: "File not found" }, { status: 404 });
+            // Do NOT cache 404s — file might be uploaded moments later
+            return NextResponse.json({ error: "File not found" }, {
+                status: 404,
+                headers: { "Cache-Control": "no-store, no-cache, must-revalidate" },
+            });
         }
 
         // Read file

@@ -96,7 +96,7 @@ export async function GET(req: NextRequest, { params }: RouteParams) {
             [match.homeTeam, match.awayTeam].forEach(t => {
                 if (t && t._id) {
                     const reg = teamMap.get(t._id.toString());
-                    if (reg) { t.player1 = reg.playerName; t.player2 = reg.gamerId; t.efvId = reg.user?.efvId; }
+                    if (reg) { t.player1 = reg.playerName; t.player2 = t.name; t.efvId = reg.user?.efvId; }
                 }
             });
             return match;

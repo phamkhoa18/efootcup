@@ -24,7 +24,12 @@ export async function POST(req: NextRequest) {
         }
 
         // Validate file type — accept any image format
-        if (!file.type.startsWith("image/")) {
+        // Some browsers/devices report incorrect MIME types, so also check extension
+        const imageExtensions = ['jpg', 'jpeg', 'jpe', 'jfif', 'png', 'gif', 'webp', 'svg', 'ico', 'bmp', 'avif', 'heic', 'heif', 'tif', 'tiff'];
+        const rawExt = (file.name.split(".").pop() || "").toLowerCase();
+        const isImageByMime = file.type.startsWith("image/");
+        const isImageByExt = imageExtensions.includes(rawExt);
+        if (!isImageByMime && !isImageByExt) {
             return apiError("Chỉ chấp nhận file hình ảnh", 400);
         }
 
@@ -46,8 +51,8 @@ export async function POST(req: NextRequest) {
         const uploadsDir = path.join(process.cwd(), "uploads", subDir);
         await mkdir(uploadsDir, { recursive: true });
 
-        // Generate unique filename
-        const ext = file.name.split(".").pop() || "jpg";
+        // Generate unique filename — normalize extension to lowercase for consistent serving
+        const ext = rawExt || "jpg";
         const filename = `${authResult.user._id}_${Date.now()}.${ext}`;
         const filepath = path.join(uploadsDir, filename);
 
