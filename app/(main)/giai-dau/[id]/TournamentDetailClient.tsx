@@ -859,10 +859,9 @@ export default function TournamentDetailClient({ initialData, id }: { initialDat
     };
 
     /* ---- Client-side image compressor (canvas-based, no deps) ---- */
-    const compressImage = (file: File, maxDim = 1920, quality = 0.82): Promise<File> =>
+    /* Always compress to ensure small file size → 100% upload success */
+    const compressImage = (file: File, maxDim = 1280, quality = 0.7): Promise<File> =>
         new Promise((resolve) => {
-            // If already small enough (< 2MB), skip compression
-            if (file.size <= 2 * 1024 * 1024) { resolve(file); return; }
             const img = new window.Image();
             img.onload = () => {
                 let { width, height } = img;
@@ -878,10 +877,10 @@ export default function TournamentDetailClient({ initialData, id }: { initialDat
                 ctx.drawImage(img, 0, 0, width, height);
                 canvas.toBlob(
                     (blob) => {
-                        if (blob && blob.size < file.size) {
+                        if (blob) {
                             resolve(new File([blob], file.name.replace(/\.[^.]+$/, '.jpg'), { type: 'image/jpeg' }));
                         } else {
-                            resolve(file); // compressed is bigger, keep original
+                            resolve(file);
                         }
                     },
                     'image/jpeg',
@@ -896,46 +895,61 @@ export default function TournamentDetailClient({ initialData, id }: { initialDat
         const setter = field === 'personalPhoto' ? setUploadingPersonal : setUploadingLineup;
         setter(true);
         try {
-            // Client-side validation — accept any image
-            if (!file.type.startsWith('image/') && !/\.(jpe?g|jfif|png|gif|webp|bmp|avif|heic|heif|tiff?)$/i.test(file.name)) {
-                toast.error('Vui lòng chọn file hình ảnh');
-                return;
+            // Compress large images automatically (no size limit)
+            let toUpload: File = file;
+            // Only attempt compression if it looks like an image
+            if (file.type.startsWith('image/') || /\.(jpe?g|jfif|png|gif|webp|bmp|avif|heic|heif|tiff?)$/i.test(file.name)) {
+                toUpload = await compressImage(file);
             }
 
-            // Compress large images automatically (no size limit)
-            const compressed = await compressImage(file);
+            // For screenshots / screen captures the browser may give a blob name
+            // like "image.png" with correct MIME but no real extension — that's fine.
 
             const formData = new FormData();
-            formData.append('file', compressed);
+            formData.append('file', toUpload);
             formData.append('type', 'registration');
             const headers: Record<string, string> = {};
             const savedToken = localStorage.getItem("efootcup_token");
             if (savedToken) headers.Authorization = `Bearer ${savedToken}`;
-            const res = await fetch('/api/upload', { method: 'POST', headers, body: formData });
 
-            if (!res.ok) {
-                const errText = await res.text().catch(() => '');
-                console.error('Upload HTTP error:', res.status, errText);
-                if (res.status === 401) {
-                    toast.error('Phiên đăng nhập hết hạn, vui lòng đăng nhập lại');
-                } else {
-                    toast.error(`Upload thất bại (lỗi ${res.status})`);
+            // Retry up to 3 times for transient errors (403, 5xx, network)
+            let lastError = '';
+            for (let attempt = 1; attempt <= 3; attempt++) {
+                try {
+                    const res = await fetch('/api/upload', { method: 'POST', headers, body: formData });
+
+                    if (res.ok) {
+                        const data = await res.json();
+                        const url = data.data?.url || data.url;
+                        if (url) {
+                            const bustUrl = url + (url.includes('?') ? '&' : '?') + 't=' + Date.now();
+                            setRegForm(prev => ({ ...prev, [field]: bustUrl }));
+                            return; // success — exit
+                        }
+                        lastError = data.message || 'Không nhận được URL';
+                        break; // don't retry on logical errors
+                    }
+
+                    lastError = `HTTP ${res.status}`;
+                    if (res.status === 401) {
+                        toast.error('Phiên đăng nhập hết hạn, vui lòng đăng nhập lại');
+                        return; // don't retry auth errors
+                    }
+                    // Retry on 403, 408, 429, 5xx
+                    if (![403, 408, 429, 500, 502, 503, 504].includes(res.status)) break;
+                } catch (networkErr) {
+                    lastError = 'Lỗi mạng';
                 }
-                return;
+                // Wait before retry (500ms, 1500ms)
+                if (attempt < 3) await new Promise(r => setTimeout(r, attempt * 500));
             }
 
-            const data = await res.json();
-            const url = data.data?.url || data.url;
-            if (url) {
-                // Add cache-bust to prevent stale cached 404/error responses
-                const bustUrl = url + (url.includes('?') ? '&' : '?') + 't=' + Date.now();
-                setRegForm(prev => ({ ...prev, [field]: bustUrl }));
-            } else {
-                toast.error(data.message || 'Upload thất bại');
-            }
+            // All retries failed — show warning but DON'T block
+            console.error(`Upload failed after retries: ${lastError}`);
+            toast.warning(`Tải ảnh lên chưa thành công (${lastError}). Bạn vẫn có thể đăng ký, admin sẽ hỗ trợ sau.`, { duration: 5000 });
         } catch (err) {
             console.error('Upload error:', err);
-            toast.error('Có lỗi khi tải ảnh lên');
+            toast.warning('Có lỗi khi tải ảnh lên. Bạn vẫn có thể đăng ký, admin sẽ hỗ trợ sau.', { duration: 5000 });
         } finally {
             setter(false);
         }
@@ -1222,7 +1236,7 @@ export default function TournamentDetailClient({ initialData, id }: { initialDat
                                     {t.description && (
                                         <div className="bg-white rounded-xl border border-gray-100 p-5 shadow-sm">
                                             <h3 className="font-semibold text-[13px] text-gray-900 flex items-center gap-2 mb-2"><FileText className="w-4 h-4 text-blue-500" />Giới thiệu</h3>
-                                            <p className="text-[13px] text-gray-600 whitespace-pre-line leading-relaxed">{t.description}</p>
+                                            <div className="text-[13px] text-gray-600 whitespace-pre-line leading-relaxed break-words overflow-hidden" style={{ overflowWrap: 'anywhere' }} dangerouslySetInnerHTML={{ __html: t.description.replace(/(https?:\/\/[^\s<]+)/g, '<a href="$1" target="_blank" rel="noopener noreferrer" class="text-efb-blue hover:underline break-all">$1</a>') }} />
                                         </div>
                                     )}
 
@@ -1230,7 +1244,7 @@ export default function TournamentDetailClient({ initialData, id }: { initialDat
                                     {t.rules && (
                                         <div className="bg-white rounded-xl border border-gray-100 p-5 shadow-sm">
                                             <h3 className="font-semibold text-[13px] text-gray-900 flex items-center gap-2 mb-2"><Shield className="w-4 h-4 text-amber-500" />Thể lệ</h3>
-                                            <p className="text-[13px] text-gray-600 whitespace-pre-line leading-relaxed">{t.rules}</p>
+                                            <div className="text-[13px] text-gray-600 whitespace-pre-line leading-relaxed break-words overflow-hidden" style={{ overflowWrap: 'anywhere' }} dangerouslySetInnerHTML={{ __html: t.rules.replace(/(https?:\/\/[^\s<]+)/g, '<a href="$1" target="_blank" rel="noopener noreferrer" class="text-efb-blue hover:underline break-all">$1</a>') }} />
                                         </div>
                                     )}
 
@@ -2228,8 +2242,8 @@ export default function TournamentDetailClient({ initialData, id }: { initialDat
                             )}
                             {regStep === 3 && (
                                 <motion.div key="s3" initial={{ opacity: 0, x: 15 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -15 }} className="space-y-4">
-                                    <div className="space-y-1.5"><Label className="text-xs font-medium text-gray-500">Hình cá nhân (rõ mặt) <span className="text-red-500">*</span></Label><div className="flex items-start gap-4">{regForm.personalPhoto ? (<div className="relative group"><img src={regForm.personalPhoto} alt="Ảnh" className="w-24 h-24 object-cover rounded-xl border-2 border-emerald-300" /><button type="button" onClick={() => setRegForm(prev => ({ ...prev, personalPhoto: '' }))} className="absolute -top-2 -right-2 w-6 h-6 rounded-full bg-red-500 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity shadow-lg"><X className="w-3.5 h-3.5" /></button></div>) : (<label className="cursor-pointer flex-1"><div className="flex items-center gap-3 p-4 rounded-xl border-2 border-dashed border-red-200 hover:border-efb-blue hover:bg-blue-50/30 transition-all bg-red-50/30">{uploadingPersonal ? <Loader2 className="w-5 h-5 animate-spin text-efb-blue" /> : <div className="w-10 h-10 rounded-lg bg-blue-50 flex items-center justify-center"><Camera className="w-5 h-5 text-efb-blue" /></div>}<div><p className="text-sm font-medium text-gray-700">Tải ảnh cá nhân <span className="text-red-500 text-xs">(bắt buộc)</span></p><p className="text-[11px] text-gray-400">Mọi định dạng ảnh — Tự động nén</p></div></div><input type="file" accept="image/*" className="hidden" disabled={uploadingPersonal} onChange={(e) => { const f = e.target.files?.[0]; if (f) handleUploadRegImage(f, 'personalPhoto'); e.target.value = ''; }} /></label>)}</div></div>
-                                    <div className="space-y-1.5"><Label className="text-xs font-medium text-gray-500">Hình đội hình thẻ thi đấu <span className="text-red-500">*</span></Label><div className="flex items-start gap-4">{regForm.teamLineupPhoto ? (<div className="relative group"><img src={regForm.teamLineupPhoto} alt="Đội hình" className="w-40 h-24 object-cover rounded-xl border-2 border-emerald-300" /><button type="button" onClick={() => setRegForm(prev => ({ ...prev, teamLineupPhoto: '' }))} className="absolute -top-2 -right-2 w-6 h-6 rounded-full bg-red-500 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity shadow-lg"><X className="w-3.5 h-3.5" /></button></div>) : (<label className="cursor-pointer flex-1"><div className="flex items-center gap-3 p-4 rounded-xl border-2 border-dashed border-red-200 hover:border-efb-blue hover:bg-blue-50/30 transition-all bg-red-50/30">{uploadingLineup ? <Loader2 className="w-5 h-5 animate-spin text-efb-blue" /> : <div className="w-10 h-10 rounded-lg bg-emerald-50 flex items-center justify-center"><ImageIcon className="w-5 h-5 text-emerald-600" /></div>}<div><p className="text-sm font-medium text-gray-700">Tải ảnh đội hình <span className="text-red-500 text-xs">(bắt buộc)</span></p><p className="text-[11px] text-gray-400">Mọi định dạng ảnh — Tự động nén</p></div></div><input type="file" accept="image/*" className="hidden" disabled={uploadingLineup} onChange={(e) => { const f = e.target.files?.[0]; if (f) handleUploadRegImage(f, 'teamLineupPhoto'); e.target.value = ''; }} /></label>)}</div></div>
+                                    <div className="space-y-1.5"><Label className="text-xs font-medium text-gray-500">Hình cá nhân (rõ mặt) <span className="text-red-500">*</span></Label><div className="flex items-start gap-4">{regForm.personalPhoto ? (<div className="relative"><img src={regForm.personalPhoto} alt="Ảnh" className="w-24 h-24 object-cover rounded-xl border-2 border-emerald-300" /><button type="button" onClick={() => setRegForm(prev => ({ ...prev, personalPhoto: '' }))} className="absolute -top-2 -right-2 w-6 h-6 rounded-full bg-red-500 text-white flex items-center justify-center shadow-lg hover:bg-red-600 transition-colors"><X className="w-3.5 h-3.5" /></button></div>) : (<label className="cursor-pointer flex-1"><div className="flex items-center gap-3 p-4 rounded-xl border-2 border-dashed border-red-200 hover:border-efb-blue hover:bg-blue-50/30 transition-all bg-red-50/30">{uploadingPersonal ? <Loader2 className="w-5 h-5 animate-spin text-efb-blue" /> : <div className="w-10 h-10 rounded-lg bg-blue-50 flex items-center justify-center"><Camera className="w-5 h-5 text-efb-blue" /></div>}<div><p className="text-sm font-medium text-gray-700">Tải ảnh cá nhân <span className="text-red-500 text-xs">(bắt buộc)</span></p><p className="text-[11px] text-gray-400">Mọi định dạng ảnh — Tự động nén</p></div></div><input type="file" accept="image/*" className="hidden" disabled={uploadingPersonal} onChange={(e) => { const f = e.target.files?.[0]; if (f) handleUploadRegImage(f, 'personalPhoto'); e.target.value = ''; }} /></label>)}</div></div>
+                                    <div className="space-y-1.5"><Label className="text-xs font-medium text-gray-500">Hình đội hình thẻ thi đấu <span className="text-red-500">*</span></Label><div className="flex items-start gap-4">{regForm.teamLineupPhoto ? (<div className="relative"><img src={regForm.teamLineupPhoto} alt="Đội hình" className="w-40 h-24 object-cover rounded-xl border-2 border-emerald-300" /><button type="button" onClick={() => setRegForm(prev => ({ ...prev, teamLineupPhoto: '' }))} className="absolute -top-2 -right-2 w-6 h-6 rounded-full bg-red-500 text-white flex items-center justify-center shadow-lg hover:bg-red-600 transition-colors"><X className="w-3.5 h-3.5" /></button></div>) : (<label className="cursor-pointer flex-1"><div className="flex items-center gap-3 p-4 rounded-xl border-2 border-dashed border-red-200 hover:border-efb-blue hover:bg-blue-50/30 transition-all bg-red-50/30">{uploadingLineup ? <Loader2 className="w-5 h-5 animate-spin text-efb-blue" /> : <div className="w-10 h-10 rounded-lg bg-emerald-50 flex items-center justify-center"><ImageIcon className="w-5 h-5 text-emerald-600" /></div>}<div><p className="text-sm font-medium text-gray-700">Tải ảnh đội hình <span className="text-red-500 text-xs">(bắt buộc)</span></p><p className="text-[11px] text-gray-400">Mọi định dạng ảnh — Tự động nén</p></div></div><input type="file" accept="image/*" className="hidden" disabled={uploadingLineup} onChange={(e) => { const f = e.target.files?.[0]; if (f) handleUploadRegImage(f, 'teamLineupPhoto'); e.target.value = ''; }} /></label>)}</div></div>
                                     {t.entryFee > 0 && (<div className="p-3 rounded-xl bg-amber-50 border border-amber-200 flex items-center gap-3"><DollarSign className="w-5 h-5 text-amber-600 flex-shrink-0" /><div><p className="text-xs font-medium text-amber-800">Lệ phí: {t.entryFee?.toLocaleString('vi-VN')} {t.currency || 'VNĐ'}</p><p className="text-[10px] text-amber-600/70 mt-0.5">Thanh toán sau đăng ký.</p></div></div>)}
                                     <div className="p-4 rounded-xl bg-gray-50 border border-gray-100 space-y-2"><p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">Tóm tắt</p><div className="grid grid-cols-2 gap-x-4 gap-y-1.5 text-sm"><div><span className="text-gray-400">Họ tên:</span> <span className="font-medium text-gray-700">{regForm.playerName}</span></div><div><span className="text-gray-400">SĐT:</span> <span className="font-medium text-gray-700">{regForm.phone}</span></div><div><span className="text-gray-400">ID Game:</span> <span className="font-medium text-gray-700">{regForm.gamerId}</span></div>{regForm.teamName && <div><span className="text-gray-400">Team:</span> <span className="font-medium text-gray-700">{regForm.teamName}</span></div>}{regForm.nickname && <div><span className="text-gray-400">Nickname:</span> <span className="font-medium text-gray-700">{regForm.nickname}</span></div>}{regForm.province && <div><span className="text-gray-400">Tỉnh/TP:</span> <span className="font-medium text-gray-700">{regForm.province}</span></div>}</div></div>
                                     <div className="pt-3 flex justify-between"><Button type="button" variant="outline" onClick={() => setRegStep(2)} className="h-11 px-6 rounded-lg font-medium border-gray-200 flex items-center gap-2"><ChevronLeft className="w-4 h-4" /> Quay lại</Button><Button type="submit" className="h-11 px-8 bg-gradient-to-r from-efb-blue to-blue-600 text-white rounded-lg font-medium shadow-sm flex items-center gap-2" disabled={isRegistering}>{isRegistering ? <Loader2 className="w-5 h-5 animate-spin" /> : <>Xác nhận <ChevronRight className="w-4 h-4" /></>}</Button></div>
