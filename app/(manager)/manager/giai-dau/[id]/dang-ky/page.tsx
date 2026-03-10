@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { useParams } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import { Button } from "@/components/ui/button";
@@ -17,7 +17,8 @@ import {
     Users, Clock, CheckCircle2, XCircle, AlertCircle, RefreshCw, UserPlus, Upload,
     CreditCard, Eye, Banknote, ImageIcon, DollarSign, AlertTriangle,
     Phone, Mail, Facebook, ExternalLink, MapPin, Calendar as CalendarIcon, Gamepad2, User,
-    FileSpreadsheet, Hash, Shield, Sparkles, Trophy
+    FileSpreadsheet, Hash, Shield, Sparkles, Trophy,
+    Trash2, Edit3, MoreVertical, RotateCcw, ChevronDown
 } from "lucide-react";
 import { tournamentAPI, tournamentPaymentAPI } from "@/lib/api";
 import * as XLSX from "xlsx";
@@ -55,6 +56,12 @@ export default function DangKyPage() {
     const [paymentProofView, setPaymentProofView] = useState<string | null>(null);
     const [paymentDetailView, setPaymentDetailView] = useState<any>(null);
     const [playerDetailView, setPlayerDetailView] = useState<any>(null);
+
+    // Edit/Delete modals
+    const [editStatusReg, setEditStatusReg] = useState<any>(null);
+    const [editPaymentReg, setEditPaymentReg] = useState<any>(null);
+    const [deleteConfirmReg, setDeleteConfirmReg] = useState<any>(null);
+    const [actionMenuReg, setActionMenuReg] = useState<{ id: string; reg: any; rect: DOMRect } | null>(null);
 
     useEffect(() => {
         loadRegistrations();
@@ -257,6 +264,66 @@ export default function DangKyPage() {
     };
 
     const hasFee = tournament?.entryFee > 0;
+
+    // Manager: Update registration status
+    const handleUpdateStatus = async (regId: string, newStatus: string) => {
+        setProcessing(regId);
+        try {
+            const res = await tournamentAPI.updateRegistrationStatus(id, regId, newStatus);
+            if (res.success) {
+                toast.success(res.message || "Đã cập nhật trạng thái");
+                loadRegistrations();
+                setEditStatusReg(null);
+            } else {
+                toast.error(res.message || "Cập nhật thất bại");
+            }
+        } catch (e) {
+            console.error(e);
+            toast.error("Có lỗi xảy ra");
+        } finally {
+            setProcessing(null);
+        }
+    };
+
+    // Manager: Update payment status
+    const handleUpdatePayment = async (regId: string, newPaymentStatus: string) => {
+        setProcessing(regId);
+        try {
+            const res = await tournamentAPI.updatePaymentStatus(id, regId, newPaymentStatus);
+            if (res.success) {
+                toast.success(res.message || "Đã cập nhật thanh toán");
+                loadRegistrations();
+                setEditPaymentReg(null);
+            } else {
+                toast.error(res.message || "Cập nhật thất bại");
+            }
+        } catch (e) {
+            console.error(e);
+            toast.error("Có lỗi xảy ra");
+        } finally {
+            setProcessing(null);
+        }
+    };
+
+    // Manager: Force-delete registration
+    const handleDeleteRegistration = async (regId: string) => {
+        setProcessing(regId);
+        try {
+            const res = await tournamentAPI.deleteRegistration(id, regId);
+            if (res.success) {
+                toast.success(res.message || "Đã xóa đăng ký");
+                setRegistrations(prev => prev.filter(r => r._id !== regId));
+                setDeleteConfirmReg(null);
+            } else {
+                toast.error(res.message || "Xóa thất bại");
+            }
+        } catch (e) {
+            console.error(e);
+            toast.error("Có lỗi xảy ra");
+        } finally {
+            setProcessing(null);
+        }
+    };
 
     const handleExportExcel = () => {
         if (registrations.length === 0) {
@@ -622,26 +689,41 @@ export default function DangKyPage() {
                                                 </Badge>
                                             </td>
                                             <td className="px-4 py-4 text-center">
-                                                {r.status === "pending" && (
-                                                    <div className="flex items-center justify-center gap-2">
-                                                        <button
-                                                            onClick={() => handleAction(r._id, "approve")}
-                                                            disabled={processing === r._id || (hasFee && r.paymentStatus !== "paid")}
-                                                            className="w-8 h-8 rounded-full bg-emerald-50 text-emerald-600 hover:bg-emerald-500 hover:text-white flex items-center justify-center transition-all duration-200 disabled:opacity-50 shadow-sm"
-                                                            title={hasFee && r.paymentStatus !== "paid" ? "Phải xác nhận thanh toán trước" : "Duyệt"}
-                                                        >
-                                                            <Check className="w-4 h-4" />
-                                                        </button>
-                                                        <button
-                                                            onClick={() => handleAction(r._id, "reject")}
-                                                            disabled={processing === r._id}
-                                                            className="w-8 h-8 rounded-full bg-red-50 text-red-500 hover:bg-red-500 hover:text-white flex items-center justify-center transition-all duration-200 disabled:opacity-50 shadow-sm"
-                                                            title="Từ chối"
-                                                        >
-                                                            <X className="w-4 h-4" />
-                                                        </button>
-                                                    </div>
-                                                )}
+                                                <div className="flex items-center justify-center gap-1.5">
+                                                    {r.status === "pending" && (
+                                                        <>
+                                                            <button
+                                                                onClick={() => handleAction(r._id, "approve")}
+                                                                disabled={processing === r._id || (hasFee && r.paymentStatus !== "paid")}
+                                                                className="w-7 h-7 rounded-full bg-emerald-50 text-emerald-600 hover:bg-emerald-500 hover:text-white flex items-center justify-center transition-all duration-200 disabled:opacity-50 shadow-sm"
+                                                                title={hasFee && r.paymentStatus !== "paid" ? "Phải xác nhận thanh toán trước" : "Duyệt"}
+                                                            >
+                                                                <Check className="w-3.5 h-3.5" />
+                                                            </button>
+                                                            <button
+                                                                onClick={() => handleAction(r._id, "reject")}
+                                                                disabled={processing === r._id}
+                                                                className="w-7 h-7 rounded-full bg-red-50 text-red-500 hover:bg-red-500 hover:text-white flex items-center justify-center transition-all duration-200 disabled:opacity-50 shadow-sm"
+                                                                title="Từ chối"
+                                                            >
+                                                                <X className="w-3.5 h-3.5" />
+                                                            </button>
+                                                        </>
+                                                    )}
+                                                    {/* More actions button */}
+                                                    <button
+                                                        onClick={(e) => {
+                                                            e.stopPropagation();
+                                                            const btn = e.currentTarget;
+                                                            const rect = btn.getBoundingClientRect();
+                                                            setActionMenuReg(actionMenuReg?.id === r._id ? null : { id: r._id, reg: r, rect });
+                                                        }}
+                                                        className="w-7 h-7 rounded-full bg-gray-50 text-gray-400 hover:bg-gray-200 hover:text-gray-600 flex items-center justify-center transition-all duration-200"
+                                                        title="Thêm thao tác"
+                                                    >
+                                                        <MoreVertical className="w-3.5 h-3.5" />
+                                                    </button>
+                                                </div>
                                             </td>
                                         </motion.tr>
                                     );
@@ -651,6 +733,51 @@ export default function DangKyPage() {
                     </div>
                 </motion.div>
             )}
+
+            {/* Fixed-position Action Menu (rendered outside table to avoid overflow clipping) */}
+            <AnimatePresence>
+                {actionMenuReg && (() => {
+                    const { reg: menuReg, rect: btnRect } = actionMenuReg;
+                    // Position the menu to the left of the button, below it
+                    const menuTop = btnRect.bottom + 4;
+                    const menuRight = window.innerWidth - btnRect.right;
+                    return (
+                        <>
+                            <div className="fixed inset-0 z-[100]" onClick={() => setActionMenuReg(null)} />
+                            <motion.div
+                                initial={{ opacity: 0, scale: 0.95, y: -4 }}
+                                animate={{ opacity: 1, scale: 1, y: 0 }}
+                                exit={{ opacity: 0, scale: 0.95, y: -4 }}
+                                transition={{ duration: 0.15 }}
+                                style={{ top: menuTop, right: menuRight }}
+                                className="fixed z-[101] bg-white border border-gray-200 rounded-xl shadow-2xl overflow-hidden min-w-[180px]"
+                            >
+                                <button
+                                    onClick={() => { setEditStatusReg(menuReg); setActionMenuReg(null); }}
+                                    className="w-full text-left px-4 py-2.5 text-sm flex items-center gap-2.5 hover:bg-blue-50 text-gray-700 hover:text-blue-600 transition-colors"
+                                >
+                                    <Edit3 className="w-3.5 h-3.5" /> Sửa trạng thái
+                                </button>
+                                {hasFee && (
+                                    <button
+                                        onClick={() => { setEditPaymentReg(menuReg); setActionMenuReg(null); }}
+                                        className="w-full text-left px-4 py-2.5 text-sm flex items-center gap-2.5 hover:bg-amber-50 text-gray-700 hover:text-amber-600 transition-colors"
+                                    >
+                                        <CreditCard className="w-3.5 h-3.5" /> Sửa thanh toán
+                                    </button>
+                                )}
+                                <div className="border-t border-gray-100" />
+                                <button
+                                    onClick={() => { setDeleteConfirmReg(menuReg); setActionMenuReg(null); }}
+                                    className="w-full text-left px-4 py-2.5 text-sm flex items-center gap-2.5 hover:bg-red-50 text-red-500 hover:text-red-600 transition-colors"
+                                >
+                                    <Trash2 className="w-3.5 h-3.5" /> Xóa đăng ký
+                                </button>
+                            </motion.div>
+                        </>
+                    );
+                })()}
+            </AnimatePresence>
 
             {/* Payment Detail Modal */}
             <Dialog open={!!paymentDetailView} onOpenChange={(open) => !open && setPaymentDetailView(null)}>
@@ -1033,30 +1160,60 @@ export default function DangKyPage() {
                             )}
 
                             {/* Actions */}
-                            {playerDetailView.status === 'pending' && (
-                                <div className="px-6 pb-5 pt-2 flex gap-3">
-                                    <Button
-                                        onClick={() => {
-                                            handleAction(playerDetailView._id, 'approve');
-                                            setPlayerDetailView(null);
-                                        }}
-                                        disabled={hasFee && playerDetailView.paymentStatus !== 'paid'}
-                                        className="flex-1 bg-gray-900 text-white hover:bg-gray-800 rounded-xl h-10 font-normal text-[13px]"
-                                    >
-                                        Duyệt VĐV
-                                    </Button>
+                            <div className="px-6 pb-5 pt-2 space-y-2">
+                                {playerDetailView.status === 'pending' && (
+                                    <div className="flex gap-3">
+                                        <Button
+                                            onClick={() => {
+                                                handleAction(playerDetailView._id, 'approve');
+                                                setPlayerDetailView(null);
+                                            }}
+                                            disabled={hasFee && playerDetailView.paymentStatus !== 'paid'}
+                                            className="flex-1 bg-gray-900 text-white hover:bg-gray-800 rounded-xl h-10 font-normal text-[13px]"
+                                        >
+                                            Duyệt VĐV
+                                        </Button>
+                                        <Button
+                                            variant="outline"
+                                            onClick={() => {
+                                                handleAction(playerDetailView._id, 'reject');
+                                                setPlayerDetailView(null);
+                                            }}
+                                            className="flex-1 rounded-xl h-10 font-normal text-[13px] text-red-500 border-gray-200 hover:bg-red-50 hover:border-red-200"
+                                        >
+                                            Từ chối
+                                        </Button>
+                                    </div>
+                                )}
+                                <div className="flex gap-2">
                                     <Button
                                         variant="outline"
-                                        onClick={() => {
-                                            handleAction(playerDetailView._id, 'reject');
-                                            setPlayerDetailView(null);
-                                        }}
-                                        className="flex-1 rounded-xl h-10 font-normal text-[13px] text-red-500 border-gray-200 hover:bg-red-50 hover:border-red-200"
+                                        size="sm"
+                                        className="flex-1 rounded-xl h-9 text-xs text-blue-600 border-blue-200 hover:bg-blue-50"
+                                        onClick={() => { setEditStatusReg(playerDetailView); setPlayerDetailView(null); }}
                                     >
-                                        Từ chối
+                                        <Edit3 className="w-3.5 h-3.5 mr-1.5" /> Sửa trạng thái
+                                    </Button>
+                                    {hasFee && (
+                                        <Button
+                                            variant="outline"
+                                            size="sm"
+                                            className="flex-1 rounded-xl h-9 text-xs text-amber-600 border-amber-200 hover:bg-amber-50"
+                                            onClick={() => { setEditPaymentReg(playerDetailView); setPlayerDetailView(null); }}
+                                        >
+                                            <CreditCard className="w-3.5 h-3.5 mr-1.5" /> Sửa thanh toán
+                                        </Button>
+                                    )}
+                                    <Button
+                                        variant="outline"
+                                        size="sm"
+                                        className="rounded-xl h-9 text-xs text-red-500 border-red-200 hover:bg-red-50"
+                                        onClick={() => { setDeleteConfirmReg(playerDetailView); setPlayerDetailView(null); }}
+                                    >
+                                        <Trash2 className="w-3.5 h-3.5" />
                                     </Button>
                                 </div>
-                            )}
+                            </div>
                         </div>
                     )}
                 </DialogContent>
@@ -1325,6 +1482,148 @@ export default function DangKyPage() {
                     </div>
                 </DialogContent>
             </Dialog >
+
+            {/* Edit Registration Status Modal */}
+            <Dialog open={!!editStatusReg} onOpenChange={(open) => !open && setEditStatusReg(null)}>
+                <DialogContent className="max-w-sm bg-white rounded-2xl border-0 shadow-2xl p-0 overflow-hidden">
+                    <div className="p-5 border-b border-gray-100 bg-gradient-to-br from-blue-50/50 to-white">
+                        <DialogTitle className="text-base font-bold text-gray-900 flex items-center gap-2">
+                            <Edit3 className="w-4 h-4 text-blue-500" /> Sửa trạng thái đăng ký
+                        </DialogTitle>
+                        {editStatusReg && (
+                            <p className="text-xs text-gray-400 mt-1">
+                                {editStatusReg.playerName} — Hiện tại: <span className="font-bold">{editStatusReg.status === 'approved' ? 'Đã duyệt' : editStatusReg.status === 'rejected' ? 'Từ chối' : 'Chờ duyệt'}</span>
+                            </p>
+                        )}
+                    </div>
+                    {editStatusReg && (
+                        <div className="p-5 space-y-2.5">
+                            {editStatusReg.status === "approved" && (
+                                <div className="p-3 rounded-xl bg-amber-50 border border-amber-200 text-xs text-amber-700 flex items-start gap-2">
+                                    <AlertTriangle className="w-4 h-4 mt-0.5 flex-shrink-0" />
+                                    <div>
+                                        <p className="font-bold">Lưu ý khi thay đổi từ "Đã duyệt"</p>
+                                        <p className="mt-0.5">Team sẽ bị xóa và số đội trong giải sẽ giảm đi 1.</p>
+                                    </div>
+                                </div>
+                            )}
+                            {[
+                                { status: "pending", label: "Chờ duyệt", color: "bg-amber-50 text-amber-700 border-amber-200 hover:bg-amber-100", icon: Clock },
+                                { status: "approved", label: "Đã duyệt", color: "bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-100", icon: CheckCircle2 },
+                                { status: "rejected", label: "Từ chối", color: "bg-red-50 text-red-600 border-red-200 hover:bg-red-100", icon: XCircle },
+                            ].filter(s => s.status !== editStatusReg.status).map(s => (
+                                <button
+                                    key={s.status}
+                                    onClick={() => handleUpdateStatus(editStatusReg._id, s.status)}
+                                    disabled={processing === editStatusReg._id}
+                                    className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl border text-sm font-semibold transition-all disabled:opacity-50 ${s.color}`}
+                                >
+                                    <s.icon className="w-4 h-4" />
+                                    Chuyển sang: {s.label}
+                                    {processing === editStatusReg._id && <Loader2 className="w-4 h-4 animate-spin ml-auto" />}
+                                </button>
+                            ))}
+                            <Button variant="outline" className="w-full mt-2 rounded-xl h-10 text-sm" onClick={() => setEditStatusReg(null)}>Hủy</Button>
+                        </div>
+                    )}
+                </DialogContent>
+            </Dialog>
+
+            {/* Edit Payment Status Modal */}
+            <Dialog open={!!editPaymentReg} onOpenChange={(open) => !open && setEditPaymentReg(null)}>
+                <DialogContent className="max-w-sm bg-white rounded-2xl border-0 shadow-2xl p-0 overflow-hidden">
+                    <div className="p-5 border-b border-gray-100 bg-gradient-to-br from-amber-50/50 to-white">
+                        <DialogTitle className="text-base font-bold text-gray-900 flex items-center gap-2">
+                            <CreditCard className="w-4 h-4 text-amber-500" /> Sửa trạng thái thanh toán
+                        </DialogTitle>
+                        {editPaymentReg && (
+                            <p className="text-xs text-gray-400 mt-1">
+                                {editPaymentReg.playerName} — Hiện tại: <span className="font-bold">{paymentStatusConfig[editPaymentReg.paymentStatus]?.label || 'N/A'}</span>
+                            </p>
+                        )}
+                    </div>
+                    {editPaymentReg && (
+                        <div className="p-5 space-y-2.5">
+                            {editPaymentReg.paymentStatus === "paid" && editPaymentReg.status === "approved" && (
+                                <div className="p-3 rounded-xl bg-red-50 border border-red-200 text-xs text-red-700 flex items-start gap-2">
+                                    <AlertTriangle className="w-4 h-4 mt-0.5 flex-shrink-0" />
+                                    <div>
+                                        <p className="font-bold">⚠️ Cảnh báo quan trọng!</p>
+                                        <p className="mt-0.5">VĐV đã được duyệt. Nếu đổi thanh toán sang "Chưa TT" hoặc "Hoàn tiền", hệ thống sẽ <b>tự động hủy duyệt</b>, xóa team và giảm số đội.</p>
+                                    </div>
+                                </div>
+                            )}
+                            {[
+                                { status: "unpaid", label: "Chưa thanh toán", color: "bg-red-50 text-red-600 border-red-200 hover:bg-red-100", icon: AlertCircle },
+                                { status: "pending_verification", label: "Chờ xác nhận", color: "bg-amber-50 text-amber-700 border-amber-200 hover:bg-amber-100", icon: Clock },
+                                { status: "paid", label: "Đã thanh toán", color: "bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-100", icon: CheckCircle2 },
+                                { status: "refunded", label: "Đã hoàn tiền", color: "bg-blue-50 text-blue-600 border-blue-200 hover:bg-blue-100", icon: RotateCcw },
+                            ].filter(s => s.status !== editPaymentReg.paymentStatus).map(s => (
+                                <button
+                                    key={s.status}
+                                    onClick={() => handleUpdatePayment(editPaymentReg._id, s.status)}
+                                    disabled={processing === editPaymentReg._id}
+                                    className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl border text-sm font-semibold transition-all disabled:opacity-50 ${s.color}`}
+                                >
+                                    <s.icon className="w-4 h-4" />
+                                    Chuyển sang: {s.label}
+                                    {processing === editPaymentReg._id && <Loader2 className="w-4 h-4 animate-spin ml-auto" />}
+                                </button>
+                            ))}
+                            <Button variant="outline" className="w-full mt-2 rounded-xl h-10 text-sm" onClick={() => setEditPaymentReg(null)}>Hủy</Button>
+                        </div>
+                    )}
+                </DialogContent>
+            </Dialog>
+
+            {/* Delete Confirmation Modal */}
+            <Dialog open={!!deleteConfirmReg} onOpenChange={(open) => !open && setDeleteConfirmReg(null)}>
+                <DialogContent className="max-w-sm bg-white rounded-2xl border-0 shadow-2xl p-0 overflow-hidden">
+                    <div className="p-5 border-b border-gray-100 bg-gradient-to-br from-red-50/50 to-white">
+                        <DialogTitle className="text-base font-bold text-gray-900 flex items-center gap-2">
+                            <Trash2 className="w-4 h-4 text-red-500" /> Xóa đăng ký
+                        </DialogTitle>
+                    </div>
+                    {deleteConfirmReg && (
+                        <div className="p-5 space-y-4">
+                            <div className="p-4 rounded-xl bg-red-50 border border-red-200">
+                                <p className="text-sm text-red-700 font-medium">
+                                    Bạn có chắc chắn muốn xóa đăng ký của <span className="font-bold">{deleteConfirmReg.playerName}</span>?
+                                </p>
+                                {deleteConfirmReg.status === "approved" && (
+                                    <p className="text-xs text-red-600 mt-2 flex items-start gap-1.5">
+                                        <AlertTriangle className="w-3.5 h-3.5 mt-0.5 flex-shrink-0" />
+                                        VĐV đã được duyệt — Team sẽ bị xóa và số đội trong giải sẽ giảm đi 1.
+                                    </p>
+                                )}
+                                {deleteConfirmReg.paymentStatus === "paid" && (
+                                    <p className="text-xs text-red-600 mt-1.5 flex items-start gap-1.5">
+                                        <CreditCard className="w-3.5 h-3.5 mt-0.5 flex-shrink-0" />
+                                        VĐV đã thanh toán — Hãy đảm bảo đã hoàn tiền trước khi xóa.
+                                    </p>
+                                )}
+                            </div>
+                            <div className="flex gap-3">
+                                <Button
+                                    variant="outline"
+                                    className="flex-1 rounded-xl h-10 text-sm"
+                                    onClick={() => setDeleteConfirmReg(null)}
+                                >
+                                    Hủy
+                                </Button>
+                                <Button
+                                    onClick={() => handleDeleteRegistration(deleteConfirmReg._id)}
+                                    disabled={processing === deleteConfirmReg._id}
+                                    className="flex-1 rounded-xl h-10 text-sm bg-red-500 text-white hover:bg-red-600 font-bold"
+                                >
+                                    {processing === deleteConfirmReg._id ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Trash2 className="w-4 h-4 mr-2" />}
+                                    Xác nhận xóa
+                                </Button>
+                            </div>
+                        </div>
+                    )}
+                </DialogContent>
+            </Dialog>
         </div >
     );
 }

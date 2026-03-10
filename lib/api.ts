@@ -181,6 +181,23 @@ export const tournamentAPI = {
             body: JSON.stringify(data),
         }),
 
+    updateRegistrationStatus: (tournamentId: string, registrationId: string, newStatus: string, reason?: string) =>
+        apiFetch(`/tournaments/${tournamentId}/registrations`, {
+            method: "PUT",
+            body: JSON.stringify({ action: "update_status", registrationId, newStatus, reason }),
+        }),
+
+    updatePaymentStatus: (tournamentId: string, registrationId: string, newPaymentStatus: string, paymentAmount?: number) =>
+        apiFetch(`/tournaments/${tournamentId}/registrations`, {
+            method: "PUT",
+            body: JSON.stringify({ action: "update_payment", registrationId, newPaymentStatus, paymentAmount }),
+        }),
+
+    deleteRegistration: (tournamentId: string, registrationId: string) =>
+        apiFetch(`/tournaments/${tournamentId}/registrations?registrationId=${registrationId}`, {
+            method: "DELETE",
+        }),
+
     // Feedback
     getFeedback: (tournamentId: string, params?: Record<string, string>) => {
         const searchParams = new URLSearchParams(params || {});

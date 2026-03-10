@@ -69,9 +69,9 @@ export function CTASection() {
                                     className="bg-efb-yellow text-efb-dark hover:bg-efb-yellow-dark font-semibold text-sm h-13 px-10 rounded-xl shadow-lg shadow-yellow-300/20 transition-all duration-300 group"
                                     asChild
                                 >
-                                    <Link href="/tao-giai-dau">
+                                    <Link href="/giai-dau">
                                         <Trophy className="w-5 h-5 mr-2" />
-                                        Tạo giải đấu ngay
+                                        Xem giải đấu
                                         <ArrowRight className="w-4 h-4 ml-2 group-hover:translate-x-1 transition-transform" />
                                     </Link>
                                 </Button>

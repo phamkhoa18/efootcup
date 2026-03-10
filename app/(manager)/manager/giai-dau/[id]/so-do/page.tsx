@@ -1,7 +1,7 @@
 "use client";
 
 import { motion, AnimatePresence } from "framer-motion";
-import { Swords, Trophy, Users, Search, X, Copy, QrCode, Share2, Check, CheckCircle2, Info, Loader2, Download, ArrowUp, ArrowDown, Shuffle, Hash, RotateCcw } from "lucide-react";
+import { Swords, Trophy, Users, Search, X, Copy, QrCode, Share2, Check, CheckCircle2, Info, Loader2, Download, ArrowUp, ArrowDown, Shuffle, Hash, RotateCcw, Sparkles } from "lucide-react";
 import { useState, useEffect } from "react";
 import { useParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
@@ -484,10 +484,13 @@ const ShareTournamentModal = ({ tournamentName, onClose }: { tournamentName: str
 
 const BracketCreator = ({ tournamentId, tournament, onCreated }: { tournamentId: string; tournament: any; onCreated: () => void }) => {
     const [teams, setTeams] = useState<any[]>([]);
-    const [seedOrder, setSeedOrder] = useState<any[]>([]);
+    const [seedMap, setSeedMap] = useState<Record<string, number | null>>({});
     const [seedMode, setSeedMode] = useState<'random' | 'manual'>('random');
     const [isLoading, setIsLoading] = useState(true);
     const [isCreating, setIsCreating] = useState(false);
+    const [searchTerm, setSearchTerm] = useState('');
+    const [currentPage, setCurrentPage] = useState(1);
+    const ITEMS_PER_PAGE = 10;
 
     useEffect(() => {
         loadTeams();
@@ -500,7 +503,9 @@ const BracketCreator = ({ tournamentId, tournament, onCreated }: { tournamentId:
             if (res.success) {
                 const t = res.data?.teams || [];
                 setTeams(t);
-                setSeedOrder([...t]);
+                const map: Record<string, number | null> = {};
+                t.forEach((team: any) => { map[team._id] = team.seed ?? null; });
+                setSeedMap(map);
             }
         } catch (e) {
             console.error(e);
@@ -509,17 +514,38 @@ const BracketCreator = ({ tournamentId, tournament, onCreated }: { tournamentId:
         }
     };
 
-    const moveSeed = (index: number, direction: 'up' | 'down') => {
-        const newOrder = [...seedOrder];
-        const targetIndex = direction === 'up' ? index - 1 : index + 1;
-        if (targetIndex < 0 || targetIndex >= newOrder.length) return;
-        [newOrder[index], newOrder[targetIndex]] = [newOrder[targetIndex], newOrder[index]];
-        setSeedOrder(newOrder);
+    const filteredTeams = teams.filter(t => {
+        if (!searchTerm.trim()) return true;
+        const s = searchTerm.toLowerCase();
+        return (
+            t.name?.toLowerCase().includes(s) ||
+            t.shortName?.toLowerCase().includes(s) ||
+            t.captain?.name?.toLowerCase().includes(s) ||
+            t.captain?.gamerId?.toLowerCase().includes(s) ||
+            String(t.efvId || '').includes(s)
+        );
+    });
+    const totalPages = Math.max(1, Math.ceil(filteredTeams.length / ITEMS_PER_PAGE));
+    const paginatedTeams = filteredTeams.slice((currentPage - 1) * ITEMS_PER_PAGE, currentPage * ITEMS_PER_PAGE);
+
+    const assignedSeeds = Object.values(seedMap).filter(v => v != null && v > 0);
+    const maxSeed = Math.max(1, Math.floor(teams.length / 4));
+
+    const setSeed = (teamId: string, value: number | null) => {
+        setSeedMap(prev => ({ ...prev, [teamId]: value }));
     };
 
-    const shuffleSeeds = () => {
-        const shuffled = [...seedOrder].sort(() => Math.random() - 0.5);
-        setSeedOrder(shuffled);
+    const autoAssignSeeds = () => {
+        const newMap: Record<string, number | null> = {};
+        teams.forEach((t, i) => { newMap[t._id] = i < maxSeed ? i + 1 : null; });
+        setSeedMap(newMap);
+        toast.success(`Đã gán tự động ${maxSeed} hạt giống`);
+    };
+
+    const clearAllSeeds = () => {
+        const newMap: Record<string, number | null> = {};
+        teams.forEach(t => { newMap[t._id] = null; });
+        setSeedMap(newMap);
     };
 
     const handleGenerate = async () => {
@@ -527,7 +553,15 @@ const BracketCreator = ({ tournamentId, tournament, onCreated }: { tournamentId:
         try {
             const payload: any = {};
             if (seedMode === 'manual') {
-                payload.seeds = seedOrder.map(t => t._id);
+                const seeded = teams
+                    .filter(t => seedMap[t._id] != null && seedMap[t._id]! > 0)
+                    .sort((a, b) => (seedMap[a._id] || 999) - (seedMap[b._id] || 999));
+                const nonSeeded = teams.filter(t => !seedMap[t._id] || seedMap[t._id]! <= 0);
+                for (let i = nonSeeded.length - 1; i > 0; i--) {
+                    const j = Math.floor(Math.random() * (i + 1));
+                    [nonSeeded[i], nonSeeded[j]] = [nonSeeded[j], nonSeeded[i]];
+                }
+                payload.seeds = [...seeded, ...nonSeeded].map(t => t._id);
             }
             const res = await tournamentAPI.generateBrackets(tournamentId, payload);
             if (res.success) {
@@ -566,7 +600,7 @@ const BracketCreator = ({ tournamentId, tournament, onCreated }: { tournamentId:
 
     return (
         <div className="flex-1 bg-[#FDFDFD] rounded-[24px] border border-gray-100 p-8 overflow-auto">
-            <div className="max-w-2xl mx-auto">
+            <div className="max-w-3xl mx-auto">
                 {/* Header */}
                 <div className="text-center mb-8">
                     <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center mx-auto mb-4 shadow-lg shadow-blue-200">
@@ -603,71 +637,190 @@ const BracketCreator = ({ tournamentId, tournament, onCreated }: { tournamentId:
                     </div>
                     <p className="text-xs text-gray-400 mt-3">
                         {seedMode === 'random'
-                            ? '\u0110\u1ed9i s\u1ebd \u0111\u01b0\u1ee3c x\u1ebfp ng\u1eabu nhi\u00ean khi t\u1ea1o s\u01a1 \u0111\u1ed3. H\u1ea1t gi\u1ed1ng #1 s\u1ebd g\u1eb7p h\u1ea1t gi\u1ed1ng th\u1ea5p nh\u1ea5t.'
-                            : 'K\u00e9o th\u1ea3 \u0111\u1ec3 s\u1eafp x\u1ebfp th\u1ee9 t\u1ef1 h\u1ea1t gi\u1ed1ng. #1 l\u00e0 m\u1ea1nh nh\u1ea5t (\u0111\u01b0\u1ee3c \u01b0u ti\u00ean BYE n\u1ebfu c\u00f3).'}
+                            ? 'Đội sẽ được xếp ngẫu nhiên khi tạo sơ đồ. Hạt giống #1 sẽ gặp hạt giống thấp nhất.'
+                            : 'Chọn số hạt giống cho các VĐV mạnh để họ không gặp nhau sớm. Tối đa ¼ số đội.'}
                     </p>
                 </div>
 
-                {/* Manual Seed List */}
+                {/* Manual Seed Table */}
                 {seedMode === 'manual' && (
-                    <div className="bg-white rounded-2xl border border-gray-100 p-5 shadow-sm mb-6">
-                        <div className="flex items-center justify-between mb-4">
-                            <h3 className="text-sm font-bold text-gray-900 flex items-center gap-2">
-                                <Trophy className="w-4 h-4 text-amber-500" /> Thứ tự hạt giống
-                            </h3>
-                            <button
-                                onClick={shuffleSeeds}
-                                className="text-xs text-blue-600 hover:text-blue-700 font-semibold flex items-center gap-1 px-3 py-1.5 rounded-lg hover:bg-blue-50 transition-colors"
-                            >
-                                <Shuffle className="w-3.5 h-3.5" /> Trộn ngẫu nhiên
-                            </button>
-                        </div>
-                        <div className="space-y-1.5 max-h-[400px] overflow-y-auto custom-scrollbar">
-                            {seedOrder.map((team, idx) => (
-                                <motion.div
-                                    key={team._id}
-                                    layout
-                                    className="flex items-center gap-3 px-3 py-2.5 rounded-xl bg-gray-50 hover:bg-gray-100 transition-colors group"
+                    <div className="bg-white rounded-2xl border border-gray-100 shadow-sm mb-6 overflow-hidden">
+                        {/* Table toolbar */}
+                        <div className="p-4 border-b border-gray-100 flex flex-col sm:flex-row items-start sm:items-center gap-3">
+                            <div className="flex-1 relative w-full sm:w-auto">
+                                <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                                <input
+                                    type="text"
+                                    placeholder="Tìm VĐV, tên đội..."
+                                    value={searchTerm}
+                                    onChange={(e) => { setSearchTerm(e.target.value); setCurrentPage(1); }}
+                                    className="w-full pl-9 pr-4 py-2 rounded-xl bg-gray-50 border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-blue-100 focus:border-blue-300"
+                                />
+                            </div>
+                            <div className="flex items-center gap-2 flex-wrap">
+                                <span className="text-xs text-gray-400 whitespace-nowrap">
+                                    <span className="font-bold text-amber-600">{assignedSeeds.length}</span>/{maxSeed} hạt giống
+                                </span>
+                                <button
+                                    onClick={autoAssignSeeds}
+                                    className="text-xs px-3 py-1.5 rounded-lg bg-blue-50 text-blue-600 hover:bg-blue-100 font-semibold transition-colors flex items-center gap-1"
                                 >
-                                    {/* Seed number */}
-                                    <div className={`w-8 h-8 rounded-lg flex items-center justify-center text-xs font-bold flex-shrink-0 ${idx === 0 ? 'bg-amber-100 text-amber-700 border border-amber-200' :
-                                        idx === 1 ? 'bg-gray-200 text-gray-700 border border-gray-300' :
-                                            idx === 2 ? 'bg-orange-100 text-orange-700 border border-orange-200' :
-                                                'bg-white text-gray-500 border border-gray-200'
-                                        }`}>
-                                        #{idx + 1}
-                                    </div>
-
-                                    {/* Team info */}
-                                    <div className="flex-1 min-w-0">
-                                        <div className="text-sm font-semibold text-gray-900 truncate">
-                                            {team.name || team.shortName}
-                                        </div>
-                                        <div className="text-[10px] text-gray-400 truncate">
-                                            {team.captain?.name || ''}
-                                        </div>
-                                    </div>
-
-                                    {/* Move buttons */}
-                                    <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                                        <button
-                                            onClick={() => moveSeed(idx, 'up')}
-                                            disabled={idx === 0}
-                                            className="w-7 h-7 rounded-lg bg-white border border-gray-200 flex items-center justify-center hover:bg-blue-50 hover:border-blue-200 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
-                                        >
-                                            <ArrowUp className="w-3.5 h-3.5 text-gray-600" />
-                                        </button>
-                                        <button
-                                            onClick={() => moveSeed(idx, 'down')}
-                                            disabled={idx === seedOrder.length - 1}
-                                            className="w-7 h-7 rounded-lg bg-white border border-gray-200 flex items-center justify-center hover:bg-blue-50 hover:border-blue-200 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
-                                        >
-                                            <ArrowDown className="w-3.5 h-3.5 text-gray-600" />
-                                        </button>
-                                    </div>
-                                </motion.div>
-                            ))}
+                                    <Sparkles className="w-3 h-3" /> Tự động
+                                </button>
+                                <button
+                                    onClick={clearAllSeeds}
+                                    className="text-xs px-3 py-1.5 rounded-lg bg-gray-50 text-gray-500 hover:bg-gray-100 font-semibold transition-colors"
+                                >
+                                    Xóa hết
+                                </button>
+                            </div>
                         </div>
+
+                        {/* Table */}
+                        <div className="overflow-x-auto">
+                            <table className="w-full text-sm">
+                                <thead>
+                                    <tr className="bg-gray-50/80">
+                                        <th className="px-4 py-3 text-left text-xs font-bold text-gray-500 uppercase w-12">STT</th>
+                                        <th className="px-4 py-3 text-left text-xs font-bold text-gray-500 uppercase">VĐV / Đội</th>
+                                        <th className="px-4 py-3 text-center text-xs font-bold text-gray-500 uppercase w-32">Hạt giống</th>
+                                    </tr>
+                                </thead>
+                                <tbody className="divide-y divide-gray-50">
+                                    {paginatedTeams.map((team, idx) => {
+                                        const globalIdx = (currentPage - 1) * ITEMS_PER_PAGE + idx;
+                                        const currentSeed = seedMap[team._id];
+                                        const hasSeed = currentSeed != null && currentSeed > 0;
+
+                                        return (
+                                            <tr key={team._id} className={`hover:bg-gray-50/50 transition-colors ${hasSeed ? 'bg-amber-50/30' : ''}`}>
+                                                <td className="px-4 py-3 text-gray-400 text-xs font-medium">{globalIdx + 1}</td>
+                                                <td className="px-4 py-3">
+                                                    <div className="flex items-center gap-3">
+                                                        <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-gray-100 to-gray-200 flex items-center justify-center text-xs font-bold text-gray-500 flex-shrink-0">
+                                                            {team.shortName || team.name?.charAt(0) || '?'}
+                                                        </div>
+                                                        <div className="min-w-0">
+                                                            <div className="text-sm font-semibold text-gray-900 truncate">{team.name}</div>
+                                                            <div className="text-[11px] text-gray-400 truncate">
+                                                                {team.captain?.name || '—'}
+                                                                {team.captain?.gamerId ? ` · ${team.captain.gamerId}` : ''}
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                </td>
+                                                <td className="px-4 py-3">
+                                                    <div className="flex items-center justify-center gap-2">
+                                                        <input
+                                                            type="number"
+                                                            min={0}
+                                                            max={maxSeed}
+                                                            value={currentSeed || ''}
+                                                            placeholder="—"
+                                                            onChange={(e) => {
+                                                                const val = e.target.value === '' ? null : parseInt(e.target.value);
+                                                                if (val !== null && val > maxSeed) {
+                                                                    toast.error(`Tối đa ${maxSeed} hạt giống (¼ số đội)`);
+                                                                    return;
+                                                                }
+                                                                if (val !== null && val > 0) {
+                                                                    const duplicate = Object.entries(seedMap).find(
+                                                                        ([tid, sv]) => tid !== team._id && sv === val
+                                                                    );
+                                                                    if (duplicate) {
+                                                                        setSeedMap(prev => ({ ...prev, [duplicate[0]]: null, [team._id]: val }));
+                                                                        return;
+                                                                    }
+                                                                }
+                                                                setSeed(team._id, val);
+                                                            }}
+                                                            className={`w-16 h-8 text-center text-sm rounded-lg border focus:outline-none focus:ring-2 transition-all ${hasSeed
+                                                                ? 'border-amber-300 bg-amber-50 text-amber-700 font-bold focus:ring-amber-200'
+                                                                : 'border-gray-200 bg-white text-gray-400 focus:ring-blue-200 focus:border-blue-300'
+                                                                }`}
+                                                        />
+                                                        {hasSeed && (
+                                                            <button
+                                                                onClick={() => setSeed(team._id, null)}
+                                                                className="w-6 h-6 rounded-md bg-gray-100 text-gray-400 hover:bg-red-100 hover:text-red-500 flex items-center justify-center transition-colors"
+                                                                title="Xóa hạt giống"
+                                                            >
+                                                                <X className="w-3 h-3" />
+                                                            </button>
+                                                        )}
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                        );
+                                    })}
+                                </tbody>
+                            </table>
+                        </div>
+
+                        {/* Pagination */}
+                        {totalPages > 1 && (
+                            <div className="p-3 border-t border-gray-100 flex items-center justify-between">
+                                <span className="text-xs text-gray-400">
+                                    Trang {currentPage}/{totalPages} · {filteredTeams.length} đội
+                                </span>
+                                <div className="flex gap-1">
+                                    <button
+                                        onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                                        disabled={currentPage === 1}
+                                        className="px-3 py-1.5 text-xs rounded-lg bg-gray-50 text-gray-600 hover:bg-gray-100 disabled:opacity-30 font-medium transition-colors"
+                                    >
+                                        ← Trước
+                                    </button>
+                                    {Array.from({ length: totalPages }, (_, i) => i + 1).slice(
+                                        Math.max(0, currentPage - 3),
+                                        Math.min(totalPages, currentPage + 2)
+                                    ).map(page => (
+                                        <button
+                                            key={page}
+                                            onClick={() => setCurrentPage(page)}
+                                            className={`w-8 h-8 text-xs rounded-lg font-bold transition-colors ${page === currentPage
+                                                ? 'bg-blue-500 text-white'
+                                                : 'bg-gray-50 text-gray-500 hover:bg-gray-100'
+                                                }`}
+                                        >
+                                            {page}
+                                        </button>
+                                    ))}
+                                    <button
+                                        onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                                        disabled={currentPage === totalPages}
+                                        className="px-3 py-1.5 text-xs rounded-lg bg-gray-50 text-gray-600 hover:bg-gray-100 disabled:opacity-30 font-medium transition-colors"
+                                    >
+                                        Sau →
+                                    </button>
+                                </div>
+                            </div>
+                        )}
+
+                        {/* Seed Summary */}
+                        {assignedSeeds.length > 0 && (
+                            <div className="p-4 border-t border-gray-100 bg-amber-50/50">
+                                <div className="flex items-center gap-2 mb-2">
+                                    <Trophy className="w-3.5 h-3.5 text-amber-500" />
+                                    <span className="text-xs font-bold text-amber-800">Hạt giống đã chọn ({assignedSeeds.length})</span>
+                                </div>
+                                <div className="flex flex-wrap gap-1.5">
+                                    {Object.entries(seedMap)
+                                        .filter(([, v]) => v != null && v > 0)
+                                        .sort(([, a], [, b]) => (a || 0) - (b || 0))
+                                        .map(([teamId, seedNum]) => {
+                                            const t = teams.find(t => t._id === teamId);
+                                            return (
+                                                <span key={teamId} className="inline-flex items-center gap-1 px-2 py-1 rounded-lg bg-white border border-amber-200 text-xs">
+                                                    <span className="w-5 h-5 rounded bg-amber-100 text-amber-700 flex items-center justify-center font-bold text-[10px]">#{seedNum}</span>
+                                                    <span className="font-medium text-gray-700 truncate max-w-[100px]">{t?.name || '?'}</span>
+                                                </span>
+                                            );
+                                        })
+                                    }
+                                </div>
+                            </div>
+                        )}
                     </div>
                 )}
 
@@ -687,6 +840,7 @@ const BracketCreator = ({ tournamentId, tournament, onCreated }: { tournamentId:
         </div>
     );
 };
+
 
 export default function SoDoThiDauPage() {
     const params = useParams();

@@ -99,20 +99,10 @@ export function HeroSection() {
                             className="bg-efb-yellow text-efb-dark hover:bg-efb-yellow-dark font-semibold text-sm h-12 px-7 rounded-xl shadow-lg shadow-yellow-300/25 transition-all duration-300 group"
                             asChild
                         >
-                            <Link href="/tao-giai-dau">
-                                <Trophy className="w-4 h-4 mr-2" />
-                                Tạo giải đấu
-                                <ArrowRight className="w-4 h-4 ml-2 group-hover:translate-x-0.5 transition-transform" />
-                            </Link>
-                        </Button>
-                        <Button
-                            size="lg"
-                            className="bg-white/[0.08] border border-white/[0.12] text-white hover:bg-white/[0.14] font-medium text-sm h-12 px-7 rounded-xl backdrop-blur-sm"
-                            asChild
-                        >
                             <Link href="/giai-dau">
-                                <Play className="w-4 h-4 mr-2" />
+                                <Trophy className="w-4 h-4 mr-2" />
                                 Xem giải đấu
+                                <ArrowRight className="w-4 h-4 ml-2 group-hover:translate-x-0.5 transition-transform" />
                             </Link>
                         </Button>
                     </motion.div>

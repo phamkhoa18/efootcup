@@ -142,7 +142,7 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
     }
 }
 
-// PUT /api/tournaments/[id]/registrations — Approve/Reject (manager only)
+// PUT /api/tournaments/[id]/registrations — Approve/Reject/UpdateStatus/UpdatePayment (manager only)
 export async function PUT(req: NextRequest, { params }: RouteParams) {
     try {
         const authResult = await requireManager(req);
@@ -215,6 +215,17 @@ export async function PUT(req: NextRequest, { params }: RouteParams) {
 
             return apiResponse(registration, 200, "Phê duyệt thành công");
         } else if (action === "reject") {
+            // If was approved → rollback: delete team, decrement count
+            if (registration.status === "approved") {
+                if (registration.team) {
+                    await Team.findByIdAndDelete(registration.team);
+                }
+                await Tournament.findByIdAndUpdate(id, { $inc: { currentTeams: -1 } });
+                registration.team = undefined;
+                registration.approvedBy = undefined;
+                registration.approvedAt = undefined;
+            }
+
             registration.status = "rejected";
             registration.rejectionReason = body.reason || "Không đủ điều kiện";
             await registration.save();
@@ -229,6 +240,104 @@ export async function PUT(req: NextRequest, { params }: RouteParams) {
             });
 
             return apiResponse(registration, 200, "Đã từ chối đăng ký");
+        } else if (action === "update_status") {
+            // Manager updates registration status (e.g. approved→pending, rejected→pending)
+            const newStatus = body.newStatus;
+            if (!newStatus || !["pending", "approved", "rejected"].includes(newStatus)) {
+                return apiError("Trạng thái không hợp lệ", 400);
+            }
+
+            const oldStatus = registration.status;
+
+            // Rollback if was approved & new status != approved
+            if (oldStatus === "approved" && newStatus !== "approved") {
+                if (registration.team) {
+                    await Team.findByIdAndDelete(registration.team);
+                }
+                await Tournament.findByIdAndUpdate(id, { $inc: { currentTeams: -1 } });
+                registration.team = undefined;
+                registration.approvedBy = undefined;
+                registration.approvedAt = undefined;
+            }
+
+            // If setting to approved from non-approved
+            if (newStatus === "approved" && oldStatus !== "approved") {
+                if (tournament.currentTeams >= tournament.maxTeams) {
+                    return apiError("Giải đấu đã đủ đội", 400);
+                }
+                // Check payment for paid tournaments
+                if (tournament.entryFee > 0 && registration.paymentStatus !== "paid") {
+                    return apiError("VĐV chưa thanh toán lệ phí. Vui lòng xác nhận thanh toán trước.", 400);
+                }
+                const teamName = registration.teamName || registration.playerName || "Team";
+                const teamShort = registration.teamShortName || teamName.substring(0, 4).toUpperCase();
+                const team = await Team.create({
+                    name: teamName,
+                    shortName: teamShort,
+                    tournament: id,
+                    captain: registration.user,
+                    members: [{ user: registration.user, role: "captain", joinedAt: new Date() }],
+                });
+                registration.team = team._id;
+                registration.approvedBy = authResult.user._id as any;
+                registration.approvedAt = new Date();
+                await Tournament.findByIdAndUpdate(id, { $inc: { currentTeams: 1 } });
+            }
+
+            registration.status = newStatus;
+            if (newStatus === "rejected") {
+                registration.rejectionReason = body.reason || "Manager cập nhật trạng thái";
+            }
+            await registration.save();
+
+            console.log(`🔄 Manager updated reg ${registrationId} status: ${oldStatus} → ${newStatus}`);
+            return apiResponse(registration, 200, `Đã cập nhật trạng thái: ${oldStatus} → ${newStatus}`);
+
+        } else if (action === "update_payment") {
+            // Manager updates payment status directly
+            const newPaymentStatus = body.newPaymentStatus;
+            if (!newPaymentStatus || !["unpaid", "pending_verification", "paid", "refunded"].includes(newPaymentStatus)) {
+                return apiError("Trạng thái thanh toán không hợp lệ", 400);
+            }
+
+            const oldPaymentStatus = registration.paymentStatus;
+
+            // If changing from paid → unpaid/refunded AND was auto-approved → rollback approval
+            if (oldPaymentStatus === "paid" && (newPaymentStatus === "unpaid" || newPaymentStatus === "refunded")) {
+                if (registration.status === "approved") {
+                    // Rollback approval: delete team, decrement count
+                    if (registration.team) {
+                        await Team.findByIdAndDelete(registration.team);
+                    }
+                    await Tournament.findByIdAndUpdate(id, { $inc: { currentTeams: -1 } });
+                    registration.status = "pending";
+                    registration.team = undefined;
+                    registration.approvedBy = undefined;
+                    registration.approvedAt = undefined;
+                    console.log(`⏪ Rolled back approval for reg ${registrationId} due to payment revert`);
+                }
+            }
+
+            // If changing to paid from non-paid
+            if (newPaymentStatus === "paid" && oldPaymentStatus !== "paid") {
+                registration.paymentConfirmedBy = authResult.user._id as any;
+                registration.paymentConfirmedAt = new Date();
+                registration.paymentAmount = body.paymentAmount || tournament.entryFee;
+            }
+
+            // If changing to unpaid, clear payment data
+            if (newPaymentStatus === "unpaid") {
+                registration.paymentProof = "";
+                registration.paymentConfirmedBy = undefined;
+                registration.paymentConfirmedAt = undefined;
+                registration.paymentAmount = 0;
+            }
+
+            registration.paymentStatus = newPaymentStatus;
+            await registration.save();
+
+            console.log(`💰 Manager updated reg ${registrationId} payment: ${oldPaymentStatus} → ${newPaymentStatus}`);
+            return apiResponse(registration, 200, `Đã cập nhật thanh toán: ${oldPaymentStatus} → ${newPaymentStatus}`);
         }
 
         return apiResponse(registration, 200, `${action === "approve" ? "Phê duyệt" : "Từ chối"} thành công`);
@@ -238,7 +347,7 @@ export async function PUT(req: NextRequest, { params }: RouteParams) {
     }
 }
 
-// DELETE /api/tournaments/[id]/registrations — Cancel own registration (user)
+// DELETE /api/tournaments/[id]/registrations — Cancel registration (user self-cancel or manager force-delete)
 export async function DELETE(req: NextRequest, { params }: RouteParams) {
     try {
         const authResult = await requireAuth(req);
@@ -252,6 +361,34 @@ export async function DELETE(req: NextRequest, { params }: RouteParams) {
         if (!tournament) return apiError("Không tìm thấy giải đấu", 404);
         const id = tournament._id;
 
+        // Check for manager force-delete mode
+        const url = new URL(req.url);
+        const registrationId = url.searchParams.get("registrationId");
+        const isManager = (
+            authResult.user.role === "admin" ||
+            (authResult.user.role === "manager" && tournament.createdBy.toString() === authResult.user._id)
+        );
+
+        if (registrationId && isManager) {
+            // Manager force-delete any registration
+            const registration = await Registration.findById(registrationId);
+            if (!registration) return apiError("Không tìm thấy đăng ký", 404);
+
+            // If was approved → cleanup: delete team and decrement count
+            if (registration.status === "approved") {
+                if (registration.team) {
+                    await Team.findByIdAndDelete(registration.team);
+                }
+                await Tournament.findByIdAndUpdate(id, { $inc: { currentTeams: -1 } });
+            }
+
+            await Registration.deleteOne({ _id: registration._id });
+            console.log(`🗑️ Manager force-deleted reg ${registrationId} (player: ${registration.playerName})`);
+
+            return apiResponse(null, 200, `Đã xóa đăng ký của ${registration.playerName}`);
+        }
+
+        // User self-cancel
         const registration = await Registration.findOne({
             tournament: id,
             user: authResult.user._id,
