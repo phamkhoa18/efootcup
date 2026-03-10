@@ -74,14 +74,33 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
                         if (checkData.code === "00" && checkData.data) {
                             const linkStatus = checkData.data.status;
                             if (linkStatus === "PENDING") {
-                                // Return existing checkout URL
-                                return apiResponse({
-                                    payUrl: checkData.data.checkoutUrl,
-                                    qrCode: checkData.data.qrCode,
-                                    orderCode: noteData.orderCode,
-                                    paymentLinkId: noteData.paymentLinkId,
-                                    amount: checkData.data.amount,
-                                }, 200, "Link thanh toán PayOS đang chờ");
+                                // If checkoutUrl is available, return it so user can continue paying
+                                if (checkData.data.checkoutUrl) {
+                                    return apiResponse({
+                                        payUrl: checkData.data.checkoutUrl,
+                                        qrCode: checkData.data.qrCode,
+                                        orderCode: noteData.orderCode,
+                                        paymentLinkId: noteData.paymentLinkId,
+                                        amount: checkData.data.amount,
+                                    }, 200, "Link thanh toán PayOS đang chờ");
+                                }
+
+                                // checkoutUrl not available — cancel old link to create a fresh one
+                                try {
+                                    await fetch(`https://api-merchant.payos.vn/v2/payment-requests/${noteData.orderCode}/cancel`, {
+                                        method: "POST",
+                                        headers: {
+                                            "Content-Type": "application/json",
+                                            "x-client-id": method.payosClientId,
+                                            "x-api-key": method.payosApiKey,
+                                        },
+                                        body: JSON.stringify({ cancellationReason: "User requested new link" }),
+                                    });
+                                    console.log(`🗑️ Cancelled old PayOS link ${noteData.orderCode} (no checkoutUrl)`);
+                                } catch (cancelErr) {
+                                    console.error("Failed to cancel old PayOS link:", cancelErr);
+                                }
+                                // Fall through to create new link below
                             } else if (linkStatus === "PAID") {
                                 // Already paid! Update status + AUTO-APPROVE
                                 const paidAmount = checkData.data.amountPaid || checkData.data.amount;
@@ -149,7 +168,7 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
 
                                 return apiError("Bạn đã thanh toán rồi", 400);
                             }
-                            // CANCELLED/EXPIRED → allow creating new link below
+                            // CANCELLED/EXPIRED → fall through to create new link below
                         }
                     }
                 } catch (e) {

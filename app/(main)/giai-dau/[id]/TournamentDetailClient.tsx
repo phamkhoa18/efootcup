@@ -766,12 +766,19 @@ export default function TournamentDetailClient({ initialData, id }: { initialDat
             try {
                 const res = await tournamentPaymentAPI.createPayment(id, method.id);
                 if (res.success && res.data?.payUrl) {
+                    // Always redirect to payment URL (new or existing pending link)
+                    if (res.message?.includes("đang chờ")) {
+                        toast.info("Đang chuyển đến trang thanh toán đã tạo trước đó...");
+                    }
                     window.location.href = res.data.payUrl;
+                } else if (!res.success && res.message?.includes("đã thanh toán")) {
+                    toast.success("Bạn đã thanh toán thành công! Trang sẽ được tải lại.");
+                    setTimeout(() => window.location.reload(), 1500);
                 } else {
-                    toast.error(res.message || "Lỗi tạo thanh toán");
+                    toast.error(res.message || "Lỗi tạo thanh toán. Vui lòng thử lại.");
                 }
             } catch (e) {
-                toast.error("Có lỗi xảy ra khi tạo thanh toán");
+                toast.error("Có lỗi xảy ra khi tạo thanh toán. Vui lòng thử lại.");
             } finally {
                 setIsPaymentLoading(false);
             }
