@@ -131,6 +131,37 @@ export default function TrangCaNhanPage() {
     const getInitials = (name: string) =>
         name.split(" ").map((n) => n[0]).join("").toUpperCase().slice(0, 2);
 
+    const compressImage = (file: File, maxDim = 800, quality = 0.8): Promise<File> =>
+        new Promise((resolve) => {
+            const img = new window.Image();
+            img.onload = () => {
+                let { width, height } = img;
+                if (width > maxDim || height > maxDim) {
+                    const ratio = Math.min(maxDim / width, maxDim / height);
+                    width = Math.round(width * ratio);
+                    height = Math.round(height * ratio);
+                }
+                const canvas = document.createElement('canvas');
+                canvas.width = width;
+                canvas.height = height;
+                const ctx = canvas.getContext('2d')!;
+                ctx.drawImage(img, 0, 0, width, height);
+                canvas.toBlob(
+                    (blob) => {
+                        if (blob) {
+                            resolve(new File([blob], file.name.replace(/\.[^.]+$/, '.jpg'), { type: 'image/jpeg' }));
+                        } else {
+                            resolve(file);
+                        }
+                    },
+                    'image/jpeg',
+                    quality,
+                );
+            };
+            img.onerror = () => resolve(file);
+            img.src = URL.createObjectURL(file);
+        });
+
     const handleAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
         if (!file) return;
@@ -145,29 +176,56 @@ export default function TrangCaNhanPage() {
         setErrorMsg("");
 
         try {
+            // Always compress to ensure small upload size
+            let toUpload: File = file;
+            if (file.type.startsWith('image/') || /\.(jpe?g|jfif|png|gif|webp|bmp|avif|heic|heif|tiff?)$/i.test(file.name)) {
+                toUpload = await compressImage(file);
+            }
+
             const formData = new FormData();
-            formData.append("file", file);
+            formData.append("file", toUpload);
             formData.append("type", "avatar");
 
-            const res = await fetch("/api/upload", {
-                method: "POST",
-                headers: { Authorization: `Bearer ${savedToken}` },
-                body: formData,
-            });
+            // Retry up to 3 times for transient errors
+            let lastError = '';
+            for (let attempt = 1; attempt <= 3; attempt++) {
+                try {
+                    const res = await fetch("/api/upload", {
+                        method: "POST",
+                        headers: { Authorization: `Bearer ${savedToken}` },
+                        body: formData,
+                    });
 
-            const data = await res.json();
+                    if (res.ok) {
+                        const data = await res.json();
+                        if (data.success) {
+                            const avatarUrl = data.data?.url || data.url;
+                            const result = await updateProfile({ avatar: avatarUrl });
+                            if (result.success) {
+                                showSuccess("Cập nhật ảnh đại diện thành công!");
+                            } else {
+                                setErrorMsg(result.message);
+                            }
+                            return; // success — exit
+                        }
+                        lastError = data.message || "Upload thất bại";
+                        break; // don't retry on logical errors
+                    }
 
-            if (data.success) {
-                const avatarUrl = data.data?.url || data.url;
-                const result = await updateProfile({ avatar: avatarUrl });
-                if (result.success) {
-                    showSuccess("Cập nhật ảnh đại diện thành công!");
-                } else {
-                    setErrorMsg(result.message);
+                    lastError = `HTTP ${res.status}`;
+                    if (res.status === 401) {
+                        setErrorMsg("Phiên đăng nhập hết hạn, vui lòng đăng nhập lại");
+                        return;
+                    }
+                    // Retry on 403, 408, 429, 5xx
+                    if (![403, 408, 429, 500, 502, 503, 504].includes(res.status)) break;
+                } catch {
+                    lastError = 'Lỗi mạng';
                 }
-            } else {
-                setErrorMsg(data.message || "Upload thất bại");
+                if (attempt < 3) await new Promise(r => setTimeout(r, attempt * 500));
             }
+
+            setErrorMsg(lastError || "Có lỗi xảy ra khi tải ảnh lên");
         } catch {
             setErrorMsg("Có lỗi xảy ra khi tải ảnh lên");
         } finally {

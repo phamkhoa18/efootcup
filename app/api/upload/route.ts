@@ -3,6 +3,10 @@ import { writeFile, mkdir } from "fs/promises";
 import path from "path";
 import { requireAuth, apiResponse, apiError } from "@/lib/auth";
 
+// Allow large file uploads (default Next.js limit is ~1MB for route handlers)
+export const maxDuration = 60; // seconds
+export const dynamic = "force-dynamic";
+
 // POST /api/upload — Upload an image (avatar, payment_proof, etc.)
 export async function POST(req: NextRequest) {
     try {

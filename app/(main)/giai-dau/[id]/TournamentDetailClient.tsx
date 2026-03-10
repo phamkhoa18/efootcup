@@ -1566,22 +1566,21 @@ export default function TournamentDetailClient({ initialData, id }: { initialDat
                                     </div>
                                 </div>
 
-                                {/* Table */}
+                                {/* Table — scrollable on mobile */}
                                 <div className="bg-white border border-gray-100 rounded-2xl overflow-hidden shadow-sm">
-                                    {/* Desktop Table */}
-                                    <div className="hidden sm:block overflow-x-auto">
-                                        <table className="w-full text-sm">
+                                    <div className="overflow-x-auto">
+                                        <table className="w-full text-sm" style={{ minWidth: '600px' }}>
                                             <thead>
                                                 <tr className="bg-gradient-to-r from-slate-800 to-slate-900 text-white text-[10px] uppercase tracking-wider">
-                                                    <th className="px-4 py-3.5 text-center w-14">#</th>
-                                                    <th className="px-4 py-3.5 text-center w-20 text-amber-300">EFV ID</th>
-                                                    <th className="px-4 py-3.5 text-left">VĐV / Đội</th>
-                                                    <th className="px-3 py-3.5 text-center w-14">P</th>
-                                                    <th className="px-3 py-3.5 text-center w-14">W</th>
-                                                    <th className="px-3 py-3.5 text-center w-14">D</th>
-                                                    <th className="px-3 py-3.5 text-center w-14">L</th>
-                                                    <th className="px-4 py-3.5 text-center w-20">Điểm</th>
-                                                    {t.efvTier && <th className="px-4 py-3.5 text-center w-24">EFV</th>}
+                                                    <th className="px-3 sm:px-4 py-3 text-center w-10 sm:w-14">#</th>
+                                                    <th className="px-3 sm:px-4 py-3 text-center w-16 sm:w-20 text-amber-300">EFV ID</th>
+                                                    <th className="px-3 sm:px-4 py-3 text-left">VĐV / Đội</th>
+                                                    <th className="px-2 sm:px-3 py-3 text-center w-10 sm:w-14">P</th>
+                                                    <th className="px-2 sm:px-3 py-3 text-center w-10 sm:w-14">W</th>
+                                                    <th className="px-2 sm:px-3 py-3 text-center w-10 sm:w-14">D</th>
+                                                    <th className="px-2 sm:px-3 py-3 text-center w-10 sm:w-14">L</th>
+                                                    <th className="px-3 sm:px-4 py-3 text-center w-16 sm:w-20">Điểm</th>
+                                                    {t.efvTier && <th className="px-3 sm:px-4 py-3 text-center w-16 sm:w-24">EFV</th>}
                                                 </tr>
                                             </thead>
                                             <tbody>
@@ -1595,7 +1594,9 @@ export default function TournamentDetailClient({ initialData, id }: { initialDat
                                                     const playerName = reg.playerName || team.captain?.name || "—";
                                                     const isTop1 = i === 0 && t.status === 'completed';
                                                     const isTop2 = i === 1 && t.status === 'completed';
-                                                    const isTop3 = (i === 2 || i === 3) && t.status === 'completed';
+
+                                                    // Avatar fallback: user avatar → personalPhoto from registration → team logo → icon
+                                                    const avatarSrc = reg?.user?.avatar || reg?.personalPhoto || team.logo || null;
 
                                                     // Calculate EFV points for this specific tournament placement
                                                     const getEfvPts = () => {
@@ -1622,7 +1623,7 @@ export default function TournamentDetailClient({ initialData, id }: { initialDat
                                                                 }
                                                             }}
                                                         >
-                                                            <td className="px-4 py-3.5 text-center">
+                                                            <td className="px-3 sm:px-4 py-3 text-center">
                                                                 {isTop1 ? (
                                                                     <span className="inline-flex items-center justify-center w-7 h-7 rounded-full bg-gradient-to-br from-yellow-400 to-amber-500 text-white text-[10px] font-bold shadow-sm">1</span>
                                                                 ) : isTop2 ? (
@@ -1631,39 +1632,39 @@ export default function TournamentDetailClient({ initialData, id }: { initialDat
                                                                     <span className="text-sm font-bold text-slate-400">{i + 1}</span>
                                                                 )}
                                                             </td>
-                                                            <td className="px-4 py-3.5 text-center">
+                                                            <td className="px-3 sm:px-4 py-3 text-center">
                                                                 {reg?.user?.efvId != null ? (
-                                                                    <span className="inline-flex items-center text-[11px] font-bold text-amber-700 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-md tabular-nums">#{reg.user.efvId}</span>
+                                                                    <span className="inline-flex items-center text-[10px] sm:text-[11px] font-bold text-amber-700 bg-amber-50 border border-amber-200 px-1.5 sm:px-2 py-0.5 rounded-md tabular-nums">#{reg.user.efvId}</span>
                                                                 ) : (
                                                                     <span className="text-[11px] text-gray-300">—</span>
                                                                 )}
                                                             </td>
-                                                            <td className="px-4 py-3.5">
-                                                                <div className="flex items-center gap-3">
-                                                                    <div className="w-9 h-9 rounded-full bg-gray-100 flex-shrink-0 flex items-center justify-center overflow-hidden">
-                                                                        {(reg?.user?.avatar || team.logo) ? <img src={reg?.user?.avatar || team.logo} className="w-full h-full object-cover" alt="" /> : <Users className="w-4 h-4 text-gray-300" />}
+                                                            <td className="px-3 sm:px-4 py-3">
+                                                                <div className="flex items-center gap-2.5 sm:gap-3">
+                                                                    <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-full bg-gray-100 flex-shrink-0 flex items-center justify-center overflow-hidden">
+                                                                        {avatarSrc ? <img src={avatarSrc} className="w-full h-full object-cover" alt="" /> : <Users className="w-4 h-4 text-gray-300" />}
                                                                     </div>
                                                                     <div className="min-w-0">
-                                                                        <div className="flex items-center gap-2">
-                                                                            <p className="text-[14px] font-semibold text-gray-900 truncate">{playerName}</p>
-                                                                            {placement && <span className="text-sm">{placement}</span>}
+                                                                        <div className="flex items-center gap-1.5">
+                                                                            <p className="text-[13px] sm:text-[14px] font-semibold text-gray-900 truncate">{playerName}</p>
+                                                                            {placement && <span className="text-xs sm:text-sm">{placement}</span>}
                                                                         </div>
-                                                                        <p className="text-[11px] text-gray-400 truncate mt-0.5">{team.name}</p>
+                                                                        <p className="text-[10px] sm:text-[11px] text-gray-400 truncate mt-0.5">{team.name}</p>
                                                                     </div>
                                                                 </div>
                                                             </td>
-                                                            <td className="px-3 py-3.5 text-center text-sm font-medium text-gray-600">{team.stats?.played || 0}</td>
-                                                            <td className="px-3 py-3.5 text-center text-sm font-bold text-emerald-600">{team.stats?.wins || 0}</td>
-                                                            <td className="px-3 py-3.5 text-center text-sm font-medium text-gray-500">{team.stats?.draws || 0}</td>
-                                                            <td className="px-3 py-3.5 text-center text-sm font-medium text-rose-500">{team.stats?.losses || 0}</td>
-                                                            <td className="px-4 py-3.5 text-center">
-                                                                <span className="inline-flex items-center justify-center min-w-[32px] h-7 rounded-lg bg-blue-50 text-efb-blue font-bold text-xs px-2">
+                                                            <td className="px-2 sm:px-3 py-3 text-center text-xs sm:text-sm font-medium text-gray-600">{team.stats?.played || 0}</td>
+                                                            <td className="px-2 sm:px-3 py-3 text-center text-xs sm:text-sm font-bold text-emerald-600">{team.stats?.wins || 0}</td>
+                                                            <td className="px-2 sm:px-3 py-3 text-center text-xs sm:text-sm font-medium text-gray-500">{team.stats?.draws || 0}</td>
+                                                            <td className="px-2 sm:px-3 py-3 text-center text-xs sm:text-sm font-medium text-rose-500">{team.stats?.losses || 0}</td>
+                                                            <td className="px-3 sm:px-4 py-3 text-center">
+                                                                <span className="inline-flex items-center justify-center min-w-[28px] sm:min-w-[32px] h-6 sm:h-7 rounded-lg bg-blue-50 text-efb-blue font-bold text-[11px] sm:text-xs px-1.5 sm:px-2">
                                                                     {team.stats?.points || 0}
                                                                 </span>
                                                             </td>
                                                             {t.efvTier && (
-                                                                <td className="px-4 py-3.5 text-center">
-                                                                    <span className={`inline-flex items-center justify-center min-w-[40px] h-7 rounded-lg font-bold text-xs px-2 ${i === 0 && t.status === 'completed' ? 'bg-amber-100 text-amber-700' :
+                                                                <td className="px-3 sm:px-4 py-3 text-center">
+                                                                    <span className={`inline-flex items-center justify-center min-w-[36px] sm:min-w-[40px] h-6 sm:h-7 rounded-lg font-bold text-[11px] sm:text-xs px-1.5 sm:px-2 ${i === 0 && t.status === 'completed' ? 'bg-amber-100 text-amber-700' :
                                                                         i === 1 && t.status === 'completed' ? 'bg-gray-100 text-gray-700' :
                                                                             i <= 3 && t.status === 'completed' ? 'bg-orange-50 text-orange-600' :
                                                                                 'bg-purple-50 text-purple-600'
@@ -1677,67 +1678,6 @@ export default function TournamentDetailClient({ initialData, id }: { initialDat
                                                 })}
                                             </tbody>
                                         </table>
-                                    </div>
-
-                                    {/* Mobile Cards */}
-                                    <div className="sm:hidden divide-y divide-gray-50">
-                                        {teams.filter((team: any) => {
-                                            if (!playerSearch.trim()) return true;
-                                            const reg = data.registrations?.find((r: any) => r.team === team._id || r.team?._id === team._id) || {};
-                                            const pName = reg.playerName || team.captain?.name || "";
-                                            return [pName, team.name, team.shortName].some(v => v && v.toLowerCase().includes(playerSearch.toLowerCase()));
-                                        }).map((team: any, i: number) => {
-                                            const reg = data.registrations?.find((r: any) => r.team === team._id || r.team?._id === team._id) || {};
-                                            const playerName = reg.playerName || team.captain?.name || "—";
-                                            const isTop1 = i === 0 && t.status === 'completed';
-                                            const isTop2 = i === 1 && t.status === 'completed';
-                                            const placement = t.status === 'completed' ? (i === 0 ? '🥇' : i === 1 ? '🥈' : i <= 3 ? '🥉' : '') : '';
-
-                                            return (
-                                                <div key={team._id} className={`px-4 py-3.5 ${reg?.user?.efvId ? 'cursor-pointer hover:bg-blue-50/20' : ''} transition-colors ${isTop1 ? 'bg-amber-50/40' : isTop2 ? 'bg-gray-50/30' : ''}`}
-                                                    onClick={() => {
-                                                        const reg = data.registrations?.find((r: any) => r.team === team._id || r.team?._id === team._id);
-                                                        if (reg?.user?.efvId) {
-                                                            router.push(`/profile/${reg.user.efvId}`);
-                                                        }
-                                                    }}
-                                                >
-                                                    <div className="flex items-center gap-3">
-                                                        <div className="w-8 text-center flex-shrink-0">
-                                                            {isTop1 ? (
-                                                                <span className="inline-flex items-center justify-center w-7 h-7 rounded-full bg-gradient-to-br from-yellow-400 to-amber-500 text-white text-[10px] font-bold shadow-sm">1</span>
-                                                            ) : isTop2 ? (
-                                                                <span className="inline-flex items-center justify-center w-7 h-7 rounded-full bg-gradient-to-br from-slate-300 to-slate-500 text-white text-[10px] font-bold shadow-sm">2</span>
-                                                            ) : (
-                                                                <span className="text-sm font-bold text-slate-400">{i + 1}</span>
-                                                            )}
-                                                        </div>
-                                                        <div className="flex-1 min-w-0">
-                                                            <div className="flex items-center gap-1.5">
-                                                                {reg?.user?.efvId && (
-                                                                    <span className="inline-flex items-center text-[8px] font-bold text-amber-600 bg-amber-50 border border-amber-200 px-1 py-px rounded flex-shrink-0">#{reg.user.efvId}</span>
-                                                                )}
-                                                                <p className="text-[14px] font-semibold text-gray-900 truncate">{playerName}</p>
-                                                                {placement && <span className="text-xs">{placement}</span>}
-                                                            </div>
-                                                            <p className="text-[11px] text-gray-400 truncate">{team.name}</p>
-                                                        </div>
-                                                        <div className="flex items-center gap-3 flex-shrink-0">
-                                                            <div className="flex items-center gap-1.5 text-[10px]">
-                                                                <span className="text-emerald-600 font-bold">{team.stats?.wins || 0}W</span>
-                                                                <span className="text-gray-300">/</span>
-                                                                <span className="text-gray-500">{team.stats?.draws || 0}D</span>
-                                                                <span className="text-gray-300">/</span>
-                                                                <span className="text-rose-500">{team.stats?.losses || 0}L</span>
-                                                            </div>
-                                                            <span className="inline-flex items-center justify-center min-w-[28px] h-6 rounded-md bg-blue-50 text-efb-blue font-bold text-[11px] px-1.5">
-                                                                {team.stats?.points || 0}
-                                                            </span>
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                            );
-                                        })}
                                     </div>
 
                                     {teams.length === 0 && (
