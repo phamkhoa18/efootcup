@@ -1,7 +1,7 @@
 ﻿"use client";
 import { toast } from "sonner";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
 import Link from "next/link";
@@ -627,8 +627,48 @@ export default function TournamentDetailClient({ initialData, id }: { initialDat
     const [countryOpen, setCountryOpen] = useState(false);
     const [bracketSearch, setBracketSearch] = useState("");
     const [playerSearch, setPlayerSearch] = useState("");
+    const [playerPage, setPlayerPage] = useState(1);
+    const [playerData, setPlayerData] = useState<{ teams: any[]; pagination: { page: number; limit: number; total: number; totalPages: number } } | null>(null);
+    const [playerLoading, setPlayerLoading] = useState(false);
+    const playerSearchTimer = useRef<NodeJS.Timeout | null>(null);
     const [scheduleFilter, setScheduleFilter] = useState<'all' | 'live' | 'completed' | 'upcoming'>('all');
     const [selectedPlayer, setSelectedPlayer] = useState<any>(null);
+    const [lineupViewTeam, setLineupViewTeam] = useState<any>(null);
+
+    // Fetch paginated teams from server
+    const fetchPlayerTeams = useCallback(async (page: number, search: string) => {
+        setPlayerLoading(true);
+        try {
+            const params = new URLSearchParams({ page: String(page), limit: "100" });
+            if (search.trim()) params.set("search", search.trim());
+            const res = await fetch(`/api/tournaments/${id}/teams?${params}`);
+            const json = await res.json();
+            if (json.success) {
+                setPlayerData(json.data);
+            }
+        } catch (e) {
+            console.error("Failed to fetch teams:", e);
+        } finally {
+            setPlayerLoading(false);
+        }
+    }, [id]);
+
+    // Fetch when tab is active, page changes
+    useEffect(() => {
+        if (activeTab === "players") {
+            fetchPlayerTeams(playerPage, playerSearch);
+        }
+    }, [activeTab, playerPage]); // eslint-disable-line react-hooks/exhaustive-deps
+
+    // Debounced search
+    const handlePlayerSearchChange = (value: string) => {
+        setPlayerSearch(value);
+        if (playerSearchTimer.current) clearTimeout(playerSearchTimer.current);
+        playerSearchTimer.current = setTimeout(() => {
+            setPlayerPage(1);
+            fetchPlayerTeams(1, value);
+        }, 400);
+    };
 
     useEffect(() => {
         if (user) {
@@ -1550,7 +1590,7 @@ export default function TournamentDetailClient({ initialData, id }: { initialDat
                                 <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
                                     <div>
                                         <h3 className="text-lg font-semibold text-gray-900">Danh sách VĐV</h3>
-                                        <p className="text-xs text-gray-400 mt-0.5">{teams.length} đội / vận động viên tham gia</p>
+                                        <p className="text-xs text-gray-400 mt-0.5">{playerData?.pagination?.total ?? teams.length} đội / vận động viên tham gia</p>
                                     </div>
                                     <div className="flex items-center gap-2">
                                         <div className="relative">
@@ -1558,7 +1598,7 @@ export default function TournamentDetailClient({ initialData, id }: { initialDat
                                             <Input
                                                 placeholder="Tìm VĐV, đội..."
                                                 value={playerSearch}
-                                                onChange={(e) => setPlayerSearch(e.target.value)}
+                                                onChange={(e) => handlePlayerSearchChange(e.target.value)}
                                                 className="pl-9 h-9 text-sm rounded-lg border-gray-200 w-[200px]"
                                             />
                                         </div>
@@ -1575,122 +1615,175 @@ export default function TournamentDetailClient({ initialData, id }: { initialDat
 
                                 {/* Table — scrollable on mobile */}
                                 <div className="bg-white border border-gray-100 rounded-2xl overflow-hidden shadow-sm">
-                                    <div className="overflow-x-auto">
-                                        <table className="w-full text-sm" style={{ minWidth: '600px' }}>
-                                            <thead>
-                                                <tr className="bg-gradient-to-r from-slate-800 to-slate-900 text-white text-[10px] uppercase tracking-wider">
-                                                    <th className="px-3 sm:px-4 py-3 text-center w-10 sm:w-14">#</th>
-                                                    <th className="px-3 sm:px-4 py-3 text-center w-16 sm:w-20 text-amber-300">EFV ID</th>
-                                                    <th className="px-3 sm:px-4 py-3 text-left">VĐV / Đội</th>
-                                                    <th className="px-2 sm:px-3 py-3 text-center w-10 sm:w-14">P</th>
-                                                    <th className="px-2 sm:px-3 py-3 text-center w-10 sm:w-14">W</th>
-                                                    <th className="px-2 sm:px-3 py-3 text-center w-10 sm:w-14">D</th>
-                                                    <th className="px-2 sm:px-3 py-3 text-center w-10 sm:w-14">L</th>
-                                                    <th className="px-3 sm:px-4 py-3 text-center w-16 sm:w-20">Điểm</th>
-                                                    {t.efvTier && <th className="px-3 sm:px-4 py-3 text-center w-16 sm:w-24">EFV</th>}
-                                                </tr>
-                                            </thead>
-                                            <tbody>
-                                                {teams.filter((team: any) => {
-                                                    if (!playerSearch.trim()) return true;
-                                                    const reg = data.registrations?.find((r: any) => r.team === team._id || r.team?._id === team._id) || {};
-                                                    const pName = reg.playerName || team.captain?.name || "";
-                                                    return [pName, team.name, team.shortName, team.captain?.name, String(reg?.user?.efvId || "")].some(v => v && v.toLowerCase().includes(playerSearch.toLowerCase()));
-                                                }).map((team: any, i: number) => {
-                                                    const reg = data.registrations?.find((r: any) => r.team === team._id || r.team?._id === team._id) || {};
-                                                    const playerName = reg.playerName || team.captain?.name || "—";
-                                                    const isTop1 = i === 0 && t.status === 'completed';
-                                                    const isTop2 = i === 1 && t.status === 'completed';
+                                    {playerLoading && (
+                                        <div className="flex items-center justify-center py-8">
+                                            <Loader2 className="w-5 h-5 animate-spin text-efb-blue" />
+                                            <span className="ml-2 text-sm text-gray-400">Đang tải...</span>
+                                        </div>
+                                    )}
 
-                                                    // Avatar fallback: user avatar → personalPhoto from registration → team logo → icon
-                                                    const avatarSrc = reg?.user?.avatar || reg?.personalPhoto || team.logo || null;
+                                    {!playerLoading && (
+                                        <div className="overflow-x-auto">
+                                            <table className="w-full text-sm" style={{ minWidth: '600px' }}>
+                                                <thead>
+                                                    <tr className="bg-gradient-to-r from-slate-800 to-slate-900 text-white text-[10px] uppercase tracking-wider">
+                                                        <th className="px-3 sm:px-4 py-3 text-center w-10 sm:w-14">#</th>
+                                                        <th className="px-3 sm:px-4 py-3 text-center w-16 sm:w-20 text-amber-300">EFV ID</th>
+                                                        <th className="px-3 sm:px-4 py-3 text-left">VĐV / Đội</th>
+                                                        <th className="px-2 sm:px-3 py-3 text-center w-10 sm:w-14">P</th>
+                                                        <th className="px-2 sm:px-3 py-3 text-center w-10 sm:w-14">W</th>
+                                                        <th className="px-2 sm:px-3 py-3 text-center w-10 sm:w-14">D</th>
+                                                        <th className="px-2 sm:px-3 py-3 text-center w-10 sm:w-14">L</th>
+                                                        <th className="px-3 sm:px-4 py-3 text-center w-16 sm:w-20">Điểm</th>
+                                                        {t.efvTier && <th className="px-3 sm:px-4 py-3 text-center w-16 sm:w-24">EFV</th>}
+                                                        <th className="px-2 sm:px-3 py-3 text-center w-12 sm:w-16">Đội hình</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody>
+                                                    {(playerData?.teams || []).map((team: any, pageIdx: number) => {
+                                                        const pg = playerData?.pagination;
+                                                        const i = ((pg?.page || 1) - 1) * (pg?.limit || 100) + pageIdx;
+                                                        const reg = team._reg || {};
+                                                        const playerName = reg.playerName || team.captain?.name || "—";
+                                                        const isTop1 = i === 0 && t.status === 'completed';
+                                                        const isTop2 = i === 1 && t.status === 'completed';
+                                                        const avatarSrc = reg?.user?.avatar || reg?.personalPhoto || team.logo || null;
 
-                                                    // Calculate EFV points for this specific tournament placement
-                                                    const getEfvPts = () => {
-                                                        if (!t.efvTier) return null;
-                                                        const table: Record<string, Record<string, number>> = {
-                                                            efv_250: { champion: 250, runner_up: 200, top_4: 150, top_8: 100, top_16: 50, top_32: 40, participant: 30 },
-                                                            efv_500: { champion: 500, runner_up: 400, top_4: 300, top_8: 200, top_16: 100, top_32: 70, participant: 50 },
-                                                            efv_1000: { champion: 1000, runner_up: 800, top_4: 600, top_8: 400, top_16: 200, top_32: 150, participant: 100 },
+                                                        const getEfvPts = () => {
+                                                            if (!t.efvTier) return null;
+                                                            const table: Record<string, Record<string, number>> = {
+                                                                efv_250: { champion: 250, runner_up: 200, top_4: 150, top_8: 100, top_16: 50, top_32: 40, participant: 30 },
+                                                                efv_500: { champion: 500, runner_up: 400, top_4: 300, top_8: 200, top_16: 100, top_32: 70, participant: 50 },
+                                                                efv_1000: { champion: 1000, runner_up: 800, top_4: 600, top_8: 400, top_16: 200, top_32: 150, participant: 100 },
+                                                            };
+                                                            if (t.status !== 'completed') return table[t.efvTier]?.participant ?? 0;
+                                                            const placement = i === 0 ? 'champion' : i === 1 ? 'runner_up' : i <= 3 ? 'top_4' : i <= 7 ? 'top_8' : i <= 15 ? 'top_16' : i <= 31 ? 'top_32' : 'participant';
+                                                            return table[t.efvTier]?.[placement] ?? 0;
                                                         };
-                                                        if (t.status !== 'completed') return table[t.efvTier]?.participant ?? 0;
-                                                        // Determine placement based on sorted position
-                                                        const placement = i === 0 ? 'champion' : i === 1 ? 'runner_up' : i <= 3 ? 'top_4' : i <= 7 ? 'top_8' : i <= 15 ? 'top_16' : i <= 31 ? 'top_32' : 'participant';
-                                                        return table[t.efvTier]?.[placement] ?? 0;
-                                                    };
-                                                    const efvPts = getEfvPts();
-                                                    const placement = t.status === 'completed' ? (i === 0 ? '🥇' : i === 1 ? '🥈' : i <= 3 ? '🥉' : '') : '';
+                                                        const efvPts = getEfvPts();
+                                                        const placement = t.status === 'completed' ? (i === 0 ? '🥇' : i === 1 ? '🥈' : i <= 3 ? '🥉' : '') : '';
 
-                                                    return (
-                                                        <tr key={team._id} className={`border-b border-gray-50 last:border-0 transition-colors ${reg?.user?.efvId ? 'hover:bg-blue-50/30 cursor-pointer' : ''} ${isTop1 ? 'bg-amber-50/40' : isTop2 ? 'bg-gray-50/40' : ''}`}
-                                                            onClick={() => {
-                                                                const reg = data.registrations?.find((r: any) => r.team === team._id || r.team?._id === team._id);
-                                                                if (reg?.user?.efvId) {
-                                                                    router.push(`/profile/${reg.user.efvId}`);
-                                                                }
-                                                            }}
-                                                        >
-                                                            <td className="px-3 sm:px-4 py-3 text-center">
-                                                                {isTop1 ? (
-                                                                    <span className="inline-flex items-center justify-center w-7 h-7 rounded-full bg-gradient-to-br from-yellow-400 to-amber-500 text-white text-[10px] font-bold shadow-sm">1</span>
-                                                                ) : isTop2 ? (
-                                                                    <span className="inline-flex items-center justify-center w-7 h-7 rounded-full bg-gradient-to-br from-slate-300 to-slate-500 text-white text-[10px] font-bold shadow-sm">2</span>
-                                                                ) : (
-                                                                    <span className="text-sm font-bold text-slate-400">{i + 1}</span>
-                                                                )}
-                                                            </td>
-                                                            <td className="px-3 sm:px-4 py-3 text-center">
-                                                                {reg?.user?.efvId != null ? (
-                                                                    <span className="inline-flex items-center text-[10px] sm:text-[11px] font-bold text-amber-700 bg-amber-50 border border-amber-200 px-1.5 sm:px-2 py-0.5 rounded-md tabular-nums">#{reg.user.efvId}</span>
-                                                                ) : (
-                                                                    <span className="text-[11px] text-gray-300">—</span>
-                                                                )}
-                                                            </td>
-                                                            <td className="px-3 sm:px-4 py-3">
-                                                                <div className="flex items-center gap-2.5 sm:gap-3">
-                                                                    <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-full bg-gray-100 flex-shrink-0 flex items-center justify-center overflow-hidden">
-                                                                        {avatarSrc ? <img src={avatarSrc} className="w-full h-full object-cover" alt="" /> : <Users className="w-4 h-4 text-gray-300" />}
-                                                                    </div>
-                                                                    <div className="min-w-0">
-                                                                        <div className="flex items-center gap-1.5">
-                                                                            <p className="text-[13px] sm:text-[14px] font-semibold text-gray-900 truncate">{playerName}</p>
-                                                                            {placement && <span className="text-xs sm:text-sm">{placement}</span>}
-                                                                        </div>
-                                                                        <p className="text-[10px] sm:text-[11px] text-gray-400 truncate mt-0.5">{team.name}</p>
-                                                                    </div>
-                                                                </div>
-                                                            </td>
-                                                            <td className="px-2 sm:px-3 py-3 text-center text-xs sm:text-sm font-medium text-gray-600">{team.stats?.played || 0}</td>
-                                                            <td className="px-2 sm:px-3 py-3 text-center text-xs sm:text-sm font-bold text-emerald-600">{team.stats?.wins || 0}</td>
-                                                            <td className="px-2 sm:px-3 py-3 text-center text-xs sm:text-sm font-medium text-gray-500">{team.stats?.draws || 0}</td>
-                                                            <td className="px-2 sm:px-3 py-3 text-center text-xs sm:text-sm font-medium text-rose-500">{team.stats?.losses || 0}</td>
-                                                            <td className="px-3 sm:px-4 py-3 text-center">
-                                                                <span className="inline-flex items-center justify-center min-w-[28px] sm:min-w-[32px] h-6 sm:h-7 rounded-lg bg-blue-50 text-efb-blue font-bold text-[11px] sm:text-xs px-1.5 sm:px-2">
-                                                                    {team.stats?.points || 0}
-                                                                </span>
-                                                            </td>
-                                                            {t.efvTier && (
+                                                        return (
+                                                            <tr key={team._id} className={`border-b border-gray-50 last:border-0 transition-colors ${reg?.user?.efvId ? 'hover:bg-blue-50/30 cursor-pointer' : ''} ${isTop1 ? 'bg-amber-50/40' : isTop2 ? 'bg-gray-50/40' : ''}`}
+                                                                onClick={() => {
+                                                                    if (reg?.user?.efvId) {
+                                                                        router.push(`/profile/${reg.user.efvId}`);
+                                                                    }
+                                                                }}
+                                                            >
                                                                 <td className="px-3 sm:px-4 py-3 text-center">
-                                                                    <span className={`inline-flex items-center justify-center min-w-[36px] sm:min-w-[40px] h-6 sm:h-7 rounded-lg font-bold text-[11px] sm:text-xs px-1.5 sm:px-2 ${i === 0 && t.status === 'completed' ? 'bg-amber-100 text-amber-700' :
-                                                                        i === 1 && t.status === 'completed' ? 'bg-gray-100 text-gray-700' :
-                                                                            i <= 3 && t.status === 'completed' ? 'bg-orange-50 text-orange-600' :
-                                                                                'bg-purple-50 text-purple-600'
-                                                                        }`}>
-                                                                        +{efvPts}
+                                                                    {isTop1 ? (
+                                                                        <span className="inline-flex items-center justify-center w-7 h-7 rounded-full bg-gradient-to-br from-yellow-400 to-amber-500 text-white text-[10px] font-bold shadow-sm">1</span>
+                                                                    ) : isTop2 ? (
+                                                                        <span className="inline-flex items-center justify-center w-7 h-7 rounded-full bg-gradient-to-br from-slate-300 to-slate-500 text-white text-[10px] font-bold shadow-sm">2</span>
+                                                                    ) : (
+                                                                        <span className="text-sm font-bold text-slate-400">{i + 1}</span>
+                                                                    )}
+                                                                </td>
+                                                                <td className="px-3 sm:px-4 py-3 text-center">
+                                                                    {reg?.user?.efvId != null ? (
+                                                                        <span className="inline-flex items-center text-[10px] sm:text-[11px] font-bold text-amber-700 bg-amber-50 border border-amber-200 px-1.5 sm:px-2 py-0.5 rounded-md tabular-nums">#{reg.user.efvId}</span>
+                                                                    ) : (
+                                                                        <span className="text-[11px] text-gray-300">—</span>
+                                                                    )}
+                                                                </td>
+                                                                <td className="px-3 sm:px-4 py-3">
+                                                                    <div className="flex items-center gap-2.5 sm:gap-3">
+                                                                        <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-full bg-gray-100 flex-shrink-0 flex items-center justify-center overflow-hidden">
+                                                                            {avatarSrc ? <img src={avatarSrc} className="w-full h-full object-cover" alt="" /> : <Users className="w-4 h-4 text-gray-300" />}
+                                                                        </div>
+                                                                        <div className="min-w-0">
+                                                                            <div className="flex items-center gap-1.5">
+                                                                                <p className="text-[13px] sm:text-[14px] font-semibold text-gray-900 truncate">{playerName}</p>
+                                                                                {placement && <span className="text-xs sm:text-sm">{placement}</span>}
+                                                                            </div>
+                                                                            <p className="text-[10px] sm:text-[11px] text-gray-400 truncate mt-0.5">{team.name}</p>
+                                                                        </div>
+                                                                    </div>
+                                                                </td>
+                                                                <td className="px-2 sm:px-3 py-3 text-center text-xs sm:text-sm font-medium text-gray-600">{team.stats?.played || 0}</td>
+                                                                <td className="px-2 sm:px-3 py-3 text-center text-xs sm:text-sm font-bold text-emerald-600">{team.stats?.wins || 0}</td>
+                                                                <td className="px-2 sm:px-3 py-3 text-center text-xs sm:text-sm font-medium text-gray-500">{team.stats?.draws || 0}</td>
+                                                                <td className="px-2 sm:px-3 py-3 text-center text-xs sm:text-sm font-medium text-rose-500">{team.stats?.losses || 0}</td>
+                                                                <td className="px-3 sm:px-4 py-3 text-center">
+                                                                    <span className="inline-flex items-center justify-center min-w-[28px] sm:min-w-[32px] h-6 sm:h-7 rounded-lg bg-blue-50 text-efb-blue font-bold text-[11px] sm:text-xs px-1.5 sm:px-2">
+                                                                        {team.stats?.points || 0}
                                                                     </span>
                                                                 </td>
-                                                            )}
-                                                        </tr>
-                                                    );
-                                                })}
-                                            </tbody>
-                                        </table>
-                                    </div>
+                                                                {t.efvTier && (
+                                                                    <td className="px-3 sm:px-4 py-3 text-center">
+                                                                        <span className={`inline-flex items-center justify-center min-w-[36px] sm:min-w-[40px] h-6 sm:h-7 rounded-lg font-bold text-[11px] sm:text-xs px-1.5 sm:px-2 ${i === 0 && t.status === 'completed' ? 'bg-amber-100 text-amber-700' :
+                                                                            i === 1 && t.status === 'completed' ? 'bg-gray-100 text-gray-700' :
+                                                                                i <= 3 && t.status === 'completed' ? 'bg-orange-50 text-orange-600' :
+                                                                                    'bg-purple-50 text-purple-600'
+                                                                            }`}>
+                                                                            +{efvPts}
+                                                                        </span>
+                                                                    </td>
+                                                                )}
+                                                                <td className="px-2 sm:px-3 py-3 text-center">
+                                                                    {reg?.teamLineupPhoto ? (
+                                                                        <button
+                                                                            type="button"
+                                                                            onClick={(e) => { e.stopPropagation(); setLineupViewTeam({ name: playerName, teamName: team.name, photo: reg.teamLineupPhoto, personalPhoto: reg?.personalPhoto || avatarSrc }); }}
+                                                                            className="inline-flex items-center justify-center w-7 h-7 rounded-lg bg-blue-50 hover:bg-blue-100 text-blue-500 hover:text-blue-600 transition-all"
+                                                                            title="Xem đội hình"
+                                                                        >
+                                                                            <Eye className="w-3.5 h-3.5" />
+                                                                        </button>
+                                                                    ) : (
+                                                                        <span className="text-gray-200 text-[11px]">—</span>
+                                                                    )}
+                                                                </td>
+                                                            </tr>
+                                                        );
+                                                    })}
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                    )}
 
-                                    {teams.length === 0 && (
+                                    {!playerLoading && (!playerData?.teams || playerData.teams.length === 0) && (
                                         <div className="text-center py-16">
                                             <Users className="w-12 h-12 text-gray-200 mx-auto mb-3" />
-                                            <p className="text-sm text-gray-400">Chưa có đội nào tham gia giải đấu này</p>
+                                            <p className="text-sm text-gray-400">{playerSearch.trim() ? 'Không tìm thấy VĐV nào' : 'Chưa có đội nào tham gia giải đấu này'}</p>
+                                        </div>
+                                    )}
+
+                                    {/* Pagination */}
+                                    {playerData && playerData.pagination.totalPages > 1 && (
+                                        <div className="flex flex-col sm:flex-row items-center justify-between px-4 py-3 border-t border-gray-100 gap-2">
+                                            <p className="text-xs text-gray-400">
+                                                Hiển thị {((playerData.pagination.page - 1) * playerData.pagination.limit) + 1}–{Math.min(playerData.pagination.page * playerData.pagination.limit, playerData.pagination.total)} / {playerData.pagination.total} VĐV
+                                            </p>
+                                            <div className="flex items-center gap-1">
+                                                <button
+                                                    onClick={() => setPlayerPage(p => Math.max(1, p - 1))}
+                                                    disabled={playerData.pagination.page <= 1}
+                                                    className="px-3 py-1.5 text-xs font-medium rounded-lg border border-gray-200 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                                                >
+                                                    Trước
+                                                </button>
+                                                {Array.from({ length: playerData.pagination.totalPages }, (_, idx) => idx + 1).map(p => (
+                                                    <button
+                                                        key={p}
+                                                        onClick={() => setPlayerPage(p)}
+                                                        className={`w-8 h-8 text-xs font-bold rounded-lg transition-colors ${p === playerData.pagination.page
+                                                            ? 'bg-efb-blue text-white shadow-sm'
+                                                            : 'text-gray-500 hover:bg-gray-100'
+                                                            }`}
+                                                    >
+                                                        {p}
+                                                    </button>
+                                                ))}
+                                                <button
+                                                    onClick={() => setPlayerPage(p => Math.min(playerData.pagination.totalPages, p + 1))}
+                                                    disabled={playerData.pagination.page >= playerData.pagination.totalPages}
+                                                    className="px-3 py-1.5 text-xs font-medium rounded-lg border border-gray-200 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                                                >
+                                                    Sau
+                                                </button>
+                                            </div>
                                         </div>
                                     )}
                                 </div>
@@ -2366,6 +2459,39 @@ export default function TournamentDetailClient({ initialData, id }: { initialDat
             </Dialog>
 
             {selectedMatch && <MatchDetailViewModal match={selectedMatch} tournament={t} onClose={() => setSelectedMatch(null)} user={user} myRegistration={myRegistration} />}
+
+            {/* Lineup Viewer Dialog */}
+            <Dialog open={!!lineupViewTeam} onOpenChange={(open) => !open && setLineupViewTeam(null)}>
+                <DialogContent className="max-w-lg bg-white rounded-2xl border-0 shadow-2xl p-0 overflow-hidden">
+                    <div className="p-5 border-b border-gray-100 bg-gradient-to-br from-blue-50/60 to-white">
+                        <DialogTitle className="text-base font-bold text-gray-900 flex items-center gap-2">
+                            <Eye className="w-4 h-4 text-blue-500" /> Đội hình thi đấu
+                        </DialogTitle>
+                        {lineupViewTeam && (
+                            <div className="flex items-center gap-3 mt-3">
+                                {lineupViewTeam.personalPhoto && (
+                                    <img src={lineupViewTeam.personalPhoto} alt="" className="w-9 h-9 rounded-full object-cover border-2 border-blue-200" />
+                                )}
+                                <div>
+                                    <p className="text-sm font-semibold text-gray-800">{lineupViewTeam.name}</p>
+                                    <p className="text-[11px] text-gray-400">{lineupViewTeam.teamName}</p>
+                                </div>
+                            </div>
+                        )}
+                    </div>
+                    {lineupViewTeam?.photo && (
+                        <div className="p-4">
+                            <img
+                                src={lineupViewTeam.photo}
+                                alt={`Đội hình - ${lineupViewTeam.name}`}
+                                className="w-full rounded-xl border border-gray-100 shadow-sm cursor-pointer hover:opacity-95 transition-opacity"
+                                onClick={() => window.open(lineupViewTeam.photo, '_blank')}
+                            />
+                            <p className="text-center text-[10px] text-gray-400 mt-2">Nhấn vào ảnh để xem kích thước đầy đủ</p>
+                        </div>
+                    )}
+                </DialogContent>
+            </Dialog>
         </>
     );
 }

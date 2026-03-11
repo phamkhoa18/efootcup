@@ -18,12 +18,15 @@ import {
     CreditCard, Eye, Banknote, ImageIcon, DollarSign, AlertTriangle,
     Phone, Mail, Facebook, ExternalLink, MapPin, Calendar as CalendarIcon, Gamepad2, User,
     FileSpreadsheet, Hash, Shield, Sparkles, Trophy,
-    Trash2, Edit3, MoreVertical, RotateCcw, ChevronDown
+    Trash2, Edit3, MoreVertical, RotateCcw, ChevronDown, Camera, ChevronsUpDown, MapPinned
 } from "lucide-react";
 import { tournamentAPI, tournamentPaymentAPI } from "@/lib/api";
 import * as XLSX from "xlsx";
 import { toast } from "sonner";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { DatePicker } from "@/components/ui/date-picker";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Command, CommandInput, CommandList, CommandEmpty, CommandGroup, CommandItem } from "@/components/ui/command";
 
 // Payment status config
 const paymentStatusConfig: Record<string, { label: string; color: string; icon: typeof Clock }> = {
@@ -62,6 +65,92 @@ export default function DangKyPage() {
     const [editPaymentReg, setEditPaymentReg] = useState<any>(null);
     const [deleteConfirmReg, setDeleteConfirmReg] = useState<any>(null);
     const [actionMenuReg, setActionMenuReg] = useState<{ id: string; reg: any; rect: DOMRect } | null>(null);
+
+    // Edit registration info
+    const [editInfoReg, setEditInfoReg] = useState<any>(null);
+    const [editInfoData, setEditInfoData] = useState<any>({});
+    const [isSavingInfo, setIsSavingInfo] = useState(false);
+    const [editUploadingPersonal, setEditUploadingPersonal] = useState(false);
+    const [editUploadingLineup, setEditUploadingLineup] = useState(false);
+    const [editProvinceOpen, setEditProvinceOpen] = useState(false);
+    const [vnProvinces, setVnProvinces] = useState<{ name: string; code: number }[]>([]);
+
+    /* ---- Client-side image compressor (canvas-based, no deps) ---- */
+    const compressImage = (file: File, maxDim = 1280, quality = 0.7): Promise<File> =>
+        new Promise((resolve) => {
+            const img = new window.Image();
+            img.onload = () => {
+                let { width, height } = img;
+                if (width > maxDim || height > maxDim) {
+                    const ratio = Math.min(maxDim / width, maxDim / height);
+                    width = Math.round(width * ratio);
+                    height = Math.round(height * ratio);
+                }
+                const canvas = document.createElement('canvas');
+                canvas.width = width;
+                canvas.height = height;
+                const ctx = canvas.getContext('2d')!;
+                ctx.drawImage(img, 0, 0, width, height);
+                canvas.toBlob(
+                    (blob) => {
+                        if (blob) {
+                            resolve(new File([blob], file.name.replace(/\.[^.]+$/, '.jpg'), { type: 'image/jpeg' }));
+                        } else {
+                            resolve(file);
+                        }
+                    },
+                    'image/jpeg',
+                    quality,
+                );
+            };
+            img.onerror = () => resolve(file);
+            img.src = URL.createObjectURL(file);
+        });
+
+    const handleUploadEditImage = async (file: File, field: 'personalPhoto' | 'teamLineupPhoto') => {
+        const setter = field === 'personalPhoto' ? setEditUploadingPersonal : setEditUploadingLineup;
+        setter(true);
+        try {
+            let toUpload: File = file;
+            if (file.type.startsWith('image/') || /\.(jpe?g|jfif|png|gif|webp|bmp|avif|heic|heif|tiff?)$/i.test(file.name)) {
+                toUpload = await compressImage(file);
+            }
+            const formData = new FormData();
+            formData.append('file', toUpload);
+            formData.append('type', 'registration');
+            const headers: Record<string, string> = {};
+            const savedToken = localStorage.getItem('efootcup_token');
+            if (savedToken) headers.Authorization = `Bearer ${savedToken}`;
+
+            let lastError = '';
+            for (let attempt = 1; attempt <= 3; attempt++) {
+                try {
+                    const res = await fetch('/api/upload', { method: 'POST', headers, body: formData });
+                    if (res.ok) {
+                        const data = await res.json();
+                        const url = data.data?.url || data.url;
+                        if (url) {
+                            setEditInfoData((prev: any) => ({ ...prev, [field]: url }));
+                            toast.success('Tải ảnh thành công!');
+                            return;
+                        }
+                        lastError = data.message || 'Không nhận được URL';
+                        break;
+                    }
+                    lastError = `HTTP ${res.status}`;
+                    if (res.status === 401) { toast.error('Phiên đăng nhập hết hạn'); return; }
+                    if (![403, 408, 429, 500, 502, 503, 504].includes(res.status)) break;
+                } catch { lastError = 'Lỗi mạng'; }
+                if (attempt < 3) await new Promise(r => setTimeout(r, attempt * 500));
+            }
+            toast.error(`Tải ảnh thất bại: ${lastError}`);
+        } catch (err) {
+            console.error('Upload error:', err);
+            toast.error('Có lỗi khi tải ảnh lên');
+        } finally {
+            setter(false);
+        }
+    };
 
     useEffect(() => {
         loadRegistrations();
@@ -322,6 +411,60 @@ export default function DangKyPage() {
             toast.error("Có lỗi xảy ra");
         } finally {
             setProcessing(null);
+        }
+    };
+
+    // Manager: Open edit info dialog
+    const handleOpenEditInfo = (reg: any) => {
+        setEditInfoData({
+            playerName: reg.playerName || "",
+            teamName: reg.teamName || "",
+            teamShortName: reg.teamShortName || "",
+            gamerId: reg.gamerId || "",
+            phone: reg.phone || "",
+            email: reg.email || "",
+            nickname: reg.nickname || "",
+            facebookName: reg.facebookName || "",
+            facebookLink: reg.facebookLink || "",
+            province: reg.province || "",
+            dateOfBirth: reg.dateOfBirth || "",
+            notes: reg.notes || "",
+            personalPhoto: reg.personalPhoto || "",
+            teamLineupPhoto: reg.teamLineupPhoto || "",
+        });
+        setEditUploadingPersonal(false);
+        setEditUploadingLineup(false);
+        setEditInfoReg(reg);
+    };
+
+    // Manager: Save edited info
+    const handleSaveEditInfo = async () => {
+        if (!editInfoReg) return;
+        if (!editInfoData.playerName?.trim()) {
+            return toast.error("Tên VĐV không được để trống");
+        }
+        setIsSavingInfo(true);
+        try {
+            const res = await tournamentAPI.handleRegistration(id, {
+                registrationId: editInfoReg._id,
+                action: "update_info",
+                ...editInfoData,
+            });
+            if (res.success) {
+                toast.success("Đã cập nhật thông tin đăng ký");
+                // Update local state
+                setRegistrations(prev => prev.map(r =>
+                    r._id === editInfoReg._id ? { ...r, ...editInfoData } : r
+                ));
+                setEditInfoReg(null);
+            } else {
+                toast.error(res.message || "Cập nhật thất bại");
+            }
+        } catch (e) {
+            console.error(e);
+            toast.error("Có lỗi xảy ra");
+        } finally {
+            setIsSavingInfo(false);
         }
     };
 
@@ -753,6 +896,12 @@ export default function DangKyPage() {
                                 className="fixed z-[101] bg-white border border-gray-200 rounded-xl shadow-2xl overflow-hidden min-w-[180px]"
                             >
                                 <button
+                                    onClick={() => { handleOpenEditInfo(menuReg); setActionMenuReg(null); }}
+                                    className="w-full text-left px-4 py-2.5 text-sm flex items-center gap-2.5 hover:bg-emerald-50 text-gray-700 hover:text-emerald-600 transition-colors"
+                                >
+                                    <User className="w-3.5 h-3.5" /> Sửa thông tin VĐV
+                                </button>
+                                <button
                                     onClick={() => { setEditStatusReg(menuReg); setActionMenuReg(null); }}
                                     className="w-full text-left px-4 py-2.5 text-sm flex items-center gap-2.5 hover:bg-blue-50 text-gray-700 hover:text-blue-600 transition-colors"
                                 >
@@ -814,7 +963,7 @@ export default function DangKyPage() {
                                     <div className="p-3 rounded-xl bg-red-50 border border-red-200 flex items-start gap-2.5">
                                         <AlertTriangle className="w-4.5 h-4.5 text-red-500 mt-0.5 flex-shrink-0" />
                                         <div>
-                                            <div className="text-xs font-bold text-red-700">⚠️ Số tiền không khớp!</div>
+                                            <div className="text-xs font-bold text-red-700">Số tiền không khớp!</div>
                                             <div className="text-[11px] text-red-600 mt-0.5">
                                                 Nhận: {noteData.receivedAmount?.toLocaleString("vi-VN")}đ — Lệ phí: {noteData.expectedAmount?.toLocaleString("vi-VN")}đ
                                             </div>
@@ -906,7 +1055,7 @@ export default function DangKyPage() {
                                             <div className="px-4 py-2.5 flex items-center justify-between">
                                                 <span className="text-[11px] text-gray-500">Nguồn xác nhận</span>
                                                 <Badge variant="outline" className={`text-[10px] ${noteData.confirmedByWebhook ? 'bg-emerald-50 text-emerald-600 border-emerald-200' : 'bg-blue-50 text-blue-600 border-blue-200'}`}>
-                                                    {noteData.confirmedByWebhook ? "✅ Webhook (tự động)" : noteData.confirmedByVerify ? "🔍 Verify (kiểm tra)" : noteData.confirmedBy || "Chưa xác nhận"}
+                                                    {noteData.confirmedByWebhook ? "Webhook (tự động)" : noteData.confirmedByVerify ? "Verify (kiểm tra)" : noteData.confirmedBy || "Chưa xác nhận"}
                                                 </Badge>
                                             </div>
                                         </div>
@@ -1186,6 +1335,14 @@ export default function DangKyPage() {
                                     </div>
                                 )}
                                 <div className="flex gap-2">
+                                    <Button
+                                        variant="outline"
+                                        size="sm"
+                                        className="flex-1 rounded-xl h-9 text-xs text-emerald-600 border-emerald-200 hover:bg-emerald-50"
+                                        onClick={() => { handleOpenEditInfo(playerDetailView); setPlayerDetailView(null); }}
+                                    >
+                                        <User className="w-3.5 h-3.5 mr-1.5" /> Sửa thông tin
+                                    </Button>
                                     <Button
                                         variant="outline"
                                         size="sm"
@@ -1548,7 +1705,7 @@ export default function DangKyPage() {
                                 <div className="p-3 rounded-xl bg-red-50 border border-red-200 text-xs text-red-700 flex items-start gap-2">
                                     <AlertTriangle className="w-4 h-4 mt-0.5 flex-shrink-0" />
                                     <div>
-                                        <p className="font-bold">⚠️ Cảnh báo quan trọng!</p>
+                                        <p className="font-bold">Cảnh báo quan trọng!</p>
                                         <p className="mt-0.5">VĐV đã được duyệt. Nếu đổi thanh toán sang "Chưa TT" hoặc "Hoàn tiền", hệ thống sẽ <b>tự động hủy duyệt</b>, xóa team và giảm số đội.</p>
                                     </div>
                                 </div>
@@ -1618,6 +1775,295 @@ export default function DangKyPage() {
                                 >
                                     {processing === deleteConfirmReg._id ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Trash2 className="w-4 h-4 mr-2" />}
                                     Xác nhận xóa
+                                </Button>
+                            </div>
+                        </div>
+                    )}
+                </DialogContent>
+            </Dialog>
+
+            {/* Edit Registration Info Modal */}
+            <Dialog open={!!editInfoReg} onOpenChange={(open) => !open && setEditInfoReg(null)}>
+                <DialogContent className="max-w-lg bg-white rounded-2xl border-0 shadow-2xl p-0 overflow-hidden max-h-[90vh]">
+                    <div className="p-5 border-b border-gray-100 bg-gradient-to-br from-emerald-50/50 to-white">
+                        <DialogTitle className="text-base font-bold text-gray-900 flex items-center gap-2">
+                            <User className="w-4 h-4 text-emerald-600" /> Sửa thông tin đăng ký
+                        </DialogTitle>
+                        {editInfoReg && (
+                            <p className="text-xs text-gray-400 mt-1">
+                                Chỉnh sửa thông tin của <span className="font-bold text-gray-600">{editInfoReg.playerName}</span>
+                            </p>
+                        )}
+                    </div>
+                    {editInfoReg && (
+                        <div className="overflow-y-auto p-5 space-y-4" style={{ maxHeight: 'calc(90vh - 140px)' }}>
+                            {/* Player Name */}
+                            <div className="space-y-1.5">
+                                <Label className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Tên VĐV *</Label>
+                                <Input
+                                    value={editInfoData.playerName}
+                                    onChange={(e) => setEditInfoData({ ...editInfoData, playerName: e.target.value })}
+                                    placeholder="Họ và tên"
+                                    className="h-10 rounded-xl text-sm border-gray-200 focus-visible:ring-emerald-500/30 focus-visible:border-emerald-400"
+                                />
+                            </div>
+
+                            {/* Team Info */}
+                            <div className="grid grid-cols-[1fr_80px] gap-3">
+                                <div className="space-y-1.5">
+                                    <Label className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Tên đội</Label>
+                                    <Input
+                                        value={editInfoData.teamName}
+                                        onChange={(e) => setEditInfoData({ ...editInfoData, teamName: e.target.value })}
+                                        placeholder="Tên đội"
+                                        className="h-10 rounded-xl text-sm"
+                                    />
+                                </div>
+                                <div className="space-y-1.5">
+                                    <Label className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Viết tắt</Label>
+                                    <Input
+                                        value={editInfoData.teamShortName}
+                                        onChange={(e) => setEditInfoData({ ...editInfoData, teamShortName: e.target.value.toUpperCase() })}
+                                        placeholder="VT"
+                                        maxLength={4}
+                                        className="h-10 rounded-xl text-sm text-center uppercase"
+                                    />
+                                </div>
+                            </div>
+
+                            {/* Game Info */}
+                            <div className="grid grid-cols-2 gap-3">
+                                <div className="space-y-1.5">
+                                    <Label className="text-xs font-semibold text-gray-500 uppercase tracking-wider">ID Game</Label>
+                                    <Input
+                                        value={editInfoData.gamerId}
+                                        onChange={(e) => setEditInfoData({ ...editInfoData, gamerId: e.target.value })}
+                                        placeholder="In-game ID"
+                                        className="h-10 rounded-xl text-sm"
+                                    />
+                                </div>
+                                <div className="space-y-1.5">
+                                    <Label className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Nickname</Label>
+                                    <Input
+                                        value={editInfoData.nickname}
+                                        onChange={(e) => setEditInfoData({ ...editInfoData, nickname: e.target.value })}
+                                        placeholder="Nickname in-game"
+                                        className="h-10 rounded-xl text-sm"
+                                    />
+                                </div>
+                            </div>
+
+                            {/* Contact */}
+                            <div className="grid grid-cols-2 gap-3">
+                                <div className="space-y-1.5">
+                                    <Label className="text-xs font-semibold text-gray-500 uppercase tracking-wider flex items-center gap-1">
+                                        <Phone className="w-3 h-3" /> Số điện thoại
+                                    </Label>
+                                    <Input
+                                        value={editInfoData.phone}
+                                        onChange={(e) => setEditInfoData({ ...editInfoData, phone: e.target.value })}
+                                        placeholder="0912..."
+                                        className="h-10 rounded-xl text-sm"
+                                    />
+                                </div>
+                                <div className="space-y-1.5">
+                                    <Label className="text-xs font-semibold text-gray-500 uppercase tracking-wider flex items-center gap-1">
+                                        <Mail className="w-3 h-3" /> Email
+                                    </Label>
+                                    <Input
+                                        value={editInfoData.email}
+                                        onChange={(e) => setEditInfoData({ ...editInfoData, email: e.target.value })}
+                                        placeholder="email@..."
+                                        className="h-10 rounded-xl text-sm"
+                                    />
+                                </div>
+                            </div>
+
+                            {/* Facebook */}
+                            <div className="grid grid-cols-2 gap-3">
+                                <div className="space-y-1.5">
+                                    <Label className="text-xs font-semibold text-gray-500 uppercase tracking-wider flex items-center gap-1">
+                                        <Facebook className="w-3 h-3" /> Tên Facebook
+                                    </Label>
+                                    <Input
+                                        value={editInfoData.facebookName}
+                                        onChange={(e) => setEditInfoData({ ...editInfoData, facebookName: e.target.value })}
+                                        placeholder="Tên Facebook"
+                                        className="h-10 rounded-xl text-sm"
+                                    />
+                                </div>
+                                <div className="space-y-1.5">
+                                    <Label className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Link Facebook</Label>
+                                    <Input
+                                        value={editInfoData.facebookLink}
+                                        onChange={(e) => setEditInfoData({ ...editInfoData, facebookLink: e.target.value })}
+                                        placeholder="https://facebook.com/..."
+                                        className="h-10 rounded-xl text-sm"
+                                    />
+                                </div>
+                            </div>
+
+                            {/* Location & DOB */}
+                            <div className="grid grid-cols-2 gap-3">
+                                <div className="space-y-1.5">
+                                    <Label className="text-xs font-semibold text-gray-500 uppercase tracking-wider flex items-center gap-1">
+                                        <MapPinned className="w-3 h-3" /> Tỉnh / TP
+                                    </Label>
+                                    <Popover open={editProvinceOpen} onOpenChange={(open) => { setEditProvinceOpen(open); if (open && vnProvinces.length === 0) { fetch('https://provinces.open-api.vn/api/p/').then(r => r.json()).then((data: { name: string; code: number }[]) => setVnProvinces(data)).catch(() => { }); } }}>
+                                        <PopoverTrigger asChild>
+                                            <button type="button" className={`flex h-10 w-full items-center justify-between rounded-xl border border-gray-200 px-3 text-sm transition-all hover:bg-gray-50 focus:outline-none focus:border-emerald-400 ${!editInfoData.province ? 'text-gray-400' : 'text-gray-900'}`}>
+                                                <div className="flex items-center gap-2 truncate">
+                                                    <MapPinned className="w-3.5 h-3.5 text-gray-400 flex-shrink-0" />
+                                                    <span className="truncate">{editInfoData.province || 'Chọn tỉnh thành...'}</span>
+                                                </div>
+                                                <ChevronsUpDown className="w-3.5 h-3.5 text-gray-400 flex-shrink-0" />
+                                            </button>
+                                        </PopoverTrigger>
+                                        <PopoverContent className="w-[280px] p-0" align="start">
+                                            <Command>
+                                                <CommandInput placeholder="Tìm tỉnh thành..." />
+                                                <CommandList>
+                                                    <CommandEmpty>Không tìm thấy</CommandEmpty>
+                                                    <CommandGroup>
+                                                        {vnProvinces.map(p => (
+                                                            <CommandItem key={p.code} value={p.name} onSelect={() => { setEditInfoData((prev: any) => ({ ...prev, province: p.name })); setEditProvinceOpen(false); }}>
+                                                                <Check className={`w-3.5 h-3.5 mr-2 ${editInfoData.province === p.name ? 'opacity-100' : 'opacity-0'}`} />
+                                                                {p.name}
+                                                            </CommandItem>
+                                                        ))}
+                                                    </CommandGroup>
+                                                </CommandList>
+                                            </Command>
+                                        </PopoverContent>
+                                    </Popover>
+                                </div>
+                                <div className="space-y-1.5">
+                                    <Label className="text-xs font-semibold text-gray-500 uppercase tracking-wider flex items-center gap-1">
+                                        <CalendarIcon className="w-3 h-3" /> Ngày sinh
+                                    </Label>
+                                    <DatePicker
+                                        value={editInfoData.dateOfBirth ? new Date(editInfoData.dateOfBirth + 'T00:00:00') : undefined}
+                                        onChange={(date) => setEditInfoData((prev: any) => ({ ...prev, dateOfBirth: date ? `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}` : '' }))}
+                                        placeholder="dd/mm/yyyy"
+                                        className="h-10"
+                                    />
+                                </div>
+                            </div>
+
+                            {/* Photos */}
+                            <div className="space-y-3">
+                                <Label className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Hình ảnh</Label>
+                                <div className="grid grid-cols-2 gap-3">
+                                    {/* Personal Photo */}
+                                    <div className="space-y-1.5">
+                                        <span className="text-[11px] text-gray-400 font-medium">Ảnh cá nhân (rõ mặt)</span>
+                                        {editInfoData.personalPhoto ? (
+                                            <div className="relative group">
+                                                <img
+                                                    src={editInfoData.personalPhoto}
+                                                    alt="Ảnh cá nhân"
+                                                    className="w-full aspect-square object-cover rounded-xl border-2 border-emerald-300 cursor-pointer hover:opacity-90 transition-opacity"
+                                                    onClick={() => window.open(editInfoData.personalPhoto, '_blank')}
+                                                />
+                                                <div className="absolute top-1.5 right-1.5 flex gap-1">
+                                                    <label className="w-6 h-6 rounded-full bg-blue-500 text-white flex items-center justify-center shadow-lg hover:bg-blue-600 transition-colors cursor-pointer">
+                                                        <Camera className="w-3 h-3" />
+                                                        <input type="file" accept="image/*" className="hidden" disabled={editUploadingPersonal}
+                                                            onChange={(e) => { const f = e.target.files?.[0]; if (f) handleUploadEditImage(f, 'personalPhoto'); e.target.value = ''; }} />
+                                                    </label>
+                                                    <button type="button" onClick={() => setEditInfoData({ ...editInfoData, personalPhoto: '' })}
+                                                        className="w-6 h-6 rounded-full bg-red-500 text-white flex items-center justify-center shadow-lg hover:bg-red-600 transition-colors">
+                                                        <X className="w-3 h-3" />
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        ) : (
+                                            <label className="cursor-pointer block">
+                                                <div className="flex flex-col items-center justify-center gap-2 p-4 rounded-xl border-2 border-dashed border-gray-200 hover:border-emerald-400 hover:bg-emerald-50/30 transition-all aspect-square">
+                                                    {editUploadingPersonal ? <Loader2 className="w-5 h-5 animate-spin text-emerald-500" /> : <Camera className="w-6 h-6 text-gray-300" />}
+                                                    <span className="text-[10px] text-gray-400 text-center">Tải ảnh cá nhân</span>
+                                                </div>
+                                                <input type="file" accept="image/*" className="hidden" disabled={editUploadingPersonal}
+                                                    onChange={(e) => { const f = e.target.files?.[0]; if (f) handleUploadEditImage(f, 'personalPhoto'); e.target.value = ''; }} />
+                                            </label>
+                                        )}
+                                    </div>
+                                    {/* Team Lineup Photo */}
+                                    <div className="space-y-1.5">
+                                        <span className="text-[11px] text-gray-400 font-medium">Đội hình thẻ thi đấu</span>
+                                        {editInfoData.teamLineupPhoto ? (
+                                            <div className="relative group">
+                                                <img
+                                                    src={editInfoData.teamLineupPhoto}
+                                                    alt="Đội hình"
+                                                    className="w-full aspect-square object-cover rounded-xl border-2 border-emerald-300 cursor-pointer hover:opacity-90 transition-opacity"
+                                                    onClick={() => window.open(editInfoData.teamLineupPhoto, '_blank')}
+                                                />
+                                                <div className="absolute top-1.5 right-1.5 flex gap-1">
+                                                    <label className="w-6 h-6 rounded-full bg-blue-500 text-white flex items-center justify-center shadow-lg hover:bg-blue-600 transition-colors cursor-pointer">
+                                                        <Camera className="w-3 h-3" />
+                                                        <input type="file" accept="image/*" className="hidden" disabled={editUploadingLineup}
+                                                            onChange={(e) => { const f = e.target.files?.[0]; if (f) handleUploadEditImage(f, 'teamLineupPhoto'); e.target.value = ''; }} />
+                                                    </label>
+                                                    <button type="button" onClick={() => setEditInfoData({ ...editInfoData, teamLineupPhoto: '' })}
+                                                        className="w-6 h-6 rounded-full bg-red-500 text-white flex items-center justify-center shadow-lg hover:bg-red-600 transition-colors">
+                                                        <X className="w-3 h-3" />
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        ) : (
+                                            <label className="cursor-pointer block">
+                                                <div className="flex flex-col items-center justify-center gap-2 p-4 rounded-xl border-2 border-dashed border-gray-200 hover:border-emerald-400 hover:bg-emerald-50/30 transition-all aspect-square">
+                                                    {editUploadingLineup ? <Loader2 className="w-5 h-5 animate-spin text-emerald-500" /> : <ImageIcon className="w-6 h-6 text-gray-300" />}
+                                                    <span className="text-[10px] text-gray-400 text-center">Tải ảnh đội hình</span>
+                                                </div>
+                                                <input type="file" accept="image/*" className="hidden" disabled={editUploadingLineup}
+                                                    onChange={(e) => { const f = e.target.files?.[0]; if (f) handleUploadEditImage(f, 'teamLineupPhoto'); e.target.value = ''; }} />
+                                            </label>
+                                        )}
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Notes */}
+                            <div className="space-y-1.5">
+                                <Label className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Ghi chú</Label>
+                                <textarea
+                                    value={editInfoData.notes}
+                                    onChange={(e) => setEditInfoData({ ...editInfoData, notes: e.target.value })}
+                                    placeholder="Ghi chú thêm..."
+                                    rows={2}
+                                    className="w-full rounded-xl border border-gray-200 p-3 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-400 transition-all"
+                                />
+                            </div>
+
+                            {/* Approved warning */}
+                            {editInfoReg.status === "approved" && (
+                                <div className="p-3 rounded-xl bg-blue-50 border border-blue-200 text-xs text-blue-700 flex items-start gap-2">
+                                    <AlertCircle className="w-4 h-4 mt-0.5 flex-shrink-0" />
+                                    <div>
+                                        <p className="font-bold">VĐV đã được duyệt</p>
+                                        <p className="mt-0.5">Thay đổi tên đội hoặc viết tắt sẽ được đồng bộ sang Team trong giải đấu.</p>
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* Actions */}
+                            <div className="flex gap-3 pt-2">
+                                <Button
+                                    variant="outline"
+                                    className="flex-1 rounded-xl h-11 text-sm"
+                                    onClick={() => setEditInfoReg(null)}
+                                >
+                                    Hủy
+                                </Button>
+                                <Button
+                                    onClick={handleSaveEditInfo}
+                                    disabled={isSavingInfo}
+                                    className="flex-1 rounded-xl h-11 text-sm bg-emerald-500 text-white hover:bg-emerald-600 font-bold"
+                                >
+                                    {isSavingInfo ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <CheckCircle2 className="w-4 h-4 mr-2" />}
+                                    Lưu thay đổi
                                 </Button>
                             </div>
                         </div>

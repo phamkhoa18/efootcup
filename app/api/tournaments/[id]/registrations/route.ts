@@ -11,7 +11,7 @@ interface RouteParams {
     params: Promise<{ id: string }>;
 }
 
-// GET /api/tournaments/[id]/registrations — Get registrations
+// GET /api/tournaments/[id]/registrations — Get registrations (supports pagination)
 export async function GET(req: NextRequest, { params }: RouteParams) {
     try {
         await dbConnect();
@@ -25,10 +25,70 @@ export async function GET(req: NextRequest, { params }: RouteParams) {
 
         const { searchParams } = new URL(req.url);
         const status = searchParams.get("status");
+        const pageParam = searchParams.get("page");
+        const limitParam = searchParams.get("limit");
+        const search = (searchParams.get("search") || "").trim();
 
         const query: any = { tournament: id };
-        if (status) query.status = status;
+        if (status && status !== "all") query.status = status;
 
+        // If page param exists, do paginated query with search
+        if (pageParam) {
+            const page = Math.max(1, parseInt(pageParam));
+            const limit = Math.min(200, Math.max(1, parseInt(limitParam || "50")));
+
+            // Add search filter
+            if (search) {
+                const searchRegex = new RegExp(search, "i");
+                query.$or = [
+                    { playerName: searchRegex },
+                    { teamName: searchRegex },
+                    { email: searchRegex },
+                    { phone: searchRegex },
+                    { gamerId: searchRegex },
+                    { nickname: searchRegex },
+                    { facebookName: searchRegex },
+                    { province: searchRegex },
+                    { ingameId: searchRegex },
+                ];
+            }
+
+            const total = await Registration.countDocuments(query);
+            const totalPages = Math.ceil(total / limit);
+            const skip = (page - 1) * limit;
+
+            const registrations = await Registration.find(query)
+                .populate("user", "name email avatar gamerId efvId")
+                .populate("approvedBy", "name")
+                .sort({ createdAt: -1 })
+                .skip(skip)
+                .limit(limit)
+                .lean();
+
+            // Get stats from unfiltered data (same tournament)
+            const statsQuery: any = { tournament: id };
+            const allCount = await Registration.countDocuments(statsQuery);
+            const pendingCount = await Registration.countDocuments({ ...statsQuery, status: "pending" });
+            const approvedCount = await Registration.countDocuments({ ...statsQuery, status: "approved" });
+            const rejectedCount = await Registration.countDocuments({ ...statsQuery, status: "rejected" });
+            const paidCount = await Registration.countDocuments({ ...statsQuery, paymentStatus: "paid" });
+            const pendingPaymentCount = await Registration.countDocuments({ ...statsQuery, paymentStatus: "pending_verification" });
+
+            return apiResponse({
+                registrations,
+                pagination: { page, limit, total, totalPages },
+                stats: {
+                    total: allCount,
+                    pending: pendingCount,
+                    approved: approvedCount,
+                    rejected: rejectedCount,
+                    paid: paidCount,
+                    pendingPayment: pendingPaymentCount,
+                },
+            });
+        }
+
+        // Non-paginated (legacy): return all
         const registrations = await Registration.find(query)
             .populate("user", "name email avatar gamerId efvId")
             .populate("approvedBy", "name")
@@ -338,6 +398,47 @@ export async function PUT(req: NextRequest, { params }: RouteParams) {
 
             console.log(`💰 Manager updated reg ${registrationId} payment: ${oldPaymentStatus} → ${newPaymentStatus}`);
             return apiResponse(registration, 200, `Đã cập nhật thanh toán: ${oldPaymentStatus} → ${newPaymentStatus}`);
+        } else if (action === "update_info") {
+            // Manager updates registration info (player name, team name, gamer ID, phone, email, etc.)
+            const allowedFields = [
+                "playerName", "teamName", "teamShortName", "gamerId",
+                "phone", "email", "nickname", "facebookName", "facebookLink",
+                "province", "dateOfBirth", "notes",
+                "personalPhoto", "teamLineupPhoto"
+            ];
+
+            const updates: any = {};
+            for (const field of allowedFields) {
+                if (body[field] !== undefined) {
+                    updates[field] = body[field];
+                }
+            }
+
+            if (Object.keys(updates).length === 0) {
+                return apiError("Không có thông tin nào để cập nhật", 400);
+            }
+
+            // Validate required fields if they are being updated
+            if (updates.playerName !== undefined && !updates.playerName.trim()) {
+                return apiError("Tên VĐV không được để trống", 400);
+            }
+
+            // Apply updates
+            Object.assign(registration, updates);
+            await registration.save();
+
+            // If registration is approved and team exists, sync team name/shortName
+            if (registration.status === "approved" && registration.team) {
+                const teamUpdates: any = {};
+                if (updates.teamName) teamUpdates.name = updates.teamName;
+                if (updates.teamShortName) teamUpdates.shortName = updates.teamShortName;
+                if (Object.keys(teamUpdates).length > 0) {
+                    await Team.findByIdAndUpdate(registration.team, teamUpdates);
+                }
+            }
+
+            console.log(`📝 Manager updated reg ${registrationId} info:`, Object.keys(updates));
+            return apiResponse(registration, 200, "Đã cập nhật thông tin đăng ký");
         }
 
         return apiResponse(registration, 200, `${action === "approve" ? "Phê duyệt" : "Từ chối"} thành công`);

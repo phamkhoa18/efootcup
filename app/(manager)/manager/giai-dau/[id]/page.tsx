@@ -330,6 +330,14 @@ export default function TournamentDetailPage() {
                             )}
                         </Button>
                     )}
+                    <Button
+                        onClick={() => router.push(`/manager/giai-dau/${id}/chinh-sua`)}
+                        variant="outline"
+                        className="rounded-xl h-9 px-4 text-sm"
+                    >
+                        <Edit3 className="w-3.5 h-3.5 mr-1.5" />
+                        Chỉnh sửa
+                    </Button>
                     {t.efvPointsAwarded && (
                         <span className="inline-flex items-center gap-1.5 text-xs font-medium text-emerald-600 bg-emerald-50 px-3 py-1.5 rounded-xl">
                             <CheckCircle2 className="w-3.5 h-3.5" />
