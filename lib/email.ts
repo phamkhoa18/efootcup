@@ -205,8 +205,8 @@ export async function sendResetPasswordEmail(
 ): Promise<{ success: boolean; previewUrl?: string }> {
     try {
         const config = await getSmtpConfig();
-        if (!config.emailEnabled && !config.smtpHost) {
-            console.log("Email not configured, skipping reset password email");
+        if (!config.smtpHost || !config.smtpUser) {
+            console.log("SMTP not configured, skipping reset password email");
             return { success: false };
         }
 
@@ -319,8 +319,8 @@ export async function sendNotificationEmail(
 ): Promise<{ success: boolean }> {
     try {
         const config = await getSmtpConfig();
-        if (!config.emailEnabled && !config.smtpHost) {
-            console.log("Email not configured, skipping notification email");
+        if (!config.smtpHost || !config.smtpUser) {
+            console.log("SMTP not configured, skipping notification email");
             return { success: false };
         }
 
@@ -406,8 +406,8 @@ export async function sendPaymentInvoiceEmail(
 ): Promise<{ success: boolean; previewUrl?: string }> {
     try {
         const config = await getSmtpConfig();
-        if (!config.emailEnabled && !config.smtpHost) {
-            console.log("Email not configured, skipping invoice email");
+        if (!config.smtpHost || !config.smtpUser) {
+            console.log("SMTP not configured, skipping invoice email");
             return { success: false };
         }
 

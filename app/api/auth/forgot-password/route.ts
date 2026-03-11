@@ -36,6 +36,7 @@ export async function POST(req: NextRequest) {
             });
 
             // Send email with reset code
+            console.log(`[RESET PASSWORD] Attempting to send reset code to ${email}`);
             const emailResult = await sendResetPasswordEmail(
                 user.email,
                 user.name,
@@ -43,11 +44,11 @@ export async function POST(req: NextRequest) {
             );
 
             if (!emailResult.success) {
-                console.error(`Failed to send reset password email to ${email}`);
-                return apiError("Không thể gửi email. Vui lòng thử lại sau.", 500);
+                console.error(`[RESET PASSWORD] Failed to send email to ${email}. Check SMTP configuration in admin settings.`);
+                return apiError("Không thể gửi email. Vui lòng thử lại sau hoặc liên hệ admin.", 500);
             }
 
-            console.log(`[RESET PASSWORD] Email sent to ${email}`);
+            console.log(`[RESET PASSWORD] Email sent successfully to ${email}`);
 
             return apiResponse(
                 { sent: true },
