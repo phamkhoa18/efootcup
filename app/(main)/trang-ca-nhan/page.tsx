@@ -13,7 +13,7 @@ import {
     Trophy, Swords, Target, CalendarDays, Edit3, X,
     Clock, ExternalLink, ChevronRight, Activity, XCircle, Upload,
     Star, Crown, Medal, Award, TrendingUp, Hash, ChevronDown, Monitor, Smartphone,
-    MapPin, Globe, Facebook
+    MapPin, Globe, Facebook, Lock, MessageCircle
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -938,7 +938,7 @@ export default function TrangCaNhanPage() {
                                                                                         {" "}{opponent?.shortName || "ĐỐI THỦ"}
                                                                                     </p>
                                                                                 </div>
-                                                                                <span className="text-[9px] font-bold text-blue-400 bg-blue-100 px-2 py-0.5 rounded-full">🔒 Đã khóa</span>
+                                                                                <span className="inline-flex items-center gap-1 text-[9px] font-bold text-blue-400 bg-blue-100 px-2 py-0.5 rounded-full"><Lock className="w-2.5 h-2.5" /> Đã khóa</span>
                                                                             </div>
                                                                             {myExistingSub && myExistingSub.screenshots?.length > 0 && (
                                                                                 <div className="flex gap-1.5 flex-wrap px-1">
@@ -967,10 +967,10 @@ export default function TrangCaNhanPage() {
                                                                                         {" "}{opponent?.shortName || "ĐỐI THỦ"}
                                                                                     </p>
                                                                                 </div>
-                                                                                <span className="text-[9px] font-bold text-emerald-400 bg-emerald-100 px-2 py-0.5 rounded-full">🔒 Đã gửi</span>
+                                                                                <span className="inline-flex items-center gap-1 text-[9px] font-bold text-emerald-400 bg-emerald-100 px-2 py-0.5 rounded-full"><Lock className="w-2.5 h-2.5" /> Đã gửi</span>
                                                                             </div>
                                                                             {myExistingSub.notes && (
-                                                                                <p className="text-[10px] text-gray-500 italic px-1">💬 {myExistingSub.notes}</p>
+                                                                                <p className="text-[10px] text-gray-500 italic px-1 flex items-center gap-1"><MessageCircle className="w-3 h-3 text-gray-400 flex-shrink-0" /> {myExistingSub.notes}</p>
                                                                             )}
                                                                             {myExistingSub.screenshots?.length > 0 && (
                                                                                 <div className="flex gap-1.5 flex-wrap px-1">
@@ -1130,9 +1130,10 @@ export default function TrangCaNhanPage() {
                                         placeholder="Nguyễn Văn A"
                                     />
                                 ) : (
-                                    <p className="h-11 flex items-center text-sm text-gray-900 px-3 bg-gray-50/50 rounded-xl border border-gray-100">
-                                        {user.name || "—"}
-                                    </p>
+                                    <button type="button" onClick={() => setIsEditing(true)} className="w-full h-11 flex items-center text-sm text-gray-900 px-3 bg-gray-50/50 rounded-xl border border-gray-100 hover:border-efb-blue/40 hover:bg-blue-50/20 transition-all group cursor-pointer">
+                                        <span className="flex-1 text-left truncate">{user.name || "—"}</span>
+                                        <Edit3 className="w-3.5 h-3.5 text-gray-300 group-hover:text-efb-blue transition-colors flex-shrink-0" />
+                                    </button>
                                 )}
                             </div>
 
@@ -1152,9 +1153,10 @@ export default function TrangCaNhanPage() {
                                         maxLength={50}
                                     />
                                 ) : (
-                                    <p className="h-11 flex items-center text-sm text-gray-900 px-3 bg-gray-50/50 rounded-xl border border-gray-100">
-                                        {user.nickname || <span className="text-gray-400">Chưa cập nhật</span>}
-                                    </p>
+                                    <button type="button" onClick={() => setIsEditing(true)} className="w-full h-11 flex items-center text-sm px-3 bg-gray-50/50 rounded-xl border border-gray-100 hover:border-efb-blue/40 hover:bg-blue-50/20 transition-all group cursor-pointer">
+                                        <span className={`flex-1 text-left truncate ${user.nickname ? 'text-gray-900' : 'text-gray-400'}`}>{user.nickname || "Chưa cập nhật"}</span>
+                                        <Edit3 className="w-3.5 h-3.5 text-gray-300 group-hover:text-efb-blue transition-colors flex-shrink-0" />
+                                    </button>
                                 )}
                             </div>
 
@@ -1187,9 +1189,10 @@ export default function TrangCaNhanPage() {
                                         placeholder="0912 345 678"
                                     />
                                 ) : (
-                                    <p className="h-11 flex items-center text-sm text-gray-900 px-3 bg-gray-50/50 rounded-xl border border-gray-100">
-                                        {user.phone || <span className="text-gray-400">Chưa cập nhật</span>}
-                                    </p>
+                                    <button type="button" onClick={() => setIsEditing(true)} className="w-full h-11 flex items-center text-sm px-3 bg-gray-50/50 rounded-xl border border-gray-100 hover:border-efb-blue/40 hover:bg-blue-50/20 transition-all group cursor-pointer">
+                                        <span className={`flex-1 text-left truncate ${user.phone ? 'text-gray-900' : 'text-gray-400'}`}>{user.phone || "Chưa cập nhật"}</span>
+                                        <Edit3 className="w-3.5 h-3.5 text-gray-300 group-hover:text-efb-blue transition-colors flex-shrink-0" />
+                                    </button>
                                 )}
                             </div>
 
@@ -1208,9 +1211,10 @@ export default function TrangCaNhanPage() {
                                         placeholder="VD: 1234567890"
                                     />
                                 ) : (
-                                    <p className="h-11 flex items-center text-sm text-gray-900 px-3 bg-gray-50/50 rounded-xl border border-gray-100">
-                                        {user.gamerId || <span className="text-gray-400">Chưa cập nhật</span>}
-                                    </p>
+                                    <button type="button" onClick={() => setIsEditing(true)} className="w-full h-11 flex items-center text-sm px-3 bg-gray-50/50 rounded-xl border border-gray-100 hover:border-efb-blue/40 hover:bg-blue-50/20 transition-all group cursor-pointer">
+                                        <span className={`flex-1 text-left truncate ${user.gamerId ? 'text-gray-900' : 'text-gray-400'}`}>{user.gamerId || "Chưa cập nhật"}</span>
+                                        <Edit3 className="w-3.5 h-3.5 text-gray-300 group-hover:text-efb-blue transition-colors flex-shrink-0" />
+                                    </button>
                                 )}
                             </div>
 
@@ -1230,9 +1234,10 @@ export default function TrangCaNhanPage() {
                                         maxLength={100}
                                     />
                                 ) : (
-                                    <p className="h-11 flex items-center text-sm text-gray-900 px-3 bg-gray-50/50 rounded-xl border border-gray-100">
-                                        {user.teamName || <span className="text-gray-400">Chưa cập nhật</span>}
-                                    </p>
+                                    <button type="button" onClick={() => setIsEditing(true)} className="w-full h-11 flex items-center text-sm px-3 bg-gray-50/50 rounded-xl border border-gray-100 hover:border-efb-blue/40 hover:bg-blue-50/20 transition-all group cursor-pointer">
+                                        <span className={`flex-1 text-left truncate ${user.teamName ? 'text-gray-900' : 'text-gray-400'}`}>{user.teamName || "Chưa cập nhật"}</span>
+                                        <Edit3 className="w-3.5 h-3.5 text-gray-300 group-hover:text-efb-blue transition-colors flex-shrink-0" />
+                                    </button>
                                 )}
                             </div>
 
@@ -1251,9 +1256,10 @@ export default function TrangCaNhanPage() {
                                         placeholder="Tên Facebook của bạn"
                                     />
                                 ) : (
-                                    <p className="h-11 flex items-center text-sm text-gray-900 px-3 bg-gray-50/50 rounded-xl border border-gray-100">
-                                        {user.facebookName || <span className="text-gray-400">Chưa cập nhật</span>}
-                                    </p>
+                                    <button type="button" onClick={() => setIsEditing(true)} className="w-full h-11 flex items-center text-sm px-3 bg-gray-50/50 rounded-xl border border-gray-100 hover:border-efb-blue/40 hover:bg-blue-50/20 transition-all group cursor-pointer">
+                                        <span className={`flex-1 text-left truncate ${user.facebookName ? 'text-gray-900' : 'text-gray-400'}`}>{user.facebookName || "Chưa cập nhật"}</span>
+                                        <Edit3 className="w-3.5 h-3.5 text-gray-300 group-hover:text-efb-blue transition-colors flex-shrink-0" />
+                                    </button>
                                 )}
                             </div>
 
@@ -1272,13 +1278,10 @@ export default function TrangCaNhanPage() {
                                         placeholder="https://facebook.com/yourprofile"
                                     />
                                 ) : (
-                                    <p className="h-11 flex items-center text-sm px-3 bg-gray-50/50 rounded-xl border border-gray-100">
-                                        {user.facebookLink ? (
-                                            <a href={user.facebookLink} target="_blank" rel="noopener" className="text-blue-600 hover:underline truncate">{user.facebookLink}</a>
-                                        ) : (
-                                            <span className="text-gray-400">Chưa cập nhật</span>
-                                        )}
-                                    </p>
+                                    <button type="button" onClick={() => setIsEditing(true)} className="w-full h-11 flex items-center text-sm px-3 bg-gray-50/50 rounded-xl border border-gray-100 hover:border-efb-blue/40 hover:bg-blue-50/20 transition-all group cursor-pointer">
+                                        <span className={`flex-1 text-left truncate ${user.facebookLink ? 'text-blue-600' : 'text-gray-400'}`}>{user.facebookLink || "Chưa cập nhật"}</span>
+                                        <Edit3 className="w-3.5 h-3.5 text-gray-300 group-hover:text-efb-blue transition-colors flex-shrink-0" />
+                                    </button>
                                 )}
                             </div>
 
@@ -1297,9 +1300,10 @@ export default function TrangCaNhanPage() {
                                         className="h-11 rounded-xl border-gray-200 bg-white focus:border-efb-blue focus:ring-efb-blue/20"
                                     />
                                 ) : (
-                                    <p className="h-11 flex items-center text-sm text-gray-900 px-3 bg-gray-50/50 rounded-xl border border-gray-100">
-                                        {user.dateOfBirth ? new Date(user.dateOfBirth).toLocaleDateString("vi-VN") : <span className="text-gray-400">Chưa cập nhật</span>}
-                                    </p>
+                                    <button type="button" onClick={() => setIsEditing(true)} className="w-full h-11 flex items-center text-sm px-3 bg-gray-50/50 rounded-xl border border-gray-100 hover:border-efb-blue/40 hover:bg-blue-50/20 transition-all group cursor-pointer">
+                                        <span className={`flex-1 text-left truncate ${user.dateOfBirth ? 'text-gray-900' : 'text-gray-400'}`}>{user.dateOfBirth ? new Date(user.dateOfBirth).toLocaleDateString("vi-VN") : "Chưa cập nhật"}</span>
+                                        <Edit3 className="w-3.5 h-3.5 text-gray-300 group-hover:text-efb-blue transition-colors flex-shrink-0" />
+                                    </button>
                                 )}
                             </div>
 
@@ -1318,9 +1322,10 @@ export default function TrangCaNhanPage() {
                                         placeholder="VD: TP. Hồ Chí Minh"
                                     />
                                 ) : (
-                                    <p className="h-11 flex items-center text-sm text-gray-900 px-3 bg-gray-50/50 rounded-xl border border-gray-100">
-                                        {user.province || <span className="text-gray-400">Chưa cập nhật</span>}
-                                    </p>
+                                    <button type="button" onClick={() => setIsEditing(true)} className="w-full h-11 flex items-center text-sm px-3 bg-gray-50/50 rounded-xl border border-gray-100 hover:border-efb-blue/40 hover:bg-blue-50/20 transition-all group cursor-pointer">
+                                        <span className={`flex-1 text-left truncate ${user.province ? 'text-gray-900' : 'text-gray-400'}`}>{user.province || "Chưa cập nhật"}</span>
+                                        <Edit3 className="w-3.5 h-3.5 text-gray-300 group-hover:text-efb-blue transition-colors flex-shrink-0" />
+                                    </button>
                                 )}
                             </div>
 
@@ -1341,9 +1346,10 @@ export default function TrangCaNhanPage() {
                                         placeholder="Viết vài dòng giới thiệu về bản thân..."
                                     />
                                 ) : (
-                                    <p className="min-h-[66px] flex items-start text-sm text-gray-900 px-3 py-2.5 bg-gray-50/50 rounded-xl border border-gray-100 whitespace-pre-wrap">
-                                        {user.bio || <span className="text-gray-400">Chưa cập nhật</span>}
-                                    </p>
+                                    <button type="button" onClick={() => setIsEditing(true)} className="w-full min-h-[66px] flex items-start text-sm px-3 py-2.5 bg-gray-50/50 rounded-xl border border-gray-100 hover:border-efb-blue/40 hover:bg-blue-50/20 transition-all group cursor-pointer text-left">
+                                        <span className={`flex-1 whitespace-pre-wrap ${user.bio ? 'text-gray-900' : 'text-gray-400'}`}>{user.bio || "Chưa cập nhật"}</span>
+                                        <Edit3 className="w-3.5 h-3.5 text-gray-300 group-hover:text-efb-blue transition-colors flex-shrink-0 mt-0.5 ml-2" />
+                                    </button>
                                 )}
                                 {isEditing && (
                                     <p className="text-xs text-gray-400 text-right">{form.bio.length}/500</p>
