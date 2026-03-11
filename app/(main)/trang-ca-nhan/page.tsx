@@ -16,6 +16,7 @@ import {
     MapPin, Globe, Facebook, Lock, MessageCircle
 } from "lucide-react";
 import { toast } from "sonner";
+import MatchCard from "@/components/profile/MatchCard";
 
 import { useAuth } from "@/contexts/AuthContext";
 import { authAPI } from "@/lib/api";
@@ -832,232 +833,35 @@ export default function TrangCaNhanPage() {
                                 {participation.matches.upcoming.length > 0 && (
                                     <div className="space-y-3">
                                         <div className="flex items-center justify-between px-1">
-                                            <p className="text-xs font-black text-gray-400 uppercase tracking-widest">Sắp tới & Trực tiếp</p>
-                                            <span className="text-[10px] font-bold text-red-500 bg-red-50 px-2 py-0.5 rounded-full animate-pulse">LIVE & SOON</span>
+                                            <p className="text-[10px] font-medium text-gray-400 uppercase tracking-[0.1em]">Sắp tới & Trực tiếp</p>
+                                            <span className="text-[9px] font-bold text-red-500 bg-red-50 px-2 py-0.5 rounded-full animate-pulse">LIVE & SOON</span>
                                         </div>
                                         <div className="grid grid-cols-1 gap-3">
                                             {participation.matches.upcoming.map((match: any) => {
-                                                const opponent = match.homeTeam?._id === participation.joined.find((j: any) => j._id === match.tournament?._id)?.teamId
-                                                    ? match.awayTeam : match.homeTeam;
-                                                const myTeam = match.homeTeam?._id === participation.joined.find((j: any) => j._id === match.tournament?._id)?.teamId
-                                                    ? match.homeTeam : match.awayTeam;
+                                                const myTeamId = participation.joined.find((j: any) => j._id === match.tournament?._id)?.teamId;
+                                                const isHomeTeamMine = match.homeTeam?._id?.toString?.() === myTeamId?.toString?.();
+                                                const myTeam = isHomeTeamMine ? match.homeTeam : match.awayTeam;
+                                                const opponent = isHomeTeamMine ? match.awayTeam : match.homeTeam;
 
                                                 return (
-                                                    <div
+                                                    <MatchCard
                                                         key={match._id}
-                                                        className="relative bg-white border border-gray-200 rounded-2xl p-4 hover:shadow-lg transition-all overflow-hidden group"
-                                                    >
-                                                        {/* Match Info Header */}
-                                                        <div className="flex items-center justify-between mb-4">
-                                                            <Link href={`/giai-dau/${match.tournament?.slug || match.tournament?._id}`} className="flex items-center gap-2 hover:text-efb-blue transition-colors">
-                                                                <Trophy className="w-3.5 h-3.5 text-amber-500" />
-                                                                <span className="text-[11px] font-medium uppercase tracking-tight text-gray-400 truncate max-w-[150px]">
-                                                                    {match.tournament?.title}
-                                                                </span>
-                                                            </Link>
-                                                            <div className="flex items-center gap-2">
-                                                                <span className="text-[10px] font-bold text-efb-blue bg-blue-50 px-2 py-0.5 rounded-md">
-                                                                    {match.roundName || `Vòng ${match.round}`}
-                                                                </span>
-                                                                {match.status === 'live' && (
-                                                                    <span className="flex items-center gap-1 text-[10px] font-bold text-red-600 bg-red-50 px-2 py-0.5 rounded-full">
-                                                                        <Activity className="w-2.5 h-2.5" /> LIVE
-                                                                    </span>
-                                                                )}
-                                                            </div>
-                                                        </div>
-
-                                                        {/* Team Comparison */}
-                                                        <div className="flex items-center justify-between gap-4">
-                                                            {/* User Team */}
-                                                            <div className="flex-1 text-center">
-                                                                <div className="w-12 h-12 mx-auto mb-2 rounded-xl bg-gray-50 flex items-center justify-center p-2 group-hover:scale-110 transition-transform">
-                                                                    {myTeam?.logo ? <img src={myTeam.logo} className="w-9 h-9 object-contain" /> : <Shield className="w-6 h-6 text-gray-300" />}
-                                                                </div>
-                                                                <p className="text-[9px] font-semibold text-gray-400 truncate tracking-tight uppercase">BẠN</p>
-                                                                <p className="text-[11px] font-semibold text-gray-900 truncate uppercase mt-0.5">{myTeam?.shortName || myTeam?.name}</p>
-                                                            </div>
-
-                                                            {/* VS/Result */}
-                                                            <div className="flex flex-col items-center justify-center gap-1.5 px-4 min-w-[100px]">
-                                                                {match.status === 'live' || match.status === 'completed' ? (
-                                                                    <div className="flex items-center gap-3">
-                                                                        <span className="text-2xl font-bold text-gray-900">{match.homeScore ?? 0}</span>
-                                                                        <span className="text-gray-200">/</span>
-                                                                        <span className="text-2xl font-bold text-gray-900">{match.awayScore ?? 0}</span>
-                                                                    </div>
-                                                                ) : (
-                                                                    <div className="flex flex-col items-center">
-                                                                        <span className="text-[9px] font-bold text-efb-blue uppercase tracking-tighter bg-blue-50 px-2.5 py-1 rounded-md mb-1">VS</span>
-                                                                        <div className="flex items-center gap-1.5 text-gray-400">
-                                                                            <Clock className="w-3 h-3" />
-                                                                            <span className="text-xs font-semibold">
-                                                                                {match.scheduledAt ? new Date(match.scheduledAt).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }) : 'TBD'}
-                                                                            </span>
-                                                                        </div>
-                                                                        <span className="text-[9px] text-gray-400 mt-1 font-medium">
-                                                                            {match.scheduledAt ? new Date(match.scheduledAt).toLocaleDateString('vi-VN') : 'Sắp diễn ra'}
-                                                                        </span>
-                                                                    </div>
-                                                                )}
-                                                            </div>
-
-                                                            {/* Opponent */}
-                                                            <div className="flex-1 text-center">
-                                                                <div className="w-12 h-12 mx-auto mb-2 rounded-xl bg-gray-50 flex items-center justify-center p-2 group-hover:scale-110 transition-transform">
-                                                                    {opponent?.logo ? <img src={opponent.logo} className="w-full h-full object-contain" /> : <div className="w-full h-full flex items-center justify-center text-gray-300 font-bold">?</div>}
-                                                                </div>
-                                                                <p className="text-[9px] font-semibold text-gray-400 truncate tracking-tight uppercase">ĐỐI THỦ</p>
-                                                                <p className="text-[11px] font-semibold text-gray-900 truncate uppercase mt-0.5">{opponent?.shortName || opponent?.name || 'Đang cập nhật'}</p>
-                                                            </div>
-                                                        </div>
-
-                                                        {/* Action Footer */}
-                                                        <div className="mt-5 pt-3 border-t border-gray-50">
-                                                            {(() => {
-                                                                const isHome = match.homeTeam?._id?.toString?.() === myTeam?._id?.toString?.();
-                                                                const hasOfficialScore = match.homeScore !== null && match.homeScore !== undefined && match.awayScore !== null && match.awayScore !== undefined;
-                                                                const myExistingSub = match.resultSubmissions?.find(
-                                                                    (s: any) => s.user?.toString?.() === user?._id?.toString?.() || s.user?._id?.toString?.() === user?._id?.toString?.()
-                                                                );
-                                                                const isLocked = match.status === "completed" || hasOfficialScore || !!myExistingSub;
-
-                                                                // STATE 1: Match completed or manager set official scores
-                                                                if (match.status === "completed" || hasOfficialScore) {
-                                                                    return (
-                                                                        <div className="space-y-2">
-                                                                            <div className="flex items-center gap-2 px-3 py-2.5 bg-blue-50 border border-blue-200 rounded-xl">
-                                                                                <CheckCircle2 className="w-4 h-4 text-blue-500 flex-shrink-0" />
-                                                                                <div className="flex-1">
-                                                                                    <p className="text-[11px] font-bold text-blue-700">Kết quả chính thức</p>
-                                                                                    <p className="text-sm text-blue-800 font-black">
-                                                                                        {myTeam?.shortName || "BẠN"}{" "}
-                                                                                        <span>{isHome ? match.homeScore : match.awayScore}</span>
-                                                                                        {" — "}
-                                                                                        <span>{isHome ? match.awayScore : match.homeScore}</span>
-                                                                                        {" "}{opponent?.shortName || "ĐỐI THỦ"}
-                                                                                    </p>
-                                                                                </div>
-                                                                                <span className="inline-flex items-center gap-1 text-[9px] font-bold text-blue-400 bg-blue-100 px-2 py-0.5 rounded-full"><Lock className="w-2.5 h-2.5" /> Đã khóa</span>
-                                                                            </div>
-                                                                            {myExistingSub && myExistingSub.screenshots?.length > 0 && (
-                                                                                <div className="flex gap-1.5 flex-wrap px-1">
-                                                                                    {myExistingSub.screenshots.map((s: string, si: number) => (
-                                                                                        <img key={si} src={s} alt="Minh chứng" className="w-12 h-12 rounded-lg object-cover border border-gray-200 cursor-pointer hover:opacity-80" onClick={() => window.open(s, "_blank")} />
-                                                                                    ))}
-                                                                                </div>
-                                                                            )}
-                                                                        </div>
-                                                                    );
-                                                                }
-
-                                                                // STATE 2: User already submitted → show locked result with screenshots
-                                                                if (myExistingSub) {
-                                                                    return (
-                                                                        <div className="space-y-2">
-                                                                            <div className="flex items-center gap-2 px-3 py-2.5 bg-emerald-50 border border-emerald-200 rounded-xl">
-                                                                                <CheckCircle2 className="w-4 h-4 text-emerald-500 flex-shrink-0" />
-                                                                                <div className="flex-1">
-                                                                                    <p className="text-[11px] font-bold text-emerald-700">Đã gửi kết quả — chờ quản lý duyệt</p>
-                                                                                    <p className="text-sm text-emerald-800 font-black">
-                                                                                        {myTeam?.shortName || "BẠN"}{" "}
-                                                                                        <span>{isHome ? myExistingSub.homeScore : myExistingSub.awayScore}</span>
-                                                                                        {" — "}
-                                                                                        <span>{isHome ? myExistingSub.awayScore : myExistingSub.homeScore}</span>
-                                                                                        {" "}{opponent?.shortName || "ĐỐI THỦ"}
-                                                                                    </p>
-                                                                                </div>
-                                                                                <span className="inline-flex items-center gap-1 text-[9px] font-bold text-emerald-400 bg-emerald-100 px-2 py-0.5 rounded-full"><Lock className="w-2.5 h-2.5" /> Đã gửi</span>
-                                                                            </div>
-                                                                            {myExistingSub.notes && (
-                                                                                <p className="text-[10px] text-gray-500 italic px-1 flex items-center gap-1"><MessageCircle className="w-3 h-3 text-gray-400 flex-shrink-0" /> {myExistingSub.notes}</p>
-                                                                            )}
-                                                                            {myExistingSub.screenshots?.length > 0 && (
-                                                                                <div className="flex gap-1.5 flex-wrap px-1">
-                                                                                    <p className="text-[9px] text-gray-400 font-semibold w-full mb-0.5">Ảnh minh chứng:</p>
-                                                                                    {myExistingSub.screenshots.map((s: string, si: number) => (
-                                                                                        <img key={si} src={s} alt="Minh chứng" className="w-14 h-14 rounded-lg object-cover border-2 border-emerald-200 cursor-pointer hover:opacity-80 hover:shadow-md transition-all" onClick={() => window.open(s, "_blank")} />
-                                                                                    ))}
-                                                                                </div>
-                                                                            )}
-                                                                            <div className="flex justify-end">
-                                                                                <Link href={`/giai-dau/${match.tournament?.slug || match.tournament?._id}?tab=schedule`} className="flex items-center gap-1 text-[10px] font-medium text-gray-400 hover:text-efb-blue">
-                                                                                    Chi tiết <ChevronRight className="w-3 h-3" />
-                                                                                </Link>
-                                                                            </div>
-                                                                        </div>
-                                                                    );
-                                                                }
-
-                                                                // STATE 3: Not submitted yet → show form or button
-                                                                if (submitMatchId === match._id) {
-                                                                    return (
-                                                                        <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} className="space-y-4">
-                                                                            <div className="flex items-center justify-between">
-                                                                                <h4 className="text-xs font-bold text-gray-700 flex items-center gap-1.5"><Upload className="w-3.5 h-3.5 text-efb-blue" /> Gửi kết quả</h4>
-                                                                                <button onClick={() => { setSubmitMatchId(null); setSubmitHomeScore(""); setSubmitAwayScore(""); setSubmitNotes(""); setSubmitScreenshots([]); }} className="text-gray-400 hover:text-gray-600"><X className="w-4 h-4" /></button>
-                                                                            </div>
-                                                                            <div className="flex items-center justify-center gap-3">
-                                                                                <div className="text-center">
-                                                                                    <p className="text-[9px] font-bold text-gray-400 mb-1 uppercase">{myTeam?.shortName || "BẠN"}</p>
-                                                                                    <input type="number" min="0" max="99" value={submitHomeScore} onChange={e => setSubmitHomeScore(e.target.value)} className="w-16 h-12 text-center text-xl font-black rounded-xl border-2 border-gray-200 focus:border-efb-blue outline-none bg-white" placeholder="0" />
-                                                                                </div>
-                                                                                <span className="text-xl font-light text-gray-200 mt-4">—</span>
-                                                                                <div className="text-center">
-                                                                                    <p className="text-[9px] font-bold text-gray-400 mb-1 uppercase">{opponent?.shortName || "ĐỐI THỦ"}</p>
-                                                                                    <input type="number" min="0" max="99" value={submitAwayScore} onChange={e => setSubmitAwayScore(e.target.value)} className="w-16 h-12 text-center text-xl font-black rounded-xl border-2 border-gray-200 focus:border-efb-blue outline-none bg-white" placeholder="0" />
-                                                                                </div>
-                                                                            </div>
-                                                                            <div>
-                                                                                <label className="text-[10px] font-semibold text-gray-400 mb-1.5 block">Ảnh minh chứng (tối đa 3)</label>
-                                                                                <div className="flex items-center gap-2 flex-wrap">
-                                                                                    {submitScreenshots.map((s, i) => (
-                                                                                        <div key={i} className="relative group">
-                                                                                            <img src={s} alt="SS" className="w-16 h-16 rounded-xl object-cover border-2 border-gray-200" />
-                                                                                            <button type="button" onClick={() => setSubmitScreenshots(prev => prev.filter((_, idx) => idx !== i))} className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-red-500 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"><X className="w-2.5 h-2.5" /></button>
-                                                                                        </div>
-                                                                                    ))}
-                                                                                    {submitScreenshots.length < 3 && (
-                                                                                        <label className="cursor-pointer">
-                                                                                            <div className="w-16 h-16 rounded-xl border-2 border-dashed border-gray-200 hover:border-efb-blue hover:bg-blue-50/30 flex flex-col items-center justify-center transition-all">
-                                                                                                {isUploadingShot ? <Loader2 className="w-4 h-4 animate-spin text-efb-blue" /> : <><Camera className="w-4 h-4 text-gray-400" /><span className="text-[8px] text-gray-400 mt-0.5">Thêm ảnh</span></>}
-                                                                                            </div>
-                                                                                            <input type="file" accept="image/*" className="hidden" disabled={isUploadingShot} onChange={async e => { const f = e.target.files?.[0]; if (!f) return; setIsUploadingShot(true); try { const fd = new FormData(); fd.append("file", f); fd.append("type", "registration"); const hdrs: any = {}; const tk = localStorage.getItem("efootcup_token"); if (tk) hdrs.Authorization = `Bearer ${tk}`; const r = await fetch("/api/upload", { method: "POST", headers: hdrs, body: fd }); const d = await r.json(); const url = d.data?.url || d.url; if (url) setSubmitScreenshots(prev => [...prev, url]); } catch { } finally { setIsUploadingShot(false); } e.target.value = ""; }} />
-                                                                                        </label>
-                                                                                    )}
-                                                                                </div>
-                                                                            </div>
-                                                                            <textarea value={submitNotes} onChange={e => setSubmitNotes(e.target.value)} placeholder="Ghi chú (tùy chọn)..." maxLength={500} rows={2} className="w-full px-3 py-2 text-xs rounded-xl border border-gray-200 bg-white focus:border-efb-blue outline-none resize-none" />
-                                                                            <div className="flex gap-2">
-                                                                                <button onClick={() => { setSubmitMatchId(null); setSubmitHomeScore(""); setSubmitAwayScore(""); setSubmitNotes(""); setSubmitScreenshots([]); }} className="flex-1 py-2 rounded-xl border border-gray-200 text-xs font-medium text-gray-600 hover:bg-gray-50">Hủy</button>
-                                                                                <button disabled={isSubmittingResult || submitHomeScore === "" || submitAwayScore === ""} onClick={async () => { setIsSubmittingResult(true); try { const tk = localStorage.getItem("efootcup_token"); const myScore = Number(submitHomeScore); const oppScore = Number(submitAwayScore); const res = await fetch(`/api/tournaments/${match.tournament?._id}/matches/submit-result`, { method: "POST", headers: { "Content-Type": "application/json", ...(tk ? { Authorization: `Bearer ${tk}` } : {}) }, body: JSON.stringify({ matchId: match._id, homeScore: isHome ? myScore : oppScore, awayScore: isHome ? oppScore : myScore, screenshots: submitScreenshots, notes: submitNotes }) }); const d = await res.json(); if (d.success) { toast.success("Gửi kết quả thành công!"); setSubmitMatchId(null); setSubmitHomeScore(""); setSubmitAwayScore(""); setSubmitNotes(""); setSubmitScreenshots([]); } else { toast.error(d.message || "Có lỗi xảy ra"); } } catch { toast.error("Có lỗi xảy ra"); } finally { setIsSubmittingResult(false); } }} className="flex-1 py-2 rounded-xl bg-gradient-to-r from-efb-blue to-indigo-600 text-white text-xs font-bold disabled:opacity-50 flex items-center justify-center gap-1.5">
-                                                                                    {isSubmittingResult ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <CheckCircle2 className="w-3.5 h-3.5" />}
-                                                                                    {isSubmittingResult ? "Đang gửi..." : "Xác nhận gửi"}
-                                                                                </button>
-                                                                            </div>
-                                                                        </motion.div>
-                                                                    );
-                                                                }
-
-                                                                // Default: show submit button
-                                                                return (
-                                                                    <div className="flex items-center justify-between">
-                                                                        <span className="text-[10px] text-gray-400 font-medium italic">
-                                                                            {match.status === "live" ? "Vui lòng báo cáo kết quả sau trận" : "Chuẩn bị thi đấu"}
-                                                                        </span>
-                                                                        <div className="flex items-center gap-3">
-                                                                            <button onClick={() => { setSubmitMatchId(match._id); setSubmitHomeScore(""); setSubmitAwayScore(""); setSubmitNotes(""); setSubmitScreenshots([]); }} className="flex items-center gap-1.5 text-[11px] font-bold text-white bg-gradient-to-r from-efb-blue to-indigo-600 px-3.5 py-1.5 rounded-lg shadow-sm hover:shadow-md transition-all">
-                                                                                <Upload className="w-3 h-3" /> Gửi kết quả
-                                                                            </button>
-                                                                            <Link href={`/giai-dau/${match.tournament?.slug || match.tournament?._id}?tab=schedule`} className="flex items-center gap-1 text-[10px] font-medium text-gray-400 hover:text-efb-blue">
-                                                                                Chi tiết <ChevronRight className="w-3 h-3" />
-                                                                            </Link>
-                                                                        </div>
-                                                                    </div>
-                                                                );
-                                                            })()}
-                                                        </div>
-                                                    </div>
+                                                        match={match}
+                                                        myTeam={myTeam}
+                                                        opponent={opponent}
+                                                        isHome={isHomeTeamMine}
+                                                        user={user}
+                                                        submitMatchId={submitMatchId}
+                                                        setSubmitMatchId={(id) => {
+                                                            setSubmitMatchId(id);
+                                                            if (id) {
+                                                                setSubmitHomeScore("");
+                                                                setSubmitAwayScore("");
+                                                                setSubmitNotes("");
+                                                                setSubmitScreenshots([]);
+                                                            }
+                                                        }}
+                                                    />
                                                 );
                                             })}
                                         </div>
@@ -1071,7 +875,9 @@ export default function TrangCaNhanPage() {
                                             {participation.matches.past.slice(0, 3).map((match: any) => {
                                                 const myTeamId = participation.joined.find((j: any) => j._id === match.tournament?._id)?.teamId;
                                                 const isWinner = match.winner?._id === myTeamId;
-                                                const opponent = match.homeTeam?._id === myTeamId ? match.awayTeam : match.homeTeam;
+                                                const isHomeTeamMine = match.homeTeam?._id?.toString?.() === myTeamId?.toString?.();
+                                                const opponent = isHomeTeamMine ? match.awayTeam : match.homeTeam;
+                                                const oppCaptain = opponent?.captain;
 
                                                 return (
                                                     <div key={match._id} className="flex items-center justify-between p-3 bg-white border border-gray-100 rounded-xl hover:bg-gray-50 transition-colors group">
@@ -1079,9 +885,19 @@ export default function TrangCaNhanPage() {
                                                             <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${isWinner ? 'bg-emerald-50 text-emerald-600' : 'bg-red-50 text-red-600'}`}>
                                                                 {isWinner ? <Trophy className="w-4 h-4" /> : <XCircle className="w-4 h-4" />}
                                                             </div>
+                                                            {/* Opponent avatar small */}
+                                                            <div className="w-7 h-7 rounded-full bg-slate-100 flex items-center justify-center overflow-hidden flex-shrink-0 border border-white shadow-sm">
+                                                                {oppCaptain?.avatar ? (
+                                                                    <img src={oppCaptain.avatar} className="w-full h-full object-cover" />
+                                                                ) : (
+                                                                    <span className="text-[9px] font-bold text-slate-400">
+                                                                        {(oppCaptain?.name || opponent?.name || "?").split(" ").map((n: string) => n[0]).join("").toUpperCase().slice(0, 2)}
+                                                                    </span>
+                                                                )}
+                                                            </div>
                                                             <div className="min-w-0">
                                                                 <div className="flex items-center gap-2">
-                                                                    <span className="text-[10px] font-medium text-gray-400 uppercase truncate max-w-[100px]">vs {opponent?.name || 'Unknown'}</span>
+                                                                    <span className="text-[10px] font-medium text-gray-400 uppercase truncate max-w-[100px]">vs {oppCaptain?.nickname || oppCaptain?.name || opponent?.name || 'Unknown'}</span>
                                                                     <span className="text-[10px] text-gray-300">•</span>
                                                                     <span className="text-[10px] font-medium text-gray-400 uppercase">{match.roundName || 'MT'}</span>
                                                                 </div>
@@ -1108,8 +924,9 @@ export default function TrangCaNhanPage() {
                         )}
                     </div>
 
-                    <div className="h-px bg-gray-100" />
 
+
+                    <div className="h-px bg-gray-100" />
                     {/* Profile Form */}
                     <div className="px-6 sm:px-8 py-6">
                         <h2 className="text-base font-semibold text-gray-900 mb-5">Thông tin cá nhân</h2>

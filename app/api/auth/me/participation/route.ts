@@ -44,8 +44,16 @@ export async function GET(req: NextRequest) {
                 { awayTeam: { $in: teamIds } }
             ]
         })
-            .populate("homeTeam", "name logo shortName")
-            .populate("awayTeam", "name logo shortName")
+            .populate({
+                path: "homeTeam",
+                select: "name logo shortName captain",
+                populate: { path: "captain", select: "name avatar efvId nickname" }
+            })
+            .populate({
+                path: "awayTeam",
+                select: "name logo shortName captain",
+                populate: { path: "captain", select: "name avatar efvId nickname" }
+            })
             .populate("tournament", "title status banner slug")
             .sort({ scheduledAt: 1, createdAt: -1 })
             .lean();
