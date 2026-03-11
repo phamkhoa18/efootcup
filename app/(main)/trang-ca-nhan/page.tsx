@@ -861,6 +861,7 @@ export default function TrangCaNhanPage() {
                                                                 setSubmitScreenshots([]);
                                                             }
                                                         }}
+                                                        onSubmitted={loadParticipation}
                                                     />
                                                 );
                                             })}
@@ -876,43 +877,67 @@ export default function TrangCaNhanPage() {
                                                 const myTeamId = participation.joined.find((j: any) => j._id === match.tournament?._id)?.teamId;
                                                 const isWinner = match.winner?._id === myTeamId;
                                                 const isHomeTeamMine = match.homeTeam?._id?.toString?.() === myTeamId?.toString?.();
+                                                const myTeam = isHomeTeamMine ? match.homeTeam : match.awayTeam;
                                                 const opponent = isHomeTeamMine ? match.awayTeam : match.homeTeam;
+                                                const myCaptain = myTeam?.captain;
                                                 const oppCaptain = opponent?.captain;
+                                                const myScore = isHomeTeamMine ? match.homeScore : match.awayScore;
+                                                const oppScore = isHomeTeamMine ? match.awayScore : match.homeScore;
 
                                                 return (
-                                                    <div key={match._id} className="flex items-center justify-between p-3 bg-white border border-gray-100 rounded-xl hover:bg-gray-50 transition-colors group">
-                                                        <div className="flex items-center gap-3 min-w-0">
-                                                            <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${isWinner ? 'bg-emerald-50 text-emerald-600' : 'bg-red-50 text-red-600'}`}>
-                                                                {isWinner ? <Trophy className="w-4 h-4" /> : <XCircle className="w-4 h-4" />}
-                                                            </div>
-                                                            {/* Opponent avatar small */}
-                                                            <div className="w-7 h-7 rounded-full bg-slate-100 flex items-center justify-center overflow-hidden flex-shrink-0 border border-white shadow-sm">
-                                                                {oppCaptain?.avatar ? (
-                                                                    <img src={oppCaptain.avatar} className="w-full h-full object-cover" />
-                                                                ) : (
-                                                                    <span className="text-[9px] font-bold text-slate-400">
-                                                                        {(oppCaptain?.name || opponent?.name || "?").split(" ").map((n: string) => n[0]).join("").toUpperCase().slice(0, 2)}
-                                                                    </span>
-                                                                )}
-                                                            </div>
-                                                            <div className="min-w-0">
-                                                                <div className="flex items-center gap-2">
-                                                                    <span className="text-[10px] font-medium text-gray-400 uppercase truncate max-w-[100px]">vs {oppCaptain?.nickname || oppCaptain?.name || opponent?.name || 'Unknown'}</span>
-                                                                    <span className="text-[10px] text-gray-300">•</span>
-                                                                    <span className="text-[10px] font-medium text-gray-400 uppercase">{match.roundName || 'MT'}</span>
+                                                    <div key={match._id} className="bg-white border border-gray-100 rounded-xl hover:bg-gray-50/50 transition-colors group overflow-hidden">
+                                                        {/* Header row */}
+                                                        <div className="flex items-center justify-between px-3 py-2 bg-gray-50/80 border-b border-gray-100/50">
+                                                            <div className="flex items-center gap-1.5 min-w-0">
+                                                                <div className={`w-5 h-5 rounded flex items-center justify-center flex-shrink-0 ${isWinner ? 'bg-emerald-100 text-emerald-600' : 'bg-red-100 text-red-500'}`}>
+                                                                    {isWinner ? <Trophy className="w-3 h-3" /> : <XCircle className="w-3 h-3" />}
                                                                 </div>
-                                                                <p className="text-xs font-medium text-gray-900 group-hover:text-efb-blue transition-colors truncate tracking-tight">{match.tournament?.title}</p>
+                                                                <span className="text-[10px] font-medium text-gray-400 truncate">{match.tournament?.title}</span>
+                                                                <span className="text-[10px] text-gray-300">•</span>
+                                                                <span className="text-[9px] font-semibold text-blue-600 bg-blue-50 px-1.5 py-0.5 rounded flex-shrink-0">{match.roundName || 'MT'}</span>
                                                             </div>
+                                                            <ChevronRight className="w-3.5 h-3.5 text-gray-300 group-hover:text-efb-blue transition-colors flex-shrink-0" />
                                                         </div>
-                                                        <div className="flex items-center gap-3">
-                                                            <div className="text-right">
-                                                                <div className="flex items-center gap-1.5 font-semibold text-sm">
-                                                                    <span className={match.homeScore > match.awayScore ? 'text-gray-900' : 'text-gray-400'}>{match.homeScore}</span>
-                                                                    <span className="text-gray-200">-</span>
-                                                                    <span className={match.awayScore > match.homeScore ? 'text-gray-900' : 'text-gray-400'}>{match.awayScore}</span>
+                                                        {/* Players + Score row */}
+                                                        <div className="flex items-center justify-between px-3 py-2.5">
+                                                            {/* My info */}
+                                                            <div className="flex items-center gap-2 min-w-0 flex-1">
+                                                                <div className="w-8 h-8 rounded-full bg-gradient-to-br from-slate-100 to-slate-200 flex items-center justify-center overflow-hidden flex-shrink-0 border border-white shadow-sm">
+                                                                    {myCaptain?.avatar ? (
+                                                                        <img src={myCaptain.avatar} className="w-full h-full object-cover" />
+                                                                    ) : (
+                                                                        <span className="text-[8px] font-bold text-slate-400">
+                                                                            {(myCaptain?.name || myTeam?.name || "?").split(" ").map((n: string) => n[0]).join("").toUpperCase().slice(0, 2)}
+                                                                        </span>
+                                                                    )}
+                                                                </div>
+                                                                <div className="min-w-0">
+                                                                    <p className="text-[10px] font-semibold text-gray-800 truncate leading-tight">{myCaptain?.nickname || myCaptain?.name || myTeam?.shortName || "Bạn"}</p>
+                                                                    {myCaptain?.efvId && <span className="text-[8px] font-medium text-amber-600">EFV-{myCaptain.efvId}</span>}
                                                                 </div>
                                                             </div>
-                                                            <ChevronRight className="w-4 h-4 text-gray-300 group-hover:text-efb-blue transition-colors" />
+                                                            {/* Score */}
+                                                            <div className="flex items-center gap-2 px-3 flex-shrink-0">
+                                                                <span className={`text-base font-black tabular-nums ${isWinner ? 'text-emerald-600' : 'text-gray-900'}`}>{myScore}</span>
+                                                                <span className="text-gray-200 text-xs">-</span>
+                                                                <span className={`text-base font-black tabular-nums ${!isWinner ? 'text-emerald-600' : 'text-gray-900'}`}>{oppScore}</span>
+                                                            </div>
+                                                            {/* Opponent info */}
+                                                            <div className="flex items-center gap-2 min-w-0 flex-1 justify-end">
+                                                                <div className="min-w-0 text-right">
+                                                                    <p className="text-[10px] font-semibold text-gray-800 truncate leading-tight">{oppCaptain?.nickname || oppCaptain?.name || opponent?.shortName || "Đối thủ"}</p>
+                                                                    {oppCaptain?.efvId && <span className="text-[8px] font-medium text-amber-600">EFV-{oppCaptain.efvId}</span>}
+                                                                </div>
+                                                                <div className="w-8 h-8 rounded-full bg-gradient-to-br from-slate-100 to-slate-200 flex items-center justify-center overflow-hidden flex-shrink-0 border border-white shadow-sm">
+                                                                    {oppCaptain?.avatar ? (
+                                                                        <img src={oppCaptain.avatar} className="w-full h-full object-cover" />
+                                                                    ) : (
+                                                                        <span className="text-[8px] font-bold text-slate-400">
+                                                                            {(oppCaptain?.name || opponent?.name || "?").split(" ").map((n: string) => n[0]).join("").toUpperCase().slice(0, 2)}
+                                                                        </span>
+                                                                    )}
+                                                                </div>
+                                                            </div>
                                                         </div>
                                                     </div>
                                                 );

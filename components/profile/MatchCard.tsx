@@ -86,9 +86,10 @@ interface SubmitFormProps {
     isHome: boolean;
     userId: string;
     onClose: () => void;
+    onSubmitted?: () => void;
 }
 
-export function SubmitResultForm({ match, myTeam, opponent, isHome, userId, onClose }: SubmitFormProps) {
+export function SubmitResultForm({ match, myTeam, opponent, isHome, userId, onClose, onSubmitted }: SubmitFormProps) {
     const [homeScore, setHomeScore] = React.useState("");
     const [awayScore, setAwayScore] = React.useState("");
     const [notes, setNotes] = React.useState("");
@@ -121,6 +122,7 @@ export function SubmitResultForm({ match, myTeam, opponent, isHome, userId, onCl
             if (d.success) {
                 toast.success("Gửi kết quả thành công!");
                 onClose();
+                onSubmitted?.();
             } else {
                 toast.error(d.message || "Có lỗi xảy ra");
             }
@@ -141,49 +143,66 @@ export function SubmitResultForm({ match, myTeam, opponent, isHome, userId, onCl
                 <button onClick={onClose} className="text-gray-400 hover:text-gray-600"><X className="w-4 h-4" /></button>
             </div>
 
-            {/* Players info row */}
-            <div className="flex items-center justify-center gap-2 bg-slate-50 rounded-xl p-3 border border-slate-100">
-                {/* My info */}
-                <div className="flex items-center gap-2 flex-1 min-w-0">
-                    <div className="w-9 h-9 rounded-full bg-gradient-to-br from-slate-100 to-slate-200 flex items-center justify-center overflow-hidden flex-shrink-0 border border-white shadow-sm">
+            {/* Full Player Info + Score Inputs */}
+            <div className="flex items-stretch justify-between gap-2 py-2">
+                {/* My Player Card + Score */}
+                <div className="flex-1 flex flex-col items-center text-center min-w-0 px-1">
+                    <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-full border-2 border-white shadow-md bg-gradient-to-br from-blue-50 to-blue-100 flex items-center justify-center overflow-hidden flex-shrink-0 ring-1 ring-blue-100">
                         {myCaptain?.avatar ? (
-                            <img src={myCaptain.avatar} className="w-full h-full object-cover" />
+                            <img src={myCaptain.avatar} alt="" className="w-full h-full object-cover" />
                         ) : (
-                            <UserIcon className="w-4 h-4 text-slate-400" />
+                            <span className="text-sm sm:text-base font-bold text-blue-300">
+                                {(myCaptain?.name || myTeam?.name || "?").split(" ").map((n: string) => n[0]).join("").toUpperCase().slice(0, 2)}
+                            </span>
                         )}
                     </div>
-                    <div className="min-w-0">
-                        <p className="text-[10px] font-semibold text-gray-700 truncate">{myCaptain?.nickname || myCaptain?.name || myTeam?.shortName || "BẠN"}</p>
-                        {myCaptain?.efvId && <span className="text-[8px] text-amber-600 font-medium">EFV-{myCaptain.efvId}</span>}
-                    </div>
+                    <span className="text-[8px] font-bold uppercase tracking-widest mt-2 text-blue-500">Bạn</span>
+                    <p className="text-[11px] sm:text-xs font-semibold text-gray-800 truncate max-w-full mt-0.5 leading-tight">
+                        {myCaptain?.nickname || myCaptain?.name || myTeam?.shortName || "—"}
+                    </p>
+                    {myCaptain?.efvId ? (
+                        <span className="inline-flex items-center gap-0.5 text-[9px] font-medium text-amber-600 bg-amber-50 border border-amber-100 px-1.5 py-0.5 rounded mt-1">
+                            <Hash className="w-2.5 h-2.5" />EFV-{myCaptain.efvId}
+                        </span>
+                    ) : (
+                        <span className="text-[9px] text-gray-300 mt-1">—</span>
+                    )}
+                    {/* Score input */}
+                    <input type="number" min="0" max="99" value={homeScore} onChange={e => setHomeScore(e.target.value)} className="w-14 h-11 text-center text-lg font-black rounded-xl border-2 border-gray-200 focus:border-blue-500 outline-none bg-white transition-colors mt-3" placeholder="0" />
                 </div>
-                <span className="text-[9px] font-bold text-gray-300 px-1">VS</span>
-                {/* Opp info */}
-                <div className="flex items-center gap-2 flex-1 min-w-0 justify-end text-right">
-                    <div className="min-w-0">
-                        <p className="text-[10px] font-semibold text-gray-700 truncate">{oppCaptain?.nickname || oppCaptain?.name || opponent?.shortName || "ĐỐI THỦ"}</p>
-                        {oppCaptain?.efvId && <span className="text-[8px] text-amber-600 font-medium">EFV-{oppCaptain.efvId}</span>}
-                    </div>
-                    <div className="w-9 h-9 rounded-full bg-gradient-to-br from-slate-100 to-slate-200 flex items-center justify-center overflow-hidden flex-shrink-0 border border-white shadow-sm">
-                        {oppCaptain?.avatar ? (
-                            <img src={oppCaptain.avatar} className="w-full h-full object-cover" />
-                        ) : (
-                            <UserIcon className="w-4 h-4 text-slate-400" />
-                        )}
-                    </div>
-                </div>
-            </div>
 
-            {/* Score inputs */}
-            <div className="flex items-center justify-center gap-3">
-                <div className="text-center">
-                    <p className="text-[9px] font-semibold text-gray-400 mb-1 uppercase">{myTeam?.shortName || "BẠN"}</p>
-                    <input type="number" min="0" max="99" value={homeScore} onChange={e => setHomeScore(e.target.value)} className="w-16 h-12 text-center text-xl font-black rounded-xl border-2 border-gray-200 focus:border-blue-500 outline-none bg-white transition-colors" placeholder="0" />
+                {/* VS divider */}
+                <div className="flex flex-col items-center justify-center px-1">
+                    <div className="w-7 h-7 rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center shadow-sm">
+                        <span className="text-[8px] font-black text-white">VS</span>
+                    </div>
+                    <span className="text-lg font-light text-gray-200 mt-auto mb-2">—</span>
                 </div>
-                <span className="text-xl font-light text-gray-200 mt-4">—</span>
-                <div className="text-center">
-                    <p className="text-[9px] font-semibold text-gray-400 mb-1 uppercase">{opponent?.shortName || "ĐỐI THỦ"}</p>
-                    <input type="number" min="0" max="99" value={awayScore} onChange={e => setAwayScore(e.target.value)} className="w-16 h-12 text-center text-xl font-black rounded-xl border-2 border-gray-200 focus:border-blue-500 outline-none bg-white transition-colors" placeholder="0" />
+
+                {/* Opponent Player Card + Score */}
+                <div className="flex-1 flex flex-col items-center text-center min-w-0 px-1">
+                    <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-full border-2 border-white shadow-md bg-gradient-to-br from-red-50 to-red-100 flex items-center justify-center overflow-hidden flex-shrink-0 ring-1 ring-red-100">
+                        {oppCaptain?.avatar ? (
+                            <img src={oppCaptain.avatar} alt="" className="w-full h-full object-cover" />
+                        ) : (
+                            <span className="text-sm sm:text-base font-bold text-red-300">
+                                {(oppCaptain?.name || opponent?.name || "?").split(" ").map((n: string) => n[0]).join("").toUpperCase().slice(0, 2)}
+                            </span>
+                        )}
+                    </div>
+                    <span className="text-[8px] font-bold uppercase tracking-widest mt-2 text-red-400">Đối thủ</span>
+                    <p className="text-[11px] sm:text-xs font-semibold text-gray-800 truncate max-w-full mt-0.5 leading-tight">
+                        {oppCaptain?.nickname || oppCaptain?.name || opponent?.shortName || "—"}
+                    </p>
+                    {oppCaptain?.efvId ? (
+                        <span className="inline-flex items-center gap-0.5 text-[9px] font-medium text-amber-600 bg-amber-50 border border-amber-100 px-1.5 py-0.5 rounded mt-1">
+                            <Hash className="w-2.5 h-2.5" />EFV-{oppCaptain.efvId}
+                        </span>
+                    ) : (
+                        <span className="text-[9px] text-gray-300 mt-1">—</span>
+                    )}
+                    {/* Score input */}
+                    <input type="number" min="0" max="99" value={awayScore} onChange={e => setAwayScore(e.target.value)} className="w-14 h-11 text-center text-lg font-black rounded-xl border-2 border-gray-200 focus:border-blue-500 outline-none bg-white transition-colors mt-3" placeholder="0" />
                 </div>
             </div>
 
@@ -243,13 +262,16 @@ interface MatchCardProps {
     user: any;
     submitMatchId: string | null;
     setSubmitMatchId: (id: string | null) => void;
+    onSubmitted?: () => void;
 }
 
-export default function MatchCard({ match, myTeam, opponent, isHome, user, submitMatchId, setSubmitMatchId }: MatchCardProps) {
+export default function MatchCard({ match, myTeam, opponent, isHome, user, submitMatchId, setSubmitMatchId, onSubmitted }: MatchCardProps) {
     const hasOfficialScore = match.homeScore !== null && match.homeScore !== undefined && match.awayScore !== null && match.awayScore !== undefined;
     const myExistingSub = match.resultSubmissions?.find(
         (s: any) => s.user?.toString?.() === user?._id?.toString?.() || s.user?._id?.toString?.() === user?._id?.toString?.()
     );
+    const myCaptain = myTeam?.captain;
+    const oppCaptain = opponent?.captain;
 
     return (
         <div className="relative bg-white border border-gray-100 rounded-2xl overflow-hidden hover:shadow-lg transition-all duration-300 group">
@@ -288,15 +310,26 @@ export default function MatchCard({ match, myTeam, opponent, isHome, user, submi
                     if (match.status === "completed" || hasOfficialScore) {
                         return (
                             <div className="space-y-2">
-                                <div className="flex items-center gap-2 px-3 py-2.5 bg-blue-50/80 border border-blue-100 rounded-xl">
-                                    <CheckCircle2 className="w-4 h-4 text-blue-500 flex-shrink-0" />
-                                    <div className="flex-1">
-                                        <p className="text-[10px] font-semibold text-blue-600">Kết quả chính thức</p>
-                                        <p className="text-xs text-blue-800 font-bold">
-                                            {myTeam?.shortName || "BẠN"} {isHome ? match.homeScore : match.awayScore} — {isHome ? match.awayScore : match.homeScore} {opponent?.shortName || "ĐỐI THỦ"}
-                                        </p>
+                                <div className="px-3 py-3 bg-blue-50/80 border border-blue-100 rounded-xl space-y-2">
+                                    <div className="flex items-center justify-between">
+                                        <p className="text-[10px] font-semibold text-blue-600 flex items-center gap-1"><CheckCircle2 className="w-3.5 h-3.5" /> Kết quả chính thức</p>
+                                        <span className="inline-flex items-center gap-1 text-[8px] font-bold text-blue-400 bg-blue-100 px-1.5 py-0.5 rounded-full"><Lock className="w-2.5 h-2.5" /> Đã khóa</span>
                                     </div>
-                                    <span className="inline-flex items-center gap-1 text-[8px] font-bold text-blue-400 bg-blue-100 px-1.5 py-0.5 rounded-full"><Lock className="w-2.5 h-2.5" /> Đã khóa</span>
+                                    <div className="flex items-center justify-between">
+                                        <div className="flex items-center gap-2 min-w-0 flex-1">
+                                            <span className="text-[10px] font-semibold text-blue-700 truncate">{myCaptain?.nickname || myCaptain?.name || myTeam?.shortName || "BẠN"}</span>
+                                            {myCaptain?.efvId && <span className="text-[8px] font-medium text-amber-600 bg-amber-50 border border-amber-100 px-1 py-0.5 rounded">EFV-{myCaptain.efvId}</span>}
+                                        </div>
+                                        <div className="flex items-center gap-2 px-3">
+                                            <span className="text-lg font-black text-blue-800">{isHome ? match.homeScore : match.awayScore}</span>
+                                            <span className="text-gray-300">—</span>
+                                            <span className="text-lg font-black text-blue-800">{isHome ? match.awayScore : match.homeScore}</span>
+                                        </div>
+                                        <div className="flex items-center gap-2 min-w-0 flex-1 justify-end">
+                                            {oppCaptain?.efvId && <span className="text-[8px] font-medium text-amber-600 bg-amber-50 border border-amber-100 px-1 py-0.5 rounded">EFV-{oppCaptain.efvId}</span>}
+                                            <span className="text-[10px] font-semibold text-blue-700 truncate">{oppCaptain?.nickname || oppCaptain?.name || opponent?.shortName || "ĐỐI THỦ"}</span>
+                                        </div>
+                                    </div>
                                 </div>
                                 {myExistingSub && myExistingSub.screenshots?.length > 0 && (
                                     <div className="flex gap-1.5 flex-wrap px-1">
@@ -312,15 +345,26 @@ export default function MatchCard({ match, myTeam, opponent, isHome, user, submi
                     if (myExistingSub) {
                         return (
                             <div className="space-y-2">
-                                <div className="flex items-center gap-2 px-3 py-2.5 bg-emerald-50/80 border border-emerald-100 rounded-xl">
-                                    <CheckCircle2 className="w-4 h-4 text-emerald-500 flex-shrink-0" />
-                                    <div className="flex-1">
-                                        <p className="text-[10px] font-semibold text-emerald-600">Đã gửi kết quả — chờ quản lý duyệt</p>
-                                        <p className="text-xs text-emerald-800 font-bold">
-                                            {myTeam?.shortName || "BẠN"} {isHome ? myExistingSub.homeScore : myExistingSub.awayScore} — {isHome ? myExistingSub.awayScore : myExistingSub.homeScore} {opponent?.shortName || "ĐỐI THỦ"}
-                                        </p>
+                                <div className="px-3 py-3 bg-emerald-50/80 border border-emerald-100 rounded-xl space-y-2">
+                                    <div className="flex items-center justify-between">
+                                        <p className="text-[10px] font-semibold text-emerald-600 flex items-center gap-1"><CheckCircle2 className="w-3.5 h-3.5" /> Đã gửi kết quả — chờ quản lý duyệt</p>
+                                        <span className="inline-flex items-center gap-1 text-[8px] font-bold text-emerald-400 bg-emerald-100 px-1.5 py-0.5 rounded-full"><Lock className="w-2.5 h-2.5" /> Đã gửi</span>
                                     </div>
-                                    <span className="inline-flex items-center gap-1 text-[8px] font-bold text-emerald-400 bg-emerald-100 px-1.5 py-0.5 rounded-full"><Lock className="w-2.5 h-2.5" /> Đã gửi</span>
+                                    <div className="flex items-center justify-between">
+                                        <div className="flex items-center gap-2 min-w-0 flex-1">
+                                            <span className="text-[10px] font-semibold text-emerald-700 truncate">{myCaptain?.nickname || myCaptain?.name || myTeam?.shortName || "BẠN"}</span>
+                                            {myCaptain?.efvId && <span className="text-[8px] font-medium text-amber-600 bg-amber-50 border border-amber-100 px-1 py-0.5 rounded">EFV-{myCaptain.efvId}</span>}
+                                        </div>
+                                        <div className="flex items-center gap-2 px-3">
+                                            <span className="text-lg font-black text-emerald-800">{isHome ? myExistingSub.homeScore : myExistingSub.awayScore}</span>
+                                            <span className="text-gray-300">—</span>
+                                            <span className="text-lg font-black text-emerald-800">{isHome ? myExistingSub.awayScore : myExistingSub.homeScore}</span>
+                                        </div>
+                                        <div className="flex items-center gap-2 min-w-0 flex-1 justify-end">
+                                            {oppCaptain?.efvId && <span className="text-[8px] font-medium text-amber-600 bg-amber-50 border border-amber-100 px-1 py-0.5 rounded">EFV-{oppCaptain.efvId}</span>}
+                                            <span className="text-[10px] font-semibold text-emerald-700 truncate">{oppCaptain?.nickname || oppCaptain?.name || opponent?.shortName || "ĐỐI THỦ"}</span>
+                                        </div>
+                                    </div>
                                 </div>
                                 {myExistingSub.notes && (
                                     <p className="text-[10px] text-gray-500 italic px-1 flex items-center gap-1"><MessageCircle className="w-3 h-3 text-gray-400 flex-shrink-0" /> {myExistingSub.notes}</p>
@@ -347,6 +391,7 @@ export default function MatchCard({ match, myTeam, opponent, isHome, user, submi
                             <SubmitResultForm
                                 match={match} myTeam={myTeam} opponent={opponent} isHome={isHome} userId={user?._id}
                                 onClose={() => setSubmitMatchId(null)}
+                                onSubmitted={onSubmitted}
                             />
                         );
                     }
