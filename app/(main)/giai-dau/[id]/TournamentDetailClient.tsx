@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 import { toast } from "sonner";
 
 import { useState, useEffect, useRef, useCallback } from "react";
@@ -25,6 +25,7 @@ import {
 } from "lucide-react";
 import { tournamentAPI, tournamentPaymentAPI, paymentConfigAPI } from "@/lib/api";
 import { useAuth } from "@/contexts/AuthContext";
+import { compressImage } from "@/lib/compressImage";
 
 /* ===== Config ===== */
 const statusConfig: Record<string, { label: string; icon: typeof Flame; bgClass: string }> = {
@@ -234,18 +235,30 @@ const MatchDetailViewModal = ({ match, tournament, onClose, user, myRegistration
     const handleUploadScreenshot = async (file: File) => {
         setIsUploadingShot(true);
         try {
+            // Auto-compress image
+            const compressed = await compressImage(file);
             const formData = new FormData();
-            formData.append("file", file);
+            formData.append("file", compressed);
             formData.append("type", "screenshot");
             const headers: Record<string, string> = {};
             const savedToken = localStorage.getItem("efootcup_token");
             if (savedToken) headers.Authorization = `Bearer ${savedToken}`;
             const res = await fetch("/api/upload", { method: "POST", headers, body: formData });
+            if (!res.ok) {
+                const errData = await res.json().catch(() => null);
+                toast.error(errData?.message || `Upload lỗi (${res.status})`);
+                return;
+            }
             const data = await res.json();
             const url = data.data?.url || data.url;
-            if (url) setSubmitScreenshots(prev => [...prev, url]);
+            if (url) {
+                setSubmitScreenshots(prev => [...prev, url]);
+            } else {
+                toast.error("Upload thất bại, vui lòng thử lại");
+            }
         } catch (err) {
             console.error("Upload error:", err);
+            toast.error("Lỗi kết nối, vui lòng thử lại");
         } finally {
             setIsUploadingShot(false);
         }
@@ -254,6 +267,10 @@ const MatchDetailViewModal = ({ match, tournament, onClose, user, myRegistration
     const handleSubmitResult = async () => {
         if (submitHomeScore === "" || submitAwayScore === "") {
             toast.error("Vui lòng nhập tỉ số");
+            return;
+        }
+        if (submitScreenshots.length === 0) {
+            toast.error("Vui lòng đính kèm ít nhất 1 ảnh minh chứng");
             return;
         }
         setIsSubmitting(true);

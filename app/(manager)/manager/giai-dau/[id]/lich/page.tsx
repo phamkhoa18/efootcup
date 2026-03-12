@@ -39,6 +39,7 @@ export default function LichThiDauPage() {
     const [team2Id, setTeam2Id] = useState("");
     const [editingMatch, setEditingMatch] = useState<any>(null);
     const [viewingSubmissions, setViewingSubmissions] = useState<any>(null);
+    const [statusFilter, setStatusFilter] = useState<'all' | 'pending' | 'live' | 'completed' | 'has_submissions'>('all');
     const [seedMode, setSeedMode] = useState<'random' | 'manual'>('random');
     const [seedOrder, setSeedOrder] = useState<any[]>([]);
     const { confirm, alert: showAlert } = useConfirmDialog();
@@ -238,7 +239,19 @@ export default function LichThiDauPage() {
 
     const actualMatches = matches.filter(m => m.status !== 'walkover' && m.status !== 'bye');
     const completedMatches = actualMatches.filter(m => m.status === 'completed').length;
+    const liveMatches = actualMatches.filter(m => m.status === 'live').length;
+    const pendingMatches = actualMatches.filter(m => m.status !== 'completed' && m.status !== 'live').length;
+    const hasSubMatches = actualMatches.filter(m => m.resultSubmissions?.length > 0).length;
     const totalMatches = actualMatches.length;
+
+    const filterMatch = (m: any) => {
+        if (statusFilter === 'all') return true;
+        if (statusFilter === 'completed') return m.status === 'completed';
+        if (statusFilter === 'live') return m.status === 'live';
+        if (statusFilter === 'pending') return m.status !== 'completed' && m.status !== 'live';
+        if (statusFilter === 'has_submissions') return m.resultSubmissions?.length > 0;
+        return true;
+    };
 
     if (isLoading) {
         return (
@@ -317,6 +330,30 @@ export default function LichThiDauPage() {
                 </div>
             </div>
 
+            {/* Status Filter Tabs */}
+            <div className="flex items-center gap-2 px-4 py-2.5 bg-white border-b border-gray-100 overflow-x-auto">
+                {[
+                    { key: 'all', label: 'Tất cả', count: totalMatches, color: 'bg-gray-100 text-gray-700', active: 'bg-gray-900 text-white' },
+                    { key: 'pending', label: 'Chưa đá', count: pendingMatches, color: 'bg-blue-50 text-blue-600', active: 'bg-blue-600 text-white' },
+                    { key: 'live', label: 'Đang đá', count: liveMatches, color: 'bg-red-50 text-red-600', active: 'bg-red-600 text-white' },
+                    { key: 'completed', label: 'Đã xong', count: completedMatches, color: 'bg-emerald-50 text-emerald-600', active: 'bg-emerald-600 text-white' },
+                    { key: 'has_submissions', label: 'Có KQ gửi', count: hasSubMatches, color: 'bg-orange-50 text-orange-600', active: 'bg-orange-600 text-white' },
+                ].map(f => (
+                    <button
+                        key={f.key}
+                        onClick={() => setStatusFilter(f.key as any)}
+                        className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap transition-all ${
+                            statusFilter === f.key ? f.active + ' shadow-sm' : f.color + ' hover:opacity-80'
+                        }`}
+                    >
+                        {f.label}
+                        <span className={`min-w-[18px] h-[18px] rounded-full text-[10px] font-bold flex items-center justify-center ${
+                            statusFilter === f.key ? 'bg-white/25' : 'bg-black/5'
+                        }`}>{f.count}</span>
+                    </button>
+                ))}
+            </div>
+
             {/* Match List */}
             <div id="schedule-container" className="bg-white border text-sm max-w-full print-container relative rounded-lg overflow-hidden">
                 <style jsx>{`
@@ -330,7 +367,8 @@ export default function LichThiDauPage() {
                     </div>
                 ) : (
                     Object.entries(rounds).map(([roundName, roundMatches]) => {
-                        if (roundMatches.filter((m: any) => m.status !== 'walkover' && m.status !== 'bye').length === 0) return null;
+                        const visibleMatches = roundMatches.filter((m: any) => m.status !== 'walkover' && m.status !== 'bye').filter(filterMatch);
+                        if (visibleMatches.length === 0) return null;
 
                         return (
                             <div key={roundName}>
@@ -352,7 +390,7 @@ export default function LichThiDauPage() {
 
                                 {/* Match Rows */}
                                 <div className="divide-y divide-gray-100">
-                                    {roundMatches.filter((m: any) => m.status !== 'walkover' && m.status !== 'bye').map((m: any, index: number) => {
+                                    {roundMatches.filter((m: any) => m.status !== 'walkover' && m.status !== 'bye').filter(filterMatch).map((m: any, index: number) => {
                                         const homeName = m.homeTeam?.name || "Tự do";
                                         const awayName = m.awayTeam?.name || "Tự do";
                                         const p1Name = m.homeTeam?.player1 || "—";
@@ -421,17 +459,21 @@ export default function LichThiDauPage() {
                                                             <div className={`px-2 py-0.5 rounded text-[10px] font-semibold ${isCompleted ? "bg-emerald-50 text-emerald-600" : m.status === "live" ? "bg-red-50 text-red-600 animate-pulse" : "bg-blue-50/50 border border-blue-100 text-blue-400"}`}>
                                                                 {isWalkover ? "Đi tiếp" : isCompleted ? "Kết thúc" : m.status === "live" ? "LIVE" : "Chờ"}
                                                             </div>
-                                                            <div className="flex gap-1 items-center text-gray-400">
+                                                            <div className="flex gap-1.5 items-center">
                                                                 {!isCompleted && m.status !== "live" && (
-                                                                    <Play className="w-3.5 h-3.5 hover:text-green-500 cursor-pointer" onClick={() => handleSetMatchLive(m._id || m.id)} />
+                                                                    <button className="w-8 h-8 rounded-lg bg-green-50 hover:bg-green-100 flex items-center justify-center transition-colors" onClick={() => handleSetMatchLive(m._id || m.id)}>
+                                                                        <Play className="w-4 h-4 text-green-600" />
+                                                                    </button>
                                                                 )}
                                                                 {m.resultSubmissions?.length > 0 && (
-                                                                    <span onClick={() => setViewingSubmissions(m)} className="relative cursor-pointer">
-                                                                        <Eye className="w-3.5 h-3.5 text-orange-400" />
-                                                                        <span className="absolute -top-1 -right-1 w-3 h-3 rounded-full bg-orange-500 text-white text-[7px] font-bold flex items-center justify-center">{m.resultSubmissions.length}</span>
-                                                                    </span>
+                                                                    <button onClick={() => setViewingSubmissions(m)} className="relative w-8 h-8 rounded-lg bg-orange-50 hover:bg-orange-100 flex items-center justify-center transition-colors">
+                                                                        <Eye className="w-4 h-4 text-orange-500" />
+                                                                        <span className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-orange-500 text-white text-[8px] font-bold flex items-center justify-center">{m.resultSubmissions.length}</span>
+                                                                    </button>
                                                                 )}
-                                                                <Edit3 className="w-3.5 h-3.5 hover:text-blue-500 cursor-pointer" onClick={() => setEditingMatch({ ...m, roundName })} />
+                                                                <button className="w-8 h-8 rounded-lg bg-blue-50 hover:bg-blue-100 flex items-center justify-center transition-colors" onClick={() => setEditingMatch({ ...m, roundName })}>
+                                                                    <Edit3 className="w-4 h-4 text-blue-600" />
+                                                                </button>
                                                             </div>
                                                         </div>
                                                     </div>
@@ -650,9 +692,12 @@ export default function LichThiDauPage() {
             </Dialog>
 
             {/* View Submissions Popup */}
-            <Dialog open={!!viewingSubmissions} onOpenChange={(open) => !open && setViewingSubmissions(null)}>
-                <DialogContent className="max-w-lg p-0 overflow-hidden border-0 rounded-[16px] bg-white text-gray-900 shadow-2xl" showCloseButton={false}>
-                    <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 bg-gradient-to-r from-orange-50 to-amber-50">
+            <Dialog open={!!viewingSubmissions} onOpenChange={(open) => { if (!open) setViewingSubmissions(null); }}>
+                <DialogContent
+                    className="w-[95vw] max-w-lg p-0 overflow-hidden border-0 rounded-[16px] bg-white text-gray-900 shadow-2xl max-h-[90vh] flex flex-col"
+                    showCloseButton={false}
+                >
+                    <div className="flex items-center justify-between px-4 sm:px-6 py-3 sm:py-4 border-b border-gray-100 bg-gradient-to-r from-orange-50 to-amber-50 flex-shrink-0">
                         <div>
                             <DialogTitle className="text-lg font-bold text-gray-900 flex items-center gap-2">
                                 <Eye className="w-5 h-5 text-orange-500" /> Kết quả VĐV đã gửi
@@ -665,31 +710,71 @@ export default function LichThiDauPage() {
                             <X className="w-5 h-5" />
                         </button>
                     </div>
-                    <div className="p-6 max-h-[60vh] overflow-y-auto space-y-4">
+                    <div className="p-4 sm:p-6 overflow-y-auto space-y-4 flex-1">
                         {viewingSubmissions?.resultSubmissions?.length > 0 ? (
-                            viewingSubmissions.resultSubmissions.map((sub: any, idx: number) => (
-                                <div key={idx} className="p-4 rounded-xl bg-gray-50 border border-gray-200 space-y-3">
-                                    <div className="flex items-center justify-between">
-                                        <span className="text-xs font-bold text-gray-700 flex items-center gap-1.5">
-                                            📤 {sub.team?.toString() === (viewingSubmissions.homeTeam?._id || viewingSubmissions.homeTeam)?.toString()
-                                                ? viewingSubmissions.homeTeam?.shortName || viewingSubmissions.homeTeam?.name || "Đội nhà"
-                                                : viewingSubmissions.awayTeam?.shortName || viewingSubmissions.awayTeam?.name || "Đội khách"
-                                            }
-                                        </span>
-                                        <span className="text-[10px] text-gray-400">
+                            viewingSubmissions.resultSubmissions.map((sub: any, idx: number) => {
+                                const isFromHome = sub.team?.toString() === (viewingSubmissions.homeTeam?._id || viewingSubmissions.homeTeam)?.toString();
+                                const submitterTeam = isFromHome ? viewingSubmissions.homeTeam : viewingSubmissions.awayTeam;
+                                const submitterTeamName = submitterTeam?.shortName || submitterTeam?.name || "";
+
+                                // Use enriched userData
+                                const userData = sub.userData || {};
+                                const displayName = userData.name || submitterTeam?.player1 || "VĐV";
+                                const displayEfvId = userData.efvId ?? null;
+                                const displayAvatar = userData.personalPhoto || userData.avatar || '';
+                                const displayGameId = userData.gamerId || '';
+
+                                return (
+                                <div key={idx} className="rounded-xl bg-gray-50 border border-gray-200 overflow-hidden">
+                                    {/* Player Info Header */}
+                                    <div className={`px-4 py-3 flex items-start gap-3 ${isFromHome ? 'bg-blue-50/50 border-b border-blue-100' : 'bg-rose-50/50 border-b border-rose-100'}`}>
+                                        {displayAvatar ? (
+                                            <img src={displayAvatar} alt={displayName} className="w-10 h-10 rounded-full object-cover border-2 border-white shadow-sm flex-shrink-0 cursor-pointer hover:opacity-80" onClick={() => window.open(displayAvatar, '_blank')} />
+                                        ) : (
+                                            <div className={`w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold flex-shrink-0 ${isFromHome ? 'bg-blue-100 text-blue-700 border border-blue-200' : 'bg-rose-100 text-rose-700 border border-rose-200'}`}>
+                                                {displayName.charAt(0).toUpperCase()}
+                                            </div>
+                                        )}
+                                        <div className="flex-1 min-w-0">
+                                            <div className="flex items-center gap-1.5 flex-wrap">
+                                                {displayEfvId != null && (
+                                                    <span className="text-[9px] font-bold text-amber-600 bg-amber-50 border border-amber-200 px-1.5 py-px rounded">#{displayEfvId}</span>
+                                                )}
+                                                <span className="text-sm font-bold text-gray-900 truncate">{displayName}</span>
+                                            </div>
+                                            <div className="flex items-center gap-2 text-[10px] text-gray-500 mt-0.5">
+                                                {displayGameId && <span>🎮 <span className="font-semibold text-gray-600">{displayGameId}</span></span>}
+                                                {submitterTeamName && <span>· {submitterTeamName}</span>}
+                                            </div>
+                                        </div>
+                                        <span className="text-[10px] text-gray-400 flex-shrink-0 mt-0.5">
                                             {sub.submittedAt ? new Date(sub.submittedAt).toLocaleString("vi-VN") : ""}
                                         </span>
                                     </div>
+                                    {/* Score + Content */}
+                                    <div className="p-4 space-y-3">
                                     {/* Score */}
                                     <div className="flex items-center justify-center gap-4 py-2">
                                         <div className="text-center">
-                                            <p className="text-[9px] font-bold text-gray-400 uppercase mb-1">{viewingSubmissions.homeTeam?.shortName || "H"}</p>
-                                            <span className="text-2xl font-black text-blue-600 bg-blue-50 px-4 py-2 rounded-xl inline-block">{sub.homeScore}</span>
+                                            <div className="mb-1">
+                                                <div className="flex items-center justify-center gap-1 flex-wrap">
+                                                    {viewingSubmissions.homeTeam?.efvId != null && <span className="text-[8px] font-bold text-amber-600 bg-amber-50 border border-amber-200 px-1 py-px rounded">#{viewingSubmissions.homeTeam.efvId}</span>}
+                                                    <span className="text-[10px] font-bold text-gray-600 truncate">{viewingSubmissions.homeTeam?.player1 || "Đội nhà"}</span>
+                                                </div>
+                                                {viewingSubmissions.homeTeam?.shortName && <p className="text-[9px] text-gray-400">{viewingSubmissions.homeTeam.shortName}</p>}
+                                            </div>
+                                            <span className={`text-2xl font-black px-4 py-2 rounded-xl inline-block ${sub.homeScore > sub.awayScore ? 'text-emerald-600 bg-emerald-50' : 'text-blue-600 bg-blue-50'}`}>{sub.homeScore}</span>
                                         </div>
                                         <span className="text-xl text-gray-200 font-light">—</span>
                                         <div className="text-center">
-                                            <p className="text-[9px] font-bold text-gray-400 uppercase mb-1">{viewingSubmissions.awayTeam?.shortName || "A"}</p>
-                                            <span className="text-2xl font-black text-blue-600 bg-blue-50 px-4 py-2 rounded-xl inline-block">{sub.awayScore}</span>
+                                            <div className="mb-1">
+                                                <div className="flex items-center justify-center gap-1 flex-wrap">
+                                                    {viewingSubmissions.awayTeam?.efvId != null && <span className="text-[8px] font-bold text-amber-600 bg-amber-50 border border-amber-200 px-1 py-px rounded">#{viewingSubmissions.awayTeam.efvId}</span>}
+                                                    <span className="text-[10px] font-bold text-gray-600 truncate">{viewingSubmissions.awayTeam?.player1 || "Đội khách"}</span>
+                                                </div>
+                                                {viewingSubmissions.awayTeam?.shortName && <p className="text-[9px] text-gray-400">{viewingSubmissions.awayTeam.shortName}</p>}
+                                            </div>
+                                            <span className={`text-2xl font-black px-4 py-2 rounded-xl inline-block ${sub.awayScore > sub.homeScore ? 'text-emerald-600 bg-emerald-50' : 'text-blue-600 bg-blue-50'}`}>{sub.awayScore}</span>
                                         </div>
                                     </div>
                                     {sub.notes && (
@@ -698,21 +783,23 @@ export default function LichThiDauPage() {
                                     {sub.screenshots && sub.screenshots.length > 0 && (
                                         <div className="flex gap-2 flex-wrap">
                                             {sub.screenshots.map((s: string, si: number) => (
-                                                <img key={si} src={s} alt="Screenshot" className="w-24 h-24 rounded-xl object-cover border-2 border-gray-200 cursor-pointer hover:opacity-80 hover:shadow-lg transition-all" onClick={() => window.open(s, "_blank")} />
+                                                <img key={si} src={s} alt="Screenshot" className="w-24 h-24 rounded-xl object-cover border-2 border-gray-200 cursor-pointer hover:opacity-80 hover:shadow-lg transition-all" onClick={() => window.open(s, '_blank')} />
                                             ))}
                                         </div>
                                     )}
+                                    </div>
                                 </div>
-                            ))
+                                );
+                            })
                         ) : (
                             <div className="text-center py-8 text-gray-400">
                                 <p className="text-sm">Chưa có kết quả nào được gửi.</p>
                             </div>
                         )}
                     </div>
-                    <div className="border-t border-gray-100 p-4 bg-gray-50 flex justify-between items-center">
-                        <p className="text-[10px] text-gray-400 italic">Xem kết quả và nhập tỉ số chính thức qua nút Sửa bên cạnh.</p>
-                        <Button variant="outline" onClick={() => setViewingSubmissions(null)} className="px-6 h-9 rounded-lg border-gray-200 text-gray-700 font-semibold hover:bg-gray-100 text-sm">
+                    <div className="border-t border-gray-100 p-3 sm:p-4 bg-gray-50 flex justify-between items-center gap-3 flex-shrink-0">
+                        <p className="text-[10px] text-gray-400 italic hidden sm:block">Xem kết quả và nhập tỉ số chính thức qua nút Sửa bên cạnh.</p>
+                        <Button variant="outline" onClick={() => setViewingSubmissions(null)} className="px-6 h-10 sm:h-9 rounded-lg border-gray-200 text-gray-700 font-semibold hover:bg-gray-100 text-sm w-full sm:w-auto">
                             Đóng
                         </Button>
                     </div>
@@ -777,80 +864,110 @@ function EditMatchModal({ match, tournament, onClose, onSaved }: { match: any; t
     };
 
     return (
-        <Dialog open onOpenChange={() => onClose()}>
-            <DialogContent className="w-[95vw] max-w-4xl p-0 overflow-hidden border-0 rounded-[12px] shadow-2xl bg-white" showCloseButton={false}>
+        <>
+        <Dialog open onOpenChange={() => {}}>
+            <DialogContent
+                className="w-[95vw] max-w-4xl p-0 overflow-hidden border-0 rounded-[12px] shadow-2xl bg-white max-h-[95vh] flex flex-col"
+                showCloseButton={false}
+            >
                 {/* Header */}
-                <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
-                    <h2 className="text-xl font-bold text-gray-900">Cập nhật trận đấu</h2>
-                    <button onClick={onClose} className="text-gray-400 hover:text-gray-600">
+                <div className="flex items-center justify-between px-4 sm:px-6 py-3 sm:py-4 border-b border-gray-100 flex-shrink-0">
+                    <h2 className="text-lg sm:text-xl font-bold text-gray-900">Cập nhật trận đấu</h2>
+                    <button onClick={onClose} className="text-gray-400 hover:text-gray-600 p-1">
                         <X className="w-5 h-5" />
                     </button>
                 </div>
 
-                <div className="p-6 pb-2 max-h-[80vh] overflow-y-auto custom-scrollbar">
+                <div className="p-4 sm:p-6 pb-2 overflow-y-auto custom-scrollbar flex-1">
                     {/* Blue Info Box */}
-                    <div className="bg-[#F0F7FF] rounded-lg p-4 flex items-center justify-between mb-6">
+                    <div className="bg-[#F0F7FF] rounded-lg p-3 sm:p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-y-1 mb-4 sm:mb-6">
                         <div>
                             <div className="font-bold text-gray-900 text-sm mb-1">{tournament?.title || "Vincode"}</div>
-                            <div className="text-gray-500 text-xs flex items-center gap-6">
-                                <span>Hình thức thi đấu: <span className="text-gray-900 font-semibold">{tournament?.format === 'round_robin' ? 'Vòng tròn' : "Loại trực tiếp"}</span></span>
-                                <span>Vòng đấu: <span className="text-gray-900 font-semibold">{match.roundName || `Vòng ${match.round}`}</span></span>
+                            <div className="text-gray-500 text-xs flex flex-wrap items-center gap-3 sm:gap-6">
+                                <span>Hình thức: <span className="text-gray-900 font-semibold">{tournament?.format === 'round_robin' ? 'Vòng tròn' : "Loại trực tiếp"}</span></span>
+                                <span>Vòng: <span className="text-gray-900 font-semibold">{match.roundName || `Vòng ${match.round}`}</span></span>
                             </div>
                         </div>
                     </div>
 
-                    <div className="border border-dashed border-gray-200 rounded-lg p-5 bg-white relative">
-                        {/* Headers */}
-                        <div className="flex justify-between text-sm font-bold text-gray-900 mb-3 px-1">
+                    <div className="border border-dashed border-gray-200 rounded-lg p-3 sm:p-5 bg-white relative">
+                        {/* Headers - hidden on mobile since we stack */}
+                        <div className="hidden sm:flex justify-between text-sm font-bold text-gray-900 mb-3 px-1">
                             <div>Tên VĐV</div>
                             <div>Kết quả</div>
                         </div>
 
-                        {/* Player Inputs & Score */}
-                        <div className="flex gap-4">
+                        {/* Player Inputs & Score — stacks on mobile */}
+                        <div className="flex flex-col sm:flex-row gap-4">
                             {/* Tên VĐV Column */}
                             <div className="flex-1 flex flex-col gap-3">
                                 {/* Home Input */}
-                                <div className="border border-gray-200 rounded-md px-3 h-10 flex items-center justify-between">
-                                    <span className="text-sm font-medium text-gray-900 truncate pr-2">{hName}</span>
-                                    <ClearIcon />
+                                <div className="border border-gray-200 rounded-lg px-3 py-2.5 sm:py-0 sm:h-12 flex items-center justify-between">
+                                    <div className="flex items-center gap-2 min-w-0 flex-1">
+                                        {match.homeTeam?.logo && <img src={match.homeTeam.logo} alt="" className="w-6 h-6 rounded-full object-cover flex-shrink-0" />}
+                                        <div className="min-w-0 flex items-center gap-1.5 flex-wrap">
+                                            {match.homeTeam?.efvId != null && (
+                                                <span className="text-[9px] font-bold text-amber-600 bg-amber-50 border border-amber-200 px-1.5 py-px rounded flex-shrink-0">#{match.homeTeam.efvId}</span>
+                                            )}
+                                            <span className="text-sm font-medium text-gray-900 truncate">{match.homeTeam?.player1 || match.p1?.name || "Tự do"}</span>
+                                            {match.homeTeam?.shortName && <span className="text-[10px] text-gray-400 flex-shrink-0">({match.homeTeam.shortName})</span>}
+                                        </div>
+                                    </div>
                                 </div>
                                 <div className="border-b border-gray-100"></div>
                                 {/* Away Input */}
-                                <div className="border border-gray-200 rounded-md px-3 h-10 flex items-center justify-between">
-                                    <span className="text-sm font-medium text-gray-900 truncate pr-2">{aName}</span>
-                                    <ClearIcon />
+                                <div className="border border-gray-200 rounded-lg px-3 py-2.5 sm:py-0 sm:h-12 flex items-center justify-between">
+                                    <div className="flex items-center gap-2 min-w-0 flex-1">
+                                        {match.awayTeam?.logo && <img src={match.awayTeam.logo} alt="" className="w-6 h-6 rounded-full object-cover flex-shrink-0" />}
+                                        <div className="min-w-0 flex items-center gap-1.5 flex-wrap">
+                                            {match.awayTeam?.efvId != null && (
+                                                <span className="text-[9px] font-bold text-amber-600 bg-amber-50 border border-amber-200 px-1.5 py-px rounded flex-shrink-0">#{match.awayTeam.efvId}</span>
+                                            )}
+                                            <span className="text-sm font-medium text-gray-900 truncate">{match.awayTeam?.player1 || match.p2?.name || "Tự do"}</span>
+                                            {match.awayTeam?.shortName && <span className="text-[10px] text-gray-400 flex-shrink-0">({match.awayTeam.shortName})</span>}
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
 
-                            {/* Kết quả Column */}
-                            <div className="w-[100px] flex flex-col gap-3">
-                                <div className="flex flex-col gap-3 relative">
-                                    <Input
-                                        type="number"
-                                        value={homeScore}
-                                        onChange={(e) => {
-                                            setHomeScore(e.target.value);
-                                            if (Number(e.target.value) > Number(awayScore)) setSelectedWinner('home');
-                                            else if (Number(e.target.value) < Number(awayScore)) setSelectedWinner('away');
-                                        }}
-                                        className="w-full h-10 text-center font-bold text-base rounded-md border-gray-200"
-                                    />
-                                    <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-[10px] text-gray-400 font-medium bg-white px-1 z-10">Set 1</div>
-                                    <Input
-                                        type="number"
-                                        value={awayScore}
-                                        onChange={(e) => {
-                                            setAwayScore(e.target.value);
-                                            if (Number(homeScore) > Number(e.target.value)) setSelectedWinner('home');
-                                            else if (Number(homeScore) < Number(e.target.value)) setSelectedWinner('away');
-                                        }}
-                                        className="w-full h-10 text-center font-bold text-base rounded-md border-gray-200"
-                                    />
-                                </div>
-                                <div className="flex overflow-hidden rounded border border-blue-100 h-8 mt-1">
-                                    <button className="flex-1 h-full bg-blue-50 text-blue-500 hover:bg-blue-100 flex items-center justify-center font-bold text-lg">+</button>
-                                    <button className="flex-1 h-full bg-red-50 text-red-500 hover:bg-red-100 flex items-center justify-center font-bold text-lg">-</button>
+                            {/* Kết quả Column — label visible on mobile */}
+                            <div className="w-full sm:w-[120px]">
+                                <div className="sm:hidden text-sm font-bold text-gray-900 mb-2">Kết quả</div>
+                                <div className="flex flex-row sm:flex-col items-center sm:items-stretch gap-3">
+                                    <div className="flex flex-row sm:flex-col items-center gap-3 flex-1 sm:flex-none relative">
+                                        <div className="flex-1 sm:flex-none w-full">
+                                            <Input
+                                                type="number"
+                                                value={homeScore}
+                                                onChange={(e) => {
+                                                    setHomeScore(e.target.value);
+                                                    if (Number(e.target.value) > Number(awayScore)) setSelectedWinner('home');
+                                                    else if (Number(e.target.value) < Number(awayScore)) setSelectedWinner('away');
+                                                }}
+                                                placeholder="0"
+                                                className="w-full h-12 sm:h-10 text-center font-bold text-lg sm:text-base rounded-lg border-gray-200"
+                                            />
+                                        </div>
+                                        <div className="hidden sm:block absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-[10px] text-gray-400 font-medium bg-white px-1 z-10">VS</div>
+                                        <span className="sm:hidden text-gray-300 font-bold text-xl">-</span>
+                                        <div className="flex-1 sm:flex-none w-full">
+                                            <Input
+                                                type="number"
+                                                value={awayScore}
+                                                onChange={(e) => {
+                                                    setAwayScore(e.target.value);
+                                                    if (Number(homeScore) > Number(e.target.value)) setSelectedWinner('home');
+                                                    else if (Number(homeScore) < Number(e.target.value)) setSelectedWinner('away');
+                                                }}
+                                                placeholder="0"
+                                                className="w-full h-12 sm:h-10 text-center font-bold text-lg sm:text-base rounded-lg border-gray-200"
+                                            />
+                                        </div>
+                                    </div>
+                                    <div className="flex sm:flex-row flex-col overflow-hidden rounded-lg border border-blue-100 h-12 sm:h-8 w-12 sm:w-full sm:mt-1">
+                                        <button className="flex-1 bg-blue-50 text-blue-500 hover:bg-blue-100 flex items-center justify-center font-bold text-lg">+</button>
+                                        <button className="flex-1 bg-red-50 text-red-500 hover:bg-red-100 flex items-center justify-center font-bold text-lg">-</button>
+                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -861,24 +978,30 @@ function EditMatchModal({ match, tournament, onClose, onSaved }: { match: any; t
                             <div className="flex w-full max-w-lg border border-orange-200 rounded-md overflow-hidden bg-white">
                                 <button
                                     onClick={() => setSelectedWinner('home')}
-                                    className={`flex-1 py-3 text-sm flex flex-col items-center justify-center ${selectedWinner === 'home' ? 'bg-orange-50 font-bold text-gray-900' : 'text-gray-500 font-medium hover:bg-orange-50/50'} border-r border-orange-100`}
+                                    className={`flex-1 py-3 text-sm flex flex-col items-center justify-center gap-1 ${selectedWinner === 'home' ? 'bg-orange-50 font-bold text-gray-900' : 'text-gray-500 font-medium hover:bg-orange-50/50'} border-r border-orange-100`}
                                 >
-                                    <span>{match.homeTeam?.player1 || match.p1?.name || "Tự do"}</span>
-                                    {match.homeTeam?.player2 && match.homeTeam.player2 !== "TBD" && <span>{match.homeTeam.player2}</span>}
+                                    <div className="flex items-center gap-1.5">
+                                        {match.homeTeam?.efvId != null && <span className="text-[8px] font-bold text-amber-600 bg-amber-50 border border-amber-200 px-1 py-px rounded">#{match.homeTeam.efvId}</span>}
+                                        <span>{match.homeTeam?.player1 || match.p1?.name || "Tự do"}</span>
+                                    </div>
+                                    {match.homeTeam?.shortName && <span className="text-[10px] text-gray-400">{match.homeTeam.shortName}</span>}
                                 </button>
                                 <button
                                     onClick={() => setSelectedWinner('away')}
-                                    className={`flex-1 py-3 text-sm flex flex-col items-center justify-center ${selectedWinner === 'away' ? 'bg-orange-50 font-bold text-gray-900' : 'text-gray-500 font-medium hover:bg-orange-50/50'}`}
+                                    className={`flex-1 py-3 text-sm flex flex-col items-center justify-center gap-1 ${selectedWinner === 'away' ? 'bg-orange-50 font-bold text-gray-900' : 'text-gray-500 font-medium hover:bg-orange-50/50'}`}
                                 >
-                                    <span>{match.awayTeam?.player1 || match.p2?.name || "Tự do"}</span>
-                                    {match.awayTeam?.player2 && match.awayTeam.player2 !== "TBD" && <span>{match.awayTeam.player2}</span>}
+                                    <div className="flex items-center gap-1.5">
+                                        {match.awayTeam?.efvId != null && <span className="text-[8px] font-bold text-amber-600 bg-amber-50 border border-amber-200 px-1 py-px rounded">#{match.awayTeam.efvId}</span>}
+                                        <span>{match.awayTeam?.player1 || match.p2?.name || "Tự do"}</span>
+                                    </div>
+                                    {match.awayTeam?.shortName && <span className="text-[10px] text-gray-400">{match.awayTeam.shortName}</span>}
                                 </button>
                             </div>
                         </div>
                     </div>
 
                     {/* Meta Fields */}
-                    <div className="grid grid-cols-2 gap-6 mt-6">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6 mt-6">
                         <div>
                             <label className="block text-sm font-bold text-gray-900 mb-2">Thời gian</label>
                             <Select>
@@ -903,38 +1026,70 @@ function EditMatchModal({ match, tournament, onClose, onSaved }: { match: any; t
                                 <span className="bg-orange-100 text-orange-600 text-[10px] font-bold px-2 py-0.5 rounded-full">{match.resultSubmissions.length}</span>
                             </h4>
                             <div className="space-y-3">
-                                {match.resultSubmissions.map((sub: any, idx: number) => (
-                                    <div key={idx} className="p-4 rounded-xl bg-white border border-gray-200 shadow-sm">
-                                        <div className="flex items-center justify-between mb-2">
-                                            <span className="text-xs font-bold text-gray-700">
-                                                {sub.team?.toString?.() === (match.homeTeam?._id || match.homeTeam)?.toString?.()
-                                                    ? `📤 ${match.homeTeam?.shortName || match.homeTeam?.name || "Home"}`
-                                                    : `📤 ${match.awayTeam?.shortName || match.awayTeam?.name || "Away"}`
-                                                }
-                                            </span>
-                                            <span className="text-[10px] text-gray-400">
+                                {match.resultSubmissions.map((sub: any, idx: number) => {
+                                    const isFromHome = sub.team?.toString?.() === (match.homeTeam?._id || match.homeTeam)?.toString?.();
+                                    const submitterTeam = isFromHome ? match.homeTeam : match.awayTeam;
+                                    const submitterTeamName = submitterTeam?.shortName || submitterTeam?.name || "";
+                                    const userData = sub.userData || {};
+                                    const displayName = userData.name || submitterTeam?.player1 || "VĐV";
+                                    const displayEfvId = userData.efvId ?? null;
+                                    const displayAvatar = userData.personalPhoto || userData.avatar || '';
+                                    const displayGameId = userData.gamerId || '';
+
+                                    return (
+                                    <div key={idx} className="rounded-xl bg-white border border-gray-200 shadow-sm overflow-hidden">
+                                        {/* Player Info */}
+                                        <div className={`px-4 py-2.5 flex items-center gap-3 ${isFromHome ? 'bg-blue-50/50 border-b border-blue-100' : 'bg-rose-50/50 border-b border-rose-100'}`}>
+                                            {displayAvatar ? (
+                                                <img src={displayAvatar} alt={displayName} className="w-9 h-9 rounded-full object-cover border-2 border-white shadow-sm flex-shrink-0" />
+                                            ) : (
+                                                <div className={`w-9 h-9 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0 ${isFromHome ? 'bg-blue-100 text-blue-700' : 'bg-rose-100 text-rose-700'}`}>
+                                                    {displayName.charAt(0).toUpperCase()}
+                                                </div>
+                                            )}
+                                            <div className="flex-1 min-w-0">
+                                                <div className="flex items-center gap-1.5 flex-wrap">
+                                                    {displayEfvId != null && <span className="text-[9px] font-bold text-amber-600 bg-amber-50 border border-amber-200 px-1.5 py-px rounded">#{displayEfvId}</span>}
+                                                    <span className="text-xs font-bold text-gray-900 truncate">{displayName}</span>
+                                                </div>
+                                                <div className="flex items-center gap-2 text-[10px] text-gray-500">
+                                                    {displayGameId && <span>🎮 {displayGameId}</span>}
+                                                    {submitterTeamName && <span>· {submitterTeamName}</span>}
+                                                </div>
+                                            </div>
+                                            <span className="text-[10px] text-gray-400 flex-shrink-0">
                                                 {sub.submittedAt ? new Date(sub.submittedAt).toLocaleString("vi-VN") : ""}
                                             </span>
                                         </div>
-                                        <div className="flex items-center gap-4 mb-2">
-                                            <div className="flex items-center gap-2 text-sm">
-                                                <span className="font-bold text-gray-700">{match.homeTeam?.shortName || "H"}</span>
-                                                <span className="text-xl font-black text-blue-600 bg-blue-50 px-3 py-1 rounded-lg">{sub.homeScore}</span>
+                                        {/* Score + notes + screenshots */}
+                                        <div className="p-3">
+                                        <div className="flex items-center gap-3 mb-2 flex-wrap">
+                                            <div className="flex items-center gap-1.5">
+                                                {match.homeTeam?.efvId != null && <span className="text-[8px] font-bold text-amber-600 bg-amber-50 border border-amber-200 px-1 py-px rounded">#{match.homeTeam.efvId}</span>}
+                                                <span className="text-xs font-bold text-gray-700">{match.homeTeam?.player1 || match.homeTeam?.shortName || "H"}</span>
+                                            </div>
+                                            <div className="flex items-center gap-2">
+                                                <span className={`text-xl font-black px-3 py-1 rounded-lg ${sub.homeScore > sub.awayScore ? 'text-emerald-600 bg-emerald-50' : 'text-blue-600 bg-blue-50'}`}>{sub.homeScore}</span>
                                                 <span className="text-gray-300 font-light">—</span>
-                                                <span className="text-xl font-black text-blue-600 bg-blue-50 px-3 py-1 rounded-lg">{sub.awayScore}</span>
-                                                <span className="font-bold text-gray-700">{match.awayTeam?.shortName || "A"}</span>
+                                                <span className={`text-xl font-black px-3 py-1 rounded-lg ${sub.awayScore > sub.homeScore ? 'text-emerald-600 bg-emerald-50' : 'text-blue-600 bg-blue-50'}`}>{sub.awayScore}</span>
+                                            </div>
+                                            <div className="flex items-center gap-1.5">
+                                                {match.awayTeam?.efvId != null && <span className="text-[8px] font-bold text-amber-600 bg-amber-50 border border-amber-200 px-1 py-px rounded">#{match.awayTeam.efvId}</span>}
+                                                <span className="text-xs font-bold text-gray-700">{match.awayTeam?.player1 || match.awayTeam?.shortName || "A"}</span>
                                             </div>
                                         </div>
                                         {sub.notes && <p className="text-xs text-gray-500 italic mb-2">"{sub.notes}"</p>}
                                         {sub.screenshots && sub.screenshots.length > 0 && (
                                             <div className="flex gap-2 mt-2">
                                                 {sub.screenshots.map((s: string, si: number) => (
-                                                    <img key={si} src={s} alt="SS" className="w-20 h-20 rounded-lg object-cover border border-gray-200 cursor-pointer hover:opacity-80 hover:shadow-md transition-all" onClick={() => window.open(s, "_blank")} />
+                                                    <img key={si} src={s} alt="SS" className="w-20 h-20 rounded-lg object-cover border border-gray-200 cursor-pointer hover:opacity-80 hover:shadow-md transition-all" onClick={() => window.open(s, '_blank')} />
                                                 ))}
                                             </div>
                                         )}
+                                        </div>
                                     </div>
-                                ))}
+                                    );
+                                })}
                             </div>
                         </div>
                     )}
@@ -945,11 +1100,11 @@ function EditMatchModal({ match, tournament, onClose, onSaved }: { match: any; t
                 </div>
 
                 {/* Footer fixed */}
-                <div className="border-t border-gray-100 p-4 bg-white flex justify-end gap-3 sticky bottom-0">
-                    <Button variant="outline" onClick={onClose} className="px-6 h-10 rounded border-gray-200 text-gray-700 font-bold hover:bg-gray-50">
+                <div className="border-t border-gray-100 p-3 sm:p-4 bg-white flex justify-end gap-3 flex-shrink-0">
+                    <Button variant="outline" onClick={onClose} className="px-4 sm:px-6 h-11 sm:h-10 rounded-lg border-gray-200 text-gray-700 font-bold hover:bg-gray-50 text-sm">
                         Hủy
                     </Button>
-                    <Button onClick={handleSave} disabled={isSaving} className="bg-[#81A8FF] px-8 h-10 rounded text-white font-bold hover:bg-[#6e97f5]">
+                    <Button onClick={handleSave} disabled={isSaving} className="bg-[#81A8FF] px-6 sm:px-8 h-11 sm:h-10 rounded-lg text-white font-bold hover:bg-[#6e97f5] text-sm">
                         {isSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : "Lưu"}
                     </Button>
                 </div>
@@ -960,5 +1115,6 @@ function EditMatchModal({ match, tournament, onClose, onSaved }: { match: any; t
                 .custom-scrollbar::-webkit-scrollbar-thumb { background: #E2E8F0; border-radius: 4px; }
             `}</style>
         </Dialog>
+        </>
     );
 }

@@ -1,7 +1,7 @@
 "use client";
 
 import { motion, AnimatePresence } from "framer-motion";
-import { Swords, Trophy, Users, Search, X, Copy, QrCode, Share2, Check, CheckCircle2, Info, Loader2, Download, ArrowUp, ArrowDown, Shuffle, Hash, RotateCcw, Sparkles } from "lucide-react";
+import { Swords, Trophy, Users, Search, X, Copy, QrCode, Share2, Check, CheckCircle2, Info, Loader2, Download, ArrowUp, ArrowDown, Shuffle, Hash, RotateCcw, Sparkles, FileBarChart, Eye, ImageIcon, MessageSquare, Clock, User } from "lucide-react";
 import { useState, useEffect } from "react";
 import { useParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
@@ -166,6 +166,7 @@ const MatchDetailModal = ({ match, tournament, onClose, onSaved }: { match: any;
     );
     const [isSaving, setIsSaving] = useState(false);
     const [matchTime, setMatchTime] = useState(match.scheduledAt ? new Date(match.scheduledAt).toISOString().slice(0, 16) : "");
+    const [viewingImage, setViewingImage] = useState<string | null>(null);
 
     const formatNameStr = (team: any, pFallback: any) => {
         const p1 = team?.player1 || pFallback?.name || "Tự do";
@@ -260,7 +261,7 @@ const MatchDetailModal = ({ match, tournament, onClose, onSaved }: { match: any;
                     </button>
                 </div>
 
-                <div className="p-6 pb-2 overflow-y-auto custom-scrollbar flex-1">
+                <div className="p-4 sm:p-6 pb-2 overflow-y-auto custom-scrollbar flex-1">
                     {/* Blue Info Box */}
                     <div className="bg-[#F0F7FF] rounded-lg p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-y-2 mb-6">
                         <div>
@@ -284,14 +285,32 @@ const MatchDetailModal = ({ match, tournament, onClose, onSaved }: { match: any;
                             {/* Tên VĐV Column */}
                             <div className="flex-1 flex flex-col gap-3">
                                 {/* Home Input */}
-                                <div className="border border-gray-200 rounded-md px-3 h-10 flex items-center justify-between">
-                                    <span className="text-sm font-medium text-gray-900 truncate pr-2">{hName}</span>
+                                <div className="border border-gray-200 rounded-md px-3 h-12 flex items-center justify-between">
+                                    <div className="flex items-center gap-2 min-w-0 flex-1">
+                                        {match.homeTeam?.logo && <img src={match.homeTeam.logo} alt="" className="w-6 h-6 rounded-full object-cover flex-shrink-0" />}
+                                        <div className="min-w-0 flex items-center gap-1.5 flex-wrap">
+                                            {match.homeTeam?.efvId != null && (
+                                                <span className="text-[9px] font-bold text-amber-600 bg-amber-50 border border-amber-200 px-1.5 py-px rounded flex-shrink-0">#{match.homeTeam.efvId}</span>
+                                            )}
+                                            <span className="text-sm font-medium text-gray-900 truncate">{match.homeTeam?.player1 || match.p1?.name || "Tự do"}</span>
+                                            {match.homeTeam?.shortName && <span className="text-[10px] text-gray-400 flex-shrink-0">({match.homeTeam.shortName})</span>}
+                                        </div>
+                                    </div>
                                     <ClearIcon />
                                 </div>
                                 <div className="border-b border-gray-100"></div>
                                 {/* Away Input */}
-                                <div className="border border-gray-200 rounded-md px-3 h-10 flex items-center justify-between">
-                                    <span className="text-sm font-medium text-gray-900 truncate pr-2">{aName}</span>
+                                <div className="border border-gray-200 rounded-md px-3 h-12 flex items-center justify-between">
+                                    <div className="flex items-center gap-2 min-w-0 flex-1">
+                                        {match.awayTeam?.logo && <img src={match.awayTeam.logo} alt="" className="w-6 h-6 rounded-full object-cover flex-shrink-0" />}
+                                        <div className="min-w-0 flex items-center gap-1.5 flex-wrap">
+                                            {match.awayTeam?.efvId != null && (
+                                                <span className="text-[9px] font-bold text-amber-600 bg-amber-50 border border-amber-200 px-1.5 py-px rounded flex-shrink-0">#{match.awayTeam.efvId}</span>
+                                            )}
+                                            <span className="text-sm font-medium text-gray-900 truncate">{match.awayTeam?.player1 || match.p2?.name || "Tự do"}</span>
+                                            {match.awayTeam?.shortName && <span className="text-[10px] text-gray-400 flex-shrink-0">({match.awayTeam.shortName})</span>}
+                                        </div>
+                                    </div>
                                     <ClearIcon />
                                 </div>
                             </div>
@@ -334,17 +353,23 @@ const MatchDetailModal = ({ match, tournament, onClose, onSaved }: { match: any;
                             <div className="flex w-full max-w-lg border border-orange-200 rounded-md overflow-hidden bg-white">
                                 <button
                                     onClick={() => setSelectedWinner('home')}
-                                    className={`flex-1 py-3 text-sm flex flex-col items-center justify-center ${selectedWinner === 'home' ? 'bg-orange-50 font-bold text-gray-900' : 'text-gray-500 font-medium hover:bg-orange-50/50'} border-r border-orange-100`}
+                                    className={`flex-1 py-3 text-sm flex flex-col items-center justify-center gap-1 ${selectedWinner === 'home' ? 'bg-orange-50 font-bold text-gray-900' : 'text-gray-500 font-medium hover:bg-orange-50/50'} border-r border-orange-100`}
                                 >
-                                    <span>{match.homeTeam?.player1 || match.p1?.name || "Tự do"}</span>
-                                    {match.homeTeam?.player2 && match.homeTeam.player2 !== "TBD" && <span>{match.homeTeam.player2}</span>}
+                                    <div className="flex items-center gap-1.5">
+                                        {match.homeTeam?.efvId != null && <span className="text-[8px] font-bold text-amber-600 bg-amber-50 border border-amber-200 px-1 py-px rounded">#{match.homeTeam.efvId}</span>}
+                                        <span>{match.homeTeam?.player1 || match.p1?.name || "Tự do"}</span>
+                                    </div>
+                                    {match.homeTeam?.shortName && <span className="text-[10px] text-gray-400">{match.homeTeam.shortName}</span>}
                                 </button>
                                 <button
                                     onClick={() => setSelectedWinner('away')}
-                                    className={`flex-1 py-3 text-sm flex flex-col items-center justify-center ${selectedWinner === 'away' ? 'bg-orange-50 font-bold text-gray-900' : 'text-gray-500 font-medium hover:bg-orange-50/50'}`}
+                                    className={`flex-1 py-3 text-sm flex flex-col items-center justify-center gap-1 ${selectedWinner === 'away' ? 'bg-orange-50 font-bold text-gray-900' : 'text-gray-500 font-medium hover:bg-orange-50/50'}`}
                                 >
-                                    <span>{match.awayTeam?.player1 || match.p2?.name || "Tự do"}</span>
-                                    {match.awayTeam?.player2 && match.awayTeam.player2 !== "TBD" && <span>{match.awayTeam.player2}</span>}
+                                    <div className="flex items-center gap-1.5">
+                                        {match.awayTeam?.efvId != null && <span className="text-[8px] font-bold text-amber-600 bg-amber-50 border border-amber-200 px-1 py-px rounded">#{match.awayTeam.efvId}</span>}
+                                        <span>{match.awayTeam?.player1 || match.p2?.name || "Tự do"}</span>
+                                    </div>
+                                    {match.awayTeam?.shortName && <span className="text-[10px] text-gray-400">{match.awayTeam.shortName}</span>}
                                 </button>
                             </div>
                         </div>
@@ -380,12 +405,218 @@ const MatchDetailModal = ({ match, tournament, onClose, onSaved }: { match: any;
                         </div>
                     </div>
 
-                    {/* History */}
-                    <div className="mt-8 mb-4 text-center">
-                        <div className="text-gray-500 font-medium mb-1">Chưa có lịch sử điểm số</div>
-                        <div className="text-xs text-gray-400">Lịch sử điểm số chỉ hiển thị khi sử dụng tính năng chấm điểm của trọng tài.</div>
-                    </div>
+                    {/* Player Submitted Results */}
+                    {match.resultSubmissions && match.resultSubmissions.length > 0 ? (
+                        <div className="mt-6 sm:mt-8">
+                            <div className="flex items-center gap-2 mb-4">
+                                <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-orange-400 to-amber-500 flex items-center justify-center shadow-sm">
+                                    <FileBarChart className="w-4 h-4 text-white" />
+                                </div>
+                                <div>
+                                    <h4 className="text-sm font-bold text-gray-900 flex items-center gap-2">
+                                        Kết quả VĐV đã gửi
+                                        <span className="bg-orange-100 text-orange-600 text-[10px] font-bold px-2 py-0.5 rounded-full">
+                                            {match.resultSubmissions.length}
+                                        </span>
+                                    </h4>
+                                    <p className="text-[10px] text-gray-400">Kết quả do VĐV tự gửi lên để xác nhận</p>
+                                </div>
+                            </div>
+                            <div className="space-y-4">
+                                {match.resultSubmissions.map((sub: any, idx: number) => {
+                                    const isFromHome = sub.team?.toString?.() === (match.homeTeam?._id || match.homeTeam)?.toString?.();
+                                    const submitterTeam = isFromHome ? match.homeTeam : match.awayTeam;
+                                    const submitterTeamName = submitterTeam?.name || submitterTeam?.shortName || "";
+
+                                    // Use enriched userData from API, fallback to team data
+                                    const userData = sub.userData || {};
+                                    const displayName = userData.name || submitterTeam?.player1 || (isFromHome ? match.p1?.name : match.p2?.name) || "VĐV";
+                                    const displayEfvId = userData.efvId ?? submitterTeam?.efvId ?? null;
+                                    const displayAvatar = userData.personalPhoto || userData.avatar || '';
+                                    const displayGameId = userData.gamerId || '';
+                                    const displayNickname = userData.nickname || '';
+
+                                    return (
+                                        <div key={idx} className="rounded-xl border border-gray-200 overflow-hidden bg-white shadow-sm hover:shadow-md transition-shadow">
+                                            {/* Submission Header — Full Player Info */}
+                                            <div className={`px-4 py-3 ${isFromHome ? 'bg-gradient-to-r from-blue-50 to-indigo-50 border-b border-blue-100' : 'bg-gradient-to-r from-rose-50 to-pink-50 border-b border-rose-100'}`}>
+                                                <div className="flex items-start gap-3">
+                                                    {/* Avatar */}
+                                                    <div className="flex-shrink-0">
+                                                        {displayAvatar ? (
+                                                            <img 
+                                                                src={displayAvatar} 
+                                                                alt={displayName}
+                                                                className="w-11 h-11 rounded-full object-cover border-2 border-white shadow-sm cursor-pointer hover:opacity-80 transition-opacity"
+                                                                onClick={() => setViewingImage(displayAvatar)}
+                                                            />
+                                                        ) : (
+                                                            <div className={`w-11 h-11 rounded-full flex items-center justify-center text-sm font-bold ${isFromHome ? 'bg-blue-100 text-blue-700 border-2 border-blue-200' : 'bg-rose-100 text-rose-700 border-2 border-rose-200'}`}>
+                                                                <User className="w-5 h-5" />
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                    {/* Info */}
+                                                    <div className="flex-1 min-w-0">
+                                                        <div className="flex items-center gap-1.5 flex-wrap mb-0.5">
+                                                            {displayEfvId != null && (
+                                                                <span className="text-[9px] font-bold text-amber-600 bg-amber-50 border border-amber-200 px-1.5 py-px rounded flex-shrink-0">
+                                                                    #{displayEfvId}
+                                                                </span>
+                                                            )}
+                                                            <span className="text-sm font-bold text-gray-900 truncate">{displayName}</span>
+                                                        </div>
+                                                        <div className="flex items-center gap-2 flex-wrap text-[10px] text-gray-500">
+                                                            {displayGameId && (
+                                                                <span className="flex items-center gap-1">
+                                                                    🎮 <span className="font-semibold text-gray-600">{displayGameId}</span>
+                                                                </span>
+                                                            )}
+                                                            {displayNickname && displayNickname !== displayGameId && (
+                                                                <span className="flex items-center gap-1">
+                                                                    · {displayNickname}
+                                                                </span>
+                                                            )}
+                                                            {submitterTeamName && (
+                                                                <span className="flex items-center gap-1">
+                                                                    · {submitterTeamName}
+                                                                </span>
+                                                            )}
+                                                        </div>
+                                                    </div>
+                                                    {/* Timestamp */}
+                                                    <div className="flex items-center gap-1 text-[10px] text-gray-400 flex-shrink-0 mt-0.5">
+                                                        <Clock className="w-3 h-3" />
+                                                        <span className="hidden sm:inline">{sub.submittedAt ? new Date(sub.submittedAt).toLocaleString("vi-VN") : ""}</span>
+                                                        <span className="sm:hidden">{sub.submittedAt ? new Date(sub.submittedAt).toLocaleTimeString("vi-VN", { hour: '2-digit', minute: '2-digit' }) : ""}</span>
+                                                    </div>
+                                                </div>
+                                            </div>
+
+                                            {/* Score Display */}
+                                            <div className="px-4 py-4">
+                                                <div className="flex items-center justify-center gap-3 sm:gap-5">
+                                                    <div className="text-center flex-1">
+                                                        <div className="mb-1.5">
+                                                            <div className="flex items-center justify-center gap-1 flex-wrap">
+                                                                {match.homeTeam?.efvId != null && <span className="text-[8px] font-bold text-amber-600 bg-amber-50 border border-amber-200 px-1 py-px rounded">#{match.homeTeam.efvId}</span>}
+                                                                <span className="text-[10px] font-bold text-gray-600 truncate">{match.homeTeam?.player1 || match.p1?.name || "Đội nhà"}</span>
+                                                            </div>
+                                                            {match.homeTeam?.shortName && <p className="text-[9px] text-gray-400">{match.homeTeam.shortName}</p>}
+                                                        </div>
+                                                        <span className={`text-2xl sm:text-3xl font-black inline-block min-w-[48px] py-1.5 px-3 rounded-xl ${
+                                                            sub.homeScore > sub.awayScore 
+                                                                ? 'text-emerald-600 bg-emerald-50 border border-emerald-200' 
+                                                                : 'text-gray-600 bg-gray-50 border border-gray-200'
+                                                        }`}>
+                                                            {sub.homeScore}
+                                                        </span>
+                                                    </div>
+                                                    <span className="text-xl text-gray-200 font-light mt-4">—</span>
+                                                    <div className="text-center flex-1">
+                                                        <div className="mb-1.5">
+                                                            <div className="flex items-center justify-center gap-1 flex-wrap">
+                                                                {match.awayTeam?.efvId != null && <span className="text-[8px] font-bold text-amber-600 bg-amber-50 border border-amber-200 px-1 py-px rounded">#{match.awayTeam.efvId}</span>}
+                                                                <span className="text-[10px] font-bold text-gray-600 truncate">{match.awayTeam?.player1 || match.p2?.name || "Đội khách"}</span>
+                                                            </div>
+                                                            {match.awayTeam?.shortName && <p className="text-[9px] text-gray-400">{match.awayTeam.shortName}</p>}
+                                                        </div>
+                                                        <span className={`text-2xl sm:text-3xl font-black inline-block min-w-[48px] py-1.5 px-3 rounded-xl ${
+                                                            sub.awayScore > sub.homeScore 
+                                                                ? 'text-emerald-600 bg-emerald-50 border border-emerald-200' 
+                                                                : 'text-gray-600 bg-gray-50 border border-gray-200'
+                                                        }`}>
+                                                            {sub.awayScore}
+                                                        </span>
+                                                    </div>
+                                                </div>
+
+                                                {/* Notes */}
+                                                {sub.notes && (
+                                                    <div className="mt-4 flex items-start gap-2 bg-gray-50 rounded-lg px-3 py-2.5 border border-gray-100">
+                                                        <MessageSquare className="w-3.5 h-3.5 text-gray-400 mt-0.5 flex-shrink-0" />
+                                                        <p className="text-xs text-gray-600 italic leading-relaxed">"{sub.notes}"</p>
+                                                    </div>
+                                                )}
+
+                                                {/* Screenshots */}
+                                                {sub.screenshots && sub.screenshots.length > 0 && (
+                                                    <div className="mt-4">
+                                                        <p className="text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-2 flex items-center gap-1.5">
+                                                            <ImageIcon className="w-3 h-3" />
+                                                            Hình ảnh minh chứng ({sub.screenshots.length})
+                                                        </p>
+                                                        <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                                                            {sub.screenshots.map((s: string, si: number) => (
+                                                                <div 
+                                                                    key={si} 
+                                                                    className="relative group cursor-pointer rounded-xl overflow-hidden border-2 border-gray-100 hover:border-blue-300 transition-all aspect-square"
+                                                                    onClick={() => setViewingImage(s)}
+                                                                >
+                                                                    <img 
+                                                                        src={s} 
+                                                                        alt={`Minh chứng ${si + 1}`} 
+                                                                        className="w-full h-full object-cover" 
+                                                                    />
+                                                                    <div className="absolute inset-0 bg-black/0 group-hover:bg-black/30 transition-all flex items-center justify-center">
+                                                                        <Eye className="w-5 h-5 text-white opacity-0 group-hover:opacity-100 transition-opacity drop-shadow-lg" />
+                                                                    </div>
+                                                                </div>
+                                                            ))}
+                                                        </div>
+                                                    </div>
+                                                )}
+                                            </div>
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                        </div>
+                    ) : (
+                        <div className="mt-8 mb-4 text-center">
+                            <div className="text-gray-500 font-medium mb-1">Chưa có kết quả VĐV gửi lên</div>
+                            <div className="text-xs text-gray-400">Kết quả sẽ hiển thị khi VĐV gửi ảnh chụp màn hình kết quả trận đấu.</div>
+                        </div>
+                    )}
                 </div>
+
+                {/* Fullscreen Image Viewer */}
+                <AnimatePresence>
+                    {viewingImage && (
+                        <motion.div
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                            exit={{ opacity: 0 }}
+                            className="fixed inset-0 z-[100] bg-black/90 flex items-center justify-center p-4"
+                            onClick={() => setViewingImage(null)}
+                        >
+                            <motion.div
+                                initial={{ scale: 0.8 }}
+                                animate={{ scale: 1 }}
+                                exit={{ scale: 0.8 }}
+                                className="relative max-w-full max-h-full"
+                                onClick={(e) => e.stopPropagation()}
+                            >
+                                <img src={viewingImage} alt="Fullsize" className="max-w-[90vw] max-h-[85vh] object-contain rounded-lg shadow-2xl" />
+                                <button
+                                    onClick={() => setViewingImage(null)}
+                                    className="absolute -top-3 -right-3 w-8 h-8 rounded-full bg-white/90 text-gray-700 flex items-center justify-center shadow-lg hover:bg-white transition-colors"
+                                >
+                                    <X className="w-4 h-4" />
+                                </button>
+                                <a
+                                    href={viewingImage}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="absolute bottom-3 right-3 px-4 py-2 rounded-lg bg-white/90 text-gray-700 text-xs font-bold hover:bg-white transition-colors shadow-lg flex items-center gap-1.5"
+                                    onClick={(e) => e.stopPropagation()}
+                                >
+                                    <Download className="w-3.5 h-3.5" /> Mở gốc
+                                </a>
+                            </motion.div>
+                        </motion.div>
+                    )}
+                </AnimatePresence>
 
                 {/* Footer fixed */}
                 <div className="border-t border-gray-100 p-4 bg-white flex items-center justify-between flex-shrink-0">

@@ -106,6 +106,47 @@ export async function GET(req: NextRequest, { params }: RouteParams) {
             return match;
         });
 
+        // Enrich resultSubmissions with full user + registration data
+        const allSubmissionUserIds = new Set<string>();
+        matches.forEach((m: any) => {
+            m.resultSubmissions?.forEach((sub: any) => {
+                if (sub.user) allSubmissionUserIds.add(sub.user.toString());
+            });
+        });
+
+        if (allSubmissionUserIds.size > 0) {
+            // Fetch user details
+            const submissionUsers = await User.find({ _id: { $in: Array.from(allSubmissionUserIds) } })
+                .select('name avatar efvId gamerId nickname')
+                .lean();
+            const userMap = new Map(submissionUsers.map((u: any) => [u._id.toString(), u]));
+
+            // Fetch registrations for these users in this tournament
+            const submissionRegs = await Registration.find({
+                tournament: id,
+                user: { $in: Array.from(allSubmissionUserIds) },
+            }).select('user playerName gamerId personalPhoto nickname team').lean();
+            const regByUser = new Map(submissionRegs.map((r: any) => [r.user.toString(), r]));
+
+            matches.forEach((m: any) => {
+                m.resultSubmissions?.forEach((sub: any) => {
+                    const uid = sub.user?.toString();
+                    if (uid) {
+                        const u = userMap.get(uid);
+                        const r = regByUser.get(uid);
+                        sub.userData = {
+                            name: r?.playerName || u?.name || 'VĐV',
+                            avatar: u?.avatar || '',
+                            efvId: u?.efvId ?? null,
+                            gamerId: r?.gamerId || u?.gamerId || '',
+                            nickname: r?.nickname || u?.nickname || '',
+                            personalPhoto: r?.personalPhoto || '',
+                        };
+                    }
+                });
+            });
+        }
+
         const rounds: Record<string, any[]> = {};
         matches.forEach(m => {
             const rk = m.roundName || `Vòng ${m.round}`;

@@ -6,6 +6,7 @@ import {
     Trophy, Swords, Clock, Activity, ChevronRight, Upload, Camera, X,
     CheckCircle2, Loader2, Lock, MessageCircle, Hash, User as UserIcon
 } from "lucide-react";
+import { compressImage } from "@/lib/compressImage";
 
 /* ─── Player Info Card ─── */
 function PlayerCard({ team, label, labelColor }: { team: any; label: string; labelColor: string }) {
@@ -223,14 +224,29 @@ export function SubmitResultForm({ match, myTeam, opponent, isHome, userId, onCl
                             </div>
                             <input type="file" accept="image/*" className="hidden" disabled={isUploadingShot} onChange={async e => {
                                 const f = e.target.files?.[0]; if (!f) return;
+                                const { toast } = await import("sonner");
                                 setIsUploadingShot(true);
                                 try {
-                                    const fd = new FormData(); fd.append("file", f); fd.append("type", "registration");
+                                    // Auto-compress image
+                                    const compressed = await compressImage(f);
+                                    const fd = new FormData(); fd.append("file", compressed); fd.append("type", "screenshot");
                                     const hdrs: any = {}; const tk = localStorage.getItem("efootcup_token"); if (tk) hdrs.Authorization = `Bearer ${tk}`;
                                     const r = await fetch("/api/upload", { method: "POST", headers: hdrs, body: fd });
+                                    if (!r.ok) {
+                                        const errData = await r.json().catch(() => null);
+                                        toast.error(errData?.message || `Upload lỗi (${r.status})`);
+                                        return;
+                                    }
                                     const d = await r.json(); const url = d.data?.url || d.url;
-                                    if (url) setScreenshots(prev => [...prev, url]);
-                                } catch { } finally { setIsUploadingShot(false); }
+                                    if (url) {
+                                        setScreenshots(prev => [...prev, url]);
+                                    } else {
+                                        toast.error("Upload thất bại, vui lòng thử lại");
+                                    }
+                                } catch (err) {
+                                    console.error("Upload error:", err);
+                                    toast.error("Lỗi kết nối, vui lòng thử lại");
+                                } finally { setIsUploadingShot(false); }
                                 e.target.value = "";
                             }} />
                         </label>
@@ -242,11 +258,14 @@ export function SubmitResultForm({ match, myTeam, opponent, isHome, userId, onCl
 
             <div className="flex gap-2">
                 <button onClick={onClose} className="flex-1 py-2 rounded-xl border border-gray-200 text-xs font-medium text-gray-600 hover:bg-gray-50 transition-colors">Hủy</button>
-                <button disabled={isSubmitting || homeScore === "" || awayScore === ""} onClick={handleSubmit} className="flex-1 py-2 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 text-white text-xs font-semibold disabled:opacity-50 flex items-center justify-center gap-1.5 hover:shadow-md transition-all">
+                <button disabled={isSubmitting || homeScore === "" || awayScore === "" || screenshots.length === 0} onClick={handleSubmit} className="flex-1 py-2 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 text-white text-xs font-semibold disabled:opacity-50 flex items-center justify-center gap-1.5 hover:shadow-md transition-all">
                     {isSubmitting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <CheckCircle2 className="w-3.5 h-3.5" />}
                     {isSubmitting ? "Đang gửi..." : "Xác nhận gửi"}
                 </button>
             </div>
+            {screenshots.length === 0 && (
+                <p className="text-[10px] text-red-500 font-medium text-center">⚠ Vui lòng đính kèm ít nhất 1 ảnh minh chứng để gửi kết quả</p>
+            )}
         </motion.div>
     );
 }
