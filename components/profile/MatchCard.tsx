@@ -209,7 +209,7 @@ export function SubmitResultForm({ match, myTeam, opponent, isHome, userId, onCl
 
             {/* Screenshots */}
             <div>
-                <label className="text-[10px] font-semibold text-gray-400 mb-1.5 block">Ảnh minh chứng (tối đa 3)</label>
+                <label className="text-[10px] font-semibold text-gray-400 mb-1.5 block">Ảnh minh chứng <span className="text-red-500">*</span> (tối đa 3)</label>
                 <div className="flex items-center gap-2 flex-wrap">
                     {screenshots.map((s, i) => (
                         <div key={i} className="relative group">
@@ -254,17 +254,27 @@ export function SubmitResultForm({ match, myTeam, opponent, isHome, userId, onCl
                 </div>
             </div>
 
-            <textarea value={notes} onChange={e => setNotes(e.target.value)} placeholder="Nhập tên VĐV dành chiến thắng hoặc nội dung báo cáo." maxLength={500} rows={2} className="w-full px-3 py-2 text-xs rounded-xl border border-gray-200 bg-white focus:border-blue-500 outline-none resize-none transition-colors" />
+            <div>
+                <label className="text-[10px] font-semibold text-gray-400 mb-1.5 block">Ghi chú <span className="text-red-500">*</span></label>
+                <textarea value={notes} onChange={e => setNotes(e.target.value)} placeholder="Nhập tên VĐV dành chiến thắng hoặc nội dung báo cáo." maxLength={500} rows={2} className={`w-full px-3 py-2 text-xs rounded-xl border bg-white focus:border-blue-500 outline-none resize-none transition-colors ${notes.trim() === '' ? 'border-gray-200' : 'border-gray-200'}`} />
+            </div>
 
             <div className="flex gap-2">
                 <button onClick={onClose} className="flex-1 py-2 rounded-xl border border-gray-200 text-xs font-medium text-gray-600 hover:bg-gray-50 transition-colors">Hủy</button>
-                <button disabled={isSubmitting || homeScore === "" || awayScore === "" || screenshots.length === 0} onClick={handleSubmit} className="flex-1 py-2 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 text-white text-xs font-semibold disabled:opacity-50 flex items-center justify-center gap-1.5 hover:shadow-md transition-all">
+                <button disabled={isSubmitting || homeScore === "" || awayScore === "" || screenshots.length === 0 || notes.trim() === ""} onClick={handleSubmit} className="flex-1 py-2 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 text-white text-xs font-semibold disabled:opacity-50 flex items-center justify-center gap-1.5 hover:shadow-md transition-all">
                     {isSubmitting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <CheckCircle2 className="w-3.5 h-3.5" />}
                     {isSubmitting ? "Đang gửi..." : "Xác nhận gửi"}
                 </button>
             </div>
-            {screenshots.length === 0 && (
-                <p className="text-[10px] text-red-500 font-medium text-center">⚠ Vui lòng đính kèm ít nhất 1 ảnh minh chứng để gửi kết quả</p>
+            {(screenshots.length === 0 || notes.trim() === "") && (
+                <div className="space-y-0.5">
+                    {screenshots.length === 0 && (
+                        <p className="text-[10px] text-red-500 font-medium text-center">⚠ Vui lòng đính kèm ít nhất 1 ảnh minh chứng</p>
+                    )}
+                    {notes.trim() === "" && (
+                        <p className="text-[10px] text-red-500 font-medium text-center">⚠ Vui lòng nhập ghi chú</p>
+                    )}
+                </div>
             )}
         </motion.div>
     );
