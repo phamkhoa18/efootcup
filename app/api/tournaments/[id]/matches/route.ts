@@ -62,7 +62,11 @@ export async function PUT(req: NextRequest, { params }: RouteParams) {
         if (!tournament) return apiError("Không tìm thấy giải đấu", 404);
 
         const id = tournament._id;
-        if (tournament.createdBy.toString() !== authResult.user._id)
+        const isOwner = tournament.createdBy.toString() === authResult.user._id;
+        const isCollaborator = (tournament.collaborators || []).some(
+            (c: any) => c.userId.toString() === authResult.user._id
+        );
+        if (!isOwner && !isCollaborator)
             return apiError("Không có quyền", 403);
 
         const body = await req.json();

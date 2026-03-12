@@ -206,17 +206,17 @@ export default function TournamentDetailPage() {
     return (
         <div className="space-y-6">
             {/* Header */}
-            <div className="flex items-start gap-4">
+            <div className="flex flex-col sm:flex-row sm:items-start gap-3 sm:gap-4">
                 <button
                     onClick={() => router.push("/manager/giai-dau")}
-                    className="w-10 h-10 rounded-xl border border-gray-200 flex items-center justify-center hover:bg-gray-50 transition-colors mt-1"
+                    className="w-10 h-10 rounded-xl border border-gray-200 flex items-center justify-center hover:bg-gray-50 transition-colors flex-shrink-0"
                 >
                     <ArrowLeft className="w-4 h-4" />
                 </button>
-                <div className="flex-1">
-                    <div className="flex items-center gap-3 mb-1">
-                        <h1 className="text-xl font-semibold text-efb-dark">{t.title}</h1>
-                        <span className={`text-[11px] px-2.5 py-1 rounded-full font-semibold inline-flex items-center gap-1 ${sty.color}`}>
+                <div className="flex-1 min-w-0">
+                    <div className="flex flex-wrap items-center gap-2 mb-1">
+                        <h1 className="text-lg sm:text-xl font-semibold text-efb-dark break-words">{t.title}</h1>
+                        <span className={`text-[11px] px-2.5 py-1 rounded-full font-semibold inline-flex items-center gap-1 flex-shrink-0 ${sty.color}`}>
                             <StatusIcon className="w-3 h-3" />
                             {sty.label}
                         </span>
@@ -542,8 +542,8 @@ export default function TournamentDetailPage() {
                         </div>
                     ) : (
                         <>
-                            {/* Table header */}
-                            <div className="grid grid-cols-[36px_1fr_80px_120px_70px] gap-2 px-2.5 py-2 text-[10px] font-semibold text-gray-400 uppercase tracking-wider border-b border-gray-100 mb-1">
+                            {/* Table header - hidden on mobile */}
+                            <div className="hidden md:grid grid-cols-[36px_1fr_80px_120px_70px] gap-2 px-2.5 py-2 text-[10px] font-semibold text-gray-400 uppercase tracking-wider border-b border-gray-100 mb-1">
                                 <div>#</div>
                                 <div>VĐV / Đội</div>
                                 <div className="text-center">Seed</div>
@@ -566,87 +566,93 @@ export default function TournamentDetailPage() {
                                     return (
                                         <div
                                             key={team._id}
-                                            className="grid grid-cols-[36px_1fr_80px_120px_70px] gap-2 items-center p-2.5 rounded-lg hover:bg-gray-50 transition-colors group"
+                                            className="md:grid md:grid-cols-[36px_1fr_80px_120px_70px] md:gap-2 md:items-center p-2.5 rounded-lg hover:bg-gray-50 transition-colors group flex flex-col gap-2"
                                         >
-                                            {/* Number */}
-                                            <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-efb-blue/10 to-indigo-100 flex items-center justify-center text-xs font-bold text-efb-blue">
-                                                {i + 1}
+                                            {/* Number + Player Info (mobile: side by side) */}
+                                            <div className="flex items-center gap-2 md:contents">
+                                                {/* Number */}
+                                                <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-efb-blue/10 to-indigo-100 flex items-center justify-center text-xs font-bold text-efb-blue flex-shrink-0">
+                                                    {i + 1}
+                                                </div>
+
+                                                {/* Player Info */}
+                                                <div className="min-w-0 flex-1">
+                                                    <div className="flex items-center gap-1.5">
+                                                        {captainEfvId && (
+                                                            <span className="text-[10px] font-bold text-efb-blue bg-efb-blue/10 px-1.5 py-0.5 rounded flex-shrink-0">
+                                                                #{captainEfvId}
+                                                            </span>
+                                                        )}
+                                                        <span className="text-sm font-semibold text-efb-dark truncate">
+                                                            {captainName}
+                                                        </span>
+                                                    </div>
+                                                    <div className="flex items-center gap-2 mt-0.5">
+                                                        <span className="text-[11px] text-efb-text-muted truncate">
+                                                            {team.name}
+                                                        </span>
+                                                        {playerNickname && (
+                                                            <span className="text-[10px] text-gray-400 truncate">
+                                                                · {playerNickname}
+                                                            </span>
+                                                        )}
+                                                        {gamerId && (
+                                                            <span className="text-[10px] text-amber-500 font-medium truncate">
+                                                                ID: {gamerId}
+                                                            </span>
+                                                        )}
+                                                    </div>
+                                                </div>
                                             </div>
 
-                                            {/* Player Info */}
-                                            <div className="min-w-0">
-                                                <div className="flex items-center gap-1.5">
-                                                    {captainEfvId && (
-                                                        <span className="text-[10px] font-bold text-efb-blue bg-efb-blue/10 px-1.5 py-0.5 rounded flex-shrink-0">
-                                                            #{captainEfvId}
+                                            {/* Seed + Stats + Status (mobile: row) */}
+                                            <div className="flex items-center justify-between gap-2 md:contents pl-10 md:pl-0">
+                                                {/* Seed */}
+                                                <div className="md:text-center">
+                                                    {team.seed ? (
+                                                        <span className="inline-flex items-center gap-0.5 text-[11px] font-bold text-amber-600 bg-amber-50 px-2 py-0.5 rounded-full">
+                                                            🌱 {team.seed}
                                                         </span>
+                                                    ) : (
+                                                        <span className="text-[11px] text-gray-300">—</span>
                                                     )}
-                                                    <span className="text-sm font-semibold text-efb-dark truncate">
-                                                        {captainName}
+                                                </div>
+
+                                                {/* Stats */}
+                                                <div className="md:text-center">
+                                                    <div className="flex items-center justify-center gap-1 text-[11px]">
+                                                        <span className="font-bold text-emerald-600">{team.stats?.wins || 0}W</span>
+                                                        <span className="text-gray-300">·</span>
+                                                        <span className="font-bold text-amber-500">{team.stats?.draws || 0}D</span>
+                                                        <span className="text-gray-300">·</span>
+                                                        <span className="font-bold text-red-500">{team.stats?.losses || 0}L</span>
+                                                    </div>
+                                                    <div className="text-[10px] text-gray-400 mt-0.5 hidden md:block">
+                                                        {team.stats?.goalsFor || 0}:{team.stats?.goalsAgainst || 0} ({team.stats?.goalDifference > 0 ? '+' : ''}{team.stats?.goalDifference || 0})
+                                                    </div>
+                                                </div>
+
+                                                {/* Status */}
+                                                <div className="md:text-center">
+                                                    <span
+                                                        className={`text-[10px] px-2 py-0.5 rounded-full font-medium inline-block ${team.status === "active"
+                                                            ? "bg-emerald-50 text-emerald-600"
+                                                            : team.status === "eliminated"
+                                                                ? "bg-red-50 text-red-500"
+                                                                : team.status === "withdrawn"
+                                                                    ? "bg-gray-100 text-gray-500"
+                                                                    : "bg-orange-50 text-orange-500"
+                                                            }`}
+                                                    >
+                                                        {team.status === "active"
+                                                            ? "Thi đấu"
+                                                            : team.status === "eliminated"
+                                                                ? "Bị loại"
+                                                                : team.status === "withdrawn"
+                                                                    ? "Rút lui"
+                                                                    : "Loại"}
                                                     </span>
                                                 </div>
-                                                <div className="flex items-center gap-2 mt-0.5">
-                                                    <span className="text-[11px] text-efb-text-muted truncate">
-                                                        {team.name}
-                                                    </span>
-                                                    {playerNickname && (
-                                                        <span className="text-[10px] text-gray-400 truncate">
-                                                            · {playerNickname}
-                                                        </span>
-                                                    )}
-                                                    {gamerId && (
-                                                        <span className="text-[10px] text-amber-500 font-medium truncate">
-                                                            ID: {gamerId}
-                                                        </span>
-                                                    )}
-                                                </div>
-                                            </div>
-
-                                            {/* Seed */}
-                                            <div className="text-center">
-                                                {team.seed ? (
-                                                    <span className="inline-flex items-center gap-0.5 text-[11px] font-bold text-amber-600 bg-amber-50 px-2 py-0.5 rounded-full">
-                                                        🌱 {team.seed}
-                                                    </span>
-                                                ) : (
-                                                    <span className="text-[11px] text-gray-300">—</span>
-                                                )}
-                                            </div>
-
-                                            {/* Stats */}
-                                            <div className="text-center">
-                                                <div className="flex items-center justify-center gap-1 text-[11px]">
-                                                    <span className="font-bold text-emerald-600">{team.stats?.wins || 0}W</span>
-                                                    <span className="text-gray-300">·</span>
-                                                    <span className="font-bold text-amber-500">{team.stats?.draws || 0}D</span>
-                                                    <span className="text-gray-300">·</span>
-                                                    <span className="font-bold text-red-500">{team.stats?.losses || 0}L</span>
-                                                </div>
-                                                <div className="text-[10px] text-gray-400 mt-0.5">
-                                                    {team.stats?.goalsFor || 0}:{team.stats?.goalsAgainst || 0} ({team.stats?.goalDifference > 0 ? '+' : ''}{team.stats?.goalDifference || 0})
-                                                </div>
-                                            </div>
-
-                                            {/* Status */}
-                                            <div className="text-center">
-                                                <span
-                                                    className={`text-[10px] px-2 py-0.5 rounded-full font-medium inline-block ${team.status === "active"
-                                                        ? "bg-emerald-50 text-emerald-600"
-                                                        : team.status === "eliminated"
-                                                            ? "bg-red-50 text-red-500"
-                                                            : team.status === "withdrawn"
-                                                                ? "bg-gray-100 text-gray-500"
-                                                                : "bg-orange-50 text-orange-500"
-                                                        }`}
-                                                >
-                                                    {team.status === "active"
-                                                        ? "Thi đấu"
-                                                        : team.status === "eliminated"
-                                                            ? "Bị loại"
-                                                            : team.status === "withdrawn"
-                                                                ? "Rút lui"
-                                                                : "Loại"}
-                                                </span>
                                             </div>
                                         </div>
                                     );
@@ -692,16 +698,16 @@ export default function TournamentDetailPage() {
                         {data.matches?.map((match: any) => (
                             <div
                                 key={match._id}
-                                className="flex items-center gap-3 p-3 rounded-lg bg-gray-50/50 hover:bg-gray-50 transition-colors"
+                                className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3 p-3 rounded-lg bg-gray-50/50 hover:bg-gray-50 transition-colors"
                             >
-                                <div className="text-[10px] font-medium text-efb-text-muted w-16 text-center">
+                                <div className="text-[10px] font-medium text-efb-text-muted sm:w-16 sm:text-center flex-shrink-0">
                                     {match.roundName || `Vòng ${match.round}`}
                                 </div>
                                 <div className="flex-1 flex items-center gap-2">
                                     <span className="text-sm font-medium text-efb-dark flex-1 text-right truncate">
                                         {match.homeTeam?.name || "TBD"}
                                     </span>
-                                    <div className="flex items-center gap-1 px-3 py-1 rounded-lg bg-white border border-gray-200 min-w-[60px] justify-center">
+                                    <div className="flex items-center gap-1 px-3 py-1 rounded-lg bg-white border border-gray-200 min-w-[60px] justify-center flex-shrink-0">
                                         <span className="text-sm font-bold text-efb-dark">
                                             {match.homeScore ?? "-"}
                                         </span>
@@ -715,7 +721,7 @@ export default function TournamentDetailPage() {
                                     </span>
                                 </div>
                                 <span
-                                    className={`text-[10px] px-2 py-0.5 rounded-full font-medium w-16 text-center ${match.status === "completed"
+                                    className={`text-[10px] px-2 py-0.5 rounded-full font-medium sm:w-16 text-center flex-shrink-0 ${match.status === "completed"
                                         ? "bg-emerald-50 text-emerald-600"
                                         : match.status === "live"
                                             ? "bg-red-50 text-red-500"

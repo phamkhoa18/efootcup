@@ -26,7 +26,11 @@ export async function GET(req: NextRequest) {
         if (!createdBy) {
             query.isPublic = true;
         } else {
-            query.createdBy = createdBy;
+            // Show both owned AND collaborated tournaments
+            query.$or = [
+                { createdBy },
+                { "collaborators.userId": createdBy },
+            ];
         }
 
         if (status) query.status = status;
@@ -34,11 +38,21 @@ export async function GET(req: NextRequest) {
         if (featured === "true") query.isFeatured = true;
 
         if (search) {
-            query.$or = [
-                { title: { $regex: search, $options: "i" } },
-                { description: { $regex: search, $options: "i" } },
-                { tags: { $in: [new RegExp(search, "i")] } },
-            ];
+            const searchFilter = {
+                $or: [
+                    { title: { $regex: search, $options: "i" } },
+                    { description: { $regex: search, $options: "i" } },
+                    { tags: { $in: [new RegExp(search, "i")] } },
+                ],
+            };
+            // If we already have $or from createdBy, combine with $and
+            if (query.$or) {
+                const ownerFilter = { $or: query.$or };
+                delete query.$or;
+                query.$and = [ownerFilter, searchFilter];
+            } else {
+                query.$or = searchFilter.$or;
+            }
         }
 
         const skip = (page - 1) * limit;

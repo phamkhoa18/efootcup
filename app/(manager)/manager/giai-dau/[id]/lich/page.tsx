@@ -301,9 +301,9 @@ export default function LichThiDauPage() {
                         </div>
                     </div>
                 </div>
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 flex-wrap">
                     <Button variant="outline" size="sm" className="text-blue-600 border-blue-200 bg-blue-50 hover:bg-blue-100 h-8 px-3 rounded text-xs font-semibold" onClick={() => router.push(`/manager/giai-dau/${id}/so-do`)}>
-                        <Share2 className="w-3.5 h-3.5 mr-1.5" /> Sơ đồ thi đấu
+                        <Share2 className="w-3.5 h-3.5 mr-1.5" /> Sơ đồ
                     </Button>
                     <Button variant="outline" size="icon" className="h-8 w-8 rounded text-gray-500 border-gray-200" onClick={() => setIsSwapModalOpen(true)}>
                         <ArrowLeftRight className="w-4 h-4" />
@@ -317,8 +317,8 @@ export default function LichThiDauPage() {
                 </div>
             </div>
 
-            {/* Match List Table */}
-            <div id="schedule-container" className="bg-white border text-sm max-w-full overflow-x-auto min-w-[900px] print-container relative">
+            {/* Match List */}
+            <div id="schedule-container" className="bg-white border text-sm max-w-full print-container relative rounded-lg overflow-hidden">
                 <style jsx>{`
                     .print-container { background: white !important; }
                 `}</style>
@@ -336,18 +336,17 @@ export default function LichThiDauPage() {
                             <div key={roundName}>
                                 {/* Round Header */}
                                 <div className="bg-[#D9EAF7] flex items-center justify-center py-2 px-4 relative border-b border-white">
-                                    <span className="text-red-500 font-bold">{roundName}</span>
-                                    <span className="text-gray-700 font-semibold ml-1">| {tournament?.title}</span>
-                                    <Filter className="w-4 h-4 text-gray-500 absolute right-4 cursor-pointer" />
+                                    <span className="text-red-500 font-bold text-sm">{roundName}</span>
+                                    <span className="text-gray-700 font-semibold ml-1 text-sm hidden sm:inline">| {tournament?.title}</span>
                                 </div>
 
-                                {/* Table Headers */}
-                                <div className="grid grid-cols-12 gap-4 py-2 px-4 border-b border-gray-200 font-bold text-gray-700 bg-gray-50/50">
+                                {/* Desktop Table Headers (hidden on mobile) */}
+                                <div className="hidden lg:grid grid-cols-12 gap-4 py-2 px-4 border-b border-gray-200 font-bold text-gray-700 bg-gray-50/50 text-xs">
                                     <div className="col-span-1">#</div>
                                     <div className="col-span-2">CLB</div>
                                     <div className="col-span-4">Cặp đấu</div>
                                     <div className="col-span-2 text-center">Kết quả</div>
-                                    <div className="col-span-1 text-center">Sân thi đấu</div>
+                                    <div className="col-span-1 text-center">Sân</div>
                                     <div className="col-span-2 text-center">Trạng thái</div>
                                 </div>
 
@@ -367,76 +366,98 @@ export default function LichThiDauPage() {
                                         const isAwayWin = isCompleted && (m.winner === (m.awayTeam?._id || m.awayTeam?.id) || (m.awayScore || 0) > (m.homeScore || 0));
 
                                         return (
-                                            <div key={m._id} className="grid grid-cols-12 gap-4 items-center py-2 px-4 hover:bg-gray-50 transition-colors">
-                                                {/* # */}
-                                                <div className="col-span-1 text-gray-900 font-bold text-sm">
-                                                    {m.matchNumber}
+                                            <div key={m._id}>
+                                                {/* Desktop Row */}
+                                                <div className="hidden lg:grid grid-cols-12 gap-4 items-center py-2 px-4 hover:bg-gray-50 transition-colors">
+                                                    <div className="col-span-1 text-gray-900 font-bold text-sm">{m.matchNumber}</div>
+                                                    <div className="col-span-2 flex flex-col gap-1.5">
+                                                        <div className="border border-gray-200 rounded px-1.5 py-0.5 shadow-sm bg-white text-[11px] font-semibold text-gray-700 truncate w-fit max-w-full flex items-center gap-1">
+                                                            <div className="w-1.5 h-1.5 rounded-full bg-blue-400" />
+                                                            {m.homeTeam?.efvId != null && <span className="text-[9px] font-bold text-amber-600 bg-amber-50 border border-amber-200 px-1 py-px rounded">#{m.homeTeam.efvId}</span>}
+                                                            {homeName}
+                                                        </div>
+                                                        <div className="border border-gray-200 rounded px-1.5 py-0.5 shadow-sm bg-white text-[11px] font-semibold text-gray-700 truncate w-fit max-w-full flex items-center gap-1">
+                                                            <div className="w-1.5 h-1.5 rounded-full bg-red-400" />
+                                                            {m.awayTeam?.efvId != null && <span className="text-[9px] font-bold text-amber-600 bg-amber-50 border border-amber-200 px-1 py-px rounded">#{m.awayTeam.efvId}</span>}
+                                                            {awayName}
+                                                        </div>
+                                                    </div>
+                                                    <div className="col-span-4 flex flex-col gap-1.5 text-[13px] font-medium">
+                                                        <div className={`${isCompleted ? (isHomeWin ? "font-bold text-gray-900" : "text-gray-400 line-through") : "text-purple-600"}`}>{p1Name}{p1Sub}</div>
+                                                        <div className={`${isCompleted ? (isAwayWin ? "font-bold text-gray-900" : "text-gray-400 line-through") : "text-purple-600"}`}>{p2Name}{p2Sub}</div>
+                                                    </div>
+                                                    <div className="col-span-2 text-center text-sm font-bold text-gray-900">
+                                                        {isCompleted || m.status === "live" ? (
+                                                            isWalkover ? <span className="text-gray-400">Tự động đi tiếp</span> : <span>{m.homeScore ?? 0} - {m.awayScore ?? 0}</span>
+                                                        ) : <span className="text-gray-300">-</span>}
+                                                    </div>
+                                                    <div className="col-span-1 flex justify-center">
+                                                        <Button variant="outline" size="sm" className="h-6 text-[10px] rounded px-2 border-gray-200 text-gray-400 font-normal">Chọn sân</Button>
+                                                    </div>
+                                                    <div className="col-span-2 flex items-center justify-between pr-2">
+                                                        <div className={`px-2 py-0.5 rounded text-[11px] font-semibold ${isCompleted ? "bg-emerald-50 text-emerald-600" : m.status === "live" ? "bg-red-50 text-red-600 animate-pulse" : "bg-blue-50/50 border border-blue-100 text-blue-400"}`}>
+                                                            {isWalkover ? "Đi tiếp" : isCompleted ? "Kết thúc" : m.status === "live" ? "LIVE" : "Chờ thi đấu"}
+                                                        </div>
+                                                        <div className="flex gap-1.5 items-center text-gray-400">
+                                                            {!isCompleted && m.status !== "live" ? (
+                                                                <Play className="w-4 h-4 hover:text-green-500 cursor-pointer transition-colors" onClick={() => handleSetMatchLive(m._id || m.id)} />
+                                                            ) : <div className="w-4 h-4" />}
+                                                            {m.resultSubmissions && m.resultSubmissions.length > 0 && (
+                                                                <span title={`${m.resultSubmissions.length} kết quả VĐV gửi`} onClick={() => setViewingSubmissions(m)} className="relative cursor-pointer">
+                                                                    <Eye className="w-4 h-4 hover:text-orange-500 transition-colors text-orange-400" />
+                                                                    <span className="absolute -top-1.5 -right-1.5 w-3.5 h-3.5 rounded-full bg-orange-500 text-white text-[8px] font-bold flex items-center justify-center">{m.resultSubmissions.length}</span>
+                                                                </span>
+                                                            )}
+                                                            <Edit3 className="w-4 h-4 hover:text-blue-500 cursor-pointer transition-colors" onClick={() => setEditingMatch({ ...m, roundName })} />
+                                                        </div>
+                                                    </div>
                                                 </div>
 
-                                                {/* CLB */}
-                                                <div className="col-span-2 flex flex-col gap-1.5">
-                                                    <div className="border border-gray-200 rounded px-1.5 py-0.5 shadow-sm bg-white text-[11px] font-semibold text-gray-700 truncate w-fit max-w-full flex items-center gap-1">
-                                                        <div className="w-1.5 h-1.5 rounded-full bg-blue-400"></div>
-                                                        {m.homeTeam?.efvId != null && <span className="text-[9px] font-bold text-amber-600 bg-amber-50 border border-amber-200 px-1 py-px rounded">#{m.homeTeam.efvId}</span>}
-                                                        {homeName}
+                                                {/* Mobile Card */}
+                                                <div className="lg:hidden p-3 hover:bg-gray-50 transition-colors">
+                                                    <div className="flex items-center justify-between mb-2">
+                                                        <span className="text-xs font-bold text-gray-400">Trận #{m.matchNumber}</span>
+                                                        <div className="flex items-center gap-2">
+                                                            <div className={`px-2 py-0.5 rounded text-[10px] font-semibold ${isCompleted ? "bg-emerald-50 text-emerald-600" : m.status === "live" ? "bg-red-50 text-red-600 animate-pulse" : "bg-blue-50/50 border border-blue-100 text-blue-400"}`}>
+                                                                {isWalkover ? "Đi tiếp" : isCompleted ? "Kết thúc" : m.status === "live" ? "LIVE" : "Chờ"}
+                                                            </div>
+                                                            <div className="flex gap-1 items-center text-gray-400">
+                                                                {!isCompleted && m.status !== "live" && (
+                                                                    <Play className="w-3.5 h-3.5 hover:text-green-500 cursor-pointer" onClick={() => handleSetMatchLive(m._id || m.id)} />
+                                                                )}
+                                                                {m.resultSubmissions?.length > 0 && (
+                                                                    <span onClick={() => setViewingSubmissions(m)} className="relative cursor-pointer">
+                                                                        <Eye className="w-3.5 h-3.5 text-orange-400" />
+                                                                        <span className="absolute -top-1 -right-1 w-3 h-3 rounded-full bg-orange-500 text-white text-[7px] font-bold flex items-center justify-center">{m.resultSubmissions.length}</span>
+                                                                    </span>
+                                                                )}
+                                                                <Edit3 className="w-3.5 h-3.5 hover:text-blue-500 cursor-pointer" onClick={() => setEditingMatch({ ...m, roundName })} />
+                                                            </div>
+                                                        </div>
                                                     </div>
-                                                    <div className="border border-gray-200 rounded px-1.5 py-0.5 shadow-sm bg-white text-[11px] font-semibold text-gray-700 truncate w-fit max-w-full flex items-center gap-1">
-                                                        <div className="w-1.5 h-1.5 rounded-full bg-red-400"></div>
-                                                        {m.awayTeam?.efvId != null && <span className="text-[9px] font-bold text-amber-600 bg-amber-50 border border-amber-200 px-1 py-px rounded">#{m.awayTeam.efvId}</span>}
-                                                        {awayName}
-                                                    </div>
-                                                </div>
-
-                                                {/* Cặp đấu */}
-                                                <div className="col-span-4 flex flex-col gap-1.5 text-[13px] font-medium">
-                                                    <div className={`${isCompleted ? (isHomeWin ? "font-bold text-gray-900" : "text-gray-400 line-through") : "text-purple-600"}`}>
-                                                        {p1Name}{p1Sub}
-                                                    </div>
-                                                    <div className={`${isCompleted ? (isAwayWin ? "font-bold text-gray-900" : "text-gray-400 line-through") : "text-purple-600"}`}>
-                                                        {p2Name}{p2Sub}
-                                                    </div>
-                                                </div>
-
-                                                {/* Kết quả */}
-                                                <div className="col-span-2 text-center text-sm font-bold text-gray-900">
-                                                    {isCompleted || m.status === "live" ? (
-                                                        isWalkover ? <span className="text-gray-400">Tự động đi tiếp</span> : <span>{m.homeScore ?? 0} - {m.awayScore ?? 0}</span>
-                                                    ) : (
-                                                        <span className="text-gray-300">-</span>
-                                                    )}
-                                                </div>
-
-                                                {/* Sân thi đấu */}
-                                                <div className="col-span-1 flex justify-center">
-                                                    <Button variant="outline" size="sm" className="h-6 text-[10px] rounded px-2 border-gray-200 text-gray-400 font-normal">
-                                                        Chọn sân
-                                                    </Button>
-                                                </div>
-
-                                                {/* Trạng thái & Action */}
-                                                <div className="col-span-2 flex items-center justify-between pr-2">
-                                                    <div className={`px-2 py-0.5 rounded text-[11px] font-semibold ${isCompleted ? "bg-emerald-50 text-emerald-600" :
-                                                        m.status === "live" ? "bg-red-50 text-red-600 animate-pulse" :
-                                                            "bg-blue-50/50 border border-blue-100 text-blue-400"
-                                                        }`}>
-                                                        {isWalkover ? "Đi tiếp" : isCompleted ? "Kết thúc" : m.status === "live" ? "Đang diễn ra (LIVE)" : "Chờ thi đấu"}
-                                                    </div>
-                                                    <div className="flex gap-1.5 items-center text-gray-400">
-                                                        {!isCompleted && m.status !== "live" ? (
-                                                            <Play
-                                                                className="w-4 h-4 hover:text-green-500 cursor-pointer transition-colors"
-                                                                onClick={() => handleSetMatchLive(m._id || m.id)}
-                                                            />
-                                                        ) : (
-                                                            <div className="w-4 h-4" /> // empty space placeholder
-                                                        )}
-                                                        {m.resultSubmissions && m.resultSubmissions.length > 0 && (
-                                                            <span title={`${m.resultSubmissions.length} kết quả VĐV gửi`} onClick={() => setViewingSubmissions(m)} className="relative cursor-pointer">
-                                                                <Eye className="w-4 h-4 hover:text-orange-500 transition-colors text-orange-400" />
-                                                                <span className="absolute -top-1.5 -right-1.5 w-3.5 h-3.5 rounded-full bg-orange-500 text-white text-[8px] font-bold flex items-center justify-center">{m.resultSubmissions.length}</span>
+                                                    {/* Home team */}
+                                                    <div className={`flex items-center justify-between py-1.5 ${isHomeWin ? 'font-bold' : ''}`}>
+                                                        <div className="flex items-center gap-2 min-w-0 flex-1">
+                                                            <div className="w-1.5 h-1.5 rounded-full bg-blue-400 flex-shrink-0" />
+                                                            <span className={`text-[13px] truncate ${isCompleted ? (isHomeWin ? "text-gray-900" : "text-gray-400") : "text-purple-600"}`}>
+                                                                {p1Name}{p1Sub}
                                                             </span>
-                                                        )}
-                                                        <Edit3 className="w-4 h-4 hover:text-blue-500 cursor-pointer transition-colors" onClick={() => setEditingMatch({ ...m, roundName })} />
+                                                        </div>
+                                                        <span className={`text-sm tabular-nums ml-2 ${isHomeWin ? 'text-blue-600 font-bold' : 'text-gray-400'}`}>
+                                                            {isCompleted || m.status === "live" ? (m.homeScore ?? 0) : "-"}
+                                                        </span>
+                                                    </div>
+                                                    {/* Away team */}
+                                                    <div className={`flex items-center justify-between py-1.5 ${isAwayWin ? 'font-bold' : ''}`}>
+                                                        <div className="flex items-center gap-2 min-w-0 flex-1">
+                                                            <div className="w-1.5 h-1.5 rounded-full bg-red-400 flex-shrink-0" />
+                                                            <span className={`text-[13px] truncate ${isCompleted ? (isAwayWin ? "text-gray-900" : "text-gray-400") : "text-purple-600"}`}>
+                                                                {p2Name}{p2Sub}
+                                                            </span>
+                                                        </div>
+                                                        <span className={`text-sm tabular-nums ml-2 ${isAwayWin ? 'text-blue-600 font-bold' : 'text-gray-400'}`}>
+                                                            {isCompleted || m.status === "live" ? (m.awayScore ?? 0) : "-"}
+                                                        </span>
                                                     </div>
                                                 </div>
                                             </div>

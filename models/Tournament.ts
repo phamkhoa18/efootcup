@@ -82,6 +82,14 @@ export interface ITournament extends Document {
         round: number;
         matches: mongoose.Types.ObjectId[];
     }[];
+    collaborators?: {
+        userId: mongoose.Types.ObjectId;
+        name: string;
+        email: string;
+        role: 'editor';
+        addedAt: Date;
+    }[];
+    inviteCode?: string;
     createdAt: Date;
     updatedAt: Date;
 }
@@ -269,6 +277,21 @@ const TournamentSchema = new Schema<ITournament>(
                 matches: [{ type: Schema.Types.ObjectId, ref: "Match" }],
             },
         ],
+        collaborators: [
+            {
+                userId: { type: Schema.Types.ObjectId, ref: "User" },
+                name: { type: String },
+                email: { type: String },
+                role: { type: String, enum: ["editor"], default: "editor" },
+                addedAt: { type: Date, default: Date.now },
+            },
+        ],
+        inviteCode: {
+            type: String,
+            unique: true,
+            sparse: true,
+            uppercase: true,
+        },
     },
     {
         timestamps: true,
@@ -320,6 +343,8 @@ TournamentSchema.index({ status: 1 });
 TournamentSchema.index({ "schedule.tournamentStart": 1 });
 TournamentSchema.index({ isFeatured: 1 });
 TournamentSchema.index({ tags: 1 });
+TournamentSchema.index({ inviteCode: 1 });
+TournamentSchema.index({ "collaborators.userId": 1 });
 
 const Tournament: Model<ITournament> =
     mongoose.models.Tournament ||

@@ -960,13 +960,13 @@ export default function SoDoThiDauPage() {
                     </div>
                 </div>
 
-                <div className="flex items-center gap-3">
-                    <div className="relative">
-                        <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
+                <div className="flex items-center gap-2 flex-wrap">
+                    <div className="relative flex-1 min-w-[120px] max-w-[200px]">
+                        <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
                         <input
                             type="text"
                             placeholder="Tìm VĐV..."
-                            className="bg-slate-50 pl-10 pr-4 py-2.5 border border-transparent rounded-[14px] text-sm w-[160px] lg:w-[200px] focus:outline-none focus:bg-white focus:border-efb-blue transition-all"
+                            className="bg-slate-50 pl-9 pr-3 py-2 border border-transparent rounded-xl text-sm w-full focus:outline-none focus:bg-white focus:border-efb-blue transition-all"
                             value={search}
                             onChange={(e) => setSearch(e.target.value)}
                         />
@@ -983,24 +983,24 @@ export default function SoDoThiDauPage() {
                             }
                         }}
                         variant="outline"
-                        className="h-11 px-5 rounded-[14px] border-red-200 text-red-600 hover:bg-red-50 font-bold flex items-center gap-2"
+                        className="h-9 sm:h-11 px-3 sm:px-5 rounded-xl border-red-200 text-red-600 hover:bg-red-50 font-bold flex items-center gap-1.5 text-xs sm:text-sm"
                     >
-                        <RotateCcw className="w-4 h-4" /> Tạo lại
+                        <RotateCcw className="w-3.5 h-3.5 sm:w-4 sm:h-4" /> <span className="hidden sm:inline">Tạo lại</span>
                     </Button>
                     <Button
                         onClick={handleDownloadPDF}
                         disabled={isLoading}
                         variant="outline"
-                        className="h-11 px-5 rounded-[14px] border-blue-200 text-blue-600 hover:bg-blue-50 font-bold flex items-center gap-2"
+                        className="h-9 sm:h-11 px-3 sm:px-5 rounded-xl border-blue-200 text-blue-600 hover:bg-blue-50 font-bold flex items-center gap-1.5 text-xs sm:text-sm"
                     >
-                        {isLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
-                        Tải PDF
+                        {isLoading ? <Loader2 className="w-3.5 h-3.5 sm:w-4 sm:h-4 animate-spin" /> : <Download className="w-3.5 h-3.5 sm:w-4 sm:h-4" />}
+                        <span className="hidden sm:inline">Tải PDF</span>
                     </Button>
                     <Button
                         onClick={() => setIsShareModalOpen(true)}
-                        className="h-11 px-5 rounded-[14px] bg-efb-blue text-white hover:bg-efb-blue-light font-bold flex items-center gap-2"
+                        className="h-9 sm:h-11 px-3 sm:px-5 rounded-xl bg-efb-blue text-white hover:bg-efb-blue-light font-bold flex items-center gap-1.5 text-xs sm:text-sm"
                     >
-                        <Share2 className="w-4 h-4" /> Chia sẻ
+                        <Share2 className="w-3.5 h-3.5 sm:w-4 sm:h-4" /> <span className="hidden sm:inline">Chia sẻ</span>
                     </Button>
                 </div>
             </div>

@@ -12,7 +12,7 @@ import {
     Trophy, Plus, Search, Eye, Users, Flame, Clock, CheckCircle2,
     Loader2, Trash2, Edit, ExternalLink, CalendarPlus, ArrowRight,
     FileX, ChevronLeft, ChevronRight, Gamepad2, MapPin, CreditCard,
-    Calendar, RefreshCw, BarChart3, Wifi, ArrowUpDown
+    Calendar, RefreshCw, BarChart3, Wifi, ArrowUpDown, KeyRound, X
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { tournamentAPI } from "@/lib/api";
@@ -47,6 +47,12 @@ export default function ManagerGiaiDauPage() {
     const [sortField, setSortField] = useState<string>("createdAt");
     const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
     const { confirm } = useConfirmDialog();
+
+    // Join modal state
+    const [showJoinModal, setShowJoinModal] = useState(false);
+    const [joinCode, setJoinCode] = useState([""  , "", "", "", "", ""]);
+    const [isJoining, setIsJoining] = useState(false);
+    const [joinError, setJoinError] = useState("");
 
     useEffect(() => {
         if (user) loadTournaments();
@@ -88,6 +94,68 @@ export default function ManagerGiaiDauPage() {
         } catch (error) {
             toast.error("Không thể xóa giải đấu");
         }
+    };
+
+    const handleJoinByCode = async () => {
+        const code = joinCode.join("").trim().toUpperCase();
+        if (code.length < 6) {
+            setJoinError("Vui lòng nhập đủ 6 ký tự");
+            return;
+        }
+        setIsJoining(true);
+        setJoinError("");
+        try {
+            const res = await tournamentAPI.joinByCode(code);
+            if (res.success) {
+                toast.success(res.message || "Đã tham gia cộng tác!");
+                setShowJoinModal(false);
+                setJoinCode(["", "", "", "", "", ""]);
+                loadTournaments();
+            } else {
+                setJoinError(res.message || "Mã không hợp lệ");
+            }
+        } catch {
+            setJoinError("Có lỗi xảy ra, vui lòng thử lại");
+        } finally {
+            setIsJoining(false);
+        }
+    };
+
+    const handleCodeInput = (index: number, value: string) => {
+        if (value.length > 1) value = value.charAt(value.length - 1);
+        const newCode = [...joinCode];
+        newCode[index] = value.toUpperCase();
+        setJoinCode(newCode);
+        setJoinError("");
+        // Auto-focus next input
+        if (value && index < 5) {
+            const next = document.getElementById(`join-code-${index + 1}`);
+            next?.focus();
+        }
+    };
+
+    const handleCodeKeyDown = (index: number, e: React.KeyboardEvent) => {
+        if (e.key === "Backspace" && !joinCode[index] && index > 0) {
+            const prev = document.getElementById(`join-code-${index - 1}`);
+            prev?.focus();
+        }
+        if (e.key === "Enter") {
+            handleJoinByCode();
+        }
+    };
+
+    const handleCodePaste = (e: React.ClipboardEvent) => {
+        e.preventDefault();
+        const text = e.clipboardData.getData("text").trim().toUpperCase().replace(/[^A-Z0-9]/g, "");
+        const newCode = [...joinCode];
+        for (let i = 0; i < Math.min(text.length, 6); i++) {
+            newCode[i] = text[i];
+        }
+        setJoinCode(newCode);
+        setJoinError("");
+        // Focus last filled or next empty
+        const focusIdx = Math.min(text.length, 5);
+        setTimeout(() => document.getElementById(`join-code-${focusIdx}`)?.focus(), 50);
     };
 
     // Filtering, sorting, pagination
@@ -182,7 +250,15 @@ export default function ManagerGiaiDauPage() {
                     </h1>
                     <p className="text-sm text-gray-400 mt-1 ml-4">{stats.total} giải đấu</p>
                 </div>
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 flex-wrap">
+                    <Button
+                        onClick={() => { setShowJoinModal(true); setJoinCode(["", "", "", "", "", ""]); setJoinError(""); }}
+                        variant="outline"
+                        className="h-10 px-4 rounded-xl border-indigo-200 text-indigo-600 hover:bg-indigo-50 hover:border-indigo-300 font-bold group"
+                    >
+                        <KeyRound className="w-4 h-4 mr-1.5" />
+                        Nhập mã cộng tác
+                    </Button>
                     <Button
                         variant="outline"
                         onClick={loadTournaments}
@@ -223,61 +299,63 @@ export default function ManagerGiaiDauPage() {
             </div>
 
             {/* Filters */}
-            <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center justify-between">
-                <div className="flex items-center gap-3 flex-1">
-                    <div className="relative flex-1 max-w-sm">
-                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-                        <Input
-                            value={search}
-                            onChange={(e) => setSearch(e.target.value)}
-                            placeholder="Tìm giải đấu..."
-                            className="pl-9 h-10 rounded-xl border-gray-200 focus-visible:ring-blue-500/30 focus-visible:border-blue-400"
-                        />
-                    </div>
-                    <Tabs value={statusFilter} onValueChange={setStatusFilter} className="w-auto">
-                        <TabsList className="h-10 rounded-xl bg-gray-100/80 p-1 gap-0.5">
-                            <TabsTrigger value="all" className="rounded-lg text-xs font-semibold px-3 data-[state=active]:bg-white data-[state=active]:text-gray-900 data-[state=active]:shadow-sm">
-                                Tất cả
-                            </TabsTrigger>
-                            <TabsTrigger value="draft" className="rounded-lg text-xs font-semibold px-2.5 data-[state=active]:bg-white data-[state=active]:shadow-sm">
-                                Nháp
-                            </TabsTrigger>
-                            <TabsTrigger value="registration" className="rounded-lg text-xs font-semibold px-2.5 data-[state=active]:bg-white data-[state=active]:text-blue-600 data-[state=active]:shadow-sm">
-                                Đăng ký
-                            </TabsTrigger>
-                            <TabsTrigger value="ongoing" className="rounded-lg text-xs font-semibold px-2.5 data-[state=active]:bg-white data-[state=active]:text-red-500 data-[state=active]:shadow-sm">
-                                Đang diễn ra
-                            </TabsTrigger>
-                            <TabsTrigger value="completed" className="rounded-lg text-xs font-semibold px-2.5 data-[state=active]:bg-white data-[state=active]:text-emerald-600 data-[state=active]:shadow-sm">
-                                Kết thúc
-                            </TabsTrigger>
-                        </TabsList>
-                    </Tabs>
+            <div className="space-y-3">
+                <div className="relative w-full sm:max-w-sm">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                    <Input
+                        value={search}
+                        onChange={(e) => setSearch(e.target.value)}
+                        placeholder="Tìm giải đấu..."
+                        className="pl-9 h-10 rounded-xl border-gray-200 focus-visible:ring-blue-500/30 focus-visible:border-blue-400"
+                    />
                 </div>
-                <div className="flex items-center gap-2">
-                    <button
-                        onClick={() => handleSort("createdAt")}
-                        className={`flex items-center gap-1 text-xs font-medium px-3 py-2 rounded-lg border transition-colors ${sortField === "createdAt" ? "bg-blue-50 text-blue-600 border-blue-200" : "bg-white text-gray-500 border-gray-200 hover:bg-gray-50"}`}
-                    >
-                        <Calendar className="w-3 h-3" />
-                        Ngày tạo
-                        <ArrowUpDown className="w-3 h-3" />
-                    </button>
-                    <button
-                        onClick={() => handleSort("title")}
-                        className={`flex items-center gap-1 text-xs font-medium px-3 py-2 rounded-lg border transition-colors ${sortField === "title" ? "bg-blue-50 text-blue-600 border-blue-200" : "bg-white text-gray-500 border-gray-200 hover:bg-gray-50"}`}
-                    >
-                        Tên
-                        <ArrowUpDown className="w-3 h-3" />
-                    </button>
-                    <button
-                        onClick={() => handleSort("currentTeams")}
-                        className={`flex items-center gap-1 text-xs font-medium px-3 py-2 rounded-lg border transition-colors ${sortField === "currentTeams" ? "bg-blue-50 text-blue-600 border-blue-200" : "bg-white text-gray-500 border-gray-200 hover:bg-gray-50"}`}
-                    >
-                        <Users className="w-3 h-3" />
-                        VĐV
-                        <ArrowUpDown className="w-3 h-3" />
-                    </button>
+                <div className="flex flex-col sm:flex-row gap-3 sm:items-center sm:justify-between">
+                    <div className="overflow-x-auto -mx-1 px-1 pb-1 scrollbar-hide">
+                        <Tabs value={statusFilter} onValueChange={setStatusFilter} className="w-max">
+                            <TabsList className="h-10 rounded-xl bg-gray-100/80 p-1 gap-0.5">
+                                <TabsTrigger value="all" className="rounded-lg text-xs font-semibold px-3 data-[state=active]:bg-white data-[state=active]:text-gray-900 data-[state=active]:shadow-sm">
+                                    Tất cả
+                                </TabsTrigger>
+                                <TabsTrigger value="draft" className="rounded-lg text-xs font-semibold px-2.5 data-[state=active]:bg-white data-[state=active]:shadow-sm">
+                                    Nháp
+                                </TabsTrigger>
+                                <TabsTrigger value="registration" className="rounded-lg text-xs font-semibold px-2.5 data-[state=active]:bg-white data-[state=active]:text-blue-600 data-[state=active]:shadow-sm">
+                                    Đăng ký
+                                </TabsTrigger>
+                                <TabsTrigger value="ongoing" className="rounded-lg text-xs font-semibold px-2.5 data-[state=active]:bg-white data-[state=active]:text-red-500 data-[state=active]:shadow-sm">
+                                    Đang diễn ra
+                                </TabsTrigger>
+                                <TabsTrigger value="completed" className="rounded-lg text-xs font-semibold px-2.5 data-[state=active]:bg-white data-[state=active]:text-emerald-600 data-[state=active]:shadow-sm">
+                                    Kết thúc
+                                </TabsTrigger>
+                            </TabsList>
+                        </Tabs>
+                    </div>
+                    <div className="flex items-center gap-2 overflow-x-auto scrollbar-hide">
+                        <button
+                            onClick={() => handleSort("createdAt")}
+                            className={`flex items-center gap-1 text-xs font-medium px-3 py-2 rounded-lg border transition-colors whitespace-nowrap flex-shrink-0 ${sortField === "createdAt" ? "bg-blue-50 text-blue-600 border-blue-200" : "bg-white text-gray-500 border-gray-200 hover:bg-gray-50"}`}
+                        >
+                            <Calendar className="w-3 h-3" />
+                            Ngày tạo
+                            <ArrowUpDown className="w-3 h-3" />
+                        </button>
+                        <button
+                            onClick={() => handleSort("title")}
+                            className={`flex items-center gap-1 text-xs font-medium px-3 py-2 rounded-lg border transition-colors whitespace-nowrap flex-shrink-0 ${sortField === "title" ? "bg-blue-50 text-blue-600 border-blue-200" : "bg-white text-gray-500 border-gray-200 hover:bg-gray-50"}`}
+                        >
+                            Tên
+                            <ArrowUpDown className="w-3 h-3" />
+                        </button>
+                        <button
+                            onClick={() => handleSort("currentTeams")}
+                            className={`flex items-center gap-1 text-xs font-medium px-3 py-2 rounded-lg border transition-colors whitespace-nowrap flex-shrink-0 ${sortField === "currentTeams" ? "bg-blue-50 text-blue-600 border-blue-200" : "bg-white text-gray-500 border-gray-200 hover:bg-gray-50"}`}
+                        >
+                            <Users className="w-3 h-3" />
+                            VĐV
+                            <ArrowUpDown className="w-3 h-3" />
+                        </button>
+                    </div>
                 </div>
             </div>
 
@@ -322,6 +400,8 @@ export default function ManagerGiaiDauPage() {
                             ? new Date(t.schedule.tournamentStart).toLocaleDateString("vi-VN")
                             : null;
                         const progress = t.maxTeams ? Math.min(100, ((t.currentTeams || 0) / t.maxTeams) * 100) : 0;
+                        const isOwned = t.createdBy?._id === user?._id || t.createdBy === user?._id;
+                        const isShared = !isOwned;
 
                         return (
                             <motion.div
@@ -337,8 +417,14 @@ export default function ManagerGiaiDauPage() {
                                         <span className={`w-1.5 h-1.5 rounded-full ${sty.dot} ${t.status === "ongoing" ? "animate-pulse" : ""}`} />
                                         {sty.label}
                                     </span>
-                                    <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                                        <Link href={`/manager/giai-dau/${t._id}`}>
+                                    <div className="flex items-center gap-1">
+                                        {isShared && (
+                                            <span className="inline-flex items-center gap-1 text-[9px] font-bold bg-indigo-100 text-indigo-700 px-1.5 py-0.5 rounded">
+                                                <Users className="w-2.5 h-2.5" />
+                                                Cộng tác
+                                            </span>
+                                        )}
+                                        <Link href={isShared ? `/manager/giai-dau/${t._id}/lich` : `/manager/giai-dau/${t._id}`}>
                                             <button className="w-6 h-6 rounded-md bg-white/60 hover:bg-white flex items-center justify-center text-gray-600 hover:text-blue-600 transition-colors">
                                                 <Edit className="w-3 h-3" />
                                             </button>
@@ -348,12 +434,14 @@ export default function ManagerGiaiDauPage() {
                                                 <ExternalLink className="w-3 h-3" />
                                             </button>
                                         </Link>
-                                        <button
-                                            onClick={() => handleDelete(t._id, t.title)}
-                                            className="w-6 h-6 rounded-md bg-white/60 hover:bg-white flex items-center justify-center text-gray-600 hover:text-red-500 transition-colors"
-                                        >
-                                            <Trash2 className="w-3 h-3" />
-                                        </button>
+                                        {isOwned && (
+                                            <button
+                                                onClick={() => handleDelete(t._id, t.title)}
+                                                className="w-6 h-6 rounded-md bg-white/60 hover:bg-white flex items-center justify-center text-gray-600 hover:text-red-500 transition-colors"
+                                            >
+                                                <Trash2 className="w-3 h-3" />
+                                            </button>
+                                        )}
                                     </div>
                                 </div>
 
@@ -361,7 +449,7 @@ export default function ManagerGiaiDauPage() {
                                 <div className="p-4 flex-1 flex flex-col">
                                     {/* Title */}
                                     <Link
-                                        href={`/manager/giai-dau/${t._id}`}
+                                        href={isShared ? `/manager/giai-dau/${t._id}/lich` : `/manager/giai-dau/${t._id}`}
                                         className="text-sm font-bold text-gray-900 hover:text-blue-600 transition-colors line-clamp-2 leading-snug"
                                     >
                                         {t.title}
@@ -448,20 +536,11 @@ export default function ManagerGiaiDauPage() {
 
                     {/* Pagination */}
                     {totalPages > 1 && (
-                        <div className="flex items-center justify-between pt-4">
+                        <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-4 col-span-full">
                             <p className="text-xs text-gray-400 font-medium">
                                 Trang <span className="text-gray-700 font-bold">{currentPage}</span> / {totalPages}
                             </p>
-                            <div className="flex items-center gap-1">
-                                <Button
-                                    variant="outline"
-                                    size="sm"
-                                    onClick={() => setCurrentPage(1)}
-                                    disabled={currentPage === 1}
-                                    className="h-8 px-2.5 rounded-lg text-xs border-gray-200 disabled:opacity-40"
-                                >
-                                    Đầu
-                                </Button>
+                            <div className="flex items-center gap-1 flex-wrap justify-center">
                                 <Button
                                     variant="outline"
                                     size="sm"
@@ -503,18 +582,90 @@ export default function ManagerGiaiDauPage() {
                                 >
                                     <ChevronRight className="w-4 h-4" />
                                 </Button>
-                                <Button
-                                    variant="outline"
-                                    size="sm"
-                                    onClick={() => setCurrentPage(totalPages)}
-                                    disabled={currentPage === totalPages}
-                                    className="h-8 px-2.5 rounded-lg text-xs border-gray-200 disabled:opacity-40"
-                                >
-                                    Cuối
-                                </Button>
                             </div>
                         </div>
                     )}
+                </div>
+            )}
+
+            {/* Join Code Modal */}
+            {showJoinModal && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+                    <div
+                        className="absolute inset-0 bg-black/40 backdrop-blur-sm"
+                        onClick={() => setShowJoinModal(false)}
+                    />
+                    <motion.div
+                        initial={{ opacity: 0, scale: 0.95, y: 10 }}
+                        animate={{ opacity: 1, scale: 1, y: 0 }}
+                        className="relative bg-white rounded-2xl shadow-2xl border border-gray-100 w-full max-w-md overflow-hidden"
+                    >
+                        {/* Modal Header */}
+                        <div className="bg-gradient-to-br from-indigo-500 to-purple-600 p-6 text-center relative">
+                            <button
+                                onClick={() => setShowJoinModal(false)}
+                                className="absolute top-3 right-3 w-8 h-8 rounded-lg bg-white/20 hover:bg-white/30 flex items-center justify-center text-white transition-colors"
+                            >
+                                <X className="w-4 h-4" />
+                            </button>
+                            <div className="w-14 h-14 rounded-2xl bg-white/20 backdrop-blur-sm flex items-center justify-center mx-auto mb-3">
+                                <KeyRound className="w-7 h-7 text-white" />
+                            </div>
+                            <h2 className="text-lg font-bold text-white">Nhập mã cộng tác</h2>
+                            <p className="text-indigo-100 text-xs mt-1">Nhập mã 6 ký tự để tham gia quản lý giải đấu</p>
+                        </div>
+
+                        {/* Modal Body */}
+                        <div className="p-6 space-y-5">
+                            {/* Code Input */}
+                            <div className="flex items-center justify-center gap-2">
+                                {joinCode.map((char, i) => (
+                                    <input
+                                        key={i}
+                                        id={`join-code-${i}`}
+                                        type="text"
+                                        maxLength={1}
+                                        value={char}
+                                        onChange={(e) => handleCodeInput(i, e.target.value)}
+                                        onKeyDown={(e) => handleCodeKeyDown(i, e)}
+                                        onPaste={i === 0 ? handleCodePaste : undefined}
+                                        className={`w-12 h-14 text-center text-xl font-extrabold rounded-xl border-2 outline-none transition-all uppercase
+                                            ${joinError
+                                                ? "border-red-300 text-red-600 bg-red-50"
+                                                : char
+                                                    ? "border-indigo-300 text-indigo-700 bg-indigo-50"
+                                                    : "border-gray-200 text-gray-700 bg-gray-50 focus:border-indigo-400 focus:bg-indigo-50/50"
+                                            }`}
+                                        autoFocus={i === 0}
+                                    />
+                                ))}
+                            </div>
+
+                            {/* Error message */}
+                            {joinError && (
+                                <p className="text-center text-xs text-red-500 font-medium">{joinError}</p>
+                            )}
+
+                            {/* Submit Button */}
+                            <Button
+                                onClick={handleJoinByCode}
+                                disabled={isJoining || joinCode.join("").length < 6}
+                                className="w-full h-12 rounded-xl bg-gradient-to-r from-indigo-500 to-purple-600 text-white font-bold text-sm hover:from-indigo-600 hover:to-purple-700 shadow-md shadow-indigo-200 transition-all disabled:opacity-50"
+                            >
+                                {isJoining ? (
+                                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                                ) : (
+                                    <Users className="w-4 h-4 mr-2" />
+                                )}
+                                Tham gia cộng tác
+                            </Button>
+
+                            {/* Info */}
+                            <p className="text-center text-[11px] text-gray-400">
+                                Liên hệ chủ giải đấu để nhận mã mời
+                            </p>
+                        </div>
+                    </motion.div>
                 </div>
             )}
         </div>

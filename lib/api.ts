@@ -237,6 +237,34 @@ export const tournamentAPI = {
             method: "DELETE",
             body: JSON.stringify({ expenseId }),
         }),
+
+    // Collaborators
+    getCollaborators: (tournamentId: string) =>
+        apiFetch(`/tournaments/${tournamentId}/collaborators`),
+
+    generateInviteCode: (tournamentId: string) =>
+        apiFetch(`/tournaments/${tournamentId}/collaborators`, {
+            method: "POST",
+            body: JSON.stringify({ action: "generate_code" }),
+        }),
+
+    joinByCode: (code: string) =>
+        apiFetch(`/tournaments/join`, {
+            method: "POST",
+            body: JSON.stringify({ code }),
+        }),
+
+    regenerateInviteCode: (tournamentId: string) =>
+        apiFetch(`/tournaments/${tournamentId}/collaborators`, {
+            method: "PUT",
+            body: JSON.stringify({}),
+        }),
+
+    removeCollaborator: (tournamentId: string, userId: string) =>
+        apiFetch(`/tournaments/${tournamentId}/collaborators`, {
+            method: "DELETE",
+            body: JSON.stringify({ userId }),
+        }),
 };
 
 // ====== Dashboard ======

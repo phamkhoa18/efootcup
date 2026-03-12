@@ -77,6 +77,12 @@ const tournamentSidebarLinks = (id: string) => [
     { label: "Đóng góp ý kiến", href: `/manager/giai-dau/${id}/y-kien`, icon: MessageSquare },
 ];
 
+/* ===== Collaborator sidebar — only schedule & bracket ===== */
+const collaboratorSidebarLinks = (id: string) => [
+    { label: "Lịch thi đấu", href: `/manager/giai-dau/${id}/lich`, icon: Calendar },
+    { label: "Sơ đồ thi đấu", href: `/manager/giai-dau/${id}/so-do`, icon: Swords },
+];
+
 export default function ManagerLayout({
     children,
 }: {
@@ -135,12 +141,48 @@ export default function ManagerLayout({
     const tournamentId = tournamentMatch ? tournamentMatch[1] : null;
     const isInTournamentDetail = !!tournamentId;
 
+    // Check if user is a collaborator (not owner) for the current tournament
+    const [isCollaborator, setIsCollaborator] = useState(false);
+
+    useEffect(() => {
+        if (!tournamentId || !user) { setIsCollaborator(false); return; }
+        const checkCollab = async () => {
+            try {
+                const res = await fetch(`/api/tournaments/${tournamentId}`, {
+                    headers: {
+                        Authorization: `Bearer ${localStorage.getItem("efootcup_token")}`,
+                    },
+                });
+                const data = await res.json();
+                if (data.success) {
+                    const t = data.data?.tournament;
+                    if (t) {
+                        const isOwner = t.createdBy?._id === (user as any)._id || t.createdBy === (user as any)._id;
+                        if (!isOwner) {
+                            const collabs = t.collaborators || [];
+                            const found = collabs.some((c: any) => c.userId === (user as any)._id);
+                            setIsCollaborator(found);
+                        } else {
+                            setIsCollaborator(false);
+                        }
+                    }
+                }
+            } catch (err) {
+                console.error("Check collaborator status error", err);
+            }
+        };
+        checkCollab();
+    }, [tournamentId, user]);
+
     const currentLinks = useMemo(() => {
         if (isInTournamentDetail && tournamentId) {
+            if (isCollaborator) {
+                return collaboratorSidebarLinks(tournamentId);
+            }
             return tournamentSidebarLinks(tournamentId);
         }
         return mainSidebarLinks;
-    }, [isInTournamentDetail, tournamentId]);
+    }, [isInTournamentDetail, tournamentId, isCollaborator]);
 
     const isActive = (href: string) => {
         if (isInTournamentDetail) {
