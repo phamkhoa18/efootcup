@@ -26,6 +26,7 @@ import {
 import { tournamentAPI, tournamentPaymentAPI, paymentConfigAPI } from "@/lib/api";
 import { useAuth } from "@/contexts/AuthContext";
 import { compressImage } from "@/lib/compressImage";
+import { SubmitResultForm } from "@/components/profile/MatchCard";
 
 /* ===== Config ===== */
 const statusConfig: Record<string, { label: string; icon: typeof Flame; bgClass: string }> = {
@@ -211,12 +212,6 @@ const MatchDetailViewModal = ({ match, tournament, onClose, user, myRegistration
 
     // Auto-open submit form when match is live/scheduled and user is a participant
     const [showSubmitForm, setShowSubmitForm] = useState(!!user && !!isUserInMatch && isLiveMatch);
-    const [submitHomeScore, setSubmitHomeScore] = useState("");
-    const [submitAwayScore, setSubmitAwayScore] = useState("");
-    const [submitNotes, setSubmitNotes] = useState("");
-    const [submitScreenshots, setSubmitScreenshots] = useState<string[]>([]);
-    const [isSubmitting, setIsSubmitting] = useState(false);
-    const [isUploadingShot, setIsUploadingShot] = useState(false);
 
     // Check if user already submitted
     const mySubmission = match.resultSubmissions?.find(
@@ -232,77 +227,6 @@ const MatchDetailViewModal = ({ match, tournament, onClose, user, myRegistration
     const hName = formatNameStr(match.homeTeam, match.p1);
     const aName = formatNameStr(match.awayTeam, match.p2);
 
-    const handleUploadScreenshot = async (file: File) => {
-        setIsUploadingShot(true);
-        try {
-            // Auto-compress image
-            const compressed = await compressImage(file);
-            const formData = new FormData();
-            formData.append("file", compressed);
-            formData.append("type", "screenshot");
-            const headers: Record<string, string> = {};
-            const savedToken = localStorage.getItem("efootcup_token");
-            if (savedToken) headers.Authorization = `Bearer ${savedToken}`;
-            const res = await fetch("/api/upload", { method: "POST", headers, body: formData });
-            if (!res.ok) {
-                const errData = await res.json().catch(() => null);
-                toast.error(errData?.message || `Upload lỗi (${res.status})`);
-                return;
-            }
-            const data = await res.json();
-            const url = data.data?.url || data.url;
-            if (url) {
-                setSubmitScreenshots(prev => [...prev, url]);
-            } else {
-                toast.error("Upload thất bại, vui lòng thử lại");
-            }
-        } catch (err) {
-            console.error("Upload error:", err);
-            toast.error("Lỗi kết nối, vui lòng thử lại");
-        } finally {
-            setIsUploadingShot(false);
-        }
-    };
-
-    const handleSubmitResult = async () => {
-        if (submitHomeScore === "" || submitAwayScore === "") {
-            toast.error("Vui lòng nhập tỉ số");
-            return;
-        }
-        if (submitScreenshots.length === 0) {
-            toast.error("Vui lòng đính kèm ít nhất 1 ảnh minh chứng");
-            return;
-        }
-        setIsSubmitting(true);
-        try {
-            const savedToken = localStorage.getItem("efootcup_token");
-            const res = await fetch(`/api/tournaments/${tournament?._id || tournament?.slug}/matches/submit-result`, {
-                method: "POST",
-                headers: {
-                    "Content-Type": "application/json",
-                    ...(savedToken ? { Authorization: `Bearer ${savedToken}` } : {}),
-                },
-                body: JSON.stringify({
-                    matchId: match._id,
-                    homeScore: Number(submitHomeScore),
-                    awayScore: Number(submitAwayScore),
-                    screenshots: submitScreenshots,
-                    notes: submitNotes,
-                }),
-            });
-            const data = await res.json();
-            if (data.success) {
-                toast.success("Gửi kết quả thành công! Quản lý sẽ xem xét.");
-                setShowSubmitForm(false);
-            } else {
-                toast.error(data.message || "Có lỗi xảy ra");
-            }
-        } catch {
-            toast.error("Có lỗi xảy ra");
-        } finally {
-            setIsSubmitting(false);
-        }
-    };
 
     return (
         <motion.div
@@ -459,12 +383,6 @@ const MatchDetailViewModal = ({ match, tournament, onClose, user, myRegistration
                             {!showSubmitForm ? (
                                 <button
                                     onClick={() => {
-                                        if (mySubmission) {
-                                            setSubmitHomeScore(String(mySubmission.homeScore));
-                                            setSubmitAwayScore(String(mySubmission.awayScore));
-                                            setSubmitNotes(mySubmission.notes || "");
-                                            setSubmitScreenshots(mySubmission.screenshots || []);
-                                        }
                                         setShowSubmitForm(true);
                                     }}
                                     className="w-full py-3 rounded-xl bg-gradient-to-r from-efb-blue to-indigo-600 text-white font-bold text-sm shadow-lg shadow-blue-500/20 hover:shadow-xl hover:shadow-blue-500/30 transition-all flex items-center justify-center gap-2"
@@ -473,106 +391,23 @@ const MatchDetailViewModal = ({ match, tournament, onClose, user, myRegistration
                                     {mySubmission ? "Cập nhật kết quả" : "Gửi kết quả trận đấu"}
                                 </button>
                             ) : (
-                                <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="p-5 rounded-xl border-2 border-efb-blue/30 bg-blue-50/30">
-                                    <h4 className="text-sm font-bold text-gray-800 mb-4 flex items-center gap-2">
-                                        <Upload className="w-4 h-4 text-efb-blue" />
-                                        {mySubmission ? "Cập nhật kết quả" : "Gửi kết quả trận đấu"}
-                                    </h4>
-
-                                    {/* Score inputs */}
-                                    <div className="flex items-center justify-center gap-4 mb-5">
-                                        <div className="text-center">
-                                            <p className="text-xs font-bold text-gray-500 mb-1.5">{match.homeTeam?.shortName || match.homeTeam?.name || "Home"}</p>
-                                            <input
-                                                type="number"
-                                                min="0"
-                                                max="99"
-                                                value={submitHomeScore}
-                                                onChange={e => setSubmitHomeScore(e.target.value)}
-                                                className="w-20 h-14 text-center text-2xl font-black rounded-xl border-2 border-gray-200 focus:border-efb-blue focus:ring-2 focus:ring-efb-blue/20 outline-none bg-white"
-                                                placeholder="0"
-                                            />
-                                        </div>
-                                        <span className="text-2xl font-light text-gray-300 mt-5">—</span>
-                                        <div className="text-center">
-                                            <p className="text-xs font-bold text-gray-500 mb-1.5">{match.awayTeam?.shortName || match.awayTeam?.name || "Away"}</p>
-                                            <input
-                                                type="number"
-                                                min="0"
-                                                max="99"
-                                                value={submitAwayScore}
-                                                onChange={e => setSubmitAwayScore(e.target.value)}
-                                                className="w-20 h-14 text-center text-2xl font-black rounded-xl border-2 border-gray-200 focus:border-efb-blue focus:ring-2 focus:ring-efb-blue/20 outline-none bg-white"
-                                                placeholder="0"
-                                            />
-                                        </div>
-                                    </div>
-
-                                    {/* Screenshots */}
-                                    <div className="mb-4">
-                                        <label className="text-xs font-semibold text-gray-500 mb-2 block">Hình ảnh minh chứng (tối đa 3)</label>
-                                        <div className="flex items-center gap-2 flex-wrap">
-                                            {submitScreenshots.map((s, i) => (
-                                                <div key={i} className="relative group">
-                                                    <img src={s} alt="SS" className="w-20 h-20 rounded-xl object-cover border-2 border-gray-200" />
-                                                    <button
-                                                        type="button"
-                                                        onClick={() => setSubmitScreenshots(prev => prev.filter((_, idx) => idx !== i))}
-                                                        className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full bg-red-500 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity shadow-lg"
-                                                    >
-                                                        <X className="w-3 h-3" />
-                                                    </button>
-                                                </div>
-                                            ))}
-                                            {submitScreenshots.length < 3 && (
-                                                <label className="cursor-pointer">
-                                                    <div className="w-20 h-20 rounded-xl border-2 border-dashed border-gray-200 hover:border-efb-blue hover:bg-blue-50/30 flex flex-col items-center justify-center transition-all">
-                                                        {isUploadingShot ? (
-                                                            <Loader2 className="w-5 h-5 animate-spin text-efb-blue" />
-                                                        ) : (
-                                                            <>
-                                                                <Camera className="w-5 h-5 text-gray-400" />
-                                                                <span className="text-[9px] text-gray-400 mt-1">Thêm ảnh</span>
-                                                            </>
-                                                        )}
-                                                    </div>
-                                                    <input type="file" accept="image/*" className="hidden" disabled={isUploadingShot} onChange={e => { const f = e.target.files?.[0]; if (f) handleUploadScreenshot(f); e.target.value = ""; }} />
-                                                </label>
-                                            )}
-                                        </div>
-                                    </div>
-
-                                    {/* Notes */}
-                                    <div className="mb-4">
-                                        <label className="text-xs font-semibold text-gray-500 mb-1.5 block">Ghi chú</label>
-                                        <textarea
-                                            value={submitNotes}
-                                            onChange={e => setSubmitNotes(e.target.value)}
-                                            placeholder="Mô tả ngắn về trận đấu (tùy chọn)..."
-                                            maxLength={500}
-                                            rows={2}
-                                            className="w-full px-3 py-2.5 text-sm rounded-xl border border-gray-200 bg-white focus:border-efb-blue focus:ring-2 focus:ring-efb-blue/20 outline-none resize-none"
-                                        />
-                                    </div>
-
-                                    {/* Actions */}
-                                    <div className="flex items-center gap-3">
-                                        <button
-                                            onClick={() => setShowSubmitForm(false)}
-                                            className="flex-1 py-2.5 rounded-xl border border-gray-200 text-sm font-medium text-gray-600 hover:bg-gray-50 transition-colors"
-                                        >
-                                            Hủy
-                                        </button>
-                                        <button
-                                            onClick={handleSubmitResult}
-                                            disabled={isSubmitting || submitHomeScore === "" || submitAwayScore === ""}
-                                            className="flex-1 py-2.5 rounded-xl bg-gradient-to-r from-efb-blue to-indigo-600 text-white text-sm font-bold shadow-md disabled:opacity-50 disabled:cursor-not-allowed hover:shadow-lg transition-all flex items-center justify-center gap-2"
-                                        >
-                                            {isSubmitting ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle2 className="w-4 h-4" />}
-                                            {isSubmitting ? "Đang gửi..." : "Xác nhận gửi"}
-                                        </button>
-                                    </div>
-                                </motion.div>
+                                <div className="p-5 rounded-xl border-2 border-efb-blue/30 bg-blue-50/30">
+                                    <SubmitResultForm
+                                        match={match}
+                                        tournamentId={tournament?._id || tournament?.slug}
+                                        homeName={match.homeTeam?.player1 || match.homeTeam?.shortName || match.homeTeam?.name || "Đội nhà"}
+                                        awayName={match.awayTeam?.player1 || match.awayTeam?.shortName || match.awayTeam?.name || "Đội khách"}
+                                        homeEfvId={match.homeTeam?.efvId}
+                                        awayEfvId={match.awayTeam?.efvId}
+                                        directScoreMode={true}
+                                        initialHomeScore={mySubmission ? String(mySubmission.homeScore) : ""}
+                                        initialAwayScore={mySubmission ? String(mySubmission.awayScore) : ""}
+                                        initialNotes={mySubmission?.notes || ""}
+                                        initialScreenshots={mySubmission?.screenshots || []}
+                                        onClose={() => setShowSubmitForm(false)}
+                                        onSubmitted={onClose}
+                                    />
+                                </div>
                             )}
                         </div>
                     )}

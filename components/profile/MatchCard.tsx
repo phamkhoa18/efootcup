@@ -82,24 +82,57 @@ function VsCenter({ match }: { match: any }) {
 /* ─── Submit Result Form (inline) ─── */
 interface SubmitFormProps {
     match: any;
-    myTeam: any;
-    opponent: any;
-    isHome: boolean;
-    userId: string;
+    myTeam?: any;
+    opponent?: any;
+    isHome?: boolean;
+    userId?: string;
     onClose: () => void;
     onSubmitted?: () => void;
+    /* Tournament detail modal context (optional overrides) */
+    tournamentId?: string;
+    homeName?: string;
+    awayName?: string;
+    homeAvatar?: string;
+    awayAvatar?: string;
+    homeEfvId?: number | string | null;
+    awayEfvId?: number | string | null;
+    initialHomeScore?: string;
+    initialAwayScore?: string;
+    initialNotes?: string;
+    initialScreenshots?: string[];
+    /** When true, homeScore/awayScore map directly to match homeScore/awayScore (no isHome swap) */
+    directScoreMode?: boolean;
 }
 
-export function SubmitResultForm({ match, myTeam, opponent, isHome, userId, onClose, onSubmitted }: SubmitFormProps) {
-    const [homeScore, setHomeScore] = React.useState("");
-    const [awayScore, setAwayScore] = React.useState("");
-    const [notes, setNotes] = React.useState("");
-    const [screenshots, setScreenshots] = React.useState<string[]>([]);
+export function SubmitResultForm({
+    match, myTeam, opponent, isHome, userId, onClose, onSubmitted,
+    tournamentId, homeName: _homeName, awayName: _awayName,
+    homeAvatar: _homeAvatar, awayAvatar: _awayAvatar,
+    homeEfvId: _homeEfvId, awayEfvId: _awayEfvId,
+    initialHomeScore, initialAwayScore, initialNotes, initialScreenshots,
+    directScoreMode,
+}: SubmitFormProps) {
+    const [homeScore, setHomeScore] = React.useState(initialHomeScore ?? "");
+    const [awayScore, setAwayScore] = React.useState(initialAwayScore ?? "");
+    const [notes, setNotes] = React.useState(initialNotes ?? "");
+    const [screenshots, setScreenshots] = React.useState<string[]>(initialScreenshots ?? []);
     const [isSubmitting, setIsSubmitting] = React.useState(false);
     const [isUploadingShot, setIsUploadingShot] = React.useState(false);
 
     const myCaptain = myTeam?.captain;
     const oppCaptain = opponent?.captain;
+
+    /* Resolve display names — prefer explicit overrides, then captain, then team */
+    const resolvedHomeName = _homeName || myCaptain?.nickname || myCaptain?.name || myTeam?.shortName || "—";
+    const resolvedAwayName = _awayName || oppCaptain?.nickname || oppCaptain?.name || opponent?.shortName || "—";
+    const resolvedHomeAvatar = _homeAvatar ?? myCaptain?.avatar;
+    const resolvedAwayAvatar = _awayAvatar ?? oppCaptain?.avatar;
+    const resolvedHomeEfvId = _homeEfvId !== undefined ? _homeEfvId : myCaptain?.efvId;
+    const resolvedAwayEfvId = _awayEfvId !== undefined ? _awayEfvId : oppCaptain?.efvId;
+    const resolvedHomeInitials = (resolvedHomeName || "?").split(" ").map((n: string) => n[0]).join("").toUpperCase().slice(0, 2);
+    const resolvedAwayInitials = (resolvedAwayName || "?").split(" ").map((n: string) => n[0]).join("").toUpperCase().slice(0, 2);
+
+    const effectiveTournamentId = tournamentId || match.tournament?._id;
 
     const handleSubmit = async () => {
         setIsSubmitting(true);
@@ -108,13 +141,24 @@ export function SubmitResultForm({ match, myTeam, opponent, isHome, userId, onCl
             const myScore = Number(homeScore);
             const oppScore = Number(awayScore);
             const { toast } = await import("sonner");
-            const res = await fetch(`/api/tournaments/${match.tournament?._id}/matches/submit-result`, {
+
+            let finalHomeScore: number;
+            let finalAwayScore: number;
+            if (directScoreMode) {
+                finalHomeScore = myScore;
+                finalAwayScore = oppScore;
+            } else {
+                finalHomeScore = isHome ? myScore : oppScore;
+                finalAwayScore = isHome ? oppScore : myScore;
+            }
+
+            const res = await fetch(`/api/tournaments/${effectiveTournamentId}/matches/submit-result`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json", ...(tk ? { Authorization: `Bearer ${tk}` } : {}) },
                 body: JSON.stringify({
                     matchId: match._id,
-                    homeScore: isHome ? myScore : oppScore,
-                    awayScore: isHome ? oppScore : myScore,
+                    homeScore: finalHomeScore,
+                    awayScore: finalAwayScore,
                     screenshots,
                     notes,
                 }),
@@ -149,21 +193,21 @@ export function SubmitResultForm({ match, myTeam, opponent, isHome, userId, onCl
                 {/* My Player Card + Score */}
                 <div className="flex-1 flex flex-col items-center text-center min-w-0 px-1">
                     <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-full border-2 border-white shadow-md bg-gradient-to-br from-blue-50 to-blue-100 flex items-center justify-center overflow-hidden flex-shrink-0 ring-1 ring-blue-100">
-                        {myCaptain?.avatar ? (
-                            <img src={myCaptain.avatar} alt="" className="w-full h-full object-cover" />
+                        {resolvedHomeAvatar ? (
+                            <img src={resolvedHomeAvatar} alt="" className="w-full h-full object-cover" />
                         ) : (
                             <span className="text-sm sm:text-base font-bold text-blue-300">
-                                {(myCaptain?.name || myTeam?.name || "?").split(" ").map((n: string) => n[0]).join("").toUpperCase().slice(0, 2)}
+                                {resolvedHomeInitials}
                             </span>
                         )}
                     </div>
-                    <span className="text-[8px] font-bold uppercase tracking-widest mt-2 text-blue-500">Bạn</span>
+                    <span className="text-[8px] font-bold uppercase tracking-widest mt-2 text-blue-500">{directScoreMode ? 'Đội nhà' : 'Bạn'}</span>
                     <p className="text-[11px] sm:text-xs font-semibold text-gray-800 truncate max-w-full mt-0.5 leading-tight">
-                        {myCaptain?.nickname || myCaptain?.name || myTeam?.shortName || "—"}
+                        {resolvedHomeName}
                     </p>
-                    {myCaptain?.efvId ? (
+                    {resolvedHomeEfvId ? (
                         <span className="inline-flex items-center gap-0.5 text-[9px] font-medium text-amber-600 bg-amber-50 border border-amber-100 px-1.5 py-0.5 rounded mt-1">
-                            <Hash className="w-2.5 h-2.5" />EFV-{myCaptain.efvId}
+                            <Hash className="w-2.5 h-2.5" />EFV-{resolvedHomeEfvId}
                         </span>
                     ) : (
                         <span className="text-[9px] text-gray-300 mt-1">—</span>
@@ -183,21 +227,21 @@ export function SubmitResultForm({ match, myTeam, opponent, isHome, userId, onCl
                 {/* Opponent Player Card + Score */}
                 <div className="flex-1 flex flex-col items-center text-center min-w-0 px-1">
                     <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-full border-2 border-white shadow-md bg-gradient-to-br from-red-50 to-red-100 flex items-center justify-center overflow-hidden flex-shrink-0 ring-1 ring-red-100">
-                        {oppCaptain?.avatar ? (
-                            <img src={oppCaptain.avatar} alt="" className="w-full h-full object-cover" />
+                        {resolvedAwayAvatar ? (
+                            <img src={resolvedAwayAvatar} alt="" className="w-full h-full object-cover" />
                         ) : (
                             <span className="text-sm sm:text-base font-bold text-red-300">
-                                {(oppCaptain?.name || opponent?.name || "?").split(" ").map((n: string) => n[0]).join("").toUpperCase().slice(0, 2)}
+                                {resolvedAwayInitials}
                             </span>
                         )}
                     </div>
-                    <span className="text-[8px] font-bold uppercase tracking-widest mt-2 text-red-400">Đối thủ</span>
+                    <span className="text-[8px] font-bold uppercase tracking-widest mt-2 text-red-400">{directScoreMode ? 'Đội khách' : 'Đối thủ'}</span>
                     <p className="text-[11px] sm:text-xs font-semibold text-gray-800 truncate max-w-full mt-0.5 leading-tight">
-                        {oppCaptain?.nickname || oppCaptain?.name || opponent?.shortName || "—"}
+                        {resolvedAwayName}
                     </p>
-                    {oppCaptain?.efvId ? (
+                    {resolvedAwayEfvId ? (
                         <span className="inline-flex items-center gap-0.5 text-[9px] font-medium text-amber-600 bg-amber-50 border border-amber-100 px-1.5 py-0.5 rounded mt-1">
-                            <Hash className="w-2.5 h-2.5" />EFV-{oppCaptain.efvId}
+                            <Hash className="w-2.5 h-2.5" />EFV-{resolvedAwayEfvId}
                         </span>
                     ) : (
                         <span className="text-[9px] text-gray-300 mt-1">—</span>
