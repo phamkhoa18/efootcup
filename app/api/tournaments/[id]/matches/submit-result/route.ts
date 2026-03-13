@@ -60,6 +60,11 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
             return apiError("Trận đấu đã kết thúc, không thể gửi kết quả", 400);
         }
 
+        // Both teams must be determined (not TBD/null)
+        if (!match.homeTeam || !match.awayTeam) {
+            return apiError("Cặp đấu chưa xác định đối thủ. Vui lòng chờ vòng trước kết thúc.", 400);
+        }
+
         // Find user's team in this match
         const homeTeam = match.homeTeam ? await Team.findById(match.homeTeam).lean() : null;
         const awayTeam = match.awayTeam ? await Team.findById(match.awayTeam).lean() : null;
@@ -129,25 +134,41 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
             return apiError("Quản lý giải đã cập nhật tỉ số chính thức. Bạn không thể gửi kết quả.", 400);
         }
 
-        // Check if user already submitted — block re-submission
+        // Check if user already submitted — allow update instead of blocking
         const existingSub = match.resultSubmissions?.find(
             (s: any) => s.user?.toString() === userId.toString()
         );
 
+        let result;
         if (existingSub) {
-            return apiError("Bạn đã gửi kết quả cho trận đấu này rồi. Không thể gửi lại.", 400);
-        }
-
-        // Add new submission using $push
-        const result = await Match.updateOne(
-            { _id: matchId },
-            {
-                $push: {
-                    resultSubmissions: submissionData
+            // Update existing submission
+            result = await Match.updateOne(
+                { _id: matchId, "resultSubmissions.user": new mongoose.Types.ObjectId(userId) },
+                {
+                    $set: {
+                        "resultSubmissions.$.homeScore": submissionData.homeScore,
+                        "resultSubmissions.$.awayScore": submissionData.awayScore,
+                        ...(submissionData.homePenalty !== undefined ? { "resultSubmissions.$.homePenalty": submissionData.homePenalty } : {}),
+                        ...(submissionData.awayPenalty !== undefined ? { "resultSubmissions.$.awayPenalty": submissionData.awayPenalty } : {}),
+                        "resultSubmissions.$.screenshots": submissionData.screenshots,
+                        "resultSubmissions.$.notes": submissionData.notes,
+                        "resultSubmissions.$.submittedAt": submissionData.submittedAt,
+                    }
                 }
-            }
-        );
-        console.log("📝 Pushed new submission:", JSON.stringify(result));
+            );
+            console.log("📝 Updated existing submission:", JSON.stringify(result));
+        } else {
+            // Add new submission using $push
+            result = await Match.updateOne(
+                { _id: matchId },
+                {
+                    $push: {
+                        resultSubmissions: submissionData
+                    }
+                }
+            );
+            console.log("📝 Pushed new submission:", JSON.stringify(result));
+        }
 
         // Verify the save
         const verify = await Match.findById(matchId).select("resultSubmissions").lean();
@@ -170,7 +191,7 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
             console.error("Notify manager error:", e);
         }
 
-        return apiResponse({ matchId, submitted: true }, 200, "Gửi kết quả thành công! Quản lý giải sẽ xem xét.");
+        return apiResponse({ matchId, submitted: true, updated: !!existingSub }, 200, existingSub ? "Cập nhật kết quả thành công!" : "Gửi kết quả thành công! Quản lý giải sẽ xem xét.");
     } catch (error) {
         console.error("Submit result error:", error);
         return apiError("Có lỗi xảy ra khi gửi kết quả", 500);

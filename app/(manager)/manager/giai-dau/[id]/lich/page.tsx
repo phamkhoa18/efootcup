@@ -39,7 +39,7 @@ export default function LichThiDauPage() {
     const [team2Id, setTeam2Id] = useState("");
     const [editingMatch, setEditingMatch] = useState<any>(null);
     const [viewingSubmissions, setViewingSubmissions] = useState<any>(null);
-    const [statusFilter, setStatusFilter] = useState<'all' | 'pending' | 'live' | 'completed' | 'has_submissions'>('all');
+    const [statusFilter, setStatusFilter] = useState<'all' | 'pending' | 'live' | 'completed' | 'has_submissions' | 'pending_review'>('all');
     const [seedMode, setSeedMode] = useState<'random' | 'manual'>('random');
     const [seedOrder, setSeedOrder] = useState<any[]>([]);
     const { confirm, alert: showAlert } = useConfirmDialog();
@@ -242,6 +242,7 @@ export default function LichThiDauPage() {
     const liveMatches = actualMatches.filter(m => m.status === 'live').length;
     const pendingMatches = actualMatches.filter(m => m.status !== 'completed' && m.status !== 'live').length;
     const hasSubMatches = actualMatches.filter(m => m.resultSubmissions?.length > 0).length;
+    const unreviewedMatches = actualMatches.filter(m => m.resultSubmissions?.length > 0 && m.status !== 'completed').length;
     const totalMatches = actualMatches.length;
 
     const filterMatch = (m: any) => {
@@ -250,6 +251,7 @@ export default function LichThiDauPage() {
         if (statusFilter === 'live') return m.status === 'live';
         if (statusFilter === 'pending') return m.status !== 'completed' && m.status !== 'live';
         if (statusFilter === 'has_submissions') return m.resultSubmissions?.length > 0;
+        if (statusFilter === 'pending_review') return m.resultSubmissions?.length > 0 && m.status !== 'completed';
         return true;
     };
 
@@ -334,6 +336,7 @@ export default function LichThiDauPage() {
             <div className="flex items-center gap-2 px-4 py-2.5 bg-white border-b border-gray-100 overflow-x-auto">
                 {[
                     { key: 'all', label: 'Tất cả', count: totalMatches, color: 'bg-gray-100 text-gray-700', active: 'bg-gray-900 text-white' },
+                    { key: 'pending_review', label: '⚡ Chờ xử lý', count: unreviewedMatches, color: 'bg-rose-50 text-rose-600', active: 'bg-rose-600 text-white' },
                     { key: 'pending', label: 'Chưa đá', count: pendingMatches, color: 'bg-blue-50 text-blue-600', active: 'bg-blue-600 text-white' },
                     { key: 'live', label: 'Đang đá', count: liveMatches, color: 'bg-red-50 text-red-600', active: 'bg-red-600 text-white' },
                     { key: 'completed', label: 'Đã xong', count: completedMatches, color: 'bg-emerald-50 text-emerald-600', active: 'bg-emerald-600 text-white' },
@@ -441,9 +444,11 @@ export default function LichThiDauPage() {
                                                                 <Play className="w-4 h-4 hover:text-green-500 cursor-pointer transition-colors" onClick={() => handleSetMatchLive(m._id || m.id)} />
                                                             ) : <div className="w-4 h-4" />}
                                                             {m.resultSubmissions && m.resultSubmissions.length > 0 && (
-                                                                <span title={`${m.resultSubmissions.length} kết quả VĐV gửi`} onClick={() => setViewingSubmissions(m)} className="relative cursor-pointer">
-                                                                    <Eye className="w-4 h-4 hover:text-orange-500 transition-colors text-orange-400" />
-                                                                    <span className="absolute -top-1.5 -right-1.5 w-3.5 h-3.5 rounded-full bg-orange-500 text-white text-[8px] font-bold flex items-center justify-center">{m.resultSubmissions.length}</span>
+                                                                <span title={`${m.resultSubmissions.length} kết quả VĐV gửi${isCompleted ? ' (đã xử lý)' : ''}`} onClick={() => setViewingSubmissions(m)} className="relative cursor-pointer">
+                                                                    <Eye className={`w-4 h-4 transition-colors ${isCompleted ? 'text-gray-300 hover:text-gray-500' : 'text-orange-400 hover:text-orange-500'}`} />
+                                                                    {!isCompleted && (
+                                                                        <span className="absolute -top-1.5 -right-1.5 w-3.5 h-3.5 rounded-full bg-orange-500 text-white text-[8px] font-bold flex items-center justify-center animate-pulse">{m.resultSubmissions.length}</span>
+                                                                    )}
                                                                 </span>
                                                             )}
                                                             <Edit3 className="w-4 h-4 hover:text-blue-500 cursor-pointer transition-colors" onClick={() => setEditingMatch({ ...m, roundName })} />
@@ -466,9 +471,11 @@ export default function LichThiDauPage() {
                                                                     </button>
                                                                 )}
                                                                 {m.resultSubmissions?.length > 0 && (
-                                                                    <button onClick={() => setViewingSubmissions(m)} className="relative w-8 h-8 rounded-lg bg-orange-50 hover:bg-orange-100 flex items-center justify-center transition-colors">
-                                                                        <Eye className="w-4 h-4 text-orange-500" />
-                                                                        <span className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-orange-500 text-white text-[8px] font-bold flex items-center justify-center">{m.resultSubmissions.length}</span>
+                                                                    <button onClick={() => setViewingSubmissions(m)} className={`relative w-8 h-8 rounded-lg flex items-center justify-center transition-colors ${isCompleted ? 'bg-gray-50 hover:bg-gray-100' : 'bg-orange-50 hover:bg-orange-100'}`}>
+                                                                        <Eye className={`w-4 h-4 ${isCompleted ? 'text-gray-400' : 'text-orange-500'}`} />
+                                                                        {!isCompleted && (
+                                                                            <span className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-orange-500 text-white text-[8px] font-bold flex items-center justify-center animate-pulse">{m.resultSubmissions.length}</span>
+                                                                        )}
                                                                     </button>
                                                                 )}
                                                                 <button className="w-8 h-8 rounded-lg bg-blue-50 hover:bg-blue-100 flex items-center justify-center transition-colors" onClick={() => setEditingMatch({ ...m, roundName })}>

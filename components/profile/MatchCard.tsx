@@ -4,7 +4,7 @@ import Link from "next/link";
 import { motion, AnimatePresence } from "framer-motion";
 import {
     Trophy, Swords, Clock, Activity, ChevronRight, Upload, Camera, X,
-    CheckCircle2, Loader2, Lock, MessageCircle, Hash, User as UserIcon
+    CheckCircle2, Loader2, Lock, MessageCircle, Hash, User as UserIcon, RefreshCw, AlertTriangle
 } from "lucide-react";
 import { compressImage } from "@/lib/compressImage";
 
@@ -13,7 +13,7 @@ function PlayerCard({ team, label, labelColor }: { team: any; label: string; lab
     const captain = team?.captain;
     const playerName = captain?.nickname || captain?.name || team?.shortName || team?.name || "—";
     const efvId = captain?.efvId;
-    const avatar = captain?.avatar;
+    const avatar = captain?.avatar || captain?.personalPhoto || team?.avatar || team?.personalPhoto || '';
     const initials = (captain?.name || team?.name || "?")
         .split(" ").map((n: string) => n[0]).join("").toUpperCase().slice(0, 2);
 
@@ -125,8 +125,8 @@ export function SubmitResultForm({
     /* Resolve display names — prefer explicit overrides, then captain, then team */
     const resolvedHomeName = _homeName || myCaptain?.nickname || myCaptain?.name || myTeam?.shortName || "—";
     const resolvedAwayName = _awayName || oppCaptain?.nickname || oppCaptain?.name || opponent?.shortName || "—";
-    const resolvedHomeAvatar = _homeAvatar ?? myCaptain?.avatar;
-    const resolvedAwayAvatar = _awayAvatar ?? oppCaptain?.avatar;
+    const resolvedHomeAvatar = _homeAvatar ?? myCaptain?.avatar ?? myCaptain?.personalPhoto ?? myTeam?.avatar ?? myTeam?.personalPhoto ?? '';
+    const resolvedAwayAvatar = _awayAvatar ?? oppCaptain?.avatar ?? oppCaptain?.personalPhoto ?? opponent?.avatar ?? opponent?.personalPhoto ?? '';
     const resolvedHomeEfvId = _homeEfvId !== undefined ? _homeEfvId : myCaptain?.efvId;
     const resolvedAwayEfvId = _awayEfvId !== undefined ? _awayEfvId : oppCaptain?.efvId;
     const resolvedHomeInitials = (resolvedHomeName || "?").split(" ").map((n: string) => n[0]).join("").toUpperCase().slice(0, 2);
@@ -414,14 +414,14 @@ export default function MatchCard({ match, myTeam, opponent, isHome, user, submi
                             </div>
                         );
                     }
-                    // STATE 2: already submitted
+                    // STATE 2: already submitted — show result + allow update
                     if (myExistingSub) {
                         return (
                             <div className="space-y-2">
                                 <div className="px-3 py-3 bg-emerald-50/80 border border-emerald-100 rounded-xl space-y-2">
                                     <div className="flex items-center justify-between">
                                         <p className="text-[10px] font-semibold text-emerald-600 flex items-center gap-1"><CheckCircle2 className="w-3.5 h-3.5" /> Đã gửi kết quả — chờ quản lý duyệt</p>
-                                        <span className="inline-flex items-center gap-1 text-[8px] font-bold text-emerald-400 bg-emerald-100 px-1.5 py-0.5 rounded-full"><Lock className="w-2.5 h-2.5" /> Đã gửi</span>
+                                        <span className="inline-flex items-center gap-1 text-[8px] font-bold text-emerald-400 bg-emerald-100 px-1.5 py-0.5 rounded-full"><CheckCircle2 className="w-2.5 h-2.5" /> Đã gửi</span>
                                     </div>
                                     <div className="flex items-center justify-between">
                                         <div className="flex items-center gap-2 min-w-0 flex-1">
@@ -450,7 +450,13 @@ export default function MatchCard({ match, myTeam, opponent, isHome, user, submi
                                         ))}
                                     </div>
                                 )}
-                                <div className="flex justify-end">
+                                <div className="flex justify-between items-center">
+                                    <button
+                                        onClick={() => setSubmitMatchId(match._id)}
+                                        className="flex items-center gap-1.5 text-[10px] font-semibold text-amber-600 hover:text-amber-700 bg-amber-50 hover:bg-amber-100 px-3 py-1.5 rounded-lg transition-all border border-amber-200"
+                                    >
+                                        <RefreshCw className="w-3 h-3" /> Cập nhật kết quả
+                                    </button>
                                     <Link href={`/giai-dau/${match.tournament?.slug || match.tournament?._id}?tab=schedule`} className="flex items-center gap-1 text-[10px] font-medium text-gray-400 hover:text-blue-600">
                                         Chi tiết <ChevronRight className="w-3 h-3" />
                                     </Link>
@@ -465,19 +471,32 @@ export default function MatchCard({ match, myTeam, opponent, isHome, user, submi
                                 match={match} myTeam={myTeam} opponent={opponent} isHome={isHome} userId={user?._id}
                                 onClose={() => setSubmitMatchId(null)}
                                 onSubmitted={onSubmitted}
+                                initialHomeScore={myExistingSub ? String(isHome ? myExistingSub.homeScore : myExistingSub.awayScore) : undefined}
+                                initialAwayScore={myExistingSub ? String(isHome ? myExistingSub.awayScore : myExistingSub.homeScore) : undefined}
+                                initialNotes={myExistingSub?.notes || undefined}
+                                initialScreenshots={myExistingSub?.screenshots || undefined}
                             />
                         );
                     }
-                    // Default: show submit button
+                    // Default: show submit button or TBD message
+                    const opponentDetermined = !!(myTeam && opponent);
                     return (
                         <div className="flex items-center justify-between">
                             <span className="text-[10px] text-gray-400 font-medium italic">
-                                {match.status === "live" ? "Vui lòng báo cáo kết quả sau trận" : "Chuẩn bị thi đấu"}
+                                {!opponentDetermined
+                                    ? "Đang chờ xác định đối thủ..."
+                                    : match.status === "live" ? "Vui lòng báo cáo kết quả sau trận" : "Chuẩn bị thi đấu"}
                             </span>
                             <div className="flex items-center gap-3">
-                                <button onClick={() => setSubmitMatchId(match._id)} className="flex items-center gap-1.5 text-[11px] font-semibold text-white bg-gradient-to-r from-blue-600 to-indigo-600 px-3.5 py-1.5 rounded-lg shadow-sm hover:shadow-md transition-all">
-                                    <Upload className="w-3 h-3" /> Gửi kết quả
-                                </button>
+                                {opponentDetermined ? (
+                                    <button onClick={() => setSubmitMatchId(match._id)} className="flex items-center gap-1.5 text-[11px] font-semibold text-white bg-gradient-to-r from-blue-600 to-indigo-600 px-3.5 py-1.5 rounded-lg shadow-sm hover:shadow-md transition-all">
+                                        <Upload className="w-3 h-3" /> Gửi kết quả
+                                    </button>
+                                ) : (
+                                    <span className="flex items-center gap-1.5 text-[11px] font-semibold text-gray-400 bg-gray-100 px-3.5 py-1.5 rounded-lg cursor-not-allowed">
+                                        <AlertTriangle className="w-3 h-3" /> Chưa có đối thủ
+                                    </span>
+                                )}
                                 <Link href={`/giai-dau/${match.tournament?.slug || match.tournament?._id}?tab=schedule`} className="flex items-center gap-1 text-[10px] font-medium text-gray-400 hover:text-blue-600">
                                     Chi tiết <ChevronRight className="w-3 h-3" />
                                 </Link>

@@ -208,7 +208,8 @@ const MatchDetailViewModal = ({ match, tournament, onClose, user, myRegistration
         (match.awayTeam?._id || match.awayTeam)?.toString?.() === userTeamId
     );
     const isLiveMatch = match.status === "live" || match.status === "scheduled";
-    const canSubmitResult = user && isUserInMatch && match.status !== "completed";
+    const bothTeamsDetermined = !!(match.homeTeam && match.awayTeam);
+    const canSubmitResult = user && isUserInMatch && match.status !== "completed" && bothTeamsDetermined;
 
     // Auto-open submit form when match is live/scheduled and user is a participant
     const [showSubmitForm, setShowSubmitForm] = useState(!!user && !!isUserInMatch && isLiveMatch);
@@ -341,62 +342,258 @@ const MatchDetailViewModal = ({ match, tournament, onClose, user, myRegistration
                     {/* Existing Result Submissions */}
                     {match.resultSubmissions && match.resultSubmissions.length > 0 && (
                         <div className="mt-5">
-                            <h4 className="text-sm font-bold text-gray-700 mb-3 flex items-center gap-2">
-                                <FileText className="w-4 h-4 text-efb-blue" />
-                                Kết quả đã nhận ({match.resultSubmissions.length})
-                            </h4>
-                            <div className="space-y-3">
-                                {match.resultSubmissions.map((sub: any, idx: number) => (
-                                    <div key={idx} className="p-3 rounded-xl bg-blue-50/50 border border-blue-100">
-                                        <div className="flex items-center justify-between mb-2">
-                                            <span className="text-xs font-semibold text-gray-600">
-                                                {sub.user === user?._id || sub.user?._id === user?._id ? "Bạn đã gửi" : "VĐV đã gửi"}
-                                            </span>
-                                            <span className="text-[10px] text-gray-400">
-                                                {sub.submittedAt ? new Date(sub.submittedAt).toLocaleString("vi-VN") : ""}
-                                            </span>
-                                        </div>
-                                        <div className="flex items-center gap-3 text-sm">
-                                            <span className="font-bold text-gray-800">{match.homeTeam?.shortName || "H"}</span>
-                                            <span className="text-lg font-black text-efb-blue">{sub.homeScore}</span>
-                                            <span className="text-gray-300">-</span>
-                                            <span className="text-lg font-black text-efb-blue">{sub.awayScore}</span>
-                                            <span className="font-bold text-gray-800">{match.awayTeam?.shortName || "A"}</span>
-                                        </div>
-                                        {sub.notes && <p className="text-xs text-gray-500 mt-2 italic">"{sub.notes}"</p>}
-                                        {sub.screenshots && sub.screenshots.length > 0 && (
-                                            <div className="flex gap-2 mt-2">
-                                                {sub.screenshots.map((s: string, si: number) => (
-                                                    <img key={si} src={s} alt="SS" className="w-16 h-16 rounded-lg object-cover border border-gray-200 cursor-pointer hover:opacity-80" onClick={() => window.open(s, "_blank")} />
-                                                ))}
+                            <div className="flex items-center gap-2 mb-4">
+                                <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-orange-400 to-amber-500 flex items-center justify-center shadow-sm">
+                                    <FileText className="w-4 h-4 text-white" />
+                                </div>
+                                <div>
+                                    <h4 className="text-sm font-bold text-gray-900 flex items-center gap-2">
+                                        Kết quả VĐV đã gửi
+                                        <span className="bg-orange-100 text-orange-600 text-[10px] font-bold px-2 py-0.5 rounded-full">
+                                            {match.resultSubmissions.length}
+                                        </span>
+                                    </h4>
+                                    <p className="text-[10px] text-gray-400">Kết quả do VĐV tự gửi lên để xác nhận</p>
+                                </div>
+                            </div>
+                            <div className="space-y-4">
+                                {match.resultSubmissions.map((sub: any, idx: number) => {
+                                    const isFromHome = sub.team?.toString?.() === (match.homeTeam?._id || match.homeTeam)?.toString?.();
+                                    const submitterTeam = isFromHome ? match.homeTeam : match.awayTeam;
+                                    const submitterTeamName = submitterTeam?.name || submitterTeam?.shortName || "";
+                                    const isMe = sub.user === user?._id || sub.user?._id === user?._id;
+
+                                    // Use enriched userData from API, fallback to team data
+                                    const userData = sub.userData || {};
+                                    const displayName = userData.name || submitterTeam?.player1 || (isFromHome ? match.p1?.name : match.p2?.name) || "VĐV";
+                                    const displayEfvId = userData.efvId ?? submitterTeam?.efvId ?? null;
+                                    const displayAvatar = userData.personalPhoto || userData.avatar || '';
+                                    const displayGameId = userData.gamerId || '';
+                                    const displayNickname = userData.nickname || '';
+
+                                    return (
+                                        <div key={idx} className="rounded-xl border border-gray-200 overflow-hidden bg-white shadow-sm">
+                                            {/* Submission Header — Full Player Info */}
+                                            <div className={`px-4 py-3 ${isFromHome ? 'bg-gradient-to-r from-blue-50 to-indigo-50 border-b border-blue-100' : 'bg-gradient-to-r from-rose-50 to-pink-50 border-b border-rose-100'}`}>
+                                                <div className="flex items-start gap-3">
+                                                    {/* Avatar */}
+                                                    <div className="flex-shrink-0">
+                                                        {displayAvatar ? (
+                                                            <img
+                                                                src={displayAvatar}
+                                                                alt={displayName}
+                                                                className="w-11 h-11 rounded-full object-cover border-2 border-white shadow-sm cursor-pointer hover:opacity-80 transition-opacity"
+                                                                onClick={() => window.open(displayAvatar, "_blank")}
+                                                            />
+                                                        ) : (
+                                                            <div className={`w-11 h-11 rounded-full flex items-center justify-center text-sm font-bold ${isFromHome ? 'bg-blue-100 text-blue-700 border-2 border-blue-200' : 'bg-rose-100 text-rose-700 border-2 border-rose-200'}`}>
+                                                                <User className="w-5 h-5" />
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                    {/* Info */}
+                                                    <div className="flex-1 min-w-0">
+                                                        <div className="flex items-center gap-1.5 flex-wrap mb-0.5">
+                                                            {isMe && (
+                                                                <span className="text-[8px] font-bold text-white bg-blue-500 px-1.5 py-px rounded-full flex-shrink-0">BẠN</span>
+                                                            )}
+                                                            {displayEfvId != null && (
+                                                                <span className="text-[9px] font-bold text-amber-600 bg-amber-50 border border-amber-200 px-1.5 py-px rounded flex-shrink-0">
+                                                                    #{displayEfvId}
+                                                                </span>
+                                                            )}
+                                                            <span className="text-sm font-bold text-gray-900 truncate">{displayName}</span>
+                                                        </div>
+                                                        <div className="flex items-center gap-2 flex-wrap text-[10px] text-gray-500">
+                                                            {displayGameId && (
+                                                                <span className="flex items-center gap-1">
+                                                                    🎮 <span className="font-semibold text-gray-600">{displayGameId}</span>
+                                                                </span>
+                                                            )}
+                                                            {displayNickname && displayNickname !== displayGameId && (
+                                                                <span className="flex items-center gap-1">
+                                                                    · {displayNickname}
+                                                                </span>
+                                                            )}
+                                                            {submitterTeamName && (
+                                                                <span className="flex items-center gap-1">
+                                                                    · {submitterTeamName}
+                                                                </span>
+                                                            )}
+                                                        </div>
+                                                    </div>
+                                                    {/* Timestamp */}
+                                                    <div className="flex items-center gap-1 text-[10px] text-gray-400 flex-shrink-0 mt-0.5">
+                                                        <Clock className="w-3 h-3" />
+                                                        <span>{sub.submittedAt ? new Date(sub.submittedAt).toLocaleString("vi-VN") : ""}</span>
+                                                    </div>
+                                                </div>
                                             </div>
-                                        )}
-                                    </div>
-                                ))}
+
+                                            {/* Score Display */}
+                                            <div className="px-4 py-4">
+                                                <div className="flex items-center justify-center gap-3 sm:gap-5">
+                                                    <div className="text-center flex-1">
+                                                        <div className="mb-1.5">
+                                                            <div className="flex items-center justify-center gap-1 flex-wrap">
+                                                                {match.homeTeam?.efvId != null && <span className="text-[8px] font-bold text-amber-600 bg-amber-50 border border-amber-200 px-1 py-px rounded">#{match.homeTeam.efvId}</span>}
+                                                                <span className="text-[10px] font-bold text-gray-600 truncate">{match.homeTeam?.player1 || match.p1?.name || "Đội nhà"}</span>
+                                                            </div>
+                                                            {match.homeTeam?.shortName && <p className="text-[9px] text-gray-400">{match.homeTeam.shortName}</p>}
+                                                        </div>
+                                                        <span className={`text-2xl sm:text-3xl font-black inline-block min-w-[48px] py-1.5 px-3 rounded-xl ${
+                                                            sub.homeScore > sub.awayScore
+                                                                ? 'text-emerald-600 bg-emerald-50 border border-emerald-200'
+                                                                : 'text-gray-600 bg-gray-50 border border-gray-200'
+                                                        }`}>
+                                                            {sub.homeScore}
+                                                        </span>
+                                                    </div>
+                                                    <span className="text-xl text-gray-200 font-light mt-4">—</span>
+                                                    <div className="text-center flex-1">
+                                                        <div className="mb-1.5">
+                                                            <div className="flex items-center justify-center gap-1 flex-wrap">
+                                                                {match.awayTeam?.efvId != null && <span className="text-[8px] font-bold text-amber-600 bg-amber-50 border border-amber-200 px-1 py-px rounded">#{match.awayTeam.efvId}</span>}
+                                                                <span className="text-[10px] font-bold text-gray-600 truncate">{match.awayTeam?.player1 || match.p2?.name || "Đội khách"}</span>
+                                                            </div>
+                                                            {match.awayTeam?.shortName && <p className="text-[9px] text-gray-400">{match.awayTeam.shortName}</p>}
+                                                        </div>
+                                                        <span className={`text-2xl sm:text-3xl font-black inline-block min-w-[48px] py-1.5 px-3 rounded-xl ${
+                                                            sub.awayScore > sub.homeScore
+                                                                ? 'text-emerald-600 bg-emerald-50 border border-emerald-200'
+                                                                : 'text-gray-600 bg-gray-50 border border-gray-200'
+                                                        }`}>
+                                                            {sub.awayScore}
+                                                        </span>
+                                                    </div>
+                                                </div>
+
+                                                {/* Notes */}
+                                                {sub.notes && (
+                                                    <div className="mt-4 flex items-start gap-2 bg-gray-50 rounded-lg px-3 py-2.5 border border-gray-100">
+                                                        <MessageCircle className="w-3.5 h-3.5 text-gray-400 mt-0.5 flex-shrink-0" />
+                                                        <p className="text-xs text-gray-600 italic leading-relaxed">"{sub.notes}"</p>
+                                                    </div>
+                                                )}
+
+                                                {/* Screenshots */}
+                                                {sub.screenshots && sub.screenshots.length > 0 && (
+                                                    <div className="mt-4">
+                                                        <p className="text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-2 flex items-center gap-1.5">
+                                                            <ImageIcon className="w-3 h-3" />
+                                                            Hình ảnh minh chứng ({sub.screenshots.length})
+                                                        </p>
+                                                        <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                                                            {sub.screenshots.map((s: string, si: number) => (
+                                                                <div
+                                                                    key={si}
+                                                                    className="relative group cursor-pointer rounded-xl overflow-hidden border-2 border-gray-100 hover:border-blue-300 transition-all aspect-square"
+                                                                    onClick={() => window.open(s, "_blank")}
+                                                                >
+                                                                    <img
+                                                                        src={s}
+                                                                        alt={`Minh chứng ${si + 1}`}
+                                                                        className="w-full h-full object-cover"
+                                                                    />
+                                                                    <div className="absolute inset-0 bg-black/0 group-hover:bg-black/30 transition-all flex items-center justify-center">
+                                                                        <Eye className="w-5 h-5 text-white opacity-0 group-hover:opacity-100 transition-opacity drop-shadow-lg" />
+                                                                    </div>
+                                                                </div>
+                                                            ))}
+                                                        </div>
+                                                    </div>
+                                                )}
+                                            </div>
+                                        </div>
+                                    );
+                                })}
                             </div>
                         </div>
                     )}
 
-                    {/* Submit Result Button / Form */}
+                    {/* Submit Result Section */}
                     {canSubmitResult && (
-                        <div className="mt-5">
-                            {!showSubmitForm ? (
+                        <div className="mt-5 space-y-4">
+                            {/* Show existing submission if already sent */}
+                            {mySubmission && !showSubmitForm && (
+                                <div className="rounded-xl border border-emerald-200 overflow-hidden bg-white">
+                                    <div className="px-4 py-3 bg-gradient-to-r from-emerald-50 to-teal-50 border-b border-emerald-100">
+                                        <div className="flex items-center justify-between">
+                                            <p className="text-xs font-bold text-emerald-700 flex items-center gap-1.5">
+                                                <CheckCircle2 className="w-4 h-4" /> Bạn đã gửi kết quả — chờ quản lý duyệt
+                                            </p>
+                                            <span className="text-[10px] text-gray-400 flex items-center gap-1">
+                                                <Clock className="w-3 h-3" />
+                                                {mySubmission.submittedAt ? new Date(mySubmission.submittedAt).toLocaleString("vi-VN") : ""}
+                                            </span>
+                                        </div>
+                                    </div>
+                                    <div className="px-4 py-4">
+                                        {/* Score */}
+                                        <div className="flex items-center justify-center gap-4 mb-3">
+                                            <div className="text-center">
+                                                <p className="text-[10px] font-semibold text-gray-500 mb-1">{match.homeTeam?.player1 || match.homeTeam?.shortName || "Đội nhà"}</p>
+                                                <span className={`text-2xl font-black inline-block min-w-[40px] py-1 px-2.5 rounded-lg ${
+                                                    mySubmission.homeScore > mySubmission.awayScore
+                                                        ? 'text-emerald-600 bg-emerald-50 border border-emerald-200'
+                                                        : 'text-gray-500 bg-gray-50 border border-gray-200'
+                                                }`}>{mySubmission.homeScore}</span>
+                                            </div>
+                                            <span className="text-lg text-gray-200 font-light mt-4">—</span>
+                                            <div className="text-center">
+                                                <p className="text-[10px] font-semibold text-gray-500 mb-1">{match.awayTeam?.player1 || match.awayTeam?.shortName || "Đội khách"}</p>
+                                                <span className={`text-2xl font-black inline-block min-w-[40px] py-1 px-2.5 rounded-lg ${
+                                                    mySubmission.awayScore > mySubmission.homeScore
+                                                        ? 'text-emerald-600 bg-emerald-50 border border-emerald-200'
+                                                        : 'text-gray-500 bg-gray-50 border border-gray-200'
+                                                }`}>{mySubmission.awayScore}</span>
+                                            </div>
+                                        </div>
+                                        {/* Notes */}
+                                        {mySubmission.notes && (
+                                            <div className="flex items-start gap-2 bg-gray-50 rounded-lg px-3 py-2 border border-gray-100 mb-3">
+                                                <MessageCircle className="w-3.5 h-3.5 text-gray-400 mt-0.5 flex-shrink-0" />
+                                                <p className="text-xs text-gray-600 italic">"{mySubmission.notes}"</p>
+                                            </div>
+                                        )}
+                                        {/* Screenshots */}
+                                        {mySubmission.screenshots?.length > 0 && (
+                                            <div className="flex gap-2 flex-wrap mb-3">
+                                                {mySubmission.screenshots.map((s: string, si: number) => (
+                                                    <img key={si} src={s} alt={`Minh chứng ${si + 1}`} className="w-16 h-16 rounded-xl object-cover border-2 border-emerald-200 cursor-pointer hover:opacity-80 hover:shadow-md transition-all" onClick={() => window.open(s, "_blank")} />
+                                                ))}
+                                            </div>
+                                        )}
+                                        {/* Update button */}
+                                        <button
+                                            onClick={() => setShowSubmitForm(true)}
+                                            className="w-full py-2.5 rounded-xl bg-amber-50 hover:bg-amber-100 border border-amber-200 text-amber-700 font-bold text-sm transition-all flex items-center justify-center gap-2"
+                                        >
+                                            <Upload className="w-4 h-4" /> Cập nhật kết quả
+                                        </button>
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* Submit form or initial button */}
+                            {!mySubmission && !showSubmitForm && (
                                 <button
-                                    onClick={() => {
-                                        setShowSubmitForm(true);
-                                    }}
+                                    onClick={() => setShowSubmitForm(true)}
                                     className="w-full py-3 rounded-xl bg-gradient-to-r from-efb-blue to-indigo-600 text-white font-bold text-sm shadow-lg shadow-blue-500/20 hover:shadow-xl hover:shadow-blue-500/30 transition-all flex items-center justify-center gap-2"
                                 >
-                                    <Upload className="w-4 h-4" />
-                                    {mySubmission ? "Cập nhật kết quả" : "Gửi kết quả trận đấu"}
+                                    <Upload className="w-4 h-4" /> Gửi kết quả trận đấu
                                 </button>
-                            ) : (
+                            )}
+
+                            {showSubmitForm && (
                                 <div className="p-5 rounded-xl border-2 border-efb-blue/30 bg-blue-50/30">
                                     <SubmitResultForm
                                         match={match}
                                         tournamentId={tournament?._id || tournament?.slug}
                                         homeName={match.homeTeam?.player1 || match.homeTeam?.shortName || match.homeTeam?.name || "Đội nhà"}
                                         awayName={match.awayTeam?.player1 || match.awayTeam?.shortName || match.awayTeam?.name || "Đội khách"}
+                                        homeAvatar={match.homeTeam?.avatar || match.homeTeam?.personalPhoto || ''}
+                                        awayAvatar={match.awayTeam?.avatar || match.awayTeam?.personalPhoto || ''}
                                         homeEfvId={match.homeTeam?.efvId}
                                         awayEfvId={match.awayTeam?.efvId}
                                         directScoreMode={true}
