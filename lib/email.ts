@@ -207,7 +207,7 @@ export async function sendVerificationEmail(
 
         const info = await transporter.sendMail(mailOptions);
 
-        const previewUrl = nodemailer.getTestMessageUrl(info);
+        const previewUrl = nodemailer.getTestMessageUrl(info as any);
         if (previewUrl) {
             console.log("Preview email URL:", previewUrl);
         } else {
@@ -322,7 +322,7 @@ export async function sendResetPasswordEmail(
 
         const info = await transporter.sendMail(mailOptions);
 
-        const previewUrl = nodemailer.getTestMessageUrl(info);
+        const previewUrl = nodemailer.getTestMessageUrl(info as any);
         if (previewUrl) {
             console.log("Reset password email preview URL:", previewUrl);
         } else {
@@ -692,7 +692,7 @@ export async function sendPaymentInvoiceEmail(
 
         const info = await transporter.sendMail(mailOptions);
 
-        const previewUrl = nodemailer.getTestMessageUrl(info);
+        const previewUrl = nodemailer.getTestMessageUrl(info as any);
         if (previewUrl) {
             console.log("Invoice email preview URL:", previewUrl);
         } else {
@@ -779,7 +779,7 @@ export async function sendTestEmail(
         };
 
         const info = await transporter.sendMail(mailOptions);
-        const previewUrl = nodemailer.getTestMessageUrl(info);
+        const previewUrl = nodemailer.getTestMessageUrl(info as any);
 
         if (previewUrl) {
             console.log("Test email preview URL:", previewUrl);
