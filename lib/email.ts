@@ -59,15 +59,41 @@ async function getSmtpConfig(): Promise<SmtpConfig> {
 // ============================================================
 function createTransporterFromConfig(config: SmtpConfig) {
     if (config.smtpHost && config.smtpUser) {
-        return nodemailer.createTransport({
+        const host = config.smtpHost.toLowerCase();
+        
+        // Detect Outlook/Office365/Microsoft SMTP
+        const isOutlook = host.includes("outlook") || host.includes("office365") || host.includes("microsoft") || host.includes("hotmail") || host.includes("live.com");
+        
+        const transportConfig: any = {
             host: config.smtpHost,
-            port: config.smtpPort,
-            secure: config.smtpSecure,
+            port: config.smtpPort || (isOutlook ? 587 : 587),
+            secure: config.smtpSecure, // false for port 587 (STARTTLS)
             auth: {
                 user: config.smtpUser,
                 pass: config.smtpPass,
             },
-        });
+        };
+
+        // Outlook/Office365 requires specific TLS settings
+        if (isOutlook) {
+            transportConfig.secure = false; // Outlook uses STARTTLS, not direct SSL
+            transportConfig.port = 587;
+            transportConfig.tls = {
+                ciphers: "SSLv3",
+                rejectUnauthorized: false,
+            };
+            transportConfig.requireTLS = true;
+            console.log(`[SMTP] Detected Outlook/Microsoft host: ${host}, using STARTTLS on port 587`);
+        }
+
+        // For other hosts with port 587 and secure=false, enable STARTTLS
+        if (!transportConfig.secure && transportConfig.port === 587 && !transportConfig.tls) {
+            transportConfig.tls = {
+                rejectUnauthorized: false,
+            };
+        }
+
+        return nodemailer.createTransport(transportConfig);
     }
 
     // Fallback: Ethereal for testing
