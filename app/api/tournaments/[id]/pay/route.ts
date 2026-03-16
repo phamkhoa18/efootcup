@@ -11,6 +11,24 @@ interface RouteParams {
     params: Promise<{ id: string }>;
 }
 
+/** Default payment link expiry: 15 minutes (in seconds) */
+const DEFAULT_LINK_EXPIRY_SECONDS = 15 * 60;
+
+/**
+ * Generate a unique orderCode:
+ * Combines Unix timestamp (seconds) with random suffix for uniqueness.
+ * Must be a positive integer that fits in a JavaScript safe integer range.
+ */
+function generateOrderCode(): number {
+    // Use last 10 digits of ms timestamp + 3-digit random → 13 digits max
+    // This gives us ~9999 years of unique timestamps
+    const ts = Date.now(); // e.g., 1710633600000
+    const rand = Math.floor(Math.random() * 1000); // 0-999
+    // Take last 10 digits of timestamp + 3 digits random = max 13 digits (safe integer)
+    const code = Number(ts.toString().slice(-10) + rand.toString().padStart(3, "0"));
+    return code;
+}
+
 /**
  * POST /api/tournaments/[id]/pay
  * Creates a payment link (PayOS) for a tournament registration,
@@ -73,9 +91,15 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
                         const checkData = await checkRes.json();
                         if (checkData.code === "00" && checkData.data) {
                             const linkStatus = checkData.data.status;
+
                             if (linkStatus === "PENDING") {
-                                // If checkoutUrl is available, return it so user can continue paying
-                                if (checkData.data.checkoutUrl) {
+                                // ✅ FIX: Check if link has expired before reusing
+                                const now = Math.floor(Date.now() / 1000);
+                                const expiredAt = checkData.data.expiredAt || noteData.expiredAt;
+                                const isExpired = expiredAt && now >= expiredAt;
+
+                                if (!isExpired && checkData.data.checkoutUrl) {
+                                    // Link is still valid — return it so user can continue paying
                                     return apiResponse({
                                         payUrl: checkData.data.checkoutUrl,
                                         qrCode: checkData.data.qrCode,
@@ -85,90 +109,18 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
                                     }, 200, "Link thanh toán PayOS đang chờ");
                                 }
 
-                                // checkoutUrl not available — cancel old link to create a fresh one
-                                try {
-                                    await fetch(`https://api-merchant.payos.vn/v2/payment-requests/${noteData.orderCode}/cancel`, {
-                                        method: "POST",
-                                        headers: {
-                                            "Content-Type": "application/json",
-                                            "x-client-id": method.payosClientId,
-                                            "x-api-key": method.payosApiKey,
-                                        },
-                                        body: JSON.stringify({ cancellationReason: "User requested new link" }),
-                                    });
-                                    console.log(`🗑️ Cancelled old PayOS link ${noteData.orderCode} (no checkoutUrl)`);
-                                } catch (cancelErr) {
-                                    console.error("Failed to cancel old PayOS link:", cancelErr);
-                                }
+                                // Link expired or no checkoutUrl — cancel old link and create fresh one
+                                await cancelPayOSLink(noteData.orderCode, method);
+                                console.log(`🗑️ Cancelled expired/invalid PayOS link ${noteData.orderCode}`);
                                 // Fall through to create new link below
                             } else if (linkStatus === "PAID") {
                                 // Already paid! Update status + AUTO-APPROVE
-                                const paidAmount = checkData.data.amountPaid || checkData.data.amount;
-                                const paidRef = checkData.data.transactions?.[0]?.reference || "";
-                                const paidTime = checkData.data.transactions?.[0]?.transactionDateTime || new Date().toISOString();
-
-                                registration.paymentStatus = "paid";
-                                registration.paymentAmount = paidAmount;
-                                registration.paymentDate = new Date(paidTime);
-                                registration.paymentConfirmedAt = new Date();
-
-                                const existingNote = JSON.parse(registration.paymentNote || "{}");
-                                registration.paymentNote = JSON.stringify({
-                                    ...existingNote,
-                                    reference: paidRef,
-                                    transactionDateTime: paidTime,
-                                    confirmedBy: "payos-recheck",
-                                    payosAmountPaid: checkData.data.amountPaid,
-                                });
-
-                                await registration.save();
-
-                                // ✅ AUTO-APPROVE if still pending and tournament has room
-                                if (registration.status === "pending" && tournament.currentTeams < tournament.maxTeams) {
-                                    const Team = (await import("@/models/Team")).default;
-                                    const Notification = (await import("@/models/Notification")).default;
-
-                                    const team = await Team.create({
-                                        name: registration.teamName || registration.playerName || "Team",
-                                        shortName: registration.teamShortName || (registration.teamName || registration.playerName || "TEA").substring(0, 3).toUpperCase(),
-                                        tournament: tournament._id,
-                                        captain: registration.user,
-                                        members: [{
-                                            user: registration.user,
-                                            role: "captain",
-                                            joinedAt: new Date(),
-                                        }],
-                                    });
-
-                                    registration.status = "approved";
-                                    registration.team = team._id;
-                                    registration.approvedAt = new Date();
-                                    await registration.save();
-
-                                    await Tournament.findByIdAndUpdate(tournament._id, { $inc: { currentTeams: 1 } });
-
-                                    await Notification.create({
-                                        recipient: registration.user,
-                                        type: "system",
-                                        title: "🎉 Đăng ký thành công!",
-                                        message: `Thanh toán ${paidAmount?.toLocaleString("vi-VN")}đ đã được xác nhận. Bạn đã chính thức tham gia giải "${tournament.title}"!`,
-                                        link: `/giai-dau/${tournament._id}`,
-                                    });
-
-                                    await Notification.create({
-                                        recipient: tournament.createdBy,
-                                        type: "system",
-                                        title: "✅ VĐV mới tự động duyệt",
-                                        message: `VĐV "${registration.playerName}" đã thanh toán qua PayOS và được tự động duyệt vào giải "${tournament.title}".`,
-                                        link: `/manager/giai-dau/${tournament._id}/dang-ky`,
-                                    });
-
-                                    console.log(`🎉 Pay route: Auto-approved registration ${registration._id} (detected PAID on re-check)`);
-                                }
-
+                                await handleAlreadyPaid(registration, checkData.data, tournament);
                                 return apiError("Bạn đã thanh toán rồi", 400);
+                            } else {
+                                // CANCELLED/EXPIRED status → fall through to create new link
+                                console.log(`PayOS link ${noteData.orderCode} status: ${linkStatus} — creating new link`);
                             }
-                            // CANCELLED/EXPIRED → fall through to create new link below
                         }
                     }
                 } catch (e) {
@@ -212,6 +164,93 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
 }
 
 /**
+ * Cancel a PayOS payment link
+ */
+async function cancelPayOSLink(orderCode: any, method: any) {
+    try {
+        await fetch(`https://api-merchant.payos.vn/v2/payment-requests/${orderCode}/cancel`, {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+                "x-client-id": method.payosClientId,
+                "x-api-key": method.payosApiKey,
+            },
+            body: JSON.stringify({ cancellationReason: "Expired or user requested new link" }),
+        });
+    } catch (err) {
+        console.error("Failed to cancel PayOS link:", err);
+    }
+}
+
+/**
+ * Handle case where PayOS reports PAID on re-check
+ */
+async function handleAlreadyPaid(registration: any, paymentData: any, tournament: any) {
+    const paidAmount = paymentData.amountPaid || paymentData.amount;
+    const paidRef = paymentData.transactions?.[0]?.reference || "";
+    const paidTime = paymentData.transactions?.[0]?.transactionDateTime || new Date().toISOString();
+
+    registration.paymentStatus = "paid";
+    registration.paymentAmount = paidAmount;
+    registration.paymentDate = new Date(paidTime);
+    registration.paymentConfirmedAt = new Date();
+
+    const existingNote = JSON.parse(registration.paymentNote || "{}");
+    registration.paymentNote = JSON.stringify({
+        ...existingNote,
+        reference: paidRef,
+        transactionDateTime: paidTime,
+        confirmedBy: "payos-recheck",
+        payosAmountPaid: paymentData.amountPaid,
+    });
+
+    await registration.save();
+
+    // ✅ AUTO-APPROVE if still pending and tournament has room
+    if (registration.status === "pending" && tournament.currentTeams < tournament.maxTeams) {
+        const Team = (await import("@/models/Team")).default;
+        const Notification = (await import("@/models/Notification")).default;
+
+        const team = await Team.create({
+            name: registration.teamName || registration.playerName || "Team",
+            shortName: registration.teamShortName || (registration.teamName || registration.playerName || "TEA").substring(0, 3).toUpperCase(),
+            tournament: tournament._id,
+            captain: registration.user,
+            members: [{
+                user: registration.user,
+                role: "captain",
+                joinedAt: new Date(),
+            }],
+        });
+
+        registration.status = "approved";
+        registration.team = team._id;
+        registration.approvedAt = new Date();
+        await registration.save();
+
+        await Tournament.findByIdAndUpdate(tournament._id, { $inc: { currentTeams: 1 } });
+
+        await Notification.create({
+            recipient: registration.user,
+            type: "system",
+            title: "🎉 Đăng ký thành công!",
+            message: `Thanh toán ${paidAmount?.toLocaleString("vi-VN")}đ đã được xác nhận. Bạn đã chính thức tham gia giải "${tournament.title}"!`,
+            link: `/giai-dau/${tournament._id}`,
+        });
+
+        await Notification.create({
+            recipient: tournament.createdBy,
+            type: "system",
+            title: "✅ VĐV mới tự động duyệt",
+            message: `VĐV "${registration.playerName}" đã thanh toán qua PayOS và được tự động duyệt vào giải "${tournament.title}".`,
+            link: `/manager/giai-dau/${tournament._id}/dang-ky`,
+        });
+
+        console.log(`🎉 Pay route: Auto-approved registration ${registration._id} (detected PAID on re-check)`);
+    }
+}
+
+/**
  * Create PayOS payment link
  * API: POST https://api-merchant.payos.vn/v2/payment-requests
  * 
@@ -238,14 +277,20 @@ async function createPayOSPayment(
     const callbackBaseUrl = config.callbackBaseUrl || new URL(req.url).origin;
     const amount = tournament.entryFee;
 
-    // orderCode: must be a positive integer, unique – use timestamp last 7 digits + random
-    const orderCode = Number(Date.now().toString().slice(-7) + Math.floor(Math.random() * 100).toString().padStart(2, "0"));
+    // ✅ FIX: Generate unique orderCode (13 digits, no collision)
+    const orderCode = generateOrderCode();
 
     // Description: max 25 chars for non-linked banks, keep it short
-    const description = `EFCUP${orderCode}`;
+    const description = `EFCUP${orderCode}`.slice(0, 25);
 
     const returnUrl = `${callbackBaseUrl}/giai-dau/${tournament._id}/thanh-toan/ket-qua?gateway=payos`;
     const cancelUrl = `${callbackBaseUrl}/giai-dau/${tournament._id}/thanh-toan/ket-qua?gateway=payos&cancelled=true`;
+
+    // ✅ FIX: Reasonable expiry time (15 phút mặc định, e-commerce chuẩn)
+    const expirySeconds = config.paymentLinkExpiryMinutes
+        ? config.paymentLinkExpiryMinutes * 60
+        : DEFAULT_LINK_EXPIRY_SECONDS;
+    const expiredAt = Math.floor(Date.now() / 1000) + expirySeconds;
 
     // Create signature: sorted by key alphabetically
     // amount=X&cancelUrl=X&description=X&orderCode=X&returnUrl=X
@@ -265,14 +310,14 @@ async function createPayOSPayment(
         buyerPhone: registration.phone || "",
         items: [
             {
-                name: `Lệ phí giải ${tournament.title}`,
+                name: `Lệ phí giải ${tournament.title}`.slice(0, 250),
                 quantity: 1,
                 price: amount,
             },
         ],
         cancelUrl,
         returnUrl,
-        expiredAt: Math.floor(Date.now() / 1000) + (config.paymentDeadlineHours || 24) * 3600,
+        expiredAt,
         signature,
     };
 
@@ -300,6 +345,8 @@ async function createPayOSPayment(
                 paymentLinkId: result.data.paymentLinkId,
                 tournamentId: tournament._id.toString(),
                 registrationId: registration._id.toString(),
+                expiredAt, // ✅ Store expiry for reuse check
+                createdAt: new Date().toISOString(),
             });
             // Keep as unpaid — will be updated by webhook or return URL verification
             await registration.save();
@@ -310,6 +357,7 @@ async function createPayOSPayment(
                 orderCode,
                 paymentLinkId: result.data.paymentLinkId,
                 amount: result.data.amount,
+                expiredAt, // Return expiry to client
             }, 200, "Tạo link thanh toán PayOS thành công");
         } else {
             console.error("PayOS error:", result);
