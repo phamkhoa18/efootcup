@@ -7,7 +7,7 @@ import Registration from "@/models/Registration";
 import EfvPointLog from "@/models/EfvPointLog";
 import Bxh from "@/models/Bxh";
 import { requireRole, apiResponse, apiError } from "@/lib/auth";
-import { getPlacementFromRound, getEfvPoints, EFV_TIER_WINDOWS } from "@/lib/efv-points";
+import { getPlacementFromBracketRound, getEfvPoints, EFV_TIER_WINDOWS, PLACEMENT_RANK } from "@/lib/efv-points";
 
 interface RouteParams {
     params: Promise<{ id: string }>;
@@ -51,12 +51,15 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
             return apiError("Giải đấu phải kết thúc mới có thể trao điểm EFV", 400);
         }
 
-        // 2. Get all matches to determine placements
-        const matches = await Match.find({ tournament: id, status: "completed" })
+        // 2. Get all matches to determine placements (include bye matches too)
+        const matches = await Match.find({
+            tournament: id,
+            status: { $in: ["completed", "bye"] },
+        })
             .sort({ round: 1, matchNumber: 1 })
             .lean();
 
-        if (matches.length === 0) {
+        if (matches.filter(m => m.status === "completed").length === 0) {
             return apiError("Giải chưa có trận đấu nào hoàn thành", 400);
         }
 
@@ -66,8 +69,11 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
             return apiError("Giải chưa có đội nào", 400);
         }
 
-        // 4. Calculate total rounds for bracket
-        const totalRounds = Math.ceil(Math.log2(teams.length));
+        // 4. Calculate bracket size and total rounds
+        // Must match bracket generation: S = next power of 2 >= N
+        const N = teams.length;
+        let S = 2; while (S < N) S *= 2;
+        const totalRounds = Math.log2(S);
 
         // 5. Determine placement for each team
         const teamPlacements: Map<string, { placement: string; teamName: string; captainId: string }> = new Map();
@@ -86,7 +92,14 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
         }
 
         // Process matches to find losers at each round
+        // Key logic: placement is determined by WHICH ROUND they reached,
+        // not how many matches they played.
+        // A player in "Vòng 16" (round of 16) who loses → Top 16
+        // A player in "Tứ kết" (quarterfinal / round of 8) who loses → Top 8
+        // BYE matches are skipped (no loser in a BYE)
         for (const match of matches) {
+            // Skip BYE matches — no one loses in a BYE
+            if (match.status === "bye") continue;
             if (!match.winner || !match.homeTeam || !match.awayTeam) continue;
 
             const winnerId = match.winner.toString();
@@ -94,23 +107,35 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
             const awayId = match.awayTeam.toString();
             const loserId = winnerId === homeId ? awayId : homeId;
 
-            // Determine placement based on the round they lost in
+            // Determine placement based on the bracket round
             const isFinal = match.round === maxRound;
-            const isChampion = false;
-            const isRunnerUp = isFinal;
 
-            if (isRunnerUp) {
+            if (isFinal) {
                 // Loser of the final = runner_up
                 const existing = teamPlacements.get(loserId);
                 if (existing) {
                     teamPlacements.set(loserId, { ...existing, placement: "runner_up" });
                 }
             } else {
-                // Loser at other rounds
-                const placement = getPlacementFromRound(totalRounds, match.round, false, false);
+                // Determine placement from the number of teams in this round
+                // teamsInRound = S / 2^(round-1) → the "Vòng X" number
+                // e.g., round 1 with S=32 → 32 teams → "Vòng 32" → Top 32
+                //        round 2 with S=32 → 16 teams → "Vòng 16" → Top 16
+                //        round 3 with S=32 →  8 teams → "Tứ kết"  → Top 8
+                //        round 4 with S=32 →  4 teams → "Bán kết" → Top 4
+                const placement = getPlacementFromBracketRound(match.round, totalRounds, S);
                 const existing = teamPlacements.get(loserId);
-                if (existing && existing.placement === "participant") {
-                    teamPlacements.set(loserId, { ...existing, placement });
+                if (existing) {
+                    // Always update: a team should get the BEST (deepest) placement
+                    // In case a team somehow has multiple losses recorded,
+                    // the later round (higher placement) wins
+                    const currentRank = PLACEMENT_RANK[existing.placement] ?? 99;
+                    const newRank = PLACEMENT_RANK[placement] ?? 99;
+                    if (newRank < currentRank) {
+                        teamPlacements.set(loserId, { ...existing, placement });
+                    } else if (existing.placement === "participant") {
+                        teamPlacements.set(loserId, { ...existing, placement });
+                    }
                 }
             }
         }
@@ -280,3 +305,41 @@ async function recalculateBxh(userIds: string[], mode: string) {
     }
 }
 
+/**
+ * GET /api/tournaments/[id]/award-efv-points
+ * 
+ * Lấy danh sách điểm EFV đã trao cho giải đấu.
+ */
+export async function GET(req: NextRequest, { params }: RouteParams) {
+    try {
+        await dbConnect();
+        const { id } = await params;
+
+        const tournament = await Tournament.findById(id).select("efvPointsAwarded efvTier title").lean();
+        if (!tournament) {
+            return apiError("Không tìm thấy giải đấu", 404);
+        }
+
+        if (!tournament.efvPointsAwarded) {
+            return apiResponse({ logs: [], awarded: false });
+        }
+
+        const logs = await EfvPointLog.find({ tournament: id })
+            .select("user placement points teamName")
+            .lean();
+
+        return apiResponse({
+            logs: logs.map((l: any) => ({
+                userId: l.user?.toString(),
+                placement: l.placement,
+                points: l.points,
+                teamName: l.teamName,
+            })),
+            awarded: true,
+            tier: tournament.efvTier,
+        });
+    } catch (error: any) {
+        console.error("Get EFV points error:", error);
+        return apiError("Có lỗi xảy ra", 500);
+    }
+}

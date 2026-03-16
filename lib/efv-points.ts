@@ -148,6 +148,17 @@ export const PLACEMENT_LABELS: Record<string, string> = {
     participant: "✅ Tham gia hợp lệ",
 };
 
+// ══════════════ Placement Rank (lower = better) ══════════════
+export const PLACEMENT_RANK: Record<string, number> = {
+    champion: 1,
+    runner_up: 2,
+    top_4: 3,
+    top_8: 4,
+    top_16: 5,
+    top_32: 6,
+    participant: 99,
+};
+
 // ══════════════ Sliding Windows — PER TIER ══════════════
 export const EFV_TIER_WINDOWS: Record<string, number> = {
     // Mobile
@@ -186,6 +197,7 @@ export function getTierLabel(tier: string): string {
 
 /**
  * Determine placement based on elimination round in single_elimination bracket.
+ * @deprecated Use getPlacementFromBracketRound instead for accurate bracket-based placement.
  */
 export function getPlacementFromRound(
     totalRounds: number,
@@ -212,6 +224,53 @@ export function getPlacementFromRound(
         default:
             return "participant";
     }
+}
+
+/**
+ * Determine placement based on bracket structure — fully dynamic.
+ * Uses the actual bracket size (S = next power of 2 >= teams)
+ * to calculate the number of teams in each round, then maps to placement.
+ * 
+ * Works for ANY bracket size (2, 4, 8, 16, 32, 64, 128, 256, 512, 1024).
+ * 
+ * Examples (bracket 512, 500 players):
+ *   Round 1 → 512 teams → "Vòng 512" → top_512 (if exists) or participant
+ *   Round 2 → 256 teams → "Vòng 256" → top_256 (if exists) or participant
+ *   ...
+ *   Round 5 → 32 teams → "Vòng 32"  → top_32
+ *   Round 6 → 16 teams → "Vòng 16"  → top_16
+ *   Round 7 →  8 teams → "Tứ kết"   → top_8
+ *   Round 8 →  4 teams → "Bán kết"  → top_4
+ *   Round 9 →  2 teams → "Chung kết" → runner_up (loser) / champion (winner)
+ * 
+ * @param round - The round number where the player was eliminated (1-based)
+ * @param totalRounds - Total rounds in bracket = log2(S)
+ * @param bracketSize - S = the bracket size (next power of 2 >= number of teams)
+ */
+export function getPlacementFromBracketRound(
+    round: number,
+    totalRounds: number,
+    bracketSize: number
+): string {
+    // Final round loser = runner_up
+    if (round === totalRounds) {
+        return "runner_up";
+    }
+
+    // Calculate how many teams are in this round
+    // Round 1 → S teams, Round 2 → S/2, Round 3 → S/4, etc.
+    const teamsInRound = bracketSize / Math.pow(2, round - 1);
+
+    // Build the placement key dynamically: "top_4", "top_8", "top_16", "top_32", etc.
+    const placementKey = `top_${teamsInRound}`;
+
+    // If this placement exists in the ranking system, use it
+    // Otherwise fall back to "participant"
+    if (PLACEMENT_RANK[placementKey] !== undefined) {
+        return placementKey;
+    }
+
+    return "participant";
 }
 
 /**

@@ -546,6 +546,106 @@ export default function DangKyPage() {
         toast.success(`Đã xuất ${data.length} bản đăng ký ra Excel`);
     };
 
+    const handleExportPlayerList = async () => {
+        if (registrations.length === 0) {
+            toast.error("Không có dữ liệu để xuất");
+            return;
+        }
+
+        // Only export approved registrations for the player list
+        const approvedRegs = registrations.filter((r: any) => r.status === "approved");
+        if (approvedRegs.length === 0) {
+            toast.error("Chưa có VĐV nào được duyệt");
+            return;
+        }
+
+        // Fetch EFV point data if tournament has awarded points
+        let efvMap = new Map<string, { placement: string; points: number }>();
+        const isAwarded = tournament?.efvPointsAwarded === true;
+
+        if (isAwarded) {
+            try {
+                const headers: Record<string, string> = {};
+                const token = localStorage.getItem("efootcup_token");
+                if (token) headers.Authorization = `Bearer ${token}`;
+
+                const res = await fetch(`/api/tournaments/${id}/award-efv-points`, { headers });
+                if (res.ok) {
+                    const json = await res.json();
+                    const logs = json.data?.logs || [];
+                    for (const log of logs) {
+                        efvMap.set(log.userId, {
+                            placement: log.placement,
+                            points: log.points,
+                        });
+                    }
+                }
+            } catch (e) {
+                console.error("Failed to fetch EFV points:", e);
+            }
+        }
+
+        // Placement labels for display
+        const placementLabels: Record<string, string> = {
+            champion: "🥇 Vô địch",
+            runner_up: "🥈 Á quân",
+            top_4: "🏅 TOP 4",
+            top_8: "TOP 8",
+            top_16: "TOP 16",
+            top_32: "TOP 32",
+            participant: "Tham gia",
+        };
+
+        const data = approvedRegs.map((r: any, idx: number) => {
+            const userId = r.user?._id?.toString?.() || r.user?.toString?.() || "";
+            const efvData = efvMap.get(userId);
+
+            const row: Record<string, any> = {
+                "STT": idx + 1,
+                "EFV-ID": r.user?.efvId != null ? r.user.efvId : "",
+                "Tên VĐV": r.playerName || "",
+                "Nickname": r.nickname || "",
+                "ID Game": r.gamerId || "",
+                "Tên đội": r.teamName || "",
+                "Viết tắt": r.teamShortName || "",
+                "Số điện thoại": r.phone || "",
+                "Email": r.email || "",
+                "Ngày sinh": r.dateOfBirth ? new Date(r.dateOfBirth).toLocaleDateString('vi-VN') : "",
+                "Tỉnh/TP": r.province || "",
+                "Facebook": r.facebookName || "",
+                "Link Facebook": r.facebookLink || "",
+                "Ghi chú": r.notes || "",
+                "Ngày đăng ký": r.createdAt ? new Date(r.createdAt).toLocaleString('vi-VN') : "",
+            };
+
+            // Add EFV columns if tournament has awarded points
+            if (isAwarded) {
+                row["Xếp hạng"] = efvData ? (placementLabels[efvData.placement] || efvData.placement) : "";
+                row["Điểm EFV"] = efvData ? efvData.points : "";
+            }
+
+            return row;
+        });
+
+        const ws = XLSX.utils.json_to_sheet(data);
+
+        // Auto-width columns
+        const colWidths = Object.keys(data[0] || {}).map(key => ({
+            wch: Math.max(
+                key.length + 2,
+                ...data.map(row => String(row[key] || "").length)
+            )
+        }));
+        ws["!cols"] = colWidths.map(w => ({ wch: Math.min(w.wch, 50) }));
+
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, "Danh sách VĐV");
+
+        const fileName = `DS_VDV_${tournament?.title?.replace(/[^a-zA-Z0-9\u00C0-\u024F\u1E00-\u1EFF]/g, '_') || 'GiaiDau'}_${new Date().toISOString().slice(0, 10)}.xlsx`;
+        XLSX.writeFile(wb, fileName);
+        toast.success(`Đã xuất danh sách ${data.length} VĐV ra Excel${isAwarded ? " (kèm điểm EFV)" : ""}`);
+    };
+
     const filtered = registrations.filter((r) => {
         if (filter !== "all" && r.status !== filter) return false;
         if (search.trim()) {
@@ -607,6 +707,15 @@ export default function DangKyPage() {
                         onClick={() => setIsAddModalOpen(true)}
                     >
                         <UserPlus className="w-3.5 h-3.5 mr-1.5" /> Thêm VĐV
+                    </Button>
+                    <Button
+                        variant="outline"
+                        size="sm"
+                        className="rounded-xl h-9 text-xs border-blue-200 text-blue-700 hover:bg-blue-50"
+                        onClick={handleExportPlayerList}
+                        disabled={registrations.length === 0}
+                    >
+                        <FileSpreadsheet className="w-3.5 h-3.5 mr-1.5" /> Danh sách VĐV
                     </Button>
                     <Button
                         variant="outline"

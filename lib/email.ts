@@ -205,8 +205,11 @@ export async function sendResetPasswordEmail(
 ): Promise<{ success: boolean; previewUrl?: string }> {
     try {
         const config = await getSmtpConfig();
+        
+        console.log(`[SMTP DEBUG] Reset password email — to: ${email}, host: ${config.smtpHost || "(empty)"}, user: ${config.smtpUser ? config.smtpUser.substring(0, 5) + "..." : "(empty)"}`);
+
         if (!config.smtpHost || !config.smtpUser) {
-            console.log("SMTP not configured, skipping reset password email");
+            console.error("[SMTP] SMTP not configured! Configure in Admin > Cài đặt > Email or set SMTP_HOST, SMTP_USER, SMTP_PASS in .env.local");
             return { success: false };
         }
 
