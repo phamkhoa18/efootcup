@@ -1,7 +1,8 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import { Plus, Search, Trophy, Medal, Edit, Trash2, Loader2, Award, Upload, FileSpreadsheet, Download, RefreshCw, Database, Smartphone, Monitor } from "lucide-react";
+import { Plus, Search, Trophy, Medal, Edit, Trash2, Loader2, Award, Upload, FileSpreadsheet, Download, RefreshCw, Database, Smartphone, Monitor, Shield, ImageIcon, Link2, X } from "lucide-react";
+import Image from "next/image";
 import * as XLSX from "xlsx";
 import { toast } from "sonner";
 import { useConfirmDialog } from "@/components/ui/confirm-dialog";
@@ -42,10 +43,45 @@ export default function ManagerBxhPage() {
 
     const [error, setError] = useState<string | null>(null);
     const [isReloading, setIsReloading] = useState(false);
-    const [activeMode, setActiveMode] = useState<"mobile" | "pc">("mobile");
+    const [activeMode, setActiveMode] = useState<"mobile" | "pc" | "teams">("mobile");
+
+    // ═══ TEAMS STATE ═══
+    const [teams, setTeams] = useState<any[]>([]);
+    const [isTeamsLoading, setIsTeamsLoading] = useState(false);
+    const [teamsSearch, setTeamsSearch] = useState("");
+    const [teamsPage, setTeamsPage] = useState(1);
+    const [isTeamAddOpen, setIsTeamAddOpen] = useState(false);
+    const [isTeamEditOpen, setIsTeamEditOpen] = useState(false);
+    const [selectedTeam, setSelectedTeam] = useState<any>(null);
+    const [teamAddMode, setTeamAddMode] = useState<"manual" | "excel">("manual");
+    const [teamExcelFile, setTeamExcelFile] = useState<File | null>(null);
+    const [teamExcelPreview, setTeamExcelPreview] = useState<any[]>([]);
+    const [teamExcelReplace, setTeamExcelReplace] = useState(false);
+    const teamFileRef = useRef<HTMLInputElement>(null);
+    const [teamForm, setTeamForm] = useState({ rank: 0, clubName: "", leader: "", point: 0, logo: "" });
+    const [teamError, setTeamError] = useState<string | null>(null);
+    const [logoMode, setLogoMode] = useState<"link" | "upload">("link");
+    const [logoFile, setLogoFile] = useState<File | null>(null);
+    const [logoPreview, setLogoPreview] = useState("");
+    const logoInputRef = useRef<HTMLInputElement>(null);
+
+    // Convert Google Drive share link to direct image URL
+    const toDirectImageUrl = (url: string): string => {
+        if (!url) return url;
+        // https://drive.google.com/file/d/FILE_ID/view?...
+        const driveMatch = url.match(/drive\.google\.com\/file\/d\/([^/]+)/);
+        if (driveMatch) return `https://lh3.googleusercontent.com/d/${driveMatch[1]}`;
+        // https://drive.google.com/open?id=FILE_ID
+        const openMatch = url.match(/drive\.google\.com\/open\?id=([^&]+)/);
+        if (openMatch) return `https://lh3.googleusercontent.com/d/${openMatch[1]}`;
+        // https://drive.google.com/uc?id=FILE_ID (already direct-ish but lh3 is more reliable)
+        const ucMatch = url.match(/drive\.google\.com\/uc\?.*id=([^&]+)/);
+        if (ucMatch) return `https://lh3.googleusercontent.com/d/${ucMatch[1]}`;
+        return url;
+    };
 
     useEffect(() => {
-        loadData();
+        if (activeMode === "teams") { loadTeams(); } else { loadData(); }
     }, [activeMode]);
 
     const loadData = async () => {
@@ -373,6 +409,115 @@ export default function ManagerBxhPage() {
         toast.success(`Đã tải BXH ${modeLabel} (${data.length} VĐV)`);
     };
 
+    // ═══ TEAMS FUNCTIONS ═══
+    const loadTeams = async () => {
+        setIsTeamsLoading(true);
+        try {
+            const res = await fetch("/api/bxh-teams", { cache: "no-store" });
+            const result = await res.json();
+            const raw = result.data?.data || [];
+            // Auto-sort by points desc, then preserve insertion order for equal points
+            const sorted = [...raw].sort((a: any, b: any) => (Number(b.point) || 0) - (Number(a.point) || 0));
+            // Auto-assign rank
+            sorted.forEach((t: any, i: number) => { t.rank = i + 1; });
+            setTeams(sorted);
+        } catch { setTeams([]); }
+        finally { setIsTeamsLoading(false); }
+    };
+    const handleTeamAdd = () => {
+        setTeamForm({ rank: 0, clubName: "", leader: "", point: 0, logo: "" });
+        setTeamAddMode("manual"); setTeamExcelFile(null); setTeamExcelPreview([]);
+        setLogoMode("link"); setLogoFile(null); setLogoPreview("");
+        setTeamError(null); setIsTeamAddOpen(true);
+    };
+    const handleTeamEdit = (t: any) => {
+        setSelectedTeam(t);
+        setTeamForm({ rank: t.rank||0, clubName: t.clubName, leader: t.leader, point: t.point||0, logo: t.logo||"" });
+        setLogoMode("link"); setLogoPreview(t.logo ? toDirectImageUrl(t.logo) : ""); setLogoFile(null);
+        setTeamError(null); setTeamAddMode("manual"); setIsTeamEditOpen(true);
+    };
+    const handleTeamDelete = async (t: any) => {
+        const ok = await confirm({ title: "Xóa đội?", description: `Xóa ${t.clubName} khỏi BXH Teams?`, variant: "danger", confirmText: "Xóa" });
+        if (!ok) return;
+        try { const res = await fetch(`/api/bxh-teams/${t._id}`, { method: "DELETE" }); const d = await res.json(); if (!res.ok) throw new Error(d.message); loadTeams(); toast.success(`Đã xóa ${t.clubName}`); } catch (e: any) { toast.error(e.message); }
+    };
+    const handleTeamDeleteAll = async () => {
+        const ok = await confirm({ title: "⚠️ Xóa toàn bộ BXH Teams?", description: "Hành động này không thể hoàn tác.", variant: "danger", confirmText: "Xóa toàn bộ" });
+        if (!ok) return;
+        try { const res = await fetch("/api/bxh-teams", { method: "DELETE" }); const d = await res.json(); if (!res.ok) throw new Error(d.message); loadTeams(); setTeamsPage(1); toast.success("Đã xóa toàn bộ"); } catch (e: any) { toast.error(e.message); }
+    };
+    const handleTeamSubmit = async (e: React.FormEvent) => {
+        e.preventDefault();
+        if (teamAddMode === "excel") { handleTeamExcelSubmit(); return; }
+        setIsSubmitting(true); setTeamError(null);
+        try {
+            let logoUrl = teamForm.logo;
+            if (logoMode === "upload" && logoFile) {
+                const fd = new FormData(); fd.append("file", logoFile); fd.append("type", "general");
+                const ur = await fetch("/api/upload", { method: "POST", body: fd }); const ud = await ur.json();
+                if (!ur.ok) throw new Error(ud.message); logoUrl = ud.data.url;
+            }
+            const isEdit = isTeamEditOpen;
+            const url = isEdit ? `/api/bxh-teams/${selectedTeam._id}` : "/api/bxh-teams";
+            const res = await fetch(url, { method: isEdit ? "PUT" : "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ clubName: teamForm.clubName, leader: teamForm.leader, point: Number(teamForm.point), logo: toDirectImageUrl(logoUrl) }) });
+            const data = await res.json(); if (!res.ok) throw new Error(data.message);
+            setIsTeamAddOpen(false); setIsTeamEditOpen(false); loadTeams(); toast.success(data.message || "Đã lưu");
+        } catch (err: any) { setTeamError(err.message); toast.error(err.message); } finally { setIsSubmitting(false); }
+    };
+    const handleTeamExcelChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0]; if (!file) { setTeamExcelFile(null); setTeamExcelPreview([]); return; }
+        setTeamExcelFile(file); setTeamError(null);
+        const reader = new FileReader();
+        reader.onload = (evt) => {
+            const bstr = evt.target?.result; if (typeof bstr !== "string") return;
+            try {
+                const wb = XLSX.read(bstr, { type: "binary" }); const ws = wb.Sheets[wb.SheetNames[0]];
+                const data = XLSX.utils.sheet_to_json(ws);
+                const fv = (row: any, kws: string[]) => { const k = Object.keys(row).find(k => kws.some(w => k.toLowerCase().includes(w.toLowerCase()))); return k ? row[k] : ""; };
+                let mapped = data.map((row: any) => ({
+                    rank: Number(row.RANK||row.Rank||row.rank||fv(row,["rank","hạng","stt"]))||0,
+                    clubName: String(row["CLUB NAME"]||row["Club Name"]||row.clubName||fv(row,["club","clb","đội","team"])).trim(),
+                    leader: String(row.Leader||row.leader||row.LEADER||fv(row,["leader","trưởng"])).trim(),
+                    point: Number(row.Point||row.point||row.Points||fv(row,["point","điểm"]))||0,
+                    logo: toDirectImageUrl(String(row.Logo||row.logo||fv(row,["logo","hình","image"])).trim()),
+                })).filter(r => r.clubName && r.clubName !== "undefined");
+                if (mapped.length === 0) {
+                    const raw = XLSX.utils.sheet_to_json(ws, { header: 1 }) as any[];
+                    const fb: any[] = [];
+                    for (const row of raw) { if (!row||row.length<3) continue; if (String(row[0]).toLowerCase().includes("rank")||String(row[0]).toLowerCase().includes("hạng")) continue; const cn=String(row[1]||"").trim(); if (!cn) continue; fb.push({rank:Number(row[0])||0,clubName:cn,leader:String(row[2]||"").trim(),point:Number(row[3])||0,logo:toDirectImageUrl(String(row[4]||"").trim())}); }
+                    if (fb.length>0) mapped=fb;
+                }
+                setTeamExcelPreview(mapped);
+                if (mapped.length===0) setTeamError("Không tìm thấy dữ liệu. Cần cột: RANK, CLUB NAME, Leader, Point");
+            } catch (err: any) { setTeamError("Lỗi đọc file: "+err.message); }
+        }; reader.readAsBinaryString(file);
+    };
+    const handleTeamExcelSubmit = async () => {
+        if (teamExcelPreview.length===0) { setTeamError("Chưa có dữ liệu"); return; }
+        setIsSubmitting(true); setTeamError(null);
+        try {
+            const res = await fetch("/api/bxh-teams", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ data: teamExcelPreview, replaceAll: teamExcelReplace }) });
+            const d = await res.json(); if (!res.ok) throw new Error(d.message);
+            toast.success(d.message); setIsTeamAddOpen(false); loadTeams();
+        } catch (err: any) { setTeamError(err.message); toast.error(err.message); } finally { setIsSubmitting(false); }
+    };
+    const handleTeamExport = () => {
+        const rows = teams.map(t => ({ "RANK": t.rank, "CLUB NAME": t.clubName, "Leader": t.leader, "Point": t.point, "Logo": t.logo||""}));
+        const ws = XLSX.utils.json_to_sheet(rows); ws["!cols"]=[{wch:8},{wch:25},{wch:20},{wch:10},{wch:40}];
+        const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, ws, "BXH Teams");
+        XLSX.writeFile(wb, `BXH_Teams_${new Date().toLocaleDateString("vi-VN").replace(/\//g,"-")}.xlsx`);
+        toast.success(`Đã tải BXH Teams (${teams.length} đội)`);
+    };
+    const handleLogoFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0]; if (!file) return; setLogoFile(file);
+        const reader = new FileReader(); reader.onload = (ev) => setLogoPreview(ev.target?.result as string); reader.readAsDataURL(file);
+    };
+    const filteredTeams = (Array.isArray(teams)?teams:[]).filter(t => String(t.clubName||"").toLowerCase().includes(teamsSearch.toLowerCase()) || String(t.leader||"").toLowerCase().includes(teamsSearch.toLowerCase()));
+    const teamsTotalPages = Math.max(1, Math.ceil(filteredTeams.length / perPage));
+    const teamsCurrentPage = Math.min(teamsPage, teamsTotalPages);
+    const pagedTeams = filteredTeams.slice((teamsCurrentPage-1)*perPage, teamsCurrentPage*perPage);
+    useEffect(() => { setTeamsPage(1); }, [teamsSearch]);
+
     const handleExportBoth = async () => {
         toast.info("Đang tải dữ liệu cả 2 chế độ...");
         try {
@@ -429,70 +574,61 @@ export default function ManagerBxhPage() {
                     <h1 className="text-2xl font-bold flex items-center gap-2 tracking-tight">
                         <Award className="w-6 h-6 text-indigo-600" /> Quản lý Bảng xếp hạng
                     </h1>
-                    <p className="text-sm text-slate-500 mt-1">Cập nhật điểm và thứ hạng của các VĐV.</p>
+                    <p className="text-sm text-slate-500 mt-1">{activeMode === "teams" ? "Quản lý bảng xếp hạng đội (Teams)." : "Cập nhật điểm và thứ hạng của các VĐV."}</p>
                 </div>
                 <div className="flex items-center gap-2 w-full sm:w-auto flex-wrap">
-                    <Button
-                        onClick={handleReloadSystem}
-                        disabled={isReloading}
-                        variant="outline"
-                        className="border-amber-300 text-amber-700 hover:bg-amber-50 rounded-xl shadow-sm flex-1 sm:flex-none"
-                    >
-                        {isReloading ? (
-                            <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Đang reload...</>
-                        ) : (
-                            <><Database className="w-4 h-4 mr-2" /> Reload {activeMode === "mobile" ? "Mobile" : "Console"}</>
-                        )}
-                    </Button>
-                    <Button
-                        variant="outline"
-                        onClick={() => handleExportExcel(activeMode, filtered)}
-                        disabled={filtered.length === 0}
-                        className="border-emerald-300 text-emerald-700 hover:bg-emerald-50 rounded-xl shadow-sm flex-1 sm:flex-none"
-                    >
-                        <Download className="w-4 h-4 mr-2" /> Tải Excel {activeMode === "mobile" ? "Mobile" : "Console"}
-                    </Button>
-                    <Button
-                        variant="outline"
-                        onClick={handleExportBoth}
-                        className="border-blue-300 text-blue-700 hover:bg-blue-50 rounded-xl shadow-sm flex-1 sm:flex-none"
-                    >
-                        <FileSpreadsheet className="w-4 h-4 mr-2" /> Tải cả 2 chế độ
-                    </Button>
-                    {players.length > 0 && (
-                        <Button variant="destructive" onClick={handleDeleteAll} className="bg-rose-500 hover:bg-rose-600 text-white rounded-xl shadow-sm flex-1 sm:flex-none">
-                            <Trash2 className="w-4 h-4 mr-2" /> Xóa toàn bộ
+                    {activeMode === "teams" ? (<>
+                        <Button variant="outline" onClick={handleTeamExport} disabled={teams.length===0} className="border-emerald-300 text-emerald-700 hover:bg-emerald-50 rounded-xl shadow-sm flex-1 sm:flex-none"><Download className="w-4 h-4 mr-2" /> Tải Excel</Button>
+                        {teams.length>0 && <Button variant="destructive" onClick={handleTeamDeleteAll} className="bg-rose-500 hover:bg-rose-600 text-white rounded-xl shadow-sm flex-1 sm:flex-none"><Trash2 className="w-4 h-4 mr-2" /> Xóa toàn bộ</Button>}
+                        <Button onClick={handleTeamAdd} className="bg-orange-600 hover:bg-orange-700 text-white rounded-xl shadow-sm flex-1 sm:flex-none"><Plus className="w-4 h-4 mr-2" /> Thêm đội</Button>
+                    </>) : (<>
+                        <Button onClick={handleReloadSystem} disabled={isReloading} variant="outline" className="border-amber-300 text-amber-700 hover:bg-amber-50 rounded-xl shadow-sm flex-1 sm:flex-none">
+                            {isReloading ? (<><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Đang reload...</>) : (<><Database className="w-4 h-4 mr-2" /> Reload {activeMode === "mobile" ? "Mobile" : "Console"}</>)}
                         </Button>
-                    )}
-                    <Button onClick={handleAdd} className="bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl shadow-sm flex-1 sm:flex-none">
-                        <Plus className="w-4 h-4 mr-2" /> Thêm VĐV
-                    </Button>
+                        <Button variant="outline" onClick={() => handleExportExcel(activeMode as "mobile"|"pc", filtered)} disabled={filtered.length === 0} className="border-emerald-300 text-emerald-700 hover:bg-emerald-50 rounded-xl shadow-sm flex-1 sm:flex-none">
+                            <Download className="w-4 h-4 mr-2" /> Tải Excel {activeMode === "mobile" ? "Mobile" : "Console"}
+                        </Button>
+                        <Button variant="outline" onClick={handleExportBoth} className="border-blue-300 text-blue-700 hover:bg-blue-50 rounded-xl shadow-sm flex-1 sm:flex-none">
+                            <FileSpreadsheet className="w-4 h-4 mr-2" /> Tải cả 2 chế độ
+                        </Button>
+                        {players.length > 0 && <Button variant="destructive" onClick={handleDeleteAll} className="bg-rose-500 hover:bg-rose-600 text-white rounded-xl shadow-sm flex-1 sm:flex-none"><Trash2 className="w-4 h-4 mr-2" /> Xóa toàn bộ</Button>}
+                        <Button onClick={handleAdd} className="bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl shadow-sm flex-1 sm:flex-none"><Plus className="w-4 h-4 mr-2" /> Thêm VĐV</Button>
+                    </>)}
                 </div>
             </div>
 
             {/* Mode Tabs */}
-            <div className="flex items-center gap-2 bg-white rounded-xl border border-slate-200 p-1.5 shadow-sm w-fit">
+            <div className="flex items-center gap-1 sm:gap-2 bg-white rounded-xl border border-slate-200 p-1 sm:p-1.5 shadow-sm w-full sm:w-fit overflow-x-auto">
                 <button
                     onClick={() => setActiveMode("mobile")}
-                    className={`flex items-center gap-2 px-5 py-2.5 rounded-lg text-sm font-bold transition-all ${activeMode === "mobile"
+                    className={`flex items-center gap-1.5 sm:gap-2 px-3 sm:px-5 py-2 sm:py-2.5 rounded-lg text-[12px] sm:text-sm font-bold transition-all whitespace-nowrap flex-1 sm:flex-none justify-center ${activeMode === "mobile"
                         ? "bg-gradient-to-r from-blue-500 to-indigo-600 text-white shadow-md shadow-blue-500/20"
                         : "text-slate-500 hover:bg-slate-50 hover:text-slate-700"
                         }`}
                 >
-                    <Smartphone className="w-4 h-4" /> Mobile
+                    <Smartphone className="w-4 h-4" /> <span className="hidden xs:inline">Mobile</span><span className="xs:hidden">MB</span>
                 </button>
                 <button
                     onClick={() => setActiveMode("pc")}
-                    className={`flex items-center gap-2 px-5 py-2.5 rounded-lg text-sm font-bold transition-all ${activeMode === "pc"
+                    className={`flex items-center gap-1.5 sm:gap-2 px-3 sm:px-5 py-2 sm:py-2.5 rounded-lg text-[12px] sm:text-sm font-bold transition-all whitespace-nowrap flex-1 sm:flex-none justify-center ${activeMode === "pc"
                         ? "bg-gradient-to-r from-teal-500 to-cyan-600 text-white shadow-md shadow-teal-500/20"
                         : "text-slate-500 hover:bg-slate-50 hover:text-slate-700"
                         }`}
                 >
                     <Monitor className="w-4 h-4" /> Console
                 </button>
+                <button
+                    onClick={() => setActiveMode("teams")}
+                    className={`flex items-center gap-1.5 sm:gap-2 px-3 sm:px-5 py-2 sm:py-2.5 rounded-lg text-[12px] sm:text-sm font-bold transition-all whitespace-nowrap flex-1 sm:flex-none justify-center ${activeMode === "teams"
+                        ? "bg-gradient-to-r from-orange-500 to-amber-600 text-white shadow-md shadow-orange-500/20"
+                        : "text-slate-500 hover:bg-slate-50 hover:text-slate-700"
+                        }`}
+                >
+                    <Shield className="w-4 h-4" /> Teams
+                </button>
             </div>
 
-            <div className="bg-white rounded-2xl p-6 shadow-sm border border-slate-100">
+            {activeMode !== "teams" && <div className="bg-white rounded-2xl p-6 shadow-sm border border-slate-100">
                 <div className="flex flex-col sm:flex-row justify-between items-stretch sm:items-center mb-6 gap-3">
                     <div className="relative w-full max-w-sm">
                         <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
@@ -615,7 +751,79 @@ export default function ManagerBxhPage() {
                         </div>
                     </div>
                 )}
+            </div>}
+
+            {/* ═══ TEAMS CONTENT ═══ */}
+            {activeMode === "teams" && (
+            <div className="bg-white rounded-2xl p-6 shadow-sm border border-slate-100">
+                <div className="flex flex-col sm:flex-row justify-between items-stretch sm:items-center mb-6 gap-3">
+                    <div className="relative w-full max-w-sm">
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                        <Input placeholder="Tìm kiếm đội..." value={teamsSearch} onChange={(e) => setTeamsSearch(e.target.value)} className="pl-9 bg-slate-50 border-slate-200 focus:bg-white transition-colors" />
+                    </div>
+                    <div className="flex items-center gap-2 self-end sm:self-auto">
+                        <span className="text-[13px] font-medium text-slate-500">Hiển thị:</span>
+                        {[20, 50, 100].map(n => (
+                            <button key={n} onClick={() => setPerPage(n)} className={`px-2.5 py-1 text-[13px] rounded-md transition-colors ${perPage === n ? "bg-slate-800 text-white font-semibold shadow-sm" : "bg-slate-50 text-slate-600 hover:bg-slate-100 border border-slate-200"}`}>{n}</button>
+                        ))}
+                    </div>
+                </div>
+                <div className="overflow-x-auto rounded-xl border border-gray-100">
+                    <table className="w-full text-sm text-left">
+                        <thead className="bg-[#f8f9fc] border-b border-gray-100 uppercase tracking-widest text-[10px] font-bold text-gray-500">
+                            <tr>
+                                <th className="px-6 py-4 w-16 text-center">Hạng</th>
+                                <th className="px-6 py-4 w-16 text-center">Logo</th>
+                                <th className="px-6 py-4">Tên CLB</th>
+                                <th className="px-6 py-4">Leader</th>
+                                <th className="px-6 py-4 text-center">Điểm</th>
+                                <th className="px-6 py-4 text-right w-24">Thao tác</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {isTeamsLoading ? (
+                                <tr><td colSpan={6} className="px-6 py-12 text-center text-slate-500"><Loader2 className="w-8 h-8 animate-spin mx-auto mb-2 text-orange-500" />Đang tải...</td></tr>
+                            ) : pagedTeams.length === 0 ? (
+                                <tr><td colSpan={6} className="px-6 py-12 text-center text-slate-500">Không tìm thấy đội nào.</td></tr>
+                            ) : pagedTeams.map((t, i) => (
+                                <tr key={t._id||i} className="border-b border-slate-50 hover:bg-slate-50/50 transition-colors">
+                                    <td className="px-6 py-4 text-center">
+                                        {t.rank===1 ? <div className="w-7 h-7 mx-auto rounded-full bg-gradient-to-br from-yellow-400 to-amber-600 flex items-center justify-center text-white shadow-sm font-bold text-[13px]">1</div>
+                                        : t.rank===2 ? <div className="w-7 h-7 mx-auto rounded-full bg-gradient-to-br from-slate-300 to-slate-500 flex items-center justify-center text-white shadow-sm font-bold text-[13px]">2</div>
+                                        : t.rank===3 ? <div className="w-7 h-7 mx-auto rounded-full bg-gradient-to-br from-amber-500 to-amber-700 flex items-center justify-center text-white shadow-sm font-bold text-[13px]">3</div>
+                                        : t.rank>0 ? <div className="w-7 h-7 mx-auto flex items-center justify-center text-slate-500 font-bold">{t.rank}</div>
+                                        : <div className="w-7 h-7 mx-auto flex items-center justify-center text-slate-300 font-bold">-</div>}
+                                    </td>
+                                    <td className="px-6 py-4 text-center">
+                                        {t.logo ? <img src={toDirectImageUrl(t.logo)} alt={t.clubName} className="w-12 h-12 rounded-[4px] object-cover border border-slate-200 mx-auto" onError={(e)=>{(e.target as HTMLImageElement).style.display='none'}} />
+                                        : <div className="w-12 h-12 rounded-[4px] bg-gradient-to-br from-orange-100 to-amber-100 flex items-center justify-center mx-auto border border-orange-200"><Shield className="w-5 h-5 text-orange-400" /></div>}
+                                    </td>
+                                    <td className="px-6 py-4"><div className="font-bold text-slate-800 text-[14px]">{t.clubName}</div></td>
+                                    <td className="px-6 py-4"><span className="text-[13px] text-slate-600 font-medium">{t.leader}</span></td>
+                                    <td className="px-6 py-4 text-center"><span className="font-extrabold text-[#1a1f2e] text-[15px]">{t.point}</span></td>
+                                    <td className="px-6 py-4 text-right">
+                                        <div className="flex justify-end gap-2">
+                                            <button onClick={()=>handleTeamEdit(t)} className="w-8 h-8 rounded-lg border border-slate-200 text-slate-600 flex items-center justify-center hover:bg-slate-50 hover:text-orange-600 transition-colors"><Edit className="w-4 h-4" /></button>
+                                            <button onClick={()=>handleTeamDelete(t)} className="w-8 h-8 rounded-lg border border-rose-100 bg-rose-50 text-rose-500 flex items-center justify-center hover:bg-rose-100 transition-colors"><Trash2 className="w-4 h-4" /></button>
+                                        </div>
+                                    </td>
+                                </tr>
+                            ))}
+                        </tbody>
+                    </table>
+                </div>
+                {teamsTotalPages > 1 && (
+                    <div className="mt-6 flex flex-col sm:flex-row items-center justify-between gap-4 pt-4 border-t border-slate-100">
+                        <p className="text-[13px] text-slate-500 font-medium">Hiển thị <span className="font-bold text-slate-700">{(teamsCurrentPage-1)*perPage+1} - {Math.min(teamsCurrentPage*perPage, filteredTeams.length)}</span> trên <span className="font-bold text-slate-700">{filteredTeams.length}</span> đội</p>
+                        <div className="flex items-center gap-1.5">
+                            <button onClick={()=>setTeamsPage(p=>Math.max(1,p-1))} disabled={teamsCurrentPage===1} className="px-3 py-1.5 rounded-md text-[13px] font-medium border border-slate-200 text-slate-600 hover:bg-slate-50 disabled:opacity-50 transition-colors">Trước</button>
+                            <span className="px-3 py-1.5 text-[13px] font-semibold text-slate-700">Trang {teamsCurrentPage} / {teamsTotalPages}</span>
+                            <button onClick={()=>setTeamsPage(p=>Math.min(teamsTotalPages,p+1))} disabled={teamsCurrentPage===teamsTotalPages} className="px-3 py-1.5 rounded-md text-[13px] font-medium border border-slate-200 text-slate-600 hover:bg-slate-50 disabled:opacity-50 transition-colors">Sau</button>
+                        </div>
+                    </div>
+                )}
             </div>
+            )}
 
             {/* Modal */}
             <Dialog open={isAddModalOpen || isEditModalOpen} onOpenChange={(v) => {
@@ -790,6 +998,73 @@ export default function ManagerBxhPage() {
                                 </Button>
                                 <Button type="submit" className={`w-full flex-1 text-white ${addMode === "excel" && excelReplaceAll ? "bg-rose-500 hover:bg-rose-600" : "bg-indigo-600 hover:bg-indigo-700"}`} disabled={isSubmitting || (addMode === "excel" && excelPreview.length === 0)}>
                                     {isSubmitting ? <Loader2 className="w-4 h-4 animate-spin flex-shrink-0" /> : addMode === "excel" ? (excelReplaceAll ? `Thay thế bằng ${excelPreview.length || ""} VĐV` : `Lưu ${excelPreview.length || ""} VĐV`) : "Lưu lại"}
+                                </Button>
+                            </div>
+                        </form>
+                    </Tabs>
+                </DialogContent>
+            </Dialog>
+
+            {/* ═══ TEAMS MODAL ═══ */}
+            <Dialog open={isTeamAddOpen || isTeamEditOpen} onOpenChange={(v) => { if (!v) { setIsTeamAddOpen(false); setIsTeamEditOpen(false); } }}>
+                <DialogContent className="sm:max-w-[520px] max-h-[95dvh] overflow-y-auto">
+                    <DialogHeader><DialogTitle>{isTeamEditOpen ? "Cập nhật đội" : "Thêm đội vào BXH Teams"}</DialogTitle></DialogHeader>
+                    <Tabs value={teamAddMode} onValueChange={(v) => { if (!isTeamEditOpen) setTeamAddMode(v as "manual"|"excel") }} className="w-full mt-2">
+                        {!isTeamEditOpen && <TabsList className="grid w-full grid-cols-2"><TabsTrigger value="manual" className="font-semibold text-[13px]">Thêm thủ công</TabsTrigger><TabsTrigger value="excel" className="flex items-center gap-1.5 font-semibold text-[13px]"><FileSpreadsheet className="w-4 h-4" />File Excel</TabsTrigger></TabsList>}
+                        <form onSubmit={handleTeamSubmit} className="space-y-4 pt-4">
+                            {teamError && <div className="p-3 bg-red-50 text-red-600 text-[13px] font-medium rounded-lg border border-red-100">{teamError}</div>}
+                            <TabsContent value="manual" className="space-y-4 m-0 outline-none">
+                                <div className="space-y-2">
+                                    <Label>Điểm</Label>
+                                    <Input required type="number" min={0} value={teamForm.point} onChange={e=>setTeamForm({...teamForm,point:Number(e.target.value)})} placeholder="0" />
+                                    <p className="text-[11px] text-slate-400">Thứ hạng sẽ tự động tính dựa vào điểm số (điểm cao = hạng cao hơn)</p>
+                                </div>
+                                <div className="space-y-2"><Label>Tên CLB</Label><Input required value={teamForm.clubName} onChange={e=>setTeamForm({...teamForm,clubName:e.target.value})} placeholder="FC Barcelona" /></div>
+                                <div className="space-y-2"><Label>Leader</Label><Input required value={teamForm.leader} onChange={e=>setTeamForm({...teamForm,leader:e.target.value})} placeholder="Nguyễn Văn A" /></div>
+                                <div className="space-y-2">
+                                    <Label>Logo</Label>
+                                    <div className="flex items-center gap-2 mb-2">
+                                        <button type="button" onClick={()=>{setLogoMode("link");setLogoFile(null)}} className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[12px] font-semibold transition-all ${logoMode==="link"?"bg-orange-100 text-orange-700 border border-orange-200":"bg-slate-50 text-slate-500 border border-slate-200 hover:bg-slate-100"}`}><Link2 className="w-3.5 h-3.5" /> Link URL</button>
+                                        <button type="button" onClick={()=>setLogoMode("upload")} className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[12px] font-semibold transition-all ${logoMode==="upload"?"bg-orange-100 text-orange-700 border border-orange-200":"bg-slate-50 text-slate-500 border border-slate-200 hover:bg-slate-100"}`}><ImageIcon className="w-3.5 h-3.5" /> Upload ảnh</button>
+                                    </div>
+                                    {logoMode==="link" ? <Input type="url" value={teamForm.logo} onChange={e=>{setTeamForm({...teamForm,logo:e.target.value});setLogoPreview(e.target.value)}} placeholder="https://example.com/logo.png" />
+                                    : <div className={`border-2 border-dashed rounded-xl p-4 text-center relative cursor-pointer ${logoFile?'border-orange-300 bg-orange-50/50':'border-slate-200 bg-slate-50/50 hover:bg-slate-50'}`}>
+                                        <input type="file" ref={logoInputRef} accept="image/*" onChange={handleLogoFileChange} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" />
+                                        <ImageIcon className={`w-6 h-6 mx-auto mb-2 ${logoFile?'text-orange-500':'text-slate-400'}`} />
+                                        <p className={`text-[12px] font-semibold ${logoFile?'text-orange-900':'text-slate-600'}`}>{logoFile?logoFile.name:"Kéo thả hoặc click chọn ảnh"}</p>
+                                    </div>}
+                                    {logoPreview && <div className="flex items-center gap-3 p-2 bg-slate-50 rounded-lg border border-slate-200">
+                                        <img src={logoPreview} alt="Preview" className="w-12 h-12 rounded-lg object-cover border border-slate-200" onError={(e)=>{(e.target as HTMLImageElement).style.display='none'}} />
+                                        <span className="text-[12px] text-slate-500 flex-1 truncate">Preview logo</span>
+                                        <button type="button" onClick={()=>{setLogoPreview("");setTeamForm({...teamForm,logo:""});setLogoFile(null)}} className="w-6 h-6 rounded-md bg-slate-200 text-slate-500 flex items-center justify-center hover:bg-slate-300"><X className="w-3.5 h-3.5" /></button>
+                                    </div>}
+                                </div>
+                            </TabsContent>
+                            <TabsContent value="excel" className="space-y-4 m-0 outline-none">
+                                <div className="flex justify-between items-center text-[13px]"><p className="text-gray-500">File <span className="font-semibold text-gray-700">.xlsx, .csv</span></p><p className="text-[11px] text-slate-400">RANK, CLUB NAME, Leader, Point, Logo</p></div>
+                                <div className={`border-2 border-dashed rounded-xl p-8 text-center relative cursor-pointer ${teamExcelFile?'border-emerald-300 bg-emerald-50/50':'border-orange-200 bg-orange-50/50 hover:bg-orange-50'}`}>
+                                    <input type="file" ref={teamFileRef} accept=".xlsx,.xls,.csv" onChange={handleTeamExcelChange} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" />
+                                    <Upload className={`w-8 h-8 mx-auto mb-3 ${teamExcelFile?'text-emerald-500':'text-orange-400'}`} />
+                                    <p className={`text-sm font-semibold ${teamExcelFile?'text-emerald-900':'text-orange-900'}`}>{teamExcelFile?teamExcelFile.name:"Kéo thả hoặc click để chọn file"}</p>
+                                </div>
+                                {teamExcelPreview.length>0 && <>
+                                    <div className="bg-slate-50 border border-slate-200 rounded-xl p-4">
+                                        <label className="flex items-start gap-3 cursor-pointer">
+                                            <input type="checkbox" checked={teamExcelReplace} onChange={e=>setTeamExcelReplace(e.target.checked)} className="w-4 h-4 mt-0.5 border-slate-300 rounded text-orange-600" />
+                                            <div><span className="text-[13px] font-bold text-slate-800">Thay thế toàn bộ (Replace All)</span><br/><span className="text-[12px] text-slate-500">Xóa sạch danh sách cũ và chỉ lưu file này.</span></div>
+                                        </label>
+                                    </div>
+                                    <div className="bg-emerald-50 border border-emerald-100 rounded-xl p-4 max-h-[180px] overflow-y-auto">
+                                        <p className="text-[13px] font-bold text-emerald-800 mb-3">Xem trước ({teamExcelPreview.length} đội):</p>
+                                        {teamExcelPreview.slice(0,5).map((r,i)=>(<div key={i} className="text-[13px] flex gap-2 text-slate-600 border-b border-emerald-100/50 pb-1.5 last:border-0"><span className="font-bold text-slate-400 w-8">#{r.rank||"?"}</span><span className="font-bold text-slate-800 truncate flex-1">{r.clubName}</span><span className="text-[12px] text-slate-500">{r.leader}</span><span className="ml-auto font-black text-slate-900">{r.point}</span></div>))}
+                                        {teamExcelPreview.length>5 && <div className="text-[12px] text-emerald-600/80 font-medium text-center pt-2 italic">... và {teamExcelPreview.length-5} đội khác 🏆</div>}
+                                    </div>
+                                </>}
+                            </TabsContent>
+                            <div className="pt-4 flex gap-3">
+                                <Button type="button" variant="outline" className="w-full flex-1" onClick={()=>{setIsTeamAddOpen(false);setIsTeamEditOpen(false)}}>Hủy</Button>
+                                <Button type="submit" className={`w-full flex-1 text-white ${teamAddMode==="excel"&&teamExcelReplace?"bg-rose-500 hover:bg-rose-600":"bg-orange-600 hover:bg-orange-700"}`} disabled={isSubmitting||(teamAddMode==="excel"&&teamExcelPreview.length===0)}>
+                                    {isSubmitting ? <Loader2 className="w-4 h-4 animate-spin" /> : teamAddMode==="excel" ? (teamExcelReplace?`Thay thế ${teamExcelPreview.length} đội`:`Lưu ${teamExcelPreview.length} đội`) : "Lưu lại"}
                                 </Button>
                             </div>
                         </form>

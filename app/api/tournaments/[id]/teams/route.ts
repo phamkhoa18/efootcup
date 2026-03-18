@@ -17,7 +17,7 @@ export async function GET(req: NextRequest, { params }: RouteParams) {
         const { id: idOrSlug } = await params;
         const query = mongoose.Types.ObjectId.isValid(idOrSlug) ? { _id: idOrSlug } : { slug: idOrSlug };
 
-        const tournament = await Tournament.findOne(query).select("_id efvTier status").lean();
+        const tournament = await Tournament.findOne(query).select("_id efvTier status format").lean();
         if (!tournament) {
             return apiError("Không tìm thấy giải đấu", 404);
         }
@@ -87,10 +87,15 @@ export async function GET(req: NextRequest, { params }: RouteParams) {
         const totalPages = Math.ceil(total / limit);
         const skip = (page - 1) * limit;
 
-        // Fetch paginated teams
+        // Fetch paginated teams — sort depends on format
+        const isElimination = (tournament as any).format === "single_elimination" || (tournament as any).format === "double_elimination";
+        const sortOrder: Record<string, 1 | -1> = isElimination
+            ? { seed: 1, registeredAt: 1 }  // By seed/placement for elimination
+            : { "stats.points": -1, "stats.goalDifference": -1 }; // By points for league
+
         const teams = await Team.find(teamFilter)
             .populate("captain", "name avatar efvId")
-            .sort({ "stats.points": -1, "stats.goalDifference": -1 })
+            .sort(sortOrder)
             .skip(skip)
             .limit(limit)
             .lean();
@@ -123,6 +128,7 @@ export async function GET(req: NextRequest, { params }: RouteParams) {
             tournament: {
                 efvTier: tournament.efvTier,
                 status: tournament.status,
+                format: (tournament as any).format,
             },
         });
     } catch (error) {

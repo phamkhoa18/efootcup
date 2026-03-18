@@ -328,13 +328,6 @@ export function Navbar() {
                                             </Link>
                                         </DropdownMenuItem>
 
-                                        <DropdownMenuItem asChild className="px-3 py-2.5 rounded-lg cursor-pointer">
-                                            <Link href="/cai-dat" className="flex items-center gap-2.5">
-                                                <Settings className="w-4 h-4 text-gray-500" />
-                                                <span className="text-sm">Cài đặt</span>
-                                            </Link>
-                                        </DropdownMenuItem>
-
                                         <DropdownMenuSeparator className="my-1" />
 
                                         <DropdownMenuItem

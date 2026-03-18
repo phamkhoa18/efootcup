@@ -1671,7 +1671,27 @@ export default function TournamentDetailClient({ initialData, id }: { initialDat
                                         </div>
                                     )}
 
-                                    {!playerLoading && (
+                                    {!playerLoading && (() => {
+                                        const isElimFormat = t.format === 'single_elimination' || t.format === 'double_elimination';
+                                        const getPlacementLabel = (idx: number) => {
+                                            if (t.status !== 'completed') return '—';
+                                            if (idx === 0) return 'Vô địch';
+                                            if (idx === 1) return 'Á quân';
+                                            if (idx <= 3) return 'Top 4';
+                                            if (idx <= 7) return 'Top 8';
+                                            if (idx <= 15) return 'Top 16';
+                                            if (idx <= 31) return 'Top 32';
+                                            return 'Tham gia';
+                                        };
+                                        const getPlacementColor = (idx: number) => {
+                                            if (t.status !== 'completed') return 'bg-gray-50 text-gray-400';
+                                            if (idx === 0) return 'bg-amber-100 text-amber-700 border border-amber-200';
+                                            if (idx === 1) return 'bg-slate-100 text-slate-700 border border-slate-200';
+                                            if (idx <= 3) return 'bg-orange-50 text-orange-600 border border-orange-200';
+                                            if (idx <= 7) return 'bg-blue-50 text-blue-600 border border-blue-200';
+                                            return 'bg-gray-50 text-gray-500';
+                                        };
+                                        return (
                                         <div className="overflow-x-auto">
                                             <table className="w-full text-sm" style={{ minWidth: '600px' }}>
                                                 <thead>
@@ -1679,11 +1699,20 @@ export default function TournamentDetailClient({ initialData, id }: { initialDat
                                                         <th className="px-3 sm:px-4 py-3 text-center w-10 sm:w-14">#</th>
                                                         <th className="px-3 sm:px-4 py-3 text-center w-16 sm:w-20 text-amber-300">EFV ID</th>
                                                         <th className="px-3 sm:px-4 py-3 text-left">VĐV / Đội</th>
-                                                        <th className="px-2 sm:px-3 py-3 text-center w-10 sm:w-14">P</th>
-                                                        <th className="px-2 sm:px-3 py-3 text-center w-10 sm:w-14">W</th>
-                                                        <th className="px-2 sm:px-3 py-3 text-center w-10 sm:w-14">D</th>
-                                                        <th className="px-2 sm:px-3 py-3 text-center w-10 sm:w-14">L</th>
-                                                        <th className="px-3 sm:px-4 py-3 text-center w-16 sm:w-20">Điểm</th>
+                                                        {isElimFormat ? (
+                                                            <>
+                                                                <th className="px-3 sm:px-4 py-3 text-center w-16 sm:w-20">Seed</th>
+                                                                <th className="px-3 sm:px-4 py-3 text-center w-24 sm:w-32">Thành tích</th>
+                                                            </>
+                                                        ) : (
+                                                            <>
+                                                                <th className="px-2 sm:px-3 py-3 text-center w-10 sm:w-14">P</th>
+                                                                <th className="px-2 sm:px-3 py-3 text-center w-10 sm:w-14">W</th>
+                                                                <th className="px-2 sm:px-3 py-3 text-center w-10 sm:w-14">D</th>
+                                                                <th className="px-2 sm:px-3 py-3 text-center w-10 sm:w-14">L</th>
+                                                                <th className="px-3 sm:px-4 py-3 text-center w-16 sm:w-20">Điểm</th>
+                                                            </>
+                                                        )}
                                                         {t.efvTier && <th className="px-3 sm:px-4 py-3 text-center w-16 sm:w-24">EFV</th>}
                                                         <th className="px-2 sm:px-3 py-3 text-center w-12 sm:w-16">Đội hình</th>
                                                     </tr>
@@ -1710,7 +1739,7 @@ export default function TournamentDetailClient({ initialData, id }: { initialDat
                                                             return table[t.efvTier]?.[placement] ?? 0;
                                                         };
                                                         const efvPts = getEfvPts();
-                                                        const placement = t.status === 'completed' ? (i === 0 ? '🥇' : i === 1 ? '🥈' : i <= 3 ? '🥉' : '') : '';
+                                                        const placementEmoji = t.status === 'completed' ? (i === 0 ? '🥇' : i === 1 ? '🥈' : i <= 3 ? '🥉' : '') : '';
 
                                                         return (
                                                             <tr key={team._id} className={`border-b border-gray-50 last:border-0 transition-colors ${reg?.user?.efvId ? 'hover:bg-blue-50/30 cursor-pointer' : ''} ${isTop1 ? 'bg-amber-50/40' : isTop2 ? 'bg-gray-50/40' : ''}`}
@@ -1744,21 +1773,38 @@ export default function TournamentDetailClient({ initialData, id }: { initialDat
                                                                         <div className="min-w-0">
                                                                             <div className="flex items-center gap-1.5">
                                                                                 <p className="text-[13px] sm:text-[14px] font-semibold text-gray-900 truncate">{playerName}</p>
-                                                                                {placement && <span className="text-xs sm:text-sm">{placement}</span>}
+                                                                                {placementEmoji && <span className="text-xs sm:text-sm">{placementEmoji}</span>}
                                                                             </div>
                                                                             <p className="text-[10px] sm:text-[11px] text-gray-400 truncate mt-0.5">{team.name}</p>
                                                                         </div>
                                                                     </div>
                                                                 </td>
-                                                                <td className="px-2 sm:px-3 py-3 text-center text-xs sm:text-sm font-medium text-gray-600">{team.stats?.played || 0}</td>
-                                                                <td className="px-2 sm:px-3 py-3 text-center text-xs sm:text-sm font-bold text-emerald-600">{team.stats?.wins || 0}</td>
-                                                                <td className="px-2 sm:px-3 py-3 text-center text-xs sm:text-sm font-medium text-gray-500">{team.stats?.draws || 0}</td>
-                                                                <td className="px-2 sm:px-3 py-3 text-center text-xs sm:text-sm font-medium text-rose-500">{team.stats?.losses || 0}</td>
-                                                                <td className="px-3 sm:px-4 py-3 text-center">
-                                                                    <span className="inline-flex items-center justify-center min-w-[28px] sm:min-w-[32px] h-6 sm:h-7 rounded-lg bg-blue-50 text-efb-blue font-bold text-[11px] sm:text-xs px-1.5 sm:px-2">
-                                                                        {team.stats?.points || 0}
-                                                                    </span>
-                                                                </td>
+                                                                {isElimFormat ? (
+                                                                    <>
+                                                                        <td className="px-3 sm:px-4 py-3 text-center">
+                                                                            <span className="text-xs sm:text-sm font-semibold text-gray-600 tabular-nums">
+                                                                                {team.seed || '—'}
+                                                                            </span>
+                                                                        </td>
+                                                                        <td className="px-3 sm:px-4 py-3 text-center">
+                                                                            <span className={`inline-flex items-center justify-center px-2.5 py-1 rounded-lg font-bold text-[10px] sm:text-[11px] ${getPlacementColor(i)}`}>
+                                                                                {getPlacementLabel(i)}
+                                                                            </span>
+                                                                        </td>
+                                                                    </>
+                                                                ) : (
+                                                                    <>
+                                                                        <td className="px-2 sm:px-3 py-3 text-center text-xs sm:text-sm font-medium text-gray-600">{team.stats?.played || 0}</td>
+                                                                        <td className="px-2 sm:px-3 py-3 text-center text-xs sm:text-sm font-bold text-emerald-600">{team.stats?.wins || 0}</td>
+                                                                        <td className="px-2 sm:px-3 py-3 text-center text-xs sm:text-sm font-medium text-gray-500">{team.stats?.draws || 0}</td>
+                                                                        <td className="px-2 sm:px-3 py-3 text-center text-xs sm:text-sm font-medium text-rose-500">{team.stats?.losses || 0}</td>
+                                                                        <td className="px-3 sm:px-4 py-3 text-center">
+                                                                            <span className="inline-flex items-center justify-center min-w-[28px] sm:min-w-[32px] h-6 sm:h-7 rounded-lg bg-blue-50 text-efb-blue font-bold text-[11px] sm:text-xs px-1.5 sm:px-2">
+                                                                                {team.stats?.points || 0}
+                                                                            </span>
+                                                                        </td>
+                                                                    </>
+                                                                )}
                                                                 {t.efvTier && (
                                                                     <td className="px-3 sm:px-4 py-3 text-center">
                                                                         <span className={`inline-flex items-center justify-center min-w-[36px] sm:min-w-[40px] h-6 sm:h-7 rounded-lg font-bold text-[11px] sm:text-xs px-1.5 sm:px-2 ${i === 0 && t.status === 'completed' ? 'bg-amber-100 text-amber-700' :
@@ -1790,7 +1836,8 @@ export default function TournamentDetailClient({ initialData, id }: { initialDat
                                                 </tbody>
                                             </table>
                                         </div>
-                                    )}
+                                        );
+                                    })()}
 
                                     {!playerLoading && (!playerData?.teams || playerData.teams.length === 0) && (
                                         <div className="text-center py-16">
