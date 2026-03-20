@@ -475,7 +475,7 @@ export default function DangKyPage() {
         }
 
         const data = registrations.map((r: any, idx: number) => {
-            // Parse paymentNote JSON to extract PayOS details
+            // Parse paymentNote JSON to extract payment details
             let noteData: any = {};
             try {
                 noteData = JSON.parse(r.paymentNote || "{}");
@@ -507,15 +507,14 @@ export default function DangKyPage() {
                 "Phương thức TT": r.paymentMethod || "",
                 "Ngày TT": r.paymentDate ? new Date(r.paymentDate).toLocaleString('vi-VN') : "",
                 "Xác nhận TT lúc": r.paymentConfirmedAt ? new Date(r.paymentConfirmedAt).toLocaleString('vi-VN') : "",
-                // === THÔNG TIN PAYOS (ĐỐI CHIẾU) ===
-                "PayOS OrderCode": noteData.orderCode || "",
-                "PayOS LinkId": noteData.paymentLinkId || "",
-                "Mã GD Ngân hàng": noteData.reference || "",
-                "Thời gian GD": noteData.transactionDateTime || "",
+                // === THÔNG TIN THANH TOÁN (ĐỐI CHIẾU) ===
+                "Mã thanh toán": noteData.orderCode || "",
+                "SePay Transaction ID": noteData.sepayTransactionId || noteData.paymentLinkId || "",
+                "Mã GD Ngân hàng": noteData.reference || noteData.referenceCode || "",
+                "Thời gian GD": noteData.transactionDate || noteData.transactionDateTime || "",
                 "Nguồn xác nhận": noteData.confirmedByWebhook ? "Webhook (tự động)" : noteData.confirmedByVerify ? "Verify (thủ công)" : noteData.confirmedBy || "",
-                "Tên TK đối ứng": noteData.payosCounterAccountName || "",
-                "STK đối ứng": noteData.payosCounterAccountNumber || "",
-                "Ngân hàng đối ứng": noteData.payosCounterAccountBankName || "",
+                "Ngân hàng": noteData.gateway || "",
+                "Nội dung CK": noteData.content || "",
                 "Cảnh báo số tiền": noteData.amountMismatch ? `⚠️ Nhận ${noteData.receivedAmount}, cần ${noteData.expectedAmount}` : "",
                 // === KHÁC ===
                 "Minh chứng TT": r.paymentProof ? `${window.location.origin}${r.paymentProof}` : "",
@@ -1047,7 +1046,7 @@ export default function DangKyPage() {
                         </DialogTitle>
                     </div>
                     {paymentDetailView && (() => {
-                        // Parse paymentNote JSON for PayOS details
+                        // Parse paymentNote JSON for payment details
                         let noteData: any = {};
                         try {
                             noteData = JSON.parse(paymentDetailView.paymentNote || "{}");
@@ -1111,54 +1110,48 @@ export default function DangKyPage() {
                                     )}
                                 </div>
 
-                                {/* PayOS Transaction Details */}
-                                {paymentDetailView.paymentMethod === "payos" && (noteData.orderCode || noteData.reference) && (
+                                {/* Transaction Details */}
+                                {(paymentDetailView.paymentMethod === "sepay" || paymentDetailView.paymentMethod === "payos") && (noteData.orderCode || noteData.referenceCode || noteData.reference) && (
                                     <div>
                                         <div className="text-[10px] font-bold text-indigo-500 uppercase tracking-wider mb-2.5 flex items-center gap-1.5">
                                             <Shield className="w-3 h-3" />
-                                            Thông tin PayOS (đối chiếu)
+                                            Thông tin giao dịch (đối chiếu)
                                         </div>
                                         <div className="rounded-xl border border-indigo-100 bg-indigo-50/30 overflow-hidden">
                                             {noteData.orderCode && (
                                                 <div className="px-4 py-2.5 flex items-center justify-between border-b border-indigo-100/50">
-                                                    <span className="text-[11px] text-gray-500">Mã đơn hàng (OrderCode)</span>
+                                                    <span className="text-[11px] text-gray-500">Mã thanh toán</span>
                                                     <span className="text-[12px] font-mono font-bold text-indigo-700 bg-indigo-100 px-2 py-0.5 rounded-md">{noteData.orderCode}</span>
                                                 </div>
                                             )}
-                                            {noteData.paymentLinkId && (
+                                            {noteData.sepayTransactionId && (
                                                 <div className="px-4 py-2.5 flex items-center justify-between border-b border-indigo-100/50">
-                                                    <span className="text-[11px] text-gray-500">PayOS Link ID</span>
-                                                    <span className="text-[11px] font-mono text-gray-700 truncate max-w-[180px]">{noteData.paymentLinkId}</span>
+                                                    <span className="text-[11px] text-gray-500">SePay Transaction ID</span>
+                                                    <span className="text-[11px] font-mono text-gray-700">{noteData.sepayTransactionId}</span>
                                                 </div>
                                             )}
-                                            {noteData.reference && (
+                                            {(noteData.referenceCode || noteData.reference) && (
                                                 <div className="px-4 py-2.5 flex items-center justify-between border-b border-indigo-100/50">
                                                     <span className="text-[11px] text-gray-500">Mã GD ngân hàng</span>
-                                                    <span className="text-[12px] font-mono font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-md">{noteData.reference}</span>
+                                                    <span className="text-[12px] font-mono font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-md">{noteData.referenceCode || noteData.reference}</span>
                                                 </div>
                                             )}
-                                            {noteData.transactionDateTime && (
+                                            {(noteData.transactionDate || noteData.transactionDateTime) && (
                                                 <div className="px-4 py-2.5 flex items-center justify-between border-b border-indigo-100/50">
                                                     <span className="text-[11px] text-gray-500">Thời gian GD</span>
-                                                    <span className="text-[11px] text-gray-700">{noteData.transactionDateTime}</span>
+                                                    <span className="text-[11px] text-gray-700">{noteData.transactionDate || noteData.transactionDateTime}</span>
                                                 </div>
                                             )}
-                                            {noteData.payosCounterAccountName && (
-                                                <div className="px-4 py-2.5 flex items-center justify-between border-b border-indigo-100/50">
-                                                    <span className="text-[11px] text-gray-500">Tên TK chuyển</span>
-                                                    <span className="text-[11px] font-medium text-gray-800">{noteData.payosCounterAccountName}</span>
-                                                </div>
-                                            )}
-                                            {noteData.payosCounterAccountNumber && (
-                                                <div className="px-4 py-2.5 flex items-center justify-between border-b border-indigo-100/50">
-                                                    <span className="text-[11px] text-gray-500">STK chuyển</span>
-                                                    <span className="text-[11px] font-mono text-gray-700">{noteData.payosCounterAccountNumber}</span>
-                                                </div>
-                                            )}
-                                            {noteData.payosCounterAccountBankName && (
+                                            {noteData.gateway && (
                                                 <div className="px-4 py-2.5 flex items-center justify-between border-b border-indigo-100/50">
                                                     <span className="text-[11px] text-gray-500">Ngân hàng</span>
-                                                    <span className="text-[11px] text-gray-700">{noteData.payosCounterAccountBankName}</span>
+                                                    <span className="text-[11px] font-medium text-gray-800">{noteData.gateway}</span>
+                                                </div>
+                                            )}
+                                            {noteData.content && (
+                                                <div className="px-4 py-2.5 flex items-center justify-between border-b border-indigo-100/50">
+                                                    <span className="text-[11px] text-gray-500">Nội dung CK</span>
+                                                    <span className="text-[11px] text-gray-700 truncate max-w-[200px]">{noteData.content}</span>
                                                 </div>
                                             )}
                                             <div className="px-4 py-2.5 flex items-center justify-between">

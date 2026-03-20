@@ -642,6 +642,7 @@ export default function TournamentDetailClient({ initialData, id }: { initialDat
     const [isSubmittingProof, setIsSubmittingProof] = useState(false);
     const [showPaymentSection, setShowPaymentSection] = useState(false);
     const [showPaymentDialog, setShowPaymentDialog] = useState(false);
+    const [autoPaymentData, setAutoPaymentData] = useState<any>(null); // SePay QR data
 
     const onMouseDown = (e: React.MouseEvent) => {
         setIsDragging(true);
@@ -854,12 +855,28 @@ export default function TournamentDetailClient({ initialData, id }: { initialDat
             setIsPaymentLoading(true);
             try {
                 const res = await tournamentPaymentAPI.createPayment(id, method.id);
-                if (res.success && res.data?.payUrl) {
-                    // Always redirect to payment URL (new or existing pending link)
-                    if (res.message?.includes("đang chờ")) {
-                        toast.info("Đang chuyển đến trang thanh toán đã tạo trước đó...");
+                if (res.success && res.data) {
+                    if (res.data.mode === "auto" && res.data.checkoutUrl && res.data.checkoutFormFields) {
+                        // SePay Payment Gateway: create hidden form and auto-submit
+                        const form = document.createElement("form");
+                        form.method = "POST";
+                        form.action = res.data.checkoutUrl;
+
+                        // Add all checkout form fields as hidden inputs (order matters for HMAC!)
+                        const fields = res.data.checkoutFormFields;
+                        Object.keys(fields).forEach((key) => {
+                            const input = document.createElement("input");
+                            input.type = "hidden";
+                            input.name = key;
+                            input.value = fields[key];
+                            form.appendChild(input);
+                        });
+
+                        document.body.appendChild(form);
+                        toast.info("Đang chuyển đến cổng thanh toán SePay...");
+                        form.submit();
+                        return; // Page will redirect
                     }
-                    window.location.href = res.data.payUrl;
                 } else if (!res.success && res.message?.includes("đã thanh toán")) {
                     toast.success("Bạn đã thanh toán thành công! Trang sẽ được tải lại.");
                     setTimeout(() => window.location.reload(), 1500);
@@ -2464,15 +2481,16 @@ export default function TournamentDetailClient({ initialData, id }: { initialDat
                                                         </div>
                                                         <div className="flex-1 min-w-0">
                                                             <p className="text-sm font-medium text-gray-800">{method.name || method.bankName || 'Chuyển khoản'}</p>
-                                                            <p className="text-xs text-gray-400">{method.mode === 'auto' ? 'Thanh toán tự động' : `${method.bankName || ''} • ${method.accountNumber || ''}`}</p>
+                                                            <p className="text-xs text-gray-400">{method.mode === 'auto' ? 'Thanh toán tự động — xác nhận tức thì' : `${method.bankName || ''} • ${method.accountNumber || ''}`}</p>
                                                         </div>
-                                                        <ChevronRight className="w-4 h-4 text-gray-300 group-hover:text-efb-blue transition-colors" />
+                                                        {isPaymentLoading ? <Loader2 className="w-4 h-4 animate-spin text-gray-400" /> : <ChevronRight className="w-4 h-4 text-gray-300 group-hover:text-efb-blue transition-colors" />}
                                                     </button>
                                                 ))}
                                             </div>
                                         )}
                                     </div>
                                 ) : (
+                                    /* ===== MANUAL: Show bank info + proof upload ===== */
                                     <div className="space-y-4">
                                         <button type="button" onClick={() => setSelectedPayMethod(null)} className="flex items-center gap-1.5 text-sm text-efb-blue hover:underline">
                                             <ChevronLeft className="w-4 h-4" /> Chọn phương thức khác

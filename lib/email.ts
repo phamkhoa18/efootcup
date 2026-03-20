@@ -586,7 +586,7 @@ export async function sendPaymentInvoiceEmail(
                                                     Phuong thuc
                                                 </td>
                                                 <td style="padding:8px 0; border-bottom:1px solid #e2e8f0; color:#1e293b; font-size:14px; font-weight:500; text-align:right;">
-                                                    ${data.paymentMethod || "PayOS - Chuyen khoan"}
+                                                    ${data.paymentMethod || "Chuyen khoan tu dong"}
                                                 </td>
                                             </tr>
                                             <tr>

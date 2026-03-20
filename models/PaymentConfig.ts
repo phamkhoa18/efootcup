@@ -2,21 +2,22 @@ import mongoose, { Document, Schema, Model } from "mongoose";
 
 export interface IPaymentMethod {
     id: string;
-    type: "bank_transfer" | "payos"; // bank_transfer = thủ công, payos = tự động
-    mode: "auto" | "manual"; // auto = payOS, manual = chuyển khoản thủ công
+    type: "bank_transfer" | "sepay"; // bank_transfer = thủ công, sepay = tự động
+    mode: "auto" | "manual"; // auto = SePay, manual = chuyển khoản thủ công
     enabled: boolean;
     name: string;
     accountName: string;
     accountNumber: string;
     bankName?: string;
     bankBranch?: string;
+    bankBin?: string; // Mã BIN ngân hàng (dùng cho VietQR)
     qrImage?: string;
     instructions?: string;
     icon?: string;
-    // === PayOS Credentials (for auto mode) ===
-    payosClientId?: string;
-    payosApiKey?: string;
-    payosChecksumKey?: string;
+    // === SePay Credentials (for auto mode) ===
+    sepayMerchantId?: string;  // VD: SP-TEST-PKBA556A
+    sepaySecretKey?: string;   // Secret Key dùng verify IPN
+    sepayEnv?: "sandbox" | "production"; // Môi trường SePay
 }
 
 export interface IPaymentConfig extends Document {
@@ -37,7 +38,7 @@ const PaymentMethodSchema = new Schema({
     id: { type: String, required: true },
     type: {
         type: String,
-        enum: ["bank_transfer", "payos"],
+        enum: ["bank_transfer", "sepay"],
         required: true,
     },
     mode: { type: String, enum: ["auto", "manual"], default: "manual" },
@@ -47,13 +48,14 @@ const PaymentMethodSchema = new Schema({
     accountNumber: { type: String, default: "" },
     bankName: { type: String, default: "" },
     bankBranch: { type: String, default: "" },
+    bankBin: { type: String, default: "" },
     qrImage: { type: String, default: "" },
     instructions: { type: String, default: "" },
     icon: { type: String, default: "" },
-    // PayOS Credentials
-    payosClientId: { type: String, default: "" },
-    payosApiKey: { type: String, default: "" },
-    payosChecksumKey: { type: String, default: "" },
+    // SePay Credentials
+    sepayMerchantId: { type: String, default: "" },
+    sepaySecretKey: { type: String, default: "" },
+    sepayEnv: { type: String, enum: ["sandbox", "production"], default: "production" },
 });
 
 const PaymentConfigSchema = new Schema(

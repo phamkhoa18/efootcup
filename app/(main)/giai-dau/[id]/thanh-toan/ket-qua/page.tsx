@@ -15,15 +15,13 @@ function PaymentResultContent() {
     const router = useRouter();
     const tournamentId = params.id as string;
 
-    const [status, setStatus] = useState<"loading" | "success" | "failed" | "pending">("loading");
+    const [status, setStatus] = useState<"loading" | "success" | "failed" | "pending" | "cancelled">("loading");
     const [tournament, setTournament] = useState<any>(null);
+    const [invoiceNumber, setInvoiceNumber] = useState<string>("");
 
-    // PayOS params: returnUrl gets ?code=00&id=xxx&cancel=false&status=PAID&orderCode=xxx
-    const gateway = searchParams.get("gateway");
-    const payosCode = searchParams.get("code");
-    const payosStatus = searchParams.get("status");
-    const payosOrderCode = searchParams.get("orderCode");
-    const isCancelled = searchParams.get("cancel") === "true" || searchParams.get("cancelled") === "true";
+    // SePay redirects back with ?status=success|error|cancel&invoice=XXXX
+    const sepayStatus = searchParams.get("status");
+    const invoice = searchParams.get("invoice");
 
     useEffect(() => { loadData(); }, []);
 
@@ -35,93 +33,44 @@ function PaymentResultContent() {
                 setTournament(tRes.data?.tournament || tRes.data);
             }
 
-            // === PayOS result check ===
-            if (gateway === "payos") {
-                if (isCancelled) {
-                    // Reset registration paymentStatus to unpaid so user can retry
-                    try {
-                        await fetch(`/api/payment/payos-cancel`, {
-                            method: "POST",
-                            headers: { "Content-Type": "application/json" },
-                            body: JSON.stringify({
-                                tournamentId,
-                                orderCode: payosOrderCode,
-                            }),
-                        });
-                    } catch (err) {
-                        console.error("Failed to reset payment status:", err);
-                    }
-                    setStatus("failed");
-                    return;
-                }
-                if (payosStatus === "PAID" || payosCode === "00") {
-                    // Verify trực tiếp với PayOS API qua endpoint an toàn (có requireAuth)
-                    // Endpoint chỉ confirm cho registration của user đang đăng nhập
-                    try {
-                        const verifyRes = await fetch(`/api/payment/payos-verify`, {
-                            method: "POST",
-                            headers: { "Content-Type": "application/json" },
-                            body: JSON.stringify({
-                                tournamentId,
-                                orderCode: payosOrderCode,
-                            }),
-                        });
-                        const verifyData = await verifyRes.json();
-                        console.log("PayOS verify result:", verifyData);
-
-                        if (verifyData.success && verifyData.payosStatus === "PAID") {
-                            setStatus("success");
-                            return;
-                        }
-
-                        // alreadyProcessed = webhook đã xử lý rồi
-                        if (verifyData.alreadyProcessed) {
-                            setStatus("success");
-                            return;
-                        }
-
-                        // orderCode mismatch — security issue
-                        if (verifyData.mismatch) {
-                            console.warn("PayOS verify: orderCode mismatch detected");
-                            setStatus("failed");
-                            return;
-                        }
-                    } catch (err) {
-                        console.error("PayOS verify error:", err);
-                    }
-
-                    // Nếu verify không thành công ngay, đợi webhook xử lý
-                    // (webhook có thể mất vài giây)
-                    await new Promise(r => setTimeout(r, 3000));
-
-                    // Retry verify một lần nữa (webhook có thể đã confirm)
-                    try {
-                        const retryRes = await fetch(`/api/payment/payos-verify`, {
-                            method: "POST",
-                            headers: { "Content-Type": "application/json" },
-                            body: JSON.stringify({
-                                tournamentId,
-                                orderCode: payosOrderCode,
-                            }),
-                        });
-                        const retryData = await retryRes.json();
-                        if ((retryData.success && retryData.payosStatus === "PAID") || retryData.alreadyProcessed) {
-                            setStatus("success");
-                            return;
-                        }
-                    } catch {
-                        // Ignore retry errors
-                    }
-
-                    setStatus("pending");
-                } else {
-                    setStatus("failed");
-                }
-                return;
+            if (invoice) {
+                setInvoiceNumber(invoice);
             }
 
-            // Default (non-PayOS): show pending
-            setStatus("pending");
+            // Determine status from SePay callback
+            if (sepayStatus === "success") {
+                // SePay says payment succeeded — IPN will confirm in background
+                // Check actual registration status
+                const regRes = await tournamentAPI.getRegistrations(tournamentId);
+                if (regRes.success && regRes.data?.registrations) {
+                    const savedToken = typeof window !== "undefined" ? localStorage.getItem("efootcup_token") : null;
+                    // Try to find my registration
+                    const profileRes = await fetch("/api/auth/me", {
+                        headers: savedToken ? { Authorization: `Bearer ${savedToken}` } : {},
+                    });
+                    const profileData = await profileRes.json();
+                    const userId = profileData?.data?._id;
+
+                    if (userId) {
+                        const myReg = regRes.data.registrations.find(
+                            (r: any) => r.user?._id === userId || r.user === userId
+                        );
+                        if (myReg?.paymentStatus === "paid" || myReg?.paymentStatus === "confirmed") {
+                            setStatus("success");
+                            return;
+                        }
+                    }
+                }
+                // IPN may not have arrived yet — show pending with success message
+                setStatus("pending");
+            } else if (sepayStatus === "cancel") {
+                setStatus("cancelled");
+            } else if (sepayStatus === "error") {
+                setStatus("failed");
+            } else {
+                // Direct access / old format — show pending
+                setStatus("pending");
+            }
         } catch (error) {
             console.error("Load payment result error:", error);
             setStatus("failed");
@@ -129,7 +78,7 @@ function PaymentResultContent() {
     };
 
     const handleRetry = () => {
-        router.push(`/giai-dau/${tournamentId}?tab=register`);
+        router.push(`/giai-dau/${tournamentId}`);
     };
 
     return (
@@ -146,9 +95,11 @@ function PaymentResultContent() {
                         ? "bg-gradient-to-br from-emerald-500 to-teal-600"
                         : status === "pending"
                             ? "bg-gradient-to-br from-amber-500 to-orange-600"
-                            : status === "failed"
-                                ? "bg-gradient-to-br from-red-500 to-rose-600"
-                                : "bg-gradient-to-br from-blue-500 to-indigo-600"
+                            : status === "cancelled"
+                                ? "bg-gradient-to-br from-gray-500 to-gray-600"
+                                : status === "failed"
+                                    ? "bg-gradient-to-br from-red-500 to-rose-600"
+                                    : "bg-gradient-to-br from-blue-500 to-indigo-600"
                         }`}>
                         <div className="absolute top-0 right-0 w-40 h-40 rounded-full bg-white/5 -translate-y-1/2 translate-x-1/2" />
                         <div className="absolute bottom-0 left-0 w-24 h-24 rounded-full bg-white/5 translate-y-1/2 -translate-x-1/2" />
@@ -168,6 +119,10 @@ function PaymentResultContent() {
                                         <Clock className="w-12 h-12 text-white" />
                                     </div>
                                 </motion.div>
+                            ) : status === "cancelled" ? (
+                                <div className="w-20 h-20 rounded-full bg-white/20 flex items-center justify-center mx-auto">
+                                    <XCircle className="w-12 h-12 text-white" />
+                                </div>
                             ) : (
                                 <div className="w-20 h-20 rounded-full bg-white/20 flex items-center justify-center mx-auto">
                                     <XCircle className="w-12 h-12 text-white" />
@@ -176,15 +131,17 @@ function PaymentResultContent() {
 
                             <h1 className="text-2xl font-bold text-white mt-5">
                                 {status === "loading" && "Đang xử lý..."}
-                                {status === "success" && "🎉 Đăng ký thành công!"}
-                                {status === "pending" && "Đang xác nhận..."}
-                                {status === "failed" && (isCancelled ? "Đã huỷ thanh toán" : "Thanh toán thất bại")}
+                                {status === "success" && "🎉 Thanh toán thành công!"}
+                                {status === "pending" && "Đang xác nhận thanh toán..."}
+                                {status === "cancelled" && "Đã huỷ thanh toán"}
+                                {status === "failed" && "Thanh toán thất bại"}
                             </h1>
                             <p className="text-white/80 text-sm mt-2">
                                 {status === "loading" && "Đang kiểm tra kết quả thanh toán..."}
-                                {status === "success" && "Thanh toán đã xác nhận — bạn đã chính thức tham gia giải đấu!"}
-                                {status === "pending" && "Hệ thống đang xử lý. Vui lòng đợi trong giây lát..."}
-                                {status === "failed" && (isCancelled ? "Bạn đã huỷ giao dịch" : "Giao dịch không thành công. Vui lòng thử lại.")}
+                                {status === "success" && "Thanh toán đã được xác nhận — bạn đã chính thức tham gia giải đấu!"}
+                                {status === "pending" && "Thanh toán đang được xử lý. Hệ thống sẽ tự động xác nhận trong ít giây tới."}
+                                {status === "cancelled" && "Bạn đã huỷ giao dịch. Bạn có thể thử lại bất cứ lúc nào."}
+                                {status === "failed" && "Giao dịch không thành công. Vui lòng thử lại."}
                             </p>
                         </div>
                     </div>
@@ -204,16 +161,13 @@ function PaymentResultContent() {
                                         </p>
                                     </div>
                                 </div>
-                            </div>
-                        </div>
-                    )}
-
-                    {/* PayOS order info */}
-                    {payosOrderCode && status === "success" && (
-                        <div className="px-6 pt-3">
-                            <div className="p-3 rounded-xl bg-emerald-50 border border-emerald-100 text-center">
-                                <p className="text-[10px] text-emerald-500 font-bold uppercase">Mã đơn hàng</p>
-                                <p className="text-sm font-mono font-bold text-emerald-800 mt-0.5">{payosOrderCode}</p>
+                                {invoiceNumber && (
+                                    <div className="mt-2 pt-2 border-t border-gray-200">
+                                        <p className="text-[10px] text-gray-400">
+                                            Mã đơn hàng: <span className="font-mono text-gray-600">{invoiceNumber}</span>
+                                        </p>
+                                    </div>
+                                )}
                             </div>
                         </div>
                     )}
@@ -237,11 +191,11 @@ function PaymentResultContent() {
                                     <RefreshCw className="w-4 h-4 mr-2" /> Kiểm tra lại
                                 </Button>
                                 <p className="text-xs text-center text-gray-400">
-                                    Nếu bạn đã thanh toán thành công, hệ thống sẽ tự động xác nhận trong vài giây.
+                                    Hệ thống sẽ tự động xác nhận khi nhận được thông báo từ SePay.
                                 </p>
                             </>
                         )}
-                        {status === "failed" && (
+                        {(status === "failed" || status === "cancelled") && (
                             <Button
                                 className="w-full rounded-xl h-12 font-bold bg-efb-blue text-white hover:bg-efb-blue/90"
                                 onClick={handleRetry}

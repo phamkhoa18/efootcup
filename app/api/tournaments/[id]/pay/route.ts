@@ -1,5 +1,4 @@
 import { NextRequest } from "next/server";
-import crypto from "crypto";
 import mongoose from "mongoose";
 import dbConnect from "@/lib/mongodb";
 import PaymentConfig from "@/models/PaymentConfig";
@@ -11,28 +10,15 @@ interface RouteParams {
     params: Promise<{ id: string }>;
 }
 
-/** Default payment link expiry: 15 minutes (in seconds) */
-const DEFAULT_LINK_EXPIRY_SECONDS = 15 * 60;
-
-/**
- * Generate a unique orderCode:
- * Combines Unix timestamp (seconds) with random suffix for uniqueness.
- * Must be a positive integer that fits in a JavaScript safe integer range.
- */
-function generateOrderCode(): number {
-    // Use last 10 digits of ms timestamp + 3-digit random → 13 digits max
-    // This gives us ~9999 years of unique timestamps
-    const ts = Date.now(); // e.g., 1710633600000
-    const rand = Math.floor(Math.random() * 1000); // 0-999
-    // Take last 10 digits of timestamp + 3 digits random = max 13 digits (safe integer)
-    const code = Number(ts.toString().slice(-10) + rand.toString().padStart(3, "0"));
-    return code;
-}
-
 /**
  * POST /api/tournaments/[id]/pay
- * Creates a payment link (PayOS) for a tournament registration,
- * or returns manual payment info.
+ *
+ * For auto (SePay Payment Gateway):
+ *   Uses sepay-pg-node SDK to create checkout form fields.
+ *   Frontend renders a hidden form and auto-submits to SePay checkout.
+ *   SePay handles QR payment page → redirects back to success/error/cancel URLs.
+ *
+ * For manual: returns bank transfer info for user to manually transfer.
  */
 export async function POST(req: NextRequest, { params }: RouteParams) {
     try {
@@ -74,67 +60,92 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
             return apiError("Phương thức thanh toán không hợp lệ", 400);
         }
 
-        // === AUTO MODE: PayOS ===
-        if (method.mode === "auto" && method.type === "payos") {
-            // Check if there's already a pending PayOS link
-            if (registration.paymentMethod === "payos" && registration.paymentNote) {
-                try {
-                    const noteData = JSON.parse(registration.paymentNote);
-                    if (noteData.orderCode && noteData.paymentLinkId) {
-                        // Check existing link status via PayOS API
-                        const checkRes = await fetch(`https://api-merchant.payos.vn/v2/payment-requests/${noteData.orderCode}`, {
-                            headers: {
-                                "x-client-id": method.payosClientId,
-                                "x-api-key": method.payosApiKey,
-                            },
-                        });
-                        const checkData = await checkRes.json();
-                        if (checkData.code === "00" && checkData.data) {
-                            const linkStatus = checkData.data.status;
+        // === AUTO MODE: SePay Payment Gateway (SDK) ===
+        if (method.mode === "auto" && method.type === "sepay") {
+            const merchantId = method.sepayMerchantId;
+            const secretKey = method.sepaySecretKey;
 
-                            if (linkStatus === "PENDING") {
-                                // ✅ FIX: Check if link has expired before reusing
-                                const now = Math.floor(Date.now() / 1000);
-                                const expiredAt = checkData.data.expiredAt || noteData.expiredAt;
-                                const isExpired = expiredAt && now >= expiredAt;
-
-                                if (!isExpired && checkData.data.checkoutUrl) {
-                                    // Link is still valid — return it so user can continue paying
-                                    return apiResponse({
-                                        payUrl: checkData.data.checkoutUrl,
-                                        qrCode: checkData.data.qrCode,
-                                        orderCode: noteData.orderCode,
-                                        paymentLinkId: noteData.paymentLinkId,
-                                        amount: checkData.data.amount,
-                                    }, 200, "Link thanh toán PayOS đang chờ");
-                                }
-
-                                // Link expired or no checkoutUrl — cancel old link and create fresh one
-                                await cancelPayOSLink(noteData.orderCode, method);
-                                console.log(`🗑️ Cancelled expired/invalid PayOS link ${noteData.orderCode}`);
-                                // Fall through to create new link below
-                            } else if (linkStatus === "PAID") {
-                                // Already paid! Update status + AUTO-APPROVE
-                                await handleAlreadyPaid(registration, checkData.data, tournament);
-                                return apiError("Bạn đã thanh toán rồi", 400);
-                            } else {
-                                // CANCELLED/EXPIRED status → fall through to create new link
-                                console.log(`PayOS link ${noteData.orderCode} status: ${linkStatus} — creating new link`);
-                            }
-                        }
-                    }
-                } catch (e) {
-                    console.error("Check existing PayOS link error:", e);
-                }
+            if (!merchantId || !secretKey) {
+                return apiError("Chưa cấu hình SePay Merchant ID hoặc Secret Key", 500);
             }
 
-            return await createPayOSPayment(
-                method,
-                paymentConfig,
-                tournament,
-                registration,
-                req
-            );
+            // Use environment from admin config (default: production)
+            const env = method.sepayEnv || "production";
+
+            // Import SDK dynamically (ESM/CJS compatible)
+            const { SePayPgClient } = await import("sepay-pg-node");
+
+            const client = new SePayPgClient({
+                env,
+                merchant_id: merchantId,
+                secret_key: secretKey,
+            });
+
+            // Generate unique invoice number for this payment
+            // Reuse existing invoice number if user already initiated payment
+            let invoiceNumber: string;
+            if (registration.paymentMethod === "sepay" && registration.paymentNote) {
+                try {
+                    const noteData = JSON.parse(registration.paymentNote);
+                    if (noteData.invoiceNumber) {
+                        invoiceNumber = noteData.invoiceNumber;
+                    } else {
+                        invoiceNumber = `EFCUP-${registration._id.toString().slice(-8).toUpperCase()}-${Date.now().toString(36).toUpperCase()}`;
+                    }
+                } catch {
+                    invoiceNumber = `EFCUP-${registration._id.toString().slice(-8).toUpperCase()}-${Date.now().toString(36).toUpperCase()}`;
+                }
+            } else {
+                invoiceNumber = `EFCUP-${registration._id.toString().slice(-8).toUpperCase()}-${Date.now().toString(36).toUpperCase()}`;
+            }
+
+            // Build callback URLs
+            const host = req.headers.get("host") || "localhost:3000";
+            const protocol = req.headers.get("x-forwarded-proto") || "https";
+            const baseUrl = `${protocol}://${host}`;
+            const tournamentSlug = tournament.slug || tournament._id.toString();
+
+            const successUrl = `${baseUrl}/giai-dau/${tournamentSlug}/thanh-toan/ket-qua?status=success&invoice=${invoiceNumber}`;
+            const errorUrl = `${baseUrl}/giai-dau/${tournamentSlug}/thanh-toan/ket-qua?status=error&invoice=${invoiceNumber}`;
+            const cancelUrl = `${baseUrl}/giai-dau/${tournamentSlug}/thanh-toan/ket-qua?status=cancel&invoice=${invoiceNumber}`;
+
+            // Create checkout form fields using SDK
+            const checkoutUrl = client.checkout.initCheckoutUrl();
+            const checkoutFormFields = client.checkout.initOneTimePaymentFields({
+                operation: "PURCHASE",
+                payment_method: "BANK_TRANSFER",
+                order_invoice_number: invoiceNumber,
+                order_amount: tournament.entryFee,
+                currency: "VND",
+                order_description: `Le phi giai dau ${tournament.title} - ${registration.playerName}`,
+                customer_id: authResult.user._id.toString(),
+                success_url: successUrl,
+                error_url: errorUrl,
+                cancel_url: cancelUrl,
+            });
+
+            // Save payment info to registration
+            registration.paymentMethod = "sepay";
+            registration.paymentNote = JSON.stringify({
+                invoiceNumber,
+                tournamentId: tournament._id.toString(),
+                registrationId: registration._id.toString(),
+                env,
+                createdAt: new Date().toISOString(),
+            });
+            await registration.save();
+
+            console.log(`📦 SePay: Created checkout for registration ${registration._id}, invoice=${invoiceNumber}, env=${env}`);
+
+            return apiResponse({
+                mode: "auto",
+                gateway: "sepay",
+                checkoutUrl,
+                checkoutFormFields,
+                invoiceNumber,
+                amount: tournament.entryFee,
+                currency: "VND",
+            }, 200, "Thông tin thanh toán SePay Payment Gateway");
         }
 
         // === MANUAL MODE: Return payment info ===
@@ -160,214 +171,5 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
     } catch (error) {
         console.error("Create payment error:", error);
         return apiError("Có lỗi xảy ra khi tạo thanh toán", 500);
-    }
-}
-
-/**
- * Cancel a PayOS payment link
- */
-async function cancelPayOSLink(orderCode: any, method: any) {
-    try {
-        await fetch(`https://api-merchant.payos.vn/v2/payment-requests/${orderCode}/cancel`, {
-            method: "POST",
-            headers: {
-                "Content-Type": "application/json",
-                "x-client-id": method.payosClientId,
-                "x-api-key": method.payosApiKey,
-            },
-            body: JSON.stringify({ cancellationReason: "Expired or user requested new link" }),
-        });
-    } catch (err) {
-        console.error("Failed to cancel PayOS link:", err);
-    }
-}
-
-/**
- * Handle case where PayOS reports PAID on re-check
- */
-async function handleAlreadyPaid(registration: any, paymentData: any, tournament: any) {
-    const paidAmount = paymentData.amountPaid || paymentData.amount;
-    const paidRef = paymentData.transactions?.[0]?.reference || "";
-    const paidTime = paymentData.transactions?.[0]?.transactionDateTime || new Date().toISOString();
-
-    registration.paymentStatus = "paid";
-    registration.paymentAmount = paidAmount;
-    registration.paymentDate = new Date(paidTime);
-    registration.paymentConfirmedAt = new Date();
-
-    const existingNote = JSON.parse(registration.paymentNote || "{}");
-    registration.paymentNote = JSON.stringify({
-        ...existingNote,
-        reference: paidRef,
-        transactionDateTime: paidTime,
-        confirmedBy: "payos-recheck",
-        payosAmountPaid: paymentData.amountPaid,
-    });
-
-    await registration.save();
-
-    // ✅ AUTO-APPROVE if still pending and tournament has room
-    if (registration.status === "pending" && tournament.currentTeams < tournament.maxTeams) {
-        const Team = (await import("@/models/Team")).default;
-        const Notification = (await import("@/models/Notification")).default;
-
-        const team = await Team.create({
-            name: registration.teamName || registration.playerName || "Team",
-            shortName: registration.teamShortName || (registration.teamName || registration.playerName || "TEA").substring(0, 3).toUpperCase(),
-            tournament: tournament._id,
-            captain: registration.user,
-            members: [{
-                user: registration.user,
-                role: "captain",
-                joinedAt: new Date(),
-            }],
-        });
-
-        registration.status = "approved";
-        registration.team = team._id;
-        registration.approvedAt = new Date();
-        await registration.save();
-
-        await Tournament.findByIdAndUpdate(tournament._id, { $inc: { currentTeams: 1 } });
-
-        await Notification.create({
-            recipient: registration.user,
-            type: "system",
-            title: "🎉 Đăng ký thành công!",
-            message: `Thanh toán ${paidAmount?.toLocaleString("vi-VN")}đ đã được xác nhận. Bạn đã chính thức tham gia giải "${tournament.title}"!`,
-            link: `/giai-dau/${tournament._id}`,
-        });
-
-        await Notification.create({
-            recipient: tournament.createdBy,
-            type: "system",
-            title: "✅ VĐV mới tự động duyệt",
-            message: `VĐV "${registration.playerName}" đã thanh toán qua PayOS và được tự động duyệt vào giải "${tournament.title}".`,
-            link: `/manager/giai-dau/${tournament._id}/dang-ky`,
-        });
-
-        console.log(`🎉 Pay route: Auto-approved registration ${registration._id} (detected PAID on re-check)`);
-    }
-}
-
-/**
- * Create PayOS payment link
- * API: POST https://api-merchant.payos.vn/v2/payment-requests
- * 
- * Signature = HMAC_SHA256(
- *   "amount={amount}&cancelUrl={cancelUrl}&description={description}&orderCode={orderCode}&returnUrl={returnUrl}",
- *   checksumKey
- * )
- */
-async function createPayOSPayment(
-    method: any,
-    config: any,
-    tournament: any,
-    registration: any,
-    req: NextRequest
-) {
-    const clientId = method.payosClientId;
-    const apiKey = method.payosApiKey;
-    const checksumKey = method.payosChecksumKey;
-
-    if (!clientId || !apiKey || !checksumKey) {
-        return apiError("PayOS chưa được cấu hình đúng. Vui lòng liên hệ Admin.", 500);
-    }
-
-    const callbackBaseUrl = config.callbackBaseUrl || new URL(req.url).origin;
-    const amount = tournament.entryFee;
-
-    // ✅ FIX: Generate unique orderCode (13 digits, no collision)
-    const orderCode = generateOrderCode();
-
-    // Description: max 25 chars for non-linked banks, keep it short
-    const description = `EFCUP${orderCode}`.slice(0, 25);
-
-    const returnUrl = `${callbackBaseUrl}/giai-dau/${tournament._id}/thanh-toan/ket-qua?gateway=payos`;
-    const cancelUrl = `${callbackBaseUrl}/giai-dau/${tournament._id}/thanh-toan/ket-qua?gateway=payos&cancelled=true`;
-
-    // ✅ FIX: Reasonable expiry time (15 phút mặc định, e-commerce chuẩn)
-    const expirySeconds = config.paymentLinkExpiryMinutes
-        ? config.paymentLinkExpiryMinutes * 60
-        : DEFAULT_LINK_EXPIRY_SECONDS;
-    const expiredAt = Math.floor(Date.now() / 1000) + expirySeconds;
-
-    // Create signature: sorted by key alphabetically
-    // amount=X&cancelUrl=X&description=X&orderCode=X&returnUrl=X
-    const signData = `amount=${amount}&cancelUrl=${cancelUrl}&description=${description}&orderCode=${orderCode}&returnUrl=${returnUrl}`;
-    const signature = crypto
-        .createHmac("sha256", checksumKey)
-        .update(signData)
-        .digest("hex");
-
-    // Build request body
-    const payosBody = {
-        orderCode,
-        amount,
-        description,
-        buyerName: registration.playerName || "",
-        buyerEmail: registration.email || "",
-        buyerPhone: registration.phone || "",
-        items: [
-            {
-                name: `Lệ phí giải ${tournament.title}`.slice(0, 250),
-                quantity: 1,
-                price: amount,
-            },
-        ],
-        cancelUrl,
-        returnUrl,
-        expiredAt,
-        signature,
-    };
-
-    console.log("📦 PayOS request body:", JSON.stringify(payosBody, null, 2));
-
-    try {
-        const response = await fetch("https://api-merchant.payos.vn/v2/payment-requests", {
-            method: "POST",
-            headers: {
-                "Content-Type": "application/json",
-                "x-client-id": clientId,
-                "x-api-key": apiKey,
-            },
-            body: JSON.stringify(payosBody),
-        });
-
-        const result = await response.json();
-        console.log("📦 PayOS response:", JSON.stringify(result, null, 2));
-
-        if (result.code === "00" && result.data) {
-            // Save payment info to registration (keep unpaid until webhook or return URL confirms)
-            registration.paymentMethod = "payos";
-            registration.paymentNote = JSON.stringify({
-                orderCode,
-                paymentLinkId: result.data.paymentLinkId,
-                tournamentId: tournament._id.toString(),
-                registrationId: registration._id.toString(),
-                expiredAt, // ✅ Store expiry for reuse check
-                createdAt: new Date().toISOString(),
-            });
-            // Keep as unpaid — will be updated by webhook or return URL verification
-            await registration.save();
-
-            return apiResponse({
-                payUrl: result.data.checkoutUrl,
-                qrCode: result.data.qrCode,
-                orderCode,
-                paymentLinkId: result.data.paymentLinkId,
-                amount: result.data.amount,
-                expiredAt, // Return expiry to client
-            }, 200, "Tạo link thanh toán PayOS thành công");
-        } else {
-            console.error("PayOS error:", result);
-            return apiError(
-                `PayOS lỗi: ${result.desc || "Không thể tạo link thanh toán"}`,
-                400
-            );
-        }
-    } catch (error) {
-        console.error("PayOS fetch error:", error);
-        return apiError("Không thể kết nối đến PayOS", 500);
     }
 }

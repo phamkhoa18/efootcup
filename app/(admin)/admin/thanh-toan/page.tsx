@@ -18,7 +18,7 @@ import { toast } from "sonner";
 
 const PAYMENT_TYPE_OPTIONS = [
     { value: "bank_transfer", label: "Ngân hàng (Thủ công)", icon: "🏦", color: "from-blue-500 to-indigo-500", bg: "bg-blue-50", text: "text-blue-600", border: "border-blue-200", mode: "manual" },
-    { value: "payos", label: "PayOS (Tự động)", icon: "⚡", color: "from-emerald-500 to-teal-500", bg: "bg-emerald-50", text: "text-emerald-600", border: "border-emerald-200", mode: "auto" },
+    { value: "sepay", label: "SePay (Tự động)", icon: "⚡", color: "from-emerald-500 to-teal-500", bg: "bg-emerald-50", text: "text-emerald-600", border: "border-emerald-200", mode: "auto" },
 ];
 
 function getTypeConfig(type: string) {
@@ -92,12 +92,13 @@ export default function AdminPaymentConfigPage() {
             accountNumber: "",
             bankName: "",
             bankBranch: "",
+            bankBin: "",
             qrImage: "",
             instructions: "",
             icon: "",
-            payosClientId: "",
-            payosApiKey: "",
-            payosChecksumKey: "",
+            sepayMerchantId: "",
+            sepaySecretKey: "",
+            sepayEnv: "production",
         };
         setMethods([...methods, newMethod]);
         setExpandedMethod(newMethod.id);
@@ -137,7 +138,7 @@ export default function AdminPaymentConfigPage() {
     };
 
     const baseUrl = globalSettings.callbackBaseUrl || (typeof window !== "undefined" ? window.location.origin : "");
-    const payosWebhookUrl = `${baseUrl}/api/payment/payos-webhook`;
+    const sepayIpnUrl = `${baseUrl}/api/payment/sepay-webhook`;
 
     if (isLoading) {
         return (
@@ -200,7 +201,7 @@ export default function AdminPaymentConfigPage() {
                     <div className="rounded-2xl border-2 border-dashed border-gray-200 p-12 text-center">
                         <Wallet className="w-12 h-12 text-gray-200 mx-auto mb-3" />
                         <h3 className="text-lg font-bold text-gray-400">Chưa có phương thức thanh toán</h3>
-                        <p className="text-sm text-gray-400 mt-1">Nhấn nút ở trên để thêm PayOS (tự động) hoặc Ngân hàng (thủ công)</p>
+                        <p className="text-sm text-gray-400 mt-1">Nhấn nút ở trên để thêm SePay (tự động) hoặc Ngân hàng (thủ công)</p>
                     </div>
                 )}
 
@@ -230,6 +231,11 @@ export default function AdminPaymentConfigPage() {
                                             <Badge variant={method.mode === "auto" ? "default" : "secondary"} className="text-[10px] font-bold">
                                                 {method.mode === "auto" ? "⚡ TỰ ĐỘNG" : "✋ THỦ CÔNG"}
                                             </Badge>
+                                            {method.type === "sepay" && (
+                                                <Badge className={`text-[10px] font-bold ${(method.sepayEnv || "production") === "production" ? "bg-emerald-100 text-emerald-700 border-emerald-300" : "bg-amber-100 text-amber-700 border-amber-300"}`}>
+                                                    {(method.sepayEnv || "production") === "production" ? "🟢 Production" : "🟡 Sandbox"}
+                                                </Badge>
+                                            )}
                                             {method.enabled ? (
                                                 <Badge className="bg-emerald-50 text-emerald-600 text-[10px] border-emerald-200">Đang bật</Badge>
                                             ) : (
@@ -237,8 +243,8 @@ export default function AdminPaymentConfigPage() {
                                             )}
                                         </div>
                                         <p className="text-xs text-gray-400 mt-0.5 truncate">
-                                            {method.type === "payos"
-                                                ? (method.payosClientId ? `Client ID: ${method.payosClientId.slice(0, 8)}...` : "Chưa cấu hình API")
+                                            {method.type === "sepay"
+                                                ? (method.sepayMerchantId ? `Merchant: ${method.sepayMerchantId}` : "Chưa cấu hình SePay")
                                                 : (method.accountNumber ? `${method.bankName} • ${method.accountNumber}` : "Chưa nhập thông tin")
                                             }
                                         </p>
@@ -275,7 +281,7 @@ export default function AdminPaymentConfigPage() {
                                                         <Input
                                                             value={method.name}
                                                             onChange={(e) => updateMethod(method.id, "name", e.target.value)}
-                                                            placeholder="VD: PayOS"
+                                                            placeholder="VD: SePay"
                                                             className="rounded-xl mt-1"
                                                         />
                                                     </div>
@@ -290,58 +296,128 @@ export default function AdminPaymentConfigPage() {
                                                     </div>
                                                 </div>
 
-                                                {/* PayOS API Credentials */}
-                                                {method.type === "payos" && (
+                                                {/* SePay Config */}
+                                                {method.type === "sepay" && (
                                                     <div className="p-4 rounded-2xl bg-gradient-to-br from-emerald-50 to-teal-50 border border-emerald-100 space-y-4">
                                                         <div className="flex items-center gap-2">
                                                             <Key className="w-4 h-4 text-emerald-600" />
-                                                            <span className="text-sm font-bold text-emerald-800">PayOS API Credentials</span>
-                                                            <a href="https://my.payos.vn" target="_blank" rel="noopener noreferrer" className="ml-auto flex items-center gap-1 text-xs text-emerald-600 hover:text-emerald-700 font-medium">
-                                                                <ExternalLink className="w-3 h-3" /> Lấy API key tại my.payos.vn
+                                                            <span className="text-sm font-bold text-emerald-800">SePay Configuration</span>
+                                                            <a href="https://my.sepay.vn" target="_blank" rel="noopener noreferrer" className="ml-auto flex items-center gap-1 text-xs text-emerald-600 hover:text-emerald-700 font-medium">
+                                                                <ExternalLink className="w-3 h-3" /> Quản lý tại my.sepay.vn
                                                             </a>
                                                         </div>
-                                                        <div className="grid grid-cols-1 gap-3">
+
+                                                        {/* Bank Info (required for VietQR generation) */}
+                                                        <div className="grid grid-cols-2 gap-3">
                                                             <div>
-                                                                <Label className="text-xs font-bold text-emerald-700">Client ID</Label>
+                                                                <Label className="text-xs font-bold text-emerald-700">Tên ngân hàng</Label>
                                                                 <Input
-                                                                    value={method.payosClientId || ""}
-                                                                    onChange={(e) => updateMethod(method.id, "payosClientId", e.target.value)}
-                                                                    placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
+                                                                    value={method.bankName || ""}
+                                                                    onChange={(e) => updateMethod(method.id, "bankName", e.target.value)}
+                                                                    placeholder="VD: MB Bank, Vietcombank..."
+                                                                    className="rounded-xl mt-1"
+                                                                />
+                                                            </div>
+                                                            <div>
+                                                                <Label className="text-xs font-bold text-emerald-700">Mã BIN ngân hàng</Label>
+                                                                <Input
+                                                                    value={method.bankBin || ""}
+                                                                    onChange={(e) => updateMethod(method.id, "bankBin", e.target.value)}
+                                                                    placeholder="VD: 970422 (MB Bank)"
+                                                                    className="rounded-xl mt-1 font-mono text-sm"
+                                                                />
+                                                                <p className="text-[10px] text-emerald-400 mt-1">
+                                                                    Tra mã BIN tại <a href="https://www.vietqr.io/danh-sach-ngan-hang" target="_blank" className="underline">vietqr.io</a>
+                                                                </p>
+                                                            </div>
+                                                            <div>
+                                                                <Label className="text-xs font-bold text-emerald-700">Số tài khoản</Label>
+                                                                <Input
+                                                                    value={method.accountNumber || ""}
+                                                                    onChange={(e) => updateMethod(method.id, "accountNumber", e.target.value)}
+                                                                    placeholder="VD: 0123456789"
                                                                     className="rounded-xl mt-1 font-mono text-sm"
                                                                 />
                                                             </div>
                                                             <div>
-                                                                <Label className="text-xs font-bold text-emerald-700">API Key</Label>
+                                                                <Label className="text-xs font-bold text-emerald-700">Chủ tài khoản</Label>
                                                                 <Input
-                                                                    value={method.payosApiKey || ""}
-                                                                    onChange={(e) => updateMethod(method.id, "payosApiKey", e.target.value)}
-                                                                    placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
-                                                                    className="rounded-xl mt-1 font-mono text-sm"
-                                                                    type="password"
-                                                                />
-                                                            </div>
-                                                            <div>
-                                                                <Label className="text-xs font-bold text-emerald-700">Checksum Key</Label>
-                                                                <Input
-                                                                    value={method.payosChecksumKey || ""}
-                                                                    onChange={(e) => updateMethod(method.id, "payosChecksumKey", e.target.value)}
-                                                                    placeholder="xxxxxxxxxxxxxxxxxxxxxxxxxx"
-                                                                    className="rounded-xl mt-1 font-mono text-sm"
-                                                                    type="password"
+                                                                    value={method.accountName || ""}
+                                                                    onChange={(e) => updateMethod(method.id, "accountName", e.target.value)}
+                                                                    placeholder="VD: NGUYEN VAN A"
+                                                                    className="rounded-xl mt-1"
                                                                 />
                                                             </div>
                                                         </div>
 
-                                                        {/* Webhook URL */}
+                                                        {/* Merchant ID & Secret Key */}
+                                                        <div className="grid grid-cols-2 gap-3">
+                                                            <div>
+                                                                <Label className="text-xs font-bold text-emerald-700">Merchant ID</Label>
+                                                                <Input
+                                                                    value={method.sepayMerchantId || ""}
+                                                                    onChange={(e) => updateMethod(method.id, "sepayMerchantId", e.target.value)}
+                                                                    placeholder="VD: SP-XXXXXX"
+                                                                    className="rounded-xl mt-1 font-mono text-sm"
+                                                                />
+                                                                <p className="text-[10px] text-emerald-400 mt-1">Merchant ID từ SePay</p>
+                                                            </div>
+                                                            <div>
+                                                                <Label className="text-xs font-bold text-emerald-700">Secret Key</Label>
+                                                                <Input
+                                                                    value={method.sepaySecretKey || ""}
+                                                                    onChange={(e) => updateMethod(method.id, "sepaySecretKey", e.target.value)}
+                                                                    placeholder="spsk_..."
+                                                                    className="rounded-xl mt-1 font-mono text-sm"
+                                                                    type="password"
+                                                                />
+                                                                <p className="text-[10px] text-emerald-400 mt-1">Dùng để xác thực IPN</p>
+                                                            </div>
+                                                        </div>
+
+                                                        {/* Environment Selector */}
+                                                        <div>
+                                                            <Label className="text-xs font-bold text-emerald-700">Môi trường SePay</Label>
+                                                            <div className="grid grid-cols-2 gap-2 mt-1">
+                                                                <button
+                                                                    type="button"
+                                                                    onClick={() => updateMethod(method.id, "sepayEnv", "production")}
+                                                                    className={`p-3 rounded-xl border-2 text-left transition-all ${(method.sepayEnv || "production") === "production"
+                                                                        ? "border-emerald-500 bg-emerald-50"
+                                                                        : "border-gray-200 bg-white hover:border-emerald-300"}`}
+                                                                >
+                                                                    <div className="flex items-center gap-2">
+                                                                        <div className={`w-3 h-3 rounded-full ${(method.sepayEnv || "production") === "production" ? "bg-emerald-500" : "bg-gray-300"}`} />
+                                                                        <span className="text-sm font-bold text-gray-800">Production</span>
+                                                                    </div>
+                                                                    <p className="text-[10px] text-gray-400 mt-1 ml-5">Thanh toán thật</p>
+                                                                </button>
+                                                                <button
+                                                                    type="button"
+                                                                    onClick={() => updateMethod(method.id, "sepayEnv", "sandbox")}
+                                                                    className={`p-3 rounded-xl border-2 text-left transition-all ${method.sepayEnv === "sandbox"
+                                                                        ? "border-amber-500 bg-amber-50"
+                                                                        : "border-gray-200 bg-white hover:border-amber-300"}`}
+                                                                >
+                                                                    <div className="flex items-center gap-2">
+                                                                        <div className={`w-3 h-3 rounded-full ${method.sepayEnv === "sandbox" ? "bg-amber-500" : "bg-gray-300"}`} />
+                                                                        <span className="text-sm font-bold text-gray-800">Sandbox</span>
+                                                                    </div>
+                                                                    <p className="text-[10px] text-gray-400 mt-1 ml-5">Test, không mất tiền</p>
+                                                                </button>
+                                                            </div>
+                                                        </div>
+
+                                                        {/* IPN URL */}
                                                         <div className="p-3 rounded-xl bg-white/60 border border-emerald-100">
                                                             <div className="flex items-center justify-between mb-1">
-                                                                <Label className="text-xs font-bold text-emerald-700">Webhook URL (đặt trong my.payos.vn)</Label>
-                                                                <button onClick={() => copyToClipboard(payosWebhookUrl)} className="flex items-center gap-1 text-xs text-emerald-600 hover:text-emerald-700">
+                                                                <Label className="text-xs font-bold text-emerald-700">IPN URL (đặt trong Cổng thanh toán → Cấu hình → IPN)</Label>
+                                                                <button onClick={() => copyToClipboard(sepayIpnUrl)} className="flex items-center gap-1 text-xs text-emerald-600 hover:text-emerald-700">
                                                                     <Copy className="w-3 h-3" /> Copy
                                                                 </button>
                                                             </div>
                                                             <code className="block text-xs text-emerald-800 font-mono bg-emerald-100/50 px-3 py-2 rounded-lg break-all">
-                                                                {payosWebhookUrl}
+                                                                {sepayIpnUrl}
                                                             </code>
                                                         </div>
 
@@ -349,14 +425,18 @@ export default function AdminPaymentConfigPage() {
                                                             <div className="flex items-start gap-2">
                                                                 <AlertTriangle className="w-4 h-4 text-amber-500 mt-0.5 flex-shrink-0" />
                                                                 <div className="text-xs text-amber-700">
-                                                                    <p className="font-bold">Lưu ý cấu hình:</p>
+                                                                    <p className="font-bold">Hướng dẫn cấu hình SePay Payment Gateway:</p>
                                                                     <ol className="list-decimal list-inside mt-1 space-y-0.5">
-                                                                        <li>Đăng nhập <a href="https://my.payos.vn" target="_blank" className="underline">my.payos.vn</a></li>
-                                                                        <li>Vào cổng thanh toán → Cài đặt → Copy Client ID, API Key, Checksum Key</li>
-                                                                        <li>Dán vào 3 ô ở trên</li>
-                                                                        <li>Đặt Webhook URL ở trên vào phần Webhook trong cài đặt PayOS</li>
-                                                                        <li>Lưu lại và test thanh toán</li>
+                                                                        <li>Đăng nhập <a href="https://my.sepay.vn" target="_blank" className="underline">my.sepay.vn</a></li>
+                                                                        <li>Vào <strong>Cổng thanh toán</strong> → <strong>Phương thức thanh toán</strong></li>
+                                                                        <li>Kích hoạt &quot;Quét mã QR chuyển khoản ngân hàng&quot;</li>
+                                                                        <li>Sao chép <strong>Merchant ID</strong> và <strong>Secret Key</strong> vào ô trên</li>
+                                                                        <li>Vào <strong>Cổng thanh toán</strong> → <strong>Cấu hình</strong> → <strong>IPN</strong></li>
+                                                                        <li>Dán URL IPN ở trên vào và lưu lại</li>
                                                                     </ol>
+                                                                    <p className="mt-2 text-amber-600 font-medium">
+                                                                        💡 SePay sẽ gửi IPN khi có giao dịch thanh toán thành công. User sẽ được redirect đến trang thanh toán SePay.
+                                                                    </p>
                                                                 </div>
                                                             </div>
                                                         </div>
