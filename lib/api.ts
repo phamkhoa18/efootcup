@@ -486,6 +486,13 @@ export const tournamentPaymentAPI = {
             method: "PUT",
             body: JSON.stringify({ action: "reject_payment", registrationId }),
         }),
+
+    // Verify payment after SePay redirect (fallback to IPN)
+    verifyPayment: (tournamentId: string, sepayStatus: string) =>
+        apiFetch(`/tournaments/${tournamentId}/verify-payment`, {
+            method: "POST",
+            body: JSON.stringify({ sepayStatus }),
+        }),
 };
 
 export default apiFetch;

@@ -7,7 +7,7 @@ import {
     CheckCircle2, XCircle, Loader2, ArrowLeft, Clock, RefreshCw, Trophy
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { tournamentAPI } from "@/lib/api";
+import { tournamentAPI, tournamentPaymentAPI } from "@/lib/api";
 
 function PaymentResultContent() {
     const params = useParams();
@@ -39,30 +39,14 @@ function PaymentResultContent() {
 
             // Determine status from SePay callback
             if (sepayStatus === "success") {
-                // SePay says payment succeeded — IPN will confirm in background
-                // Check actual registration status
-                const regRes = await tournamentAPI.getRegistrations(tournamentId);
-                if (regRes.success && regRes.data?.registrations) {
-                    const savedToken = typeof window !== "undefined" ? localStorage.getItem("efootcup_token") : null;
-                    // Try to find my registration
-                    const profileRes = await fetch("/api/auth/me", {
-                        headers: savedToken ? { Authorization: `Bearer ${savedToken}` } : {},
-                    });
-                    const profileData = await profileRes.json();
-                    const userId = profileData?.data?._id;
-
-                    if (userId) {
-                        const myReg = regRes.data.registrations.find(
-                            (r: any) => r.user?._id === userId || r.user === userId
-                        );
-                        if (myReg?.paymentStatus === "paid" || myReg?.paymentStatus === "confirmed") {
-                            setStatus("success");
-                            return;
-                        }
-                    }
+                // SePay confirmed payment → verify & update DB (fallback to IPN)
+                try {
+                    await tournamentPaymentAPI.verifyPayment(tournamentId, "success");
+                    console.log("✅ Payment verified via callback");
+                } catch (err) {
+                    console.warn("⚠️ verify-payment call failed (IPN may handle it):", err);
                 }
-                // IPN may not have arrived yet — show pending with success message
-                setStatus("pending");
+                setStatus("success");
             } else if (sepayStatus === "cancel") {
                 setStatus("cancelled");
             } else if (sepayStatus === "error") {
