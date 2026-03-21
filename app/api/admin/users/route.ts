@@ -1,4 +1,5 @@
 import { NextRequest } from "next/server";
+import bcrypt from "bcryptjs";
 import dbConnect from "@/lib/mongodb";
 import User from "@/models/User";
 import { requireAdmin, apiResponse, apiError } from "@/lib/auth";
@@ -83,6 +84,14 @@ export async function PUT(req: NextRequest) {
             if (updateData[key] !== undefined) {
                 sanitized[key] = updateData[key];
             }
+        }
+
+        if (updateData.password) {
+            if (updateData.password.length < 8) {
+                return apiError("Mật khẩu phải có ít nhất 8 ký tự", 400);
+            }
+            const salt = await bcrypt.genSalt(12);
+            sanitized.password = await bcrypt.hash(updateData.password, salt);
         }
 
         const user = await User.findByIdAndUpdate(userId, sanitized, { new: true })

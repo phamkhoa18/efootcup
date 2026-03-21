@@ -258,6 +258,41 @@ async function handleBankTransferWebhook(body: any, paymentConfig: any, jsonRes:
     }
 
     if (!registration) {
+        // PAY code from SePay PG: try to link to a registration that was recently
+        // paid by PG IPN (which uses EFCUP invoice, not PAY code)
+        // This bridges the gap: PG IPN marks paid with EFCUP → bank webhook has PAY code
+        if (code && /^PAY[A-F0-9]{10,}/i.test(code) && transferAmount > 0) {
+            console.log(`🔗 SePay Bank webhook: Trying to link PAY code ${code} to recently paid registration...`);
+            
+            const thirtyMinAgo = new Date(Date.now() - 30 * 60 * 1000);
+            const recentlyPaid = await Registration.find({
+                paymentMethod: "sepay",
+                paymentStatus: "paid",
+                paymentAmount: transferAmount,
+                paymentConfirmedAt: { $gte: thirtyMinAgo },
+            });
+
+            for (const reg of recentlyPaid) {
+                try {
+                    const noteData = JSON.parse(reg.paymentNote || "{}");
+                    // Skip if already has this PAY code or bankPayCode
+                    if (noteData.bankPayCode) continue;
+
+                    // Store the PAY code for future reconciliation
+                    noteData.bankPayCode = code;
+                    noteData.bankContent = content;
+                    noteData.bankTransactionId = String(sepayTxId || "");
+                    noteData.bankTransactionDate = transactionDate;
+                    noteData.bankGateway = gateway;
+                    reg.paymentNote = JSON.stringify(noteData);
+                    await reg.save();
+
+                    console.log(`✅ SePay Bank webhook: Linked PAY code ${code} to registration ${reg._id} (invoice: ${noteData.invoiceNumber})`);
+                    return jsonRes({ success: true });
+                } catch {}
+            }
+        }
+
         console.error(`SePay Bank webhook: no matching registration for code=${code}, content="${content}"`);
         // Still return 200 to acknowledge
         return jsonRes({ success: true });

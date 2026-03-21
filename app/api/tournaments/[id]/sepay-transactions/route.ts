@@ -134,6 +134,10 @@ export async function GET(req: NextRequest, { params }: RouteParams) {
                 if (noteData.orderCode) {
                     payCodeMap.set(noteData.orderCode.toUpperCase(), regData);
                 }
+                // Index by bankPayCode (PAY code linked by bank webhook)
+                if (noteData.bankPayCode) {
+                    payCodeMap.set(noteData.bankPayCode.toUpperCase(), regData);
+                }
                 if (noteData.sepayOrderId) {
                     payCodeMap.set(String(noteData.sepayOrderId).toUpperCase(), regData);
                 }

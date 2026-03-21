@@ -5,7 +5,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import {
     Users, Search, Filter, Crown, Shield, UserCheck, UserX,
     MoreVertical, Mail, Phone, Calendar, Loader2, ChevronDown,
-    CheckCircle2, XCircle, Trash2, Edit, ArrowUpRight, Download, Hash
+    CheckCircle2, XCircle, Trash2, Edit, ArrowUpRight, Download, Hash, Key
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -42,6 +42,12 @@ export default function AdminUsersPage() {
     const [pagination, setPagination] = useState<any>({ page: 1, total: 0, totalPages: 1 });
     const [editUser, setEditUser] = useState<any>(null);
     const [editForm, setEditForm] = useState({ role: "", isActive: true, isVerified: true });
+    
+    // Reset Password State
+    const [resetUser, setResetUser] = useState<any>(null);
+    const [newPassword, setNewPassword] = useState("");
+    const [isResetting, setIsResetting] = useState(false);
+
     const { confirm } = useConfirmDialog();
 
     useEffect(() => {
@@ -144,6 +150,30 @@ export default function AdminUsersPage() {
             }
         } catch (e: any) {
             toast.error(e.message || "Có lỗi xảy ra");
+        }
+    };
+
+    const handleResetPasswordSubmit = async () => {
+        if (!resetUser || !newPassword) return;
+        if (newPassword.length < 8) {
+            toast.error("Mật khẩu phải có ít nhất 8 ký tự");
+            return;
+        }
+
+        setIsResetting(true);
+        try {
+            const res = await adminAPI.updateUser(resetUser._id, { password: newPassword });
+            if (res.success) {
+                toast.success(`Đã đổi mật khẩu cho ${resetUser.name}`);
+                setResetUser(null);
+                setNewPassword("");
+            } else {
+                toast.error(res.message);
+            }
+        } catch (e: any) {
+            toast.error(e.message || "Có lỗi xảy ra");
+        } finally {
+            setIsResetting(false);
         }
     };
 
@@ -317,6 +347,9 @@ export default function AdminUsersPage() {
                                                                 <><UserCheck className="w-3.5 h-3.5 mr-2" /> Mở khóa</>
                                                             )}
                                                         </DropdownMenuItem>
+                                                        <DropdownMenuItem onClick={() => { setResetUser(u); setNewPassword(""); }} className="cursor-pointer text-blue-600">
+                                                            <Key className="w-3.5 h-3.5 mr-2" /> Đặt lại mật khẩu
+                                                        </DropdownMenuItem>
                                                         <DropdownMenuSeparator />
                                                         <DropdownMenuItem onClick={() => handleDelete(u._id, u.name)} className="text-red-600 cursor-pointer">
                                                             <Trash2 className="w-3.5 h-3.5 mr-2" /> Xóa người dùng
@@ -431,6 +464,57 @@ export default function AdminUsersPage() {
                                     className="flex-1 bg-efb-blue text-white hover:bg-efb-blue/90 rounded-xl"
                                 >
                                     Lưu thay đổi
+                                </Button>
+                            </div>
+                        </div>
+                    )}
+                </DialogContent>
+            </Dialog>
+
+            {/* Reset Password Modal */}
+            <Dialog open={!!resetUser} onOpenChange={(v) => !v && setResetUser(null)}>
+                <DialogContent className="sm:max-w-[420px]">
+                    <DialogHeader>
+                        <DialogTitle>Đặt lại mật khẩu</DialogTitle>
+                    </DialogHeader>
+                    {resetUser && (
+                        <div className="space-y-4 pt-2">
+                            <div className="flex items-start gap-3 p-3 rounded-xl bg-blue-50/50 border border-blue-100">
+                                <Shield className="w-5 h-5 text-blue-500 mt-0.5 flex-shrink-0" />
+                                <div className="text-[13px] text-blue-700 leading-relaxed">
+                                    <span className="font-semibold block mb-1">Mật khẩu được bảo mật</span>
+                                    Vì lý do bảo mật, mật khẩu hiện tại của người dùng đã được mã hóa một chiều (bcrypt). Không ai có thể xem được mật khẩu cũ. Bạn chỉ có thể đặt lại mật khẩu mới.
+                                </div>
+                            </div>
+                            
+                            <div className="space-y-3">
+                                <Label htmlFor="new-password">Mật khẩu mới cho <span className="font-bold text-efb-blue">{resetUser.name}</span></Label>
+                                <Input
+                                    id="new-password"
+                                    type="text"
+                                    placeholder="Nhập mật khẩu mới (ít nhất 8 ký tự)..."
+                                    value={newPassword}
+                                    onChange={(e) => setNewPassword(e.target.value)}
+                                    className="h-11 rounded-xl"
+                                />
+                            </div>
+
+                            <div className="flex gap-3 pt-4">
+                                <Button
+                                    variant="outline"
+                                    onClick={() => setResetUser(null)}
+                                    className="flex-1 rounded-xl"
+                                    disabled={isResetting}
+                                >
+                                    Hủy
+                                </Button>
+                                <Button
+                                    onClick={handleResetPasswordSubmit}
+                                    className="flex-1 bg-blue-600 text-white hover:bg-blue-700 rounded-xl"
+                                    disabled={isResetting || !newPassword || newPassword.length < 8}
+                                >
+                                    {isResetting ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Key className="w-4 h-4 mr-2" />}
+                                    Lưu mật khẩu mới
                                 </Button>
                             </div>
                         </div>

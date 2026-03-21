@@ -19,7 +19,7 @@ import {
     Phone, Mail, Facebook, ExternalLink, MapPin, Calendar as CalendarIcon, Gamepad2, User,
     FileSpreadsheet, Hash, Shield, Sparkles, Trophy,
     Trash2, Edit3, MoreVertical, RotateCcw, ChevronDown, ChevronRight, ChevronLeft, Camera, ChevronsUpDown, MapPinned,
-    ArrowDownToLine, Wallet, Receipt, LinkIcon, BadgeCheck, CircleDollarSign
+    ArrowDownToLine, Wallet, Receipt, LinkIcon, BadgeCheck, CircleDollarSign, ShieldCheck
 } from "lucide-react";
 import { tournamentAPI, tournamentPaymentAPI } from "@/lib/api";
 import * as XLSX from "xlsx";
@@ -522,13 +522,15 @@ export default function DangKyPage() {
                 "Ngày TT": r.paymentDate ? new Date(r.paymentDate).toLocaleString('vi-VN') : "",
                 "Xác nhận TT lúc": r.paymentConfirmedAt ? new Date(r.paymentConfirmedAt).toLocaleString('vi-VN') : "",
                 // === THÔNG TIN THANH TOÁN (ĐỐI CHIẾU) ===
-                "Mã thanh toán": noteData.orderCode || "",
-                "SePay Transaction ID": noteData.sepayTransactionId || noteData.paymentLinkId || "",
-                "Mã GD Ngân hàng": noteData.reference || noteData.referenceCode || "",
-                "Thời gian GD": noteData.transactionDate || noteData.transactionDateTime || "",
-                "Nguồn xác nhận": noteData.confirmedByWebhook ? "Webhook (tự động)" : noteData.confirmedByVerify ? "Verify (thủ công)" : noteData.confirmedBy || "",
-                "Ngân hàng": noteData.gateway || "",
-                "Nội dung CK": noteData.content || "",
+                "Mã hóa đơn (EFCUP)": noteData.invoiceNumber || "",
+                "Mã PAY (SePay)": noteData.bankPayCode || noteData.orderCode || "",
+                "SePay Transaction ID": noteData.transactionId || noteData.bankTransactionId || "",
+                "SePay Order ID": noteData.sepayOrderId || "",
+                "Mã GD Ngân hàng": noteData.bankDetails?.referenceCode || noteData.referenceCode || "",
+                "Thời gian GD": noteData.transactionDate || noteData.bankTransactionDate || "",
+                "Nguồn xác nhận": noteData.confirmedByIPN ? "PG IPN (tự động)" : noteData.confirmedByWebhook ? "Bank Webhook (tự động)" : noteData.confirmedByVerify ? "Verify (thủ công)" : noteData.source || "",
+                "Ngân hàng": noteData.bankDetails?.gateway || noteData.bankGateway || noteData.gateway || "",
+                "Nội dung CK": noteData.bankDetails?.content || noteData.bankContent || noteData.content || "",
                 "Cảnh báo số tiền": noteData.amountMismatch ? `⚠️ Nhận ${noteData.receivedAmount}, cần ${noteData.expectedAmount}` : "",
                 // === KHÁC ===
                 "Minh chứng TT": r.paymentProof ? `${window.location.origin}${r.paymentProof}` : "",
@@ -636,6 +638,34 @@ export default function DangKyPage() {
         const fileName = `GD_SePay_${tournament?.title?.replace(/[^a-zA-Z0-9\u00C0-\u024F\u1E00-\u1EFF]/g, '_') || 'GiaiDau'}_${new Date().toISOString().slice(0, 10)}.xlsx`;
         XLSX.writeFile(wb, fileName);
         toast.success(`Đã xuất ${data.length} giao dịch SePay ra Excel`);
+    };
+
+    // Batch verify all unpaid SePay registrations via SePay PG SDK
+    const [isVerifyingAll, setIsVerifyingAll] = useState(false);
+    const handleBatchVerifySepay = async () => {
+        setIsVerifyingAll(true);
+        try {
+            const res = await fetch(`/api/tournaments/${id}/verify-all-payments`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+            });
+            const json = await res.json();
+            if (json.success) {
+                const d = json.data;
+                toast.success(`Đã kiểm tra ${d.total} đăng ký: ${d.verified} xác nhận TT, ${d.notPaid} chưa TT, ${d.errors} lỗi`);
+                if (d.verified > 0) {
+                    // Refresh data
+                    loadRegistrations();
+                    loadSepayTransactions();
+                }
+            } else {
+                toast.error(json.message || "Lỗi khi đồng bộ");
+            }
+        } catch {
+            toast.error("Lỗi kết nối");
+        } finally {
+            setIsVerifyingAll(false);
+        }
     };
 
     // Quick approve: Confirm payment + Approve registration from SePay dialog
@@ -1298,53 +1328,65 @@ export default function DangKyPage() {
                                 </div>
 
                                 {/* Transaction Details */}
-                                {(paymentDetailView.paymentMethod === "sepay" || paymentDetailView.paymentMethod === "payos") && (noteData.orderCode || noteData.referenceCode || noteData.reference) && (
+                                {(paymentDetailView.paymentMethod === "sepay" || paymentDetailView.paymentMethod === "payos") && (noteData.invoiceNumber || noteData.bankPayCode || noteData.transactionId) && (
                                     <div>
                                         <div className="text-[10px] font-bold text-indigo-500 uppercase tracking-wider mb-2.5 flex items-center gap-1.5">
                                             <Shield className="w-3 h-3" />
                                             Thông tin giao dịch (đối chiếu)
                                         </div>
                                         <div className="rounded-xl border border-indigo-100 bg-indigo-50/30 overflow-hidden">
-                                            {noteData.orderCode && (
+                                            {noteData.invoiceNumber && (
                                                 <div className="px-4 py-2.5 flex items-center justify-between border-b border-indigo-100/50">
-                                                    <span className="text-[11px] text-gray-500">Mã thanh toán</span>
-                                                    <span className="text-[12px] font-mono font-bold text-indigo-700 bg-indigo-100 px-2 py-0.5 rounded-md">{noteData.orderCode}</span>
+                                                    <span className="text-[11px] text-gray-500">Mã hóa đơn (EFCUP)</span>
+                                                    <span className="text-[12px] font-mono font-bold text-indigo-700 bg-indigo-100 px-2 py-0.5 rounded-md">{noteData.invoiceNumber}</span>
                                                 </div>
                                             )}
-                                            {noteData.sepayTransactionId && (
+                                            {(noteData.bankPayCode || noteData.orderCode) && (
+                                                <div className="px-4 py-2.5 flex items-center justify-between border-b border-indigo-100/50">
+                                                    <span className="text-[11px] text-gray-500">Mã PAY (SePay)</span>
+                                                    <span className="text-[12px] font-mono font-bold text-purple-700 bg-purple-50 px-2 py-0.5 rounded-md">{noteData.bankPayCode || noteData.orderCode}</span>
+                                                </div>
+                                            )}
+                                            {(noteData.transactionId || noteData.bankTransactionId) && (
                                                 <div className="px-4 py-2.5 flex items-center justify-between border-b border-indigo-100/50">
                                                     <span className="text-[11px] text-gray-500">SePay Transaction ID</span>
-                                                    <span className="text-[11px] font-mono text-gray-700">{noteData.sepayTransactionId}</span>
+                                                    <span className="text-[11px] font-mono text-gray-700">{noteData.transactionId || noteData.bankTransactionId}</span>
                                                 </div>
                                             )}
-                                            {(noteData.referenceCode || noteData.reference) && (
+                                            {noteData.sepayOrderId && (
+                                                <div className="px-4 py-2.5 flex items-center justify-between border-b border-indigo-100/50">
+                                                    <span className="text-[11px] text-gray-500">SePay Order ID</span>
+                                                    <span className="text-[11px] font-mono text-gray-700">{noteData.sepayOrderId}</span>
+                                                </div>
+                                            )}
+                                            {(noteData.bankDetails?.referenceCode || noteData.referenceCode) && (
                                                 <div className="px-4 py-2.5 flex items-center justify-between border-b border-indigo-100/50">
                                                     <span className="text-[11px] text-gray-500">Mã GD ngân hàng</span>
-                                                    <span className="text-[12px] font-mono font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-md">{noteData.referenceCode || noteData.reference}</span>
+                                                    <span className="text-[12px] font-mono font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-md">{noteData.bankDetails?.referenceCode || noteData.referenceCode}</span>
                                                 </div>
                                             )}
-                                            {(noteData.transactionDate || noteData.transactionDateTime) && (
+                                            {(noteData.transactionDate || noteData.bankTransactionDate) && (
                                                 <div className="px-4 py-2.5 flex items-center justify-between border-b border-indigo-100/50">
                                                     <span className="text-[11px] text-gray-500">Thời gian GD</span>
-                                                    <span className="text-[11px] text-gray-700">{noteData.transactionDate || noteData.transactionDateTime}</span>
+                                                    <span className="text-[11px] text-gray-700">{noteData.transactionDate || noteData.bankTransactionDate}</span>
                                                 </div>
                                             )}
-                                            {noteData.gateway && (
+                                            {(noteData.bankDetails?.gateway || noteData.bankGateway || noteData.gateway) && (
                                                 <div className="px-4 py-2.5 flex items-center justify-between border-b border-indigo-100/50">
                                                     <span className="text-[11px] text-gray-500">Ngân hàng</span>
-                                                    <span className="text-[11px] font-medium text-gray-800">{noteData.gateway}</span>
+                                                    <span className="text-[11px] font-medium text-gray-800">{noteData.bankDetails?.gateway || noteData.bankGateway || noteData.gateway}</span>
                                                 </div>
                                             )}
-                                            {noteData.content && (
+                                            {(noteData.bankDetails?.content || noteData.bankContent || noteData.content) && (
                                                 <div className="px-4 py-2.5 flex items-center justify-between border-b border-indigo-100/50">
                                                     <span className="text-[11px] text-gray-500">Nội dung CK</span>
-                                                    <span className="text-[11px] text-gray-700 truncate max-w-[200px]">{noteData.content}</span>
+                                                    <span className="text-[11px] text-gray-700 truncate max-w-[200px]">{noteData.bankDetails?.content || noteData.bankContent || noteData.content}</span>
                                                 </div>
                                             )}
                                             <div className="px-4 py-2.5 flex items-center justify-between">
                                                 <span className="text-[11px] text-gray-500">Nguồn xác nhận</span>
-                                                <Badge variant="outline" className={`text-[10px] ${noteData.confirmedByWebhook ? 'bg-emerald-50 text-emerald-600 border-emerald-200' : 'bg-blue-50 text-blue-600 border-blue-200'}`}>
-                                                    {noteData.confirmedByWebhook ? "Webhook (tự động)" : noteData.confirmedByVerify ? "Verify (kiểm tra)" : noteData.confirmedBy || "Chưa xác nhận"}
+                                                <Badge variant="outline" className={`text-[10px] ${(noteData.confirmedByIPN || noteData.confirmedByWebhook) ? 'bg-emerald-50 text-emerald-600 border-emerald-200' : 'bg-blue-50 text-blue-600 border-blue-200'}`}>
+                                                    {noteData.confirmedByIPN ? "PG IPN (tự động)" : noteData.confirmedByWebhook ? "Bank Webhook (tự động)" : noteData.confirmedByVerify ? "Verify (kiểm tra)" : noteData.source || "Chưa xác nhận"}
                                                 </Badge>
                                             </div>
                                         </div>
@@ -2377,9 +2419,12 @@ export default function DangKyPage() {
                                     <p className="text-sm text-gray-400 mt-0.5">{"Giao dịch ngân hàng \u2022 Đối chiếu đăng ký"}</p>
                                 </div>
                             </div>
-                            <div className="flex items-center gap-2 ml-[52px] sm:ml-0">
+                            <div className="flex items-center gap-2 ml-[52px] sm:ml-0 flex-wrap">
                                 <Button variant="outline" size="sm" className="h-9 text-sm px-3 gap-1.5" onClick={handleExportSepayTransactions} disabled={sepayTransactions.length === 0}>
                                     <Download className="w-4 h-4" /> {"Xuất Excel"}
+                                </Button>
+                                <Button variant="outline" size="sm" className="h-9 text-sm px-3 gap-1.5 border-purple-200 text-purple-600 hover:bg-purple-50" onClick={handleBatchVerifySepay} disabled={isVerifyingAll}>
+                                    {isVerifyingAll ? <Loader2 className="w-4 h-4 animate-spin" /> : <ShieldCheck className="w-4 h-4" />} {"Đồng bộ SePay"}
                                 </Button>
                                 <Button variant="outline" size="sm" className="h-9 text-sm px-3 gap-1.5" onClick={() => loadSepayTransactions()} disabled={isLoadingSepay}>
                                     <RefreshCw className={`w-4 h-4 ${isLoadingSepay ? 'animate-spin' : ''}`} /> {"Tải lại"}
