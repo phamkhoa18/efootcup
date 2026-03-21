@@ -18,6 +18,7 @@ export interface IPaymentMethod {
     sepayMerchantId?: string;  // VD: SP-TEST-PKBA556A
     sepaySecretKey?: string;   // Secret Key dùng verify IPN
     sepayEnv?: "sandbox" | "production"; // Môi trường SePay
+    sepayApiToken?: string;    // API Token từ my.sepay.vn (dùng lấy danh sách giao dịch)
 }
 
 export interface IPaymentConfig extends Document {
@@ -56,6 +57,7 @@ const PaymentMethodSchema = new Schema({
     sepayMerchantId: { type: String, default: "" },
     sepaySecretKey: { type: String, default: "" },
     sepayEnv: { type: String, enum: ["sandbox", "production"], default: "production" },
+    sepayApiToken: { type: String, default: "" },
 });
 
 const PaymentConfigSchema = new Schema(

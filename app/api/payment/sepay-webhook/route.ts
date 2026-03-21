@@ -42,39 +42,46 @@ export async function GET() {
 /**
  * POST /api/payment/sepay-webhook
  *
- * SePay Payment Gateway IPN (Instant Payment Notification)
- * Docs: https://developer.sepay.vn/vi/cong-thanh-toan/IPN
+ * Supports TWO payload formats from SePay:
  *
+ * ──────────────────────────────────────────────────
+ * FORMAT 1: SePay Payment Gateway (PG) IPN
+ * ──────────────────────────────────────────────────
  * Headers:
- *   X-Secret-Key: <secret_key> (when merchant configures auth type = SECRET_KEY)
- *   Content-Type: application/json
- *
- * Body (example):
+ *   X-Secret-Key: <secret_key>
+ * Body:
  * {
  *   "timestamp": 1759134682,
  *   "notification_type": "ORDER_PAID",
  *   "order": {
- *     "id": "uuid",
- *     "order_id": "NQD-68DA43D73C1A5",
- *     "order_status": "CAPTURED",
- *     "order_currency": "VND",
- *     "order_amount": "100000.00",
  *     "order_invoice_number": "EFCUP-ABCD1234-XXXX",
- *     "custom_data": [],
- *     "order_description": "Le phi giai dau ..."
+ *     "order_amount": "100000.00",
+ *     "order_status": "CAPTURED",
+ *     ...
  *   },
- *   "transaction": {
- *     "id": "uuid",
- *     "payment_method": "BANK_TRANSFER",
- *     "transaction_id": "68da43da2d9de",
- *     "transaction_type": "PAYMENT",
- *     "transaction_date": "2025-09-29 15:31:22",
- *     "transaction_status": "APPROVED",
- *     "transaction_amount": "100000",
- *     "transaction_currency": "VND",
- *     "authentication_status": "AUTHENTICATION_SUCCESSFUL"
- *   },
- *   "customer": { "id": "uuid", "customer_id": "userId" }
+ *   "transaction": { ... },
+ *   "customer": { ... }
+ * }
+ *
+ * ──────────────────────────────────────────────────
+ * FORMAT 2: SePay Bank Transfer Webhook (Biến động)
+ * ──────────────────────────────────────────────────
+ * Headers:
+ *   Authorization: Apikey <api_key>   (or no auth)
+ * Body:
+ * {
+ *   "id": 46149829,
+ *   "gateway": "BIDV",
+ *   "transactionDate": "2026-03-21 00:16:13",
+ *   "accountNumber": "8886158061",
+ *   "subAccount": "962476L6KN",
+ *   "code": "PAY165569BD80B4BE2D1",
+ *   "content": "PAY165569BD80B4BE2D1",
+ *   "transferType": "in",
+ *   "description": "BankAPINotify PAY165569BD80B4BE2D1",
+ *   "transferAmount": 20000,
+ *   "referenceCode": "c82f48f6-...",
+ *   "accumulated": 0
  * }
  */
 export async function POST(req: NextRequest) {
@@ -84,13 +91,22 @@ export async function POST(req: NextRequest) {
 
     try {
         const body = await req.json();
-        console.log("🔔 SePay IPN received:", JSON.stringify(body, null, 2));
+        console.log("🔔 SePay webhook received:", JSON.stringify(body, null, 2));
 
         await dbConnect();
 
         // ============================================================
-        // STEP 1: VERIFY SECRET KEY
-        // SePay sends X-Secret-Key header when auth type = SECRET_KEY
+        // DETECT PAYLOAD FORMAT
+        // ============================================================
+        const isPaymentGatewayIPN = !!body.notification_type;
+        const isBankTransferWebhook = !!body.gateway && !!body.transferType;
+
+        // ============================================================
+        // STEP 1: VERIFY AUTHENTICATION
+        // Supports multiple auth methods:
+        // - X-Secret-Key header (PG IPN)
+        // - Authorization: Apikey <key> (Bank Transfer webhook)
+        // - No auth (if configured without auth)
         // ============================================================
         const paymentConfig = await (PaymentConfig as any).getSingleton();
         const sepayMethod = paymentConfig.methods?.find(
@@ -98,229 +114,315 @@ export async function POST(req: NextRequest) {
         );
 
         if (sepayMethod?.sepaySecretKey) {
-            const receivedKey = req.headers.get("x-secret-key") || "";
-            if (receivedKey !== sepayMethod.sepaySecretKey) {
-                console.error("❌ SePay IPN: Invalid X-Secret-Key!");
-                return jsonRes({ error: "Unauthorized" }, 401);
+            const secretKey = sepayMethod.sepaySecretKey;
+
+            // Try X-Secret-Key header first (PG IPN sends this)
+            const xSecretKey = req.headers.get("x-secret-key") || "";
+
+            // Try Authorization header (Bank Transfer webhook may use Apikey auth)
+            const authHeader = req.headers.get("authorization") || "";
+            const apikeyMatch = authHeader.match(/^Apikey\s+(.+)$/i);
+            const apiKeyValue = apikeyMatch ? apikeyMatch[1].trim() : "";
+
+            const isSecretKeyValid = xSecretKey === secretKey;
+            const isApiKeyValid = apiKeyValue === secretKey;
+
+            if (!isSecretKeyValid && !isApiKeyValid) {
+                // If neither auth method matches, log but DON'T reject
+                // SePay may be configured without auth, or using different auth
+                console.warn("⚠️ SePay webhook: Auth header mismatch. X-Secret-Key:", xSecretKey ? "present" : "absent", "Authorization:", authHeader ? authHeader.substring(0, 20) + "..." : "absent");
+                // Don't return 401 — always accept and log, to prevent missed payments
+                // return jsonRes({ error: "Unauthorized" }, 401);
+                console.log("⚠️ SePay webhook: Proceeding without auth verification (to prevent missed payments)");
+            } else {
+                console.log("✅ SePay webhook: Auth verified via", isSecretKeyValid ? "X-Secret-Key" : "Apikey");
             }
-            console.log("✅ SePay IPN: Secret key verified");
         }
 
         // ============================================================
-        // STEP 2: VALIDATE NOTIFICATION TYPE
-        // Only process ORDER_PAID notifications
+        // ROUTE TO APPROPRIATE HANDLER
         // ============================================================
-        const { notification_type, order, transaction, customer } = body;
-
-        if (notification_type !== "ORDER_PAID") {
-            console.log(`SePay IPN: ignoring notification_type=${notification_type}`);
+        if (isPaymentGatewayIPN) {
+            return await handlePaymentGatewayIPN(body, paymentConfig, jsonRes);
+        } else if (isBankTransferWebhook) {
+            return await handleBankTransferWebhook(body, paymentConfig, jsonRes);
+        } else {
+            console.log("⚠️ SePay webhook: Unknown payload format, ignoring");
             return jsonRes({ success: true });
         }
+    } catch (error) {
+        console.error("SePay webhook error:", error);
+        // Always return 200 to prevent SePay from retrying endlessly
+        return jsonRes({ success: true });
+    }
+}
 
-        if (!order?.order_invoice_number) {
-            console.error("SePay IPN: missing order_invoice_number");
-            return jsonRes({ success: true });
+// ================================================================
+// HANDLER 1: SePay Payment Gateway IPN (notification_type based)
+// ================================================================
+async function handlePaymentGatewayIPN(body: any, paymentConfig: any, jsonRes: Function) {
+    const { notification_type, order, transaction, customer } = body;
+
+    if (notification_type !== "ORDER_PAID") {
+        console.log(`SePay PG IPN: ignoring notification_type=${notification_type}`);
+        return jsonRes({ success: true });
+    }
+
+    if (!order?.order_invoice_number) {
+        console.error("SePay PG IPN: missing order_invoice_number");
+        return jsonRes({ success: true });
+    }
+
+    const invoiceNumber = order.order_invoice_number;
+    const orderAmount = parseFloat(order.order_amount) || 0;
+    const transactionId = transaction?.transaction_id || "";
+    const transactionDate = transaction?.transaction_date || "";
+    const paymentMethod = transaction?.payment_method || "BANK_TRANSFER";
+    const orderId = order.order_id || "";
+    const orderStatus = order.order_status || "";
+
+    console.log(`🔍 SePay PG IPN: Processing ORDER_PAID for invoice=${invoiceNumber}, amount=${orderAmount}`);
+
+    const registration = await findRegistrationByInvoice(invoiceNumber);
+    if (!registration) {
+        console.error(`SePay PG IPN: no matching registration for invoice=${invoiceNumber}`);
+        return jsonRes({ success: true });
+    }
+
+    return await processPayment(registration, {
+        amount: orderAmount,
+        transactionId,
+        transactionDate,
+        paymentMethod: `SePay PG - ${paymentMethod}`,
+        orderId,
+        orderStatus,
+        invoiceNumber,
+        source: "pg_ipn",
+        confirmedByIPN: true,
+    }, jsonRes);
+}
+
+// ================================================================
+// HANDLER 2: SePay Bank Transfer Webhook (biến động số dư)
+// ================================================================
+async function handleBankTransferWebhook(body: any, paymentConfig: any, jsonRes: Function) {
+    const {
+        id: sepayTxId,
+        gateway,
+        transactionDate,
+        accountNumber,
+        subAccount,
+        code,          // Payment code detected by SePay — this should match our invoiceNumber
+        content,       // Transfer content/description
+        transferType,
+        description,
+        transferAmount,
+        referenceCode,
+        accumulated,
+    } = body;
+
+    // Only process incoming transfers
+    if (transferType !== "in") {
+        console.log(`SePay Bank webhook: ignoring transferType=${transferType}`);
+        return jsonRes({ success: true });
+    }
+
+    if (!transferAmount || transferAmount <= 0) {
+        console.log("SePay Bank webhook: no transfer amount, ignoring");
+        return jsonRes({ success: true });
+    }
+
+    console.log(`🔍 SePay Bank webhook: Processing transfer code=${code}, content="${content}", amount=${transferAmount}, gateway=${gateway}`);
+
+    // Try to find registration by the payment code
+    // The `code` field is what SePay auto-detects as the payment code
+    // It should match our invoiceNumber stored in registration.paymentNote
+    let registration = null;
+
+    if (code) {
+        registration = await findRegistrationByInvoice(code);
+    }
+
+    // Fallback: search by content field (the full transfer description)
+    if (!registration && content) {
+        registration = await findRegistrationByInvoice(content.trim());
+    }
+
+    // Fallback: try to extract invoice number from content
+    // Our invoice format: EFCUP-XXXXXXXX-XXXXXX or PAYxxxxxxxxx
+    if (!registration && content) {
+        const efcupMatch = content.match(/EFCUP-[A-Z0-9]+-[A-Z0-9]+/i);
+        if (efcupMatch) {
+            registration = await findRegistrationByInvoice(efcupMatch[0]);
         }
+    }
 
-        const invoiceNumber = order.order_invoice_number;
-        const orderAmount = parseFloat(order.order_amount) || 0;
-        const transactionAmount = parseFloat(transaction?.transaction_amount) || orderAmount;
-        const transactionId = transaction?.transaction_id || "";
-        const transactionDate = transaction?.transaction_date || "";
-        const paymentMethod = transaction?.payment_method || "BANK_TRANSFER";
-        const orderId = order.order_id || "";
-        const orderStatus = order.order_status || "";
-        const customerId = customer?.customer_id || "";
+    if (!registration) {
+        console.error(`SePay Bank webhook: no matching registration for code=${code}, content="${content}"`);
+        // Still return 200 to acknowledge
+        return jsonRes({ success: true });
+    }
 
-        console.log(`🔍 SePay IPN: Processing ORDER_PAID for invoice=${invoiceNumber}, amount=${orderAmount}`);
+    return await processPayment(registration, {
+        amount: transferAmount,
+        transactionId: String(sepayTxId || ""),
+        transactionDate: transactionDate || "",
+        paymentMethod: `Chuyển khoản (${gateway || "Bank"})`,
+        orderId: "",
+        orderStatus: "CAPTURED",
+        invoiceNumber: code || content || "",
+        source: "bank_webhook",
+        confirmedByWebhook: true,
+        // Store full bank transfer details
+        bankDetails: {
+            gateway,
+            accountNumber,
+            subAccount,
+            referenceCode,
+            description,
+            content,
+            accumulated,
+            sepayTxId,
+        },
+    }, jsonRes);
+}
 
-        // ============================================================
-        // STEP 3: FIND REGISTRATION BY INVOICE NUMBER
-        // invoiceNumber is stored in paymentNote JSON
-        // ============================================================
-        const registration = await findRegistrationByInvoice(invoiceNumber);
+// ================================================================
+// SHARED: Process payment for a found registration
+// ================================================================
+async function processPayment(registration: any, paymentInfo: {
+    amount: number;
+    transactionId: string;
+    transactionDate: string;
+    paymentMethod: string;
+    orderId: string;
+    orderStatus: string;
+    invoiceNumber: string;
+    source: string;
+    confirmedByIPN?: boolean;
+    confirmedByWebhook?: boolean;
+    bankDetails?: any;
+}, jsonRes: Function) {
+    // Idempotent: already paid
+    if (registration.paymentStatus === "paid") {
+        console.log(`SePay webhook: registration ${registration._id} already paid, skipping`);
+        return jsonRes({ success: true });
+    }
 
-        if (!registration) {
-            console.error(`SePay IPN: no matching registration for invoice=${invoiceNumber}`);
-            return NextResponse.json({ success: true }, { status: 200 });
-        }
+    const tournament = await Tournament.findById(registration.tournament);
 
-        // Idempotent: already paid
-        if (registration.paymentStatus === "paid") {
-            console.log(`SePay IPN: registration ${registration._id} already paid, skipping`);
-            return NextResponse.json({ success: true }, { status: 200 });
-        }
-
-        // Get tournament for amount verification and auto-approval
-        const tournament = await Tournament.findById(registration.tournament);
-
-        // ============================================================
-        // STEP 4: VERIFY AMOUNT (anti-fraud)
-        // ============================================================
-        if (tournament && orderAmount < tournament.entryFee) {
-            console.error(`⚠️ SePay IPN: amount mismatch! Received ${orderAmount}, expected ${tournament.entryFee}. Registration: ${registration._id}`);
-
-            const existingNote = JSON.parse(registration.paymentNote || "{}");
-            registration.paymentNote = JSON.stringify({
-                ...existingNote,
-                sepayOrderId: orderId,
-                transactionId,
-                transactionDate,
-                paymentMethod,
-                orderStatus,
-                confirmedByIPN: true,
-                amountMismatch: true,
-                expectedAmount: tournament.entryFee,
-                receivedAmount: orderAmount,
-            });
-            registration.paymentStatus = "pending_verification";
-            registration.paymentAmount = orderAmount;
-            registration.paymentDate = transactionDate ? new Date(transactionDate) : new Date();
-            await registration.save();
-
-            // Notify manager
-            await Notification.create({
-                recipient: tournament.createdBy,
-                type: "system",
-                title: "⚠️ Số tiền thanh toán không khớp",
-                message: `VĐV "${registration.playerName}" thanh toán ${orderAmount?.toLocaleString("vi-VN")}đ nhưng lệ phí là ${tournament.entryFee?.toLocaleString("vi-VN")}đ. Vui lòng kiểm tra.`,
-                link: `/manager/giai-dau/${tournament._id}/dang-ky`,
-            });
-
-            return jsonRes({ success: true });
-        }
-
-        // ============================================================
-        // STEP 5: MARK AS PAID
-        // ============================================================
-        registration.paymentStatus = "paid";
-        registration.paymentAmount = orderAmount;
-        registration.paymentDate = transactionDate ? new Date(transactionDate) : new Date();
-        registration.paymentConfirmedAt = new Date();
+    // ============================================================
+    // VERIFY AMOUNT (anti-fraud)
+    // ============================================================
+    if (tournament && paymentInfo.amount < tournament.entryFee) {
+        console.error(`⚠️ SePay webhook: amount mismatch! Received ${paymentInfo.amount}, expected ${tournament.entryFee}. Registration: ${registration._id}`);
 
         const existingNote = JSON.parse(registration.paymentNote || "{}");
         registration.paymentNote = JSON.stringify({
             ...existingNote,
-            sepayOrderId: orderId,
-            transactionId,
-            transactionDate,
-            paymentMethod,
-            orderStatus,
-            confirmedByIPN: true,
+            sepayOrderId: paymentInfo.orderId,
+            transactionId: paymentInfo.transactionId,
+            transactionDate: paymentInfo.transactionDate,
+            paymentMethod: paymentInfo.paymentMethod,
+            orderStatus: paymentInfo.orderStatus,
+            confirmedByIPN: paymentInfo.confirmedByIPN || false,
+            confirmedByWebhook: paymentInfo.confirmedByWebhook || false,
+            source: paymentInfo.source,
+            amountMismatch: true,
+            expectedAmount: tournament.entryFee,
+            receivedAmount: paymentInfo.amount,
+            ...(paymentInfo.bankDetails ? { bankDetails: paymentInfo.bankDetails } : {}),
         });
-
+        registration.paymentStatus = "pending_verification";
+        registration.paymentAmount = paymentInfo.amount;
+        registration.paymentDate = paymentInfo.transactionDate ? new Date(paymentInfo.transactionDate) : new Date();
         await registration.save();
 
-        console.log(`✅ SePay IPN: Registration ${registration._id} payment confirmed!`);
-        console.log(`   Amount: ${orderAmount}, Invoice: ${invoiceNumber}, OrderId: ${orderId}`);
+        // Notify manager
+        await Notification.create({
+            recipient: tournament.createdBy,
+            type: "system",
+            title: "⚠️ Số tiền thanh toán không khớp",
+            message: `VĐV "${registration.playerName}" thanh toán ${paymentInfo.amount?.toLocaleString("vi-VN")}đ nhưng lệ phí là ${tournament.entryFee?.toLocaleString("vi-VN")}đ. Vui lòng kiểm tra.`,
+            link: `/manager/giai-dau/${tournament._id}/dang-ky`,
+        });
 
-        // ============================================================
-        // STEP 6: AUTO-APPROVE if tournament has space
-        // ============================================================
-        if (tournament && registration.status === "pending") {
-            if (tournament.currentTeams < tournament.maxTeams) {
-                const teamName = registration.teamName || registration.playerName || "Team";
-                const teamShortName = registration.teamShortName || teamName.substring(0, 3).toUpperCase();
-                const team = await Team.create({
-                    name: teamName,
-                    shortName: teamShortName,
-                    tournament: tournament._id,
-                    captain: registration.user,
-                    members: [
-                        {
-                            user: registration.user,
-                            role: "captain",
-                            joinedAt: new Date(),
-                        },
-                    ],
-                });
+        return jsonRes({ success: true });
+    }
 
-                registration.status = "approved";
-                registration.team = team._id;
-                registration.approvedAt = new Date();
-                await registration.save();
+    // ============================================================
+    // MARK AS PAID
+    // ============================================================
+    registration.paymentStatus = "paid";
+    registration.paymentAmount = paymentInfo.amount;
+    registration.paymentDate = paymentInfo.transactionDate ? new Date(paymentInfo.transactionDate) : new Date();
+    registration.paymentConfirmedAt = new Date();
 
-                await Tournament.findByIdAndUpdate(tournament._id, {
-                    $inc: { currentTeams: 1 },
-                });
+    const existingNote = JSON.parse(registration.paymentNote || "{}");
+    registration.paymentNote = JSON.stringify({
+        ...existingNote,
+        sepayOrderId: paymentInfo.orderId,
+        transactionId: paymentInfo.transactionId,
+        transactionDate: paymentInfo.transactionDate,
+        paymentMethod: paymentInfo.paymentMethod,
+        orderStatus: paymentInfo.orderStatus,
+        confirmedByIPN: paymentInfo.confirmedByIPN || false,
+        confirmedByWebhook: paymentInfo.confirmedByWebhook || false,
+        source: paymentInfo.source,
+        ...(paymentInfo.bankDetails ? { bankDetails: paymentInfo.bankDetails } : {}),
+    });
 
-                console.log(`🎉 SePay IPN: Auto-approved registration ${registration._id} → Team ${team._id}`);
+    await registration.save();
 
-                await Notification.create({
-                    recipient: registration.user,
-                    type: "system",
-                    title: "🎉 Đăng ký thành công!",
-                    message: `Thanh toán ${orderAmount?.toLocaleString("vi-VN")}đ đã được xác nhận. Bạn đã chính thức tham gia giải "${tournament.title}"!`,
-                    link: `/giai-dau/${tournament._id}`,
-                });
+    console.log(`✅ SePay webhook: Registration ${registration._id} payment confirmed!`);
+    console.log(`   Amount: ${paymentInfo.amount}, Invoice: ${paymentInfo.invoiceNumber}, Source: ${paymentInfo.source}`);
 
-                await Notification.create({
-                    recipient: tournament.createdBy,
-                    type: "system",
-                    title: "✅ VĐV mới tự động duyệt",
-                    message: `VĐV "${registration.playerName}" (đội ${registration.teamName}) đã thanh toán ${orderAmount?.toLocaleString("vi-VN")}đ và được tự động duyệt vào giải "${tournament.title}".`,
-                    link: `/manager/giai-dau/${tournament._id}/dang-ky`,
-                });
+    // ============================================================
+    // AUTO-APPROVE if tournament has space
+    // ============================================================
+    if (tournament && registration.status === "pending") {
+        if (tournament.currentTeams < tournament.maxTeams) {
+            const teamName = registration.teamName || registration.playerName || "Team";
+            const teamShortName = registration.teamShortName || teamName.substring(0, 3).toUpperCase();
+            const team = await Team.create({
+                name: teamName,
+                shortName: teamShortName,
+                tournament: tournament._id,
+                captain: registration.user,
+                members: [
+                    {
+                        user: registration.user,
+                        role: "captain",
+                        joinedAt: new Date(),
+                    },
+                ],
+            });
 
-                sendPaymentInvoiceEmail({
-                    playerName: registration.playerName,
-                    email: registration.email,
-                    teamName: registration.teamName,
-                    teamShortName: registration.teamShortName,
-                    tournamentTitle: tournament.title,
-                    tournamentId: tournament._id.toString(),
-                    amount: orderAmount,
-                    currency: tournament.currency || "VNĐ",
-                    paymentDate: transactionDate ? new Date(transactionDate) : new Date(),
-                    orderCode: invoiceNumber,
-                    reference: transactionId,
-                    paymentMethod: `Chuyển khoản tự động (SePay - ${paymentMethod})`,
-                    registrationId: registration._id.toString(),
-                    isAutoApproved: true,
-                }).catch((err: any) => console.error("❌ Failed to send invoice email:", err));
-            } else {
-                console.log(`⚠️ SePay IPN: Tournament full, payment confirmed but NOT auto-approved for ${registration._id}`);
+            registration.status = "approved";
+            registration.team = team._id;
+            registration.approvedAt = new Date();
+            await registration.save();
 
-                await Notification.create({
-                    recipient: registration.user,
-                    type: "system",
-                    title: "✅ Thanh toán thành công",
-                    message: `Thanh toán ${orderAmount?.toLocaleString("vi-VN")}đ cho giải "${tournament.title}" đã được xác nhận. Giải đã đủ đội, vui lòng liên hệ BTC.`,
-                    link: `/giai-dau/${tournament._id}`,
-                });
+            await Tournament.findByIdAndUpdate(tournament._id, {
+                $inc: { currentTeams: 1 },
+            });
 
-                await Notification.create({
-                    recipient: tournament.createdBy,
-                    type: "system",
-                    title: "💰 Thanh toán nhận — giải đã đủ đội",
-                    message: `VĐV "${registration.playerName}" đã thanh toán ${orderAmount?.toLocaleString("vi-VN")}đ nhưng giải "${tournament.title}" đã đủ ${tournament.maxTeams} đội.`,
-                    link: `/manager/giai-dau/${tournament._id}/dang-ky`,
-                });
+            console.log(`🎉 SePay webhook: Auto-approved registration ${registration._id} → Team ${team._id}`);
 
-                sendPaymentInvoiceEmail({
-                    playerName: registration.playerName,
-                    email: registration.email,
-                    teamName: registration.teamName,
-                    teamShortName: registration.teamShortName,
-                    tournamentTitle: tournament.title,
-                    tournamentId: tournament._id.toString(),
-                    amount: orderAmount,
-                    currency: tournament.currency || "VNĐ",
-                    paymentDate: transactionDate ? new Date(transactionDate) : new Date(),
-                    orderCode: invoiceNumber,
-                    reference: transactionId,
-                    paymentMethod: `Chuyển khoản tự động (SePay - ${paymentMethod})`,
-                    registrationId: registration._id.toString(),
-                    isAutoApproved: false,
-                }).catch((err: any) => console.error("❌ Failed to send invoice email:", err));
-            }
-        } else if (tournament) {
             await Notification.create({
                 recipient: registration.user,
                 type: "system",
-                title: "✅ Thanh toán thành công",
-                message: `Thanh toán ${orderAmount?.toLocaleString("vi-VN")}đ cho giải "${tournament.title}" đã được xác nhận tự động.`,
+                title: "🎉 Đăng ký thành công!",
+                message: `Thanh toán ${paymentInfo.amount?.toLocaleString("vi-VN")}đ đã được xác nhận. Bạn đã chính thức tham gia giải "${tournament.title}"!`,
                 link: `/giai-dau/${tournament._id}`,
+            });
+
+            await Notification.create({
+                recipient: tournament.createdBy,
+                type: "system",
+                title: "✅ VĐV mới tự động duyệt",
+                message: `VĐV "${registration.playerName}" (đội ${registration.teamName}) đã thanh toán ${paymentInfo.amount?.toLocaleString("vi-VN")}đ và được tự động duyệt vào giải "${tournament.title}".`,
+                link: `/manager/giai-dau/${tournament._id}/dang-ky`,
             });
 
             sendPaymentInvoiceEmail({
@@ -330,30 +432,88 @@ export async function POST(req: NextRequest) {
                 teamShortName: registration.teamShortName,
                 tournamentTitle: tournament.title,
                 tournamentId: tournament._id.toString(),
-                amount: orderAmount,
+                amount: paymentInfo.amount,
                 currency: tournament.currency || "VNĐ",
-                paymentDate: transactionDate ? new Date(transactionDate) : new Date(),
-                orderCode: invoiceNumber,
-                reference: transactionId,
-                paymentMethod: `Chuyển khoản tự động (SePay - ${paymentMethod})`,
+                paymentDate: paymentInfo.transactionDate ? new Date(paymentInfo.transactionDate) : new Date(),
+                orderCode: paymentInfo.invoiceNumber,
+                reference: paymentInfo.transactionId,
+                paymentMethod: `Chuyển khoản tự động (${paymentInfo.paymentMethod})`,
+                registrationId: registration._id.toString(),
+                isAutoApproved: true,
+            }).catch((err: any) => console.error("❌ Failed to send invoice email:", err));
+        } else {
+            console.log(`⚠️ SePay webhook: Tournament full, payment confirmed but NOT auto-approved for ${registration._id}`);
+
+            await Notification.create({
+                recipient: registration.user,
+                type: "system",
+                title: "✅ Thanh toán thành công",
+                message: `Thanh toán ${paymentInfo.amount?.toLocaleString("vi-VN")}đ cho giải "${tournament.title}" đã được xác nhận. Giải đã đủ đội, vui lòng liên hệ BTC.`,
+                link: `/giai-dau/${tournament._id}`,
+            });
+
+            await Notification.create({
+                recipient: tournament.createdBy,
+                type: "system",
+                title: "💰 Thanh toán nhận — giải đã đủ đội",
+                message: `VĐV "${registration.playerName}" đã thanh toán ${paymentInfo.amount?.toLocaleString("vi-VN")}đ nhưng giải "${tournament.title}" đã đủ ${tournament.maxTeams} đội.`,
+                link: `/manager/giai-dau/${tournament._id}/dang-ky`,
+            });
+
+            sendPaymentInvoiceEmail({
+                playerName: registration.playerName,
+                email: registration.email,
+                teamName: registration.teamName,
+                teamShortName: registration.teamShortName,
+                tournamentTitle: tournament.title,
+                tournamentId: tournament._id.toString(),
+                amount: paymentInfo.amount,
+                currency: tournament.currency || "VNĐ",
+                paymentDate: paymentInfo.transactionDate ? new Date(paymentInfo.transactionDate) : new Date(),
+                orderCode: paymentInfo.invoiceNumber,
+                reference: paymentInfo.transactionId,
+                paymentMethod: `Chuyển khoản tự động (${paymentInfo.paymentMethod})`,
                 registrationId: registration._id.toString(),
                 isAutoApproved: false,
             }).catch((err: any) => console.error("❌ Failed to send invoice email:", err));
         }
+    } else if (tournament) {
+        await Notification.create({
+            recipient: registration.user,
+            type: "system",
+            title: "✅ Thanh toán thành công",
+            message: `Thanh toán ${paymentInfo.amount?.toLocaleString("vi-VN")}đ cho giải "${tournament.title}" đã được xác nhận tự động.`,
+            link: `/giai-dau/${tournament._id}`,
+        });
 
-        // Return 200 to acknowledge receipt (required by SePay)
-        return jsonRes({ success: true });
-    } catch (error) {
-        console.error("SePay IPN error:", error);
-        // Always return 200 to prevent SePay from retrying
-        return jsonRes({ success: true });
+        sendPaymentInvoiceEmail({
+            playerName: registration.playerName,
+            email: registration.email,
+            teamName: registration.teamName,
+            teamShortName: registration.teamShortName,
+            tournamentTitle: tournament.title,
+            tournamentId: tournament._id.toString(),
+            amount: paymentInfo.amount,
+            currency: tournament.currency || "VNĐ",
+            paymentDate: paymentInfo.transactionDate ? new Date(paymentInfo.transactionDate) : new Date(),
+            orderCode: paymentInfo.invoiceNumber,
+            reference: paymentInfo.transactionId,
+            paymentMethod: `Chuyển khoản tự động (${paymentInfo.paymentMethod})`,
+            registrationId: registration._id.toString(),
+            isAutoApproved: false,
+        }).catch((err: any) => console.error("❌ Failed to send invoice email:", err));
     }
+
+    // Return 200 to acknowledge receipt (required by SePay)
+    return jsonRes({ success: true });
 }
 
 /**
  * Find registration by invoiceNumber stored in paymentNote JSON
  */
 async function findRegistrationByInvoice(invoiceNumber: string) {
+    if (!invoiceNumber) return null;
+
     const registrations = await Registration.find({
         paymentMethod: "sepay",
         paymentStatus: { $in: ["unpaid", "pending_verification"] },

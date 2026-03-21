@@ -18,7 +18,8 @@ import {
     CreditCard, Eye, Banknote, ImageIcon, DollarSign, AlertTriangle,
     Phone, Mail, Facebook, ExternalLink, MapPin, Calendar as CalendarIcon, Gamepad2, User,
     FileSpreadsheet, Hash, Shield, Sparkles, Trophy,
-    Trash2, Edit3, MoreVertical, RotateCcw, ChevronDown, Camera, ChevronsUpDown, MapPinned
+    Trash2, Edit3, MoreVertical, RotateCcw, ChevronDown, ChevronRight, ChevronLeft, Camera, ChevronsUpDown, MapPinned,
+    ArrowDownToLine, Wallet, Receipt, LinkIcon, BadgeCheck, CircleDollarSign
 } from "lucide-react";
 import { tournamentAPI, tournamentPaymentAPI } from "@/lib/api";
 import * as XLSX from "xlsx";
@@ -74,6 +75,19 @@ export default function DangKyPage() {
     const [editUploadingLineup, setEditUploadingLineup] = useState(false);
     const [editProvinceOpen, setEditProvinceOpen] = useState(false);
     const [vnProvinces, setVnProvinces] = useState<{ name: string; code: number }[]>([]);
+
+    // SePay transactions
+    const [isSepayDialogOpen, setIsSepayDialogOpen] = useState(false);
+    const [sepayTransactions, setSepayTransactions] = useState<any[]>([]);
+    const [isLoadingSepay, setIsLoadingSepay] = useState(false);
+    const [sepayError, setSepayError] = useState<string | null>(null);
+    const [sepayTab, setSepayTab] = useState<"issues" | "all">("issues");
+    const [sepayConfirmTx, setSepayConfirmTx] = useState<any>(null);
+    const [isProcessingSepay, setIsProcessingSepay] = useState<string | null>(null);
+    const [sepayPage, setSepayPage] = useState(1);
+    const [sepayDateFrom, setSepayDateFrom] = useState('');
+    const [sepayDateTo, setSepayDateTo] = useState('');
+    const SEPAY_PER_PAGE = 10;
 
     /* ---- Client-side image compressor (canvas-based, no deps) ---- */
     const compressImage = (file: File, maxDim = 1280, quality = 0.7): Promise<File> =>
@@ -545,6 +559,159 @@ export default function DangKyPage() {
         toast.success(`Đã xuất ${data.length} bản đăng ký ra Excel`);
     };
 
+    // =============================================
+    // SePay Transactions
+    // =============================================
+    const loadSepayTransactions = async () => {
+        setIsLoadingSepay(true);
+        setSepayError(null);
+        try {
+            const headers: Record<string, string> = {};
+            const token = localStorage.getItem("efootcup_token");
+            if (token) headers.Authorization = `Bearer ${token}`;
+
+            const res = await fetch(`/api/tournaments/${id}/sepay-transactions`, { headers });
+            const json = await res.json();
+
+            if (json.success) {
+                setSepayTransactions(json.data?.transactions || []);
+                toast.success(`Đã tải ${json.data?.transactions?.length || 0} giao dịch từ SePay`);
+            } else {
+                setSepayError(json.message || "Lỗi khi tải giao dịch");
+                toast.error(json.message || "Lỗi khi tải giao dịch SePay");
+            }
+        } catch (err) {
+            console.error(err);
+            setSepayError("Có lỗi xảy ra khi kết nối SePay API");
+            toast.error("Có lỗi xảy ra khi tải giao dịch");
+        } finally {
+            setIsLoadingSepay(false);
+        }
+    };
+
+    const handleExportSepayTransactions = () => {
+        if (sepayTransactions.length === 0) {
+            toast.error("Không có giao dịch để xuất");
+            return;
+        }
+
+        const data = sepayTransactions.map((tx: any, idx: number) => ({
+            "STT": idx + 1,
+            "ID GD SePay": tx.id || "",
+            "Ngày GD": tx.transactionDate || "",
+            "Số tiền vào (VNĐ)": tx.amountIn || 0,
+            "Số tiền ra (VNĐ)": tx.amountOut || 0,
+            "Nội dung CK": tx.content || "",
+            "Mã thanh toán": tx.code || "",
+            "Mã tham chiếu": tx.referenceNumber || "",
+            "Ngân hàng": tx.bankBrandName || "",
+            "Số tài khoản": tx.accountNumber || "",
+            "Tài khoản ảo": tx.subAccount || "",
+            "Lũy kế (VNĐ)": tx.accumulated || "",
+            // Matched registration info
+            "Khớp VĐV": tx.registration?.playerName || "❌ Không khớp",
+            "Khớp Đội": tx.registration?.teamName || "",
+            "EFV-ID": tx.registration?.efvId != null ? `#${tx.registration.efvId}` : "",
+            "Trạng thái ĐK": tx.registration?.status === 'approved' ? 'Đã duyệt' : tx.registration?.status === 'rejected' ? 'Từ chối' : tx.registration?.status || "",
+            "Trạng thái TT": tx.registration?.paymentStatus === 'paid' ? 'Đã TT' : tx.registration?.paymentStatus === 'pending_verification' ? 'Chờ xác nhận' : tx.registration?.paymentStatus || "",
+            "Invoice Number": tx.registration?.invoiceNumber || "",
+        }));
+
+        const ws = XLSX.utils.json_to_sheet(data);
+        const colWidths = Object.keys(data[0] || {}).map(key => ({
+            wch: Math.max(key.length + 2, ...data.map(row => String((row as any)[key] || "").length))
+        }));
+        ws["!cols"] = colWidths.map(w => ({ wch: Math.min(w.wch, 50) }));
+
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, "Giao dịch SePay");
+
+        const fileName = `GD_SePay_${tournament?.title?.replace(/[^a-zA-Z0-9\u00C0-\u024F\u1E00-\u1EFF]/g, '_') || 'GiaiDau'}_${new Date().toISOString().slice(0, 10)}.xlsx`;
+        XLSX.writeFile(wb, fileName);
+        toast.success(`Đã xuất ${data.length} giao dịch SePay ra Excel`);
+    };
+
+    // Quick approve: Confirm payment + Approve registration from SePay dialog
+    const handleSepayQuickApprove = async (tx: any) => {
+        if (!tx?.registration?._id) return;
+        const regId = tx.registration._id;
+        setIsProcessingSepay(regId);
+        try {
+            // Step 1: Confirm payment
+            const payRes = await tournamentPaymentAPI.confirmPayment(id, regId);
+            if (!payRes.success) {
+                toast.error(payRes.message || "Xác nhận thanh toán thất bại");
+                setIsProcessingSepay(null);
+                return;
+            }
+
+            // Step 2: Approve registration (if still pending)
+            if (tx.registration.status !== "approved") {
+                const approveRes = await tournamentAPI.handleRegistration(id, {
+                    registrationId: regId,
+                    action: "approve",
+                });
+                if (!approveRes.success) {
+                    toast.error(approveRes.message || "Duyệt đăng ký thất bại (thanh toán đã xác nhận)");
+                    setIsProcessingSepay(null);
+                    return;
+                }
+            }
+
+            toast.success(`✅ Đã xác nhận thanh toán & duyệt VĐV "${tx.registration.playerName}"`);
+
+            // Update local SePay transaction state
+            setSepayTransactions(prev => prev.map(t =>
+                t.id === tx.id ? {
+                    ...t,
+                    registration: { ...t.registration, paymentStatus: "paid", status: "approved" }
+                } : t
+            ));
+
+            // Update registration list too
+            setRegistrations(prev => prev.map(r =>
+                r._id === regId ? { ...r, paymentStatus: "paid", status: "approved" } : r
+            ));
+
+            setSepayConfirmTx(null);
+        } catch (err) {
+            console.error("Quick approve error:", err);
+            toast.error("Có lỗi xảy ra khi xử lý");
+        } finally {
+            setIsProcessingSepay(null);
+        }
+    };
+
+    // Quick confirm payment only (no approve)
+    const handleSepayConfirmPaymentOnly = async (tx: any) => {
+        if (!tx?.registration?._id) return;
+        const regId = tx.registration._id;
+        setIsProcessingSepay(regId);
+        try {
+            const payRes = await tournamentPaymentAPI.confirmPayment(id, regId);
+            if (payRes.success) {
+                toast.success(`✅ Đã xác nhận thanh toán cho "${tx.registration.playerName}"`);
+                setSepayTransactions(prev => prev.map(t =>
+                    t.id === tx.id ? {
+                        ...t,
+                        registration: { ...t.registration, paymentStatus: "paid" }
+                    } : t
+                ));
+                setRegistrations(prev => prev.map(r =>
+                    r._id === regId ? { ...r, paymentStatus: "paid" } : r
+                ));
+                setSepayConfirmTx(null);
+            } else {
+                toast.error(payRes.message || "Xác nhận thanh toán thất bại");
+            }
+        } catch (err) {
+            console.error(err);
+            toast.error("Có lỗi xảy ra");
+        } finally {
+            setIsProcessingSepay(null);
+        }
+    };
+
     const handleExportPlayerList = async () => {
         if (registrations.length === 0) {
             toast.error("Không có dữ liệu để xuất");
@@ -676,7 +843,7 @@ export default function DangKyPage() {
     };
 
     return (
-        <div className="space-y-6">
+        <div className="space-y-6 overflow-x-hidden">
             {/* Header */}
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                 <div>
@@ -698,7 +865,7 @@ export default function DangKyPage() {
                         </div>
                     </div>
                 </div>
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 flex-wrap">
                     <Button
                         variant="default"
                         size="sm"
@@ -725,6 +892,19 @@ export default function DangKyPage() {
                     >
                         <Download className="w-3.5 h-3.5 mr-1.5" /> Xuất Excel
                     </Button>
+                    {hasFee && (
+                        <Button
+                            variant="outline"
+                            size="sm"
+                            className="rounded-xl h-9 text-xs border-purple-200 text-purple-700 hover:bg-purple-50"
+                            onClick={() => {
+                                setIsSepayDialogOpen(true);
+                                if (sepayTransactions.length === 0) loadSepayTransactions();
+                            }}
+                        >
+                            <Wallet className="w-3.5 h-3.5 mr-1.5" /> Giao dịch SePay
+                        </Button>
+                    )}
                     <Button variant="outline" size="sm" className="rounded-xl h-9 text-xs border-gray-200 hover:bg-gray-50" onClick={loadRegistrations}>
                         <RefreshCw className="w-3.5 h-3.5 mr-1.5" /> Làm mới
                     </Button>
@@ -789,12 +969,12 @@ export default function DangKyPage() {
                         className="pl-9 h-10 rounded-xl border-gray-200 focus-visible:ring-blue-500/30 focus-visible:border-blue-400"
                     />
                 </div>
-                <Tabs value={filter} onValueChange={setFilter} className="w-auto">
-                    <TabsList className="h-10 rounded-xl bg-gray-100/80 p-1 gap-0.5">
-                        <TabsTrigger value="all" className="rounded-lg text-xs font-semibold px-4 data-[state=active]:bg-white data-[state=active]:text-blue-600 data-[state=active]:shadow-sm">Tất cả</TabsTrigger>
-                        <TabsTrigger value="pending" className="rounded-lg text-xs font-semibold px-3 data-[state=active]:bg-white data-[state=active]:text-amber-600 data-[state=active]:shadow-sm">Chờ duyệt</TabsTrigger>
-                        <TabsTrigger value="approved" className="rounded-lg text-xs font-semibold px-3 data-[state=active]:bg-white data-[state=active]:text-emerald-600 data-[state=active]:shadow-sm">Đã duyệt</TabsTrigger>
-                        <TabsTrigger value="rejected" className="rounded-lg text-xs font-semibold px-3 data-[state=active]:bg-white data-[state=active]:text-red-500 data-[state=active]:shadow-sm">Từ chối</TabsTrigger>
+                <Tabs value={filter} onValueChange={setFilter} className="w-full sm:w-auto min-w-0">
+                    <TabsList className="h-auto sm:h-10 rounded-xl bg-gray-100/80 p-1 gap-0.5 w-full sm:w-auto flex flex-wrap sm:flex-nowrap">
+                        <TabsTrigger value="all" className="rounded-lg text-xs font-semibold px-3 sm:px-4 data-[state=active]:bg-white data-[state=active]:text-blue-600 data-[state=active]:shadow-sm">{"Tất cả"}</TabsTrigger>
+                        <TabsTrigger value="pending" className="rounded-lg text-xs font-semibold px-2.5 sm:px-3 data-[state=active]:bg-white data-[state=active]:text-amber-600 data-[state=active]:shadow-sm">{"Chờ duyệt"}</TabsTrigger>
+                        <TabsTrigger value="approved" className="rounded-lg text-xs font-semibold px-2.5 sm:px-3 data-[state=active]:bg-white data-[state=active]:text-emerald-600 data-[state=active]:shadow-sm">{"Đã duyệt"}</TabsTrigger>
+                        <TabsTrigger value="rejected" className="rounded-lg text-xs font-semibold px-2.5 sm:px-3 data-[state=active]:bg-white data-[state=active]:text-red-500 data-[state=active]:shadow-sm">{"Từ chối"}</TabsTrigger>
                     </TabsList>
                 </Tabs>
             </div>
@@ -2169,6 +2349,371 @@ export default function DangKyPage() {
                                 </Button>
                             </div>
                         </div>
+                    )}
+                </DialogContent>
+            </Dialog>
+
+            {/* ================================ */}
+            {/* SePay Transactions Dialog */}
+            {/* ================================ */}
+            <Dialog open={isSepayDialogOpen} onOpenChange={(open) => { setIsSepayDialogOpen(open); if (open) { setSepayPage(1); setSepayDateFrom(''); setSepayDateTo(''); } }}>
+                <DialogContent className="!max-w-[calc(100vw-2rem)] sm:!max-w-[calc(100vw-4rem)] !w-full h-[calc(100vh-4rem)] overflow-hidden p-0 flex flex-col">
+                    {/* Header */}
+                    <div className="px-6 pt-6 pb-4 border-b border-gray-100 flex-shrink-0">
+                        <div className="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-0 sm:justify-between">
+                            <div className="flex items-center gap-3">
+                                <div className="w-10 h-10 rounded-xl bg-purple-500 flex items-center justify-center flex-shrink-0">
+                                    <Wallet className="w-5 h-5 text-white" />
+                                </div>
+                                <div>
+                                    <DialogTitle className="text-lg font-semibold text-gray-900">{"Đối chiếu giao dịch SePay"}</DialogTitle>
+                                    <p className="text-sm text-gray-400 mt-0.5">{"Giao dịch ngân hàng \u2022 Đối chiếu đăng ký"}</p>
+                                </div>
+                            </div>
+                            <div className="flex items-center gap-2 ml-[52px] sm:ml-0">
+                                <Button variant="outline" size="sm" className="h-9 text-sm px-3 gap-1.5" onClick={handleExportSepayTransactions} disabled={sepayTransactions.length === 0}>
+                                    <Download className="w-4 h-4" /> {"Xuất Excel"}
+                                </Button>
+                                <Button variant="outline" size="sm" className="h-9 text-sm px-3 gap-1.5" onClick={loadSepayTransactions} disabled={isLoadingSepay}>
+                                    <RefreshCw className={`w-4 h-4 ${isLoadingSepay ? 'animate-spin' : ''}`} /> {"Tải lại"}
+                                </Button>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Body */}
+                    <div className="flex-1 overflow-y-auto px-6 pb-6">
+                        {sepayError && (
+                            <div className="mt-4 p-4 rounded-xl bg-red-50 border border-red-100 flex items-start gap-3">
+                                <AlertCircle className="w-5 h-5 text-red-400 mt-0.5 flex-shrink-0" />
+                                <div>
+                                    <p className="text-sm font-medium text-red-700">{sepayError}</p>
+                                    <p className="text-sm text-red-400 mt-1">{"Vào Admin \u2192 Thanh toán \u2192 SePay \u2192 API Token để cấu hình"}</p>
+                                </div>
+                            </div>
+                        )}
+
+                        {isLoadingSepay && (
+                            <div className="flex flex-col items-center py-20">
+                                <Loader2 className="w-8 h-8 animate-spin text-purple-400 mb-4" />
+                                <p className="text-sm text-gray-400">{"Đang tải giao dịch từ SePay..."}</p>
+                            </div>
+                        )}
+
+                        {!isLoadingSepay && !sepayError && sepayTransactions.length === 0 && (
+                            <div className="text-center py-20">
+                                <Receipt className="w-12 h-12 text-gray-200 mx-auto mb-3" />
+                                <p className="text-base text-gray-400 font-medium">{"Chưa có giao dịch"}</p>
+                                <p className="text-sm text-gray-300 mt-1">{"Nhấn \"Tải lại\" để lấy dữ liệu từ SePay"}</p>
+                            </div>
+                        )}
+
+                        {!isLoadingSepay && sepayTransactions.length > 0 && (() => {
+                            const filteredByDate = sepayTransactions.filter((tx: any) => {
+                                if (!tx.transactionDate) return true;
+                                const txDate = new Date(tx.transactionDate).toISOString().slice(0, 10);
+                                if (sepayDateFrom && txDate < sepayDateFrom) return false;
+                                if (sepayDateTo && txDate > sepayDateTo) return false;
+                                return true;
+                            });
+                            const issueTransactions = filteredByDate.filter((tx: any) =>
+                                tx.registration && tx.amountIn > 0 &&
+                                (tx.registration.paymentStatus !== "paid" || tx.registration.status !== "approved")
+                            );
+                            const okCount = filteredByDate.filter((tx: any) => tx.registration?.paymentStatus === "paid" && tx.registration?.status === "approved").length;
+                            const unmatchedCount = filteredByDate.filter((tx: any) => !tx.registration && tx.amountIn > 0).length;
+                            const totalIn = filteredByDate.reduce((sum: number, t: any) => sum + (parseFloat(t.amountIn) || 0), 0);
+                            const allDisplayed = sepayTab === "issues" ? issueTransactions : filteredByDate;
+                            const totalPages = Math.ceil(allDisplayed.length / SEPAY_PER_PAGE);
+                            const currentPage = Math.min(sepayPage, totalPages || 1);
+                            const displayedTransactions = allDisplayed.slice((currentPage - 1) * SEPAY_PER_PAGE, currentPage * SEPAY_PER_PAGE);
+
+                            return (
+                                <>
+                                    {/* Date filter + Stats */}
+                                    <div className="flex flex-col sm:flex-row sm:items-center gap-3 mt-4 mb-4">
+                                        <div className="flex items-center gap-2 flex-shrink-0">
+                                            <CalendarIcon className="w-4 h-4 text-gray-400" />
+                                            <input type="date" value={sepayDateFrom} onChange={e => { setSepayDateFrom(e.target.value); setSepayPage(1); }} className="h-8 px-2.5 text-sm border border-gray-200 rounded-lg bg-white text-gray-700 focus:outline-none focus:ring-2 focus:ring-purple-200 focus:border-purple-400" />
+                                            <span className="text-gray-300 text-sm">{"\u2192"}</span>
+                                            <input type="date" value={sepayDateTo} onChange={e => { setSepayDateTo(e.target.value); setSepayPage(1); }} className="h-8 px-2.5 text-sm border border-gray-200 rounded-lg bg-white text-gray-700 focus:outline-none focus:ring-2 focus:ring-purple-200 focus:border-purple-400" />
+                                            {(sepayDateFrom || sepayDateTo) && (
+                                                <button className="text-xs text-gray-400 hover:text-gray-600 underline ml-1" onClick={() => { setSepayDateFrom(''); setSepayDateTo(''); setSepayPage(1); }}>{"Xóa lọc"}</button>
+                                            )}
+                                        </div>
+                                        <div className="flex items-center gap-3 text-sm flex-wrap flex-1 sm:justify-end">
+                                            <div className="flex items-center gap-1.5 text-gray-500">
+                                                <Receipt className="w-4 h-4" />
+                                                <span className="font-medium">{filteredByDate.length}</span> {"giao dịch"}
+                                            </div>
+                                            <span className="text-gray-200">|</span>
+                                            {issueTransactions.length > 0 ? (
+                                                <div className="flex items-center gap-1.5 text-orange-500 font-medium cursor-pointer hover:underline" onClick={() => { setSepayTab("issues"); setSepayPage(1); }}>
+                                                    <AlertTriangle className="w-4 h-4" />
+                                                    {issueTransactions.length} {"cần xử lý"}
+                                                </div>
+                                            ) : (
+                                                <div className="flex items-center gap-1.5 text-emerald-500">
+                                                    <CheckCircle2 className="w-4 h-4" /> {"Tất cả OK"}
+                                                </div>
+                                            )}
+                                            <span className="text-gray-200">|</span>
+                                            <div className="flex items-center gap-1.5 text-emerald-600">
+                                                <BadgeCheck className="w-4 h-4" /> {okCount} {"hoàn tất"}
+                                            </div>
+                                            {unmatchedCount > 0 && (
+                                                <>
+                                                    <span className="text-gray-200">|</span>
+                                                    <div className="flex items-center gap-1.5 text-gray-400">
+                                                        <LinkIcon className="w-4 h-4" /> {unmatchedCount} {"chưa khớp"}
+                                                    </div>
+                                                </>
+                                            )}
+                                            <div className="flex items-center gap-1.5 text-blue-600 font-semibold text-base">
+                                                <CircleDollarSign className="w-4 h-4" />
+                                                {Number(totalIn).toLocaleString('vi-VN')} {"VNĐ"}
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    {/* Issue banner */}
+                                    {issueTransactions.length > 0 && sepayTab !== "issues" && (
+                                        <div className="mb-4 p-4 rounded-xl bg-orange-50 border border-orange-100 flex items-center gap-3 cursor-pointer hover:bg-orange-100/50 transition-colors" onClick={() => { setSepayTab("issues"); setSepayPage(1); }}>
+                                            <AlertTriangle className="w-5 h-5 text-orange-400 flex-shrink-0" />
+                                            <p className="text-sm text-orange-700 flex-1">
+                                                <span className="font-semibold">{issueTransactions.length} {"giao dịch"}</span> {"đã nhận tiền nhưng chưa được xác nhận trên hệ thống"}
+                                            </p>
+                                            <ChevronRight className="w-4 h-4 text-orange-300" />
+                                        </div>
+                                    )}
+
+                                    {/* Tabs */}
+                                    <div className="flex items-center gap-1 mb-4 border-b border-gray-100">
+                                        <button className={`px-4 py-2.5 text-sm font-medium border-b-2 transition-colors ${sepayTab === "issues" ? 'border-orange-400 text-orange-600' : 'border-transparent text-gray-400 hover:text-gray-600'}`} onClick={() => { setSepayTab("issues"); setSepayPage(1); }}>
+                                            {"Cần xử lý"}
+                                            {issueTransactions.length > 0 && <span className="ml-2 px-2 py-0.5 rounded-full text-xs bg-orange-100 text-orange-600 font-semibold">{issueTransactions.length}</span>}
+                                        </button>
+                                        <button className={`px-4 py-2.5 text-sm font-medium border-b-2 transition-colors ${sepayTab === "all" ? 'border-purple-400 text-purple-600' : 'border-transparent text-gray-400 hover:text-gray-600'}`} onClick={() => { setSepayTab("all"); setSepayPage(1); }}>
+                                            {"Tất cả"} ({filteredByDate.length})
+                                        </button>
+                                    </div>
+
+                                    {/* Empty issues */}
+                                    {sepayTab === "issues" && issueTransactions.length === 0 && (
+                                        <div className="text-center py-16">
+                                            <CheckCircle2 className="w-10 h-10 text-emerald-300 mx-auto mb-3" />
+                                            <p className="text-base text-emerald-600 font-medium">{"Tất cả đã được xử lý"}</p>
+                                            <p className="text-sm text-gray-400 mt-1">{"Không có giao dịch nào cần xác nhận"}</p>
+                                        </div>
+                                    )}
+
+                                    {/* Table */}
+                                    {displayedTransactions.length > 0 && (
+                                        <div className="rounded-xl border border-gray-200 overflow-hidden">
+                                            <div className="overflow-x-auto">
+                                                <table className="w-full">
+                                                    <thead>
+                                                        <tr className="bg-gray-50">
+                                                            <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider w-12">#</th>
+                                                            <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider min-w-[120px]">{"Thời gian"}</th>
+                                                            <th className="text-right px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider min-w-[100px]">{"Số tiền"}</th>
+                                                            <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider min-w-[200px]">{"Nội dung CK"}</th>
+                                                            <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider min-w-[180px]">{"VĐV khớp"}</th>
+                                                            <th className="text-center px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider w-16">TT</th>
+                                                            <th className="text-center px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider w-16">{"ĐK"}</th>
+                                                            <th className="text-center px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider w-24"></th>
+                                                        </tr>
+                                                    </thead>
+                                                    <tbody className="divide-y divide-gray-100">
+                                                        {displayedTransactions.map((tx: any, i: number) => {
+                                                            const globalIndex = (currentPage - 1) * SEPAY_PER_PAGE + i;
+                                                            const hasIssue = tx.registration && tx.amountIn > 0 && (tx.registration.paymentStatus !== "paid" || tx.registration.status !== "approved");
+                                                            const isOk = tx.registration?.paymentStatus === "paid" && tx.registration?.status === "approved";
+                                                            return (
+                                                                <tr key={tx.id || globalIndex} className={`transition-colors ${hasIssue ? 'bg-orange-50/50' : 'hover:bg-gray-50/60'}`}>
+                                                                    <td className="px-4 py-3.5 text-sm text-gray-400 font-mono">{globalIndex + 1}</td>
+                                                                    <td className="px-4 py-3.5 whitespace-nowrap">
+                                                                        <div className="text-sm text-gray-700 font-medium">{tx.transactionDate ? new Date(tx.transactionDate).toLocaleDateString('vi-VN') : '\u2014'}</div>
+                                                                        <div className="text-xs text-gray-400 mt-0.5">{tx.transactionDate ? new Date(tx.transactionDate).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit', second: '2-digit' }) : ''}</div>
+                                                                    </td>
+                                                                    <td className="px-4 py-3.5 text-right whitespace-nowrap">
+                                                                        {tx.amountIn > 0 && <span className="text-emerald-600 font-semibold text-sm">+{Number(tx.amountIn).toLocaleString('vi-VN')}{"\u0111"}</span>}
+                                                                        {tx.amountOut > 0 && <span className="text-red-500 font-semibold text-sm">-{Number(tx.amountOut).toLocaleString('vi-VN')}{"\u0111"}</span>}
+                                                                    </td>
+                                                                    <td className="px-4 py-3.5 max-w-[300px]">
+                                                                        <div className="text-sm text-gray-600 truncate" title={tx.content}>{tx.content || '\u2014'}</div>
+                                                                        {tx.code && <div className="text-xs text-purple-400 font-mono mt-1 truncate">{tx.code}</div>}
+                                                                    </td>
+                                                                    <td className="px-4 py-3.5">
+                                                                        {tx.registration ? (
+                                                                            <div className="flex items-center gap-2.5">
+                                                                                <div className="w-8 h-8 rounded-full bg-purple-100 flex items-center justify-center flex-shrink-0">
+                                                                                    <User className="w-4 h-4 text-purple-500" />
+                                                                                </div>
+                                                                                <div className="min-w-0">
+                                                                                    <div className="text-sm text-gray-800 font-medium truncate">{tx.registration.playerName}</div>
+                                                                                    <div className="flex items-center gap-2 mt-0.5">
+                                                                                        {tx.registration.efvId != null && (
+                                                                                            <span className="inline-flex items-center gap-0.5 text-xs font-semibold text-amber-600 bg-amber-50 px-1.5 py-0.5 rounded">
+                                                                                                <Hash className="w-3 h-3" />{tx.registration.efvId}
+                                                                                            </span>
+                                                                                        )}
+                                                                                        {tx.registration.teamName && tx.registration.teamName !== 'T\u1ef1 do' && (
+                                                                                            <span className="text-xs text-gray-400">{tx.registration.teamName}</span>
+                                                                                        )}
+                                                                                    </div>
+                                                                                </div>
+                                                                            </div>
+                                                                        ) : (
+                                                                            <span className="text-sm text-gray-300 italic">{"Không khớp VĐV"}</span>
+                                                                        )}
+                                                                    </td>
+                                                                    <td className="px-4 py-3.5 text-center">
+                                                                        {tx.registration ? (
+                                                                            tx.registration.paymentStatus === 'paid'
+                                                                                ? <CheckCircle2 className="w-5 h-5 text-emerald-500 mx-auto" />
+                                                                                : <XCircle className="w-5 h-5 text-red-400 mx-auto" />
+                                                                        ) : <span className="text-gray-200">{"\u2014"}</span>}
+                                                                    </td>
+                                                                    <td className="px-4 py-3.5 text-center">
+                                                                        {tx.registration ? (
+                                                                            tx.registration.status === 'approved'
+                                                                                ? <CheckCircle2 className="w-5 h-5 text-emerald-500 mx-auto" />
+                                                                                : tx.registration.status === 'rejected'
+                                                                                    ? <XCircle className="w-5 h-5 text-red-400 mx-auto" />
+                                                                                    : <Clock className="w-5 h-5 text-amber-400 mx-auto" />
+                                                                        ) : <span className="text-gray-200">{"\u2014"}</span>}
+                                                                    </td>
+                                                                    <td className="px-4 py-3.5 text-center">
+                                                                        {hasIssue ? (
+                                                                            <button className="inline-flex items-center gap-1.5 h-8 px-3 rounded-lg text-xs font-medium bg-emerald-500 text-white hover:bg-emerald-600 transition-colors disabled:opacity-50" disabled={isProcessingSepay === tx.registration._id} onClick={() => setSepayConfirmTx(tx)}>
+                                                                                {isProcessingSepay === tx.registration._id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <><Edit3 className="w-3 h-3" /> {"Xử lý"}</>}
+                                                                            </button>
+                                                                        ) : isOk ? (
+                                                                            <CheckCircle2 className="w-5 h-5 text-emerald-300 mx-auto" />
+                                                                        ) : null}
+                                                                    </td>
+                                                                </tr>
+                                                            );
+                                                        })}
+                                                    </tbody>
+                                                </table>
+                                            </div>
+                                            {/* Pagination */}
+                                            {totalPages > 1 && (
+                                                <div className="flex items-center justify-between px-4 py-3 border-t border-gray-100 bg-gray-50/50">
+                                                    <p className="text-sm text-gray-500">
+                                                        {"Hiển thị"} <span className="font-medium">{(currentPage - 1) * SEPAY_PER_PAGE + 1}</span>{"\u2013"}<span className="font-medium">{Math.min(currentPage * SEPAY_PER_PAGE, allDisplayed.length)}</span> / <span className="font-medium">{allDisplayed.length}</span> {"giao dịch"}
+                                                    </p>
+                                                    <div className="flex items-center gap-1">
+                                                        <button className="w-8 h-8 rounded-lg border border-gray-200 text-gray-500 hover:bg-gray-100 disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center" disabled={currentPage <= 1} onClick={() => setSepayPage(p => Math.max(1, p - 1))}>
+                                                            <ChevronLeft className="w-4 h-4" />
+                                                        </button>
+                                                        {Array.from({ length: totalPages }, (_, idx) => idx + 1).map(page => (
+                                                            <button key={page} className={`w-8 h-8 rounded-lg text-sm font-medium transition-colors ${page === currentPage ? 'bg-purple-500 text-white' : 'text-gray-500 hover:bg-gray-100'}`} onClick={() => setSepayPage(page)}>
+                                                                {page}
+                                                            </button>
+                                                        ))}
+                                                        <button className="w-8 h-8 rounded-lg border border-gray-200 text-gray-500 hover:bg-gray-100 disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center" disabled={currentPage >= totalPages} onClick={() => setSepayPage(p => Math.min(totalPages, p + 1))}>
+                                                            <ChevronRight className="w-4 h-4" />
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                            )}
+                                        </div>
+                                    )}
+                                </>
+                            );
+                        })()}
+                    </div>
+                </DialogContent>
+            </Dialog>
+
+            {/* SePay Confirm Dialog */}
+            <Dialog open={!!sepayConfirmTx} onOpenChange={(open) => { if (!open) setSepayConfirmTx(null); }}>
+                <DialogContent className="sm:!max-w-lg p-0">
+                    {sepayConfirmTx && (
+                        <>
+                            <div className="px-6 pt-6 pb-4 border-b border-gray-100">
+                                <div className="flex items-center gap-3">
+                                    <div className="w-10 h-10 rounded-xl bg-orange-100 flex items-center justify-center">
+                                        <AlertTriangle className="w-5 h-5 text-orange-500" />
+                                    </div>
+                                    <div>
+                                        <DialogTitle className="text-base font-semibold text-gray-900">{"Xác nhận giao dịch"}</DialogTitle>
+                                        <p className="text-sm text-gray-400">{"SePay đã nhận tiền \u2014 Website chưa cập nhật"}</p>
+                                    </div>
+                                </div>
+                            </div>
+                            <div className="px-6 py-5 space-y-4">
+                                <div className="p-4 rounded-xl bg-gray-50 space-y-2.5">
+                                    <div className="flex items-center gap-1.5 text-xs font-semibold text-gray-400 uppercase tracking-wider">
+                                        <Banknote className="w-3.5 h-3.5" /> {"Giao dịch SePay"}
+                                    </div>
+                                    <div className="flex items-baseline justify-between">
+                                        <span className="text-xl font-semibold text-emerald-600">+{Number(sepayConfirmTx.amountIn).toLocaleString('vi-VN')}{"\u0111"}</span>
+                                        <span className="text-sm text-gray-400">{sepayConfirmTx.transactionDate ? new Date(sepayConfirmTx.transactionDate).toLocaleString('vi-VN') : '\u2014'}</span>
+                                    </div>
+                                    <div className="text-sm text-gray-500 break-all">{sepayConfirmTx.content || '\u2014'}</div>
+                                    {sepayConfirmTx.code && <div className="text-xs font-mono text-purple-400">{sepayConfirmTx.code}</div>}
+                                    {sepayConfirmTx.bankBrandName && <div className="text-sm text-gray-400">{sepayConfirmTx.bankBrandName}</div>}
+                                </div>
+                                <div className="p-4 rounded-xl bg-gray-50 space-y-3">
+                                    <div className="flex items-center gap-1.5 text-xs font-semibold text-gray-400 uppercase tracking-wider">
+                                        <User className="w-3.5 h-3.5" /> {"Đăng ký tương ứng"}
+                                    </div>
+                                    <div className="flex items-center justify-between">
+                                        <div className="flex items-center gap-3">
+                                            <div className="w-10 h-10 rounded-full bg-purple-100 flex items-center justify-center flex-shrink-0">
+                                                <User className="w-5 h-5 text-purple-500" />
+                                            </div>
+                                            <div>
+                                                <div className="text-base font-medium text-gray-900">{sepayConfirmTx.registration?.playerName}</div>
+                                                <div className="flex items-center gap-2 mt-0.5">
+                                                    {sepayConfirmTx.registration?.efvId != null && (
+                                                        <span className="inline-flex items-center gap-0.5 text-xs font-semibold text-amber-600 bg-amber-50 px-1.5 py-0.5 rounded">
+                                                            <Hash className="w-3 h-3" />{sepayConfirmTx.registration.efvId}
+                                                        </span>
+                                                    )}
+                                                    {sepayConfirmTx.registration?.teamName && <span className="text-sm text-gray-400">{sepayConfirmTx.registration.teamName}</span>}
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div className="flex flex-col items-end gap-1.5">
+                                            <div className={`flex items-center gap-1.5 text-xs font-medium ${sepayConfirmTx.registration?.paymentStatus === 'paid' ? 'text-emerald-500' : 'text-red-400'}`}>
+                                                {sepayConfirmTx.registration?.paymentStatus === 'paid' ? <><CheckCircle2 className="w-3.5 h-3.5" /> {"Đã thanh toán"}</> : <><XCircle className="w-3.5 h-3.5" /> {"Chưa thanh toán"}</>}
+                                            </div>
+                                            <div className={`flex items-center gap-1.5 text-xs font-medium ${sepayConfirmTx.registration?.status === 'approved' ? 'text-emerald-500' : 'text-amber-500'}`}>
+                                                {sepayConfirmTx.registration?.status === 'approved' ? <><CheckCircle2 className="w-3.5 h-3.5" /> {"Đã duyệt"}</> : <><Clock className="w-3.5 h-3.5" /> {"Chờ duyệt"}</>}
+                                            </div>
+                                        </div>
+                                    </div>
+                                    {tournament?.entryFee > 0 && (
+                                        <div className={`flex items-center gap-2 text-sm p-3 rounded-lg ${sepayConfirmTx.amountIn >= tournament.entryFee ? 'bg-emerald-50 text-emerald-600' : 'bg-red-50 text-red-600'}`}>
+                                            {sepayConfirmTx.amountIn >= tournament.entryFee
+                                                ? <><CheckCircle2 className="w-4 h-4 flex-shrink-0" /> {"Số tiền khớp ("}{Number(sepayConfirmTx.amountIn).toLocaleString('vi-VN')}{"\u0111 \u2265 "}{Number(tournament.entryFee).toLocaleString('vi-VN')}{"\u0111)"}</>
+                                                : <><AlertTriangle className="w-4 h-4 flex-shrink-0" /> {"Thiếu ("}{Number(sepayConfirmTx.amountIn).toLocaleString('vi-VN')}{"\u0111 / "}{Number(tournament.entryFee).toLocaleString('vi-VN')}{"\u0111)"}</>
+                                            }
+                                        </div>
+                                    )}
+                                </div>
+                                <div className="space-y-2.5 pt-1">
+                                    {sepayConfirmTx.registration?.status !== "approved" && (
+                                        <Button className="w-full rounded-xl h-10 text-sm font-medium bg-emerald-500 text-white hover:bg-emerald-600" disabled={isProcessingSepay === sepayConfirmTx.registration?._id} onClick={() => handleSepayQuickApprove(sepayConfirmTx)}>
+                                            {isProcessingSepay === sepayConfirmTx.registration?._id ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <CheckCircle2 className="w-4 h-4 mr-2" />}
+                                            {"Xác nhận thanh toán & Duyệt VĐV"}
+                                        </Button>
+                                    )}
+                                    {sepayConfirmTx.registration?.paymentStatus !== "paid" && (
+                                        <Button variant="outline" className="w-full rounded-xl h-10 text-sm font-medium" disabled={isProcessingSepay === sepayConfirmTx.registration?._id} onClick={() => handleSepayConfirmPaymentOnly(sepayConfirmTx)}>
+                                            {isProcessingSepay === sepayConfirmTx.registration?._id ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <CreditCard className="w-4 h-4 mr-2" />}
+                                            {"Chỉ xác nhận thanh toán"}
+                                        </Button>
+                                    )}
+                                    <button className="w-full text-center text-sm text-gray-400 hover:text-gray-600 py-2" onClick={() => setSepayConfirmTx(null)}>{"Đóng"}</button>
+                                </div>
+                            </div>
+                        </>
                     )}
                 </DialogContent>
             </Dialog>

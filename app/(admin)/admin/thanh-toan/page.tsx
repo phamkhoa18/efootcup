@@ -375,6 +375,22 @@ export default function AdminPaymentConfigPage() {
                                                             </div>
                                                         </div>
 
+                                                        {/* API Token for fetching transactions */}
+                                                        <div>
+                                                            <Label className="text-xs font-bold text-emerald-700">API Token (Xem giao dịch)</Label>
+                                                            <Input
+                                                                value={method.sepayApiToken || ""}
+                                                                onChange={(e) => updateMethod(method.id, "sepayApiToken", e.target.value)}
+                                                                placeholder="Nhập API Token từ my.sepay.vn"
+                                                                className="rounded-xl mt-1 font-mono text-sm"
+                                                                type="password"
+                                                            />
+                                                            <p className="text-[10px] text-emerald-400 mt-1">
+                                                                Token này dùng để tải danh sách giao dịch ngân hàng. Lấy từ{' '}
+                                                                <a href="https://my.sepay.vn/keys" target="_blank" className="underline">my.sepay.vn → API Keys</a>
+                                                            </p>
+                                                        </div>
+
                                                         {/* Environment Selector */}
                                                         <div>
                                                             <Label className="text-xs font-bold text-emerald-700">Môi trường SePay</Label>
