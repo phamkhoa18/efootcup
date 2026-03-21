@@ -268,11 +268,14 @@ export async function GET(req: NextRequest, { params }: RouteParams) {
                 }
             }
 
+            const rawAmountIn = tx.amount_in ?? tx.transferAmount ?? tx.amount ?? 0;
+            const rawAmountOut = tx.amount_out ?? 0;
+
             return {
                 id: tx.id,
                 transactionDate: tx.transaction_date,
-                amountIn: parseFloat(tx.amount_in) || 0,
-                amountOut: parseFloat(tx.amount_out) || 0,
+                amountIn: parseFloat(String(rawAmountIn)) || 0,
+                amountOut: parseFloat(String(rawAmountOut)) || 0,
                 content: txContent,
                 code: txCode,
                 referenceNumber: tx.reference_number || "",
@@ -283,6 +286,20 @@ export async function GET(req: NextRequest, { params }: RouteParams) {
                 registration: matchedReg,
             };
         });
+
+        // Debug: log match stats
+        const matched = enrichedTransactions.filter((t: any) => t.registration).length;
+        const unmatched = enrichedTransactions.filter((t: any) => !t.registration && t.amountIn > 0).length;
+        const totalAmountIn = enrichedTransactions.reduce((s: number, t: any) => s + t.amountIn, 0);
+        console.log(`📊 Match results: ${matched} matched, ${unmatched} unmatched, totalIn=${totalAmountIn}`);
+        // Log first 5 unmatched PAY codes for debugging
+        const unmatchedPAY = enrichedTransactions
+            .filter((t: any) => !t.registration && t.amountIn > 0 && t.code)
+            .slice(0, 5)
+            .map((t: any) => `${t.code} (${t.amountIn}đ)`);
+        if (unmatchedPAY.length > 0) {
+            console.log(`🔍 Sample unmatched: ${unmatchedPAY.join(', ')}`);
+        }
 
         return apiResponse({
             transactions: enrichedTransactions,
