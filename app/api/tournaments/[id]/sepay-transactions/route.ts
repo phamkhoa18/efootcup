@@ -92,6 +92,7 @@ export async function GET(req: NextRequest, { params }: RouteParams) {
         const invoiceMap = new Map<string, any>();      // invoiceNumber -> reg
         const phoneMap = new Map<string, any>();        // phone -> reg
         const regIdPartMap = new Map<string, any>();    // last 8 chars of reg._id -> reg
+        const payCodeMap = new Map<string, any>();      // PAY code -> reg (from stored webhook data)
 
         const buildRegData = (reg: any, invoiceNumber = "") => ({
             _id: reg._id,
@@ -109,13 +110,41 @@ export async function GET(req: NextRequest, { params }: RouteParams) {
         for (const reg of registrations) {
             const regData = buildRegData(reg);
 
-            // Parse paymentNote for invoiceNumber
+            // Parse paymentNote for invoiceNumber and PAY codes
             try {
-                const noteData = JSON.parse(reg.paymentNote || "{}");
+                const noteStr = reg.paymentNote || "{}";
+                const noteData = JSON.parse(noteStr);
                 if (noteData.invoiceNumber) {
                     regData.invoiceNumber = noteData.invoiceNumber;
                     invoiceMap.set(noteData.invoiceNumber, regData);
                     invoiceMap.set(noteData.invoiceNumber.toUpperCase(), regData);
+                }
+                // Index by orderCode (this is the PAY code stored after webhook)
+                if (noteData.orderCode) {
+                    payCodeMap.set(noteData.orderCode.toUpperCase(), regData);
+                }
+                if (noteData.sepayOrderId) {
+                    payCodeMap.set(String(noteData.sepayOrderId).toUpperCase(), regData);
+                }
+                // Index by transactionId (SePay tx id)
+                if (noteData.transactionId) {
+                    payCodeMap.set(String(noteData.transactionId), regData);
+                }
+                // Extract PAY codes from bankDetails.content
+                if (noteData.bankDetails?.content) {
+                    const payMatches = String(noteData.bankDetails.content).match(/PAY[A-F0-9]{15,}/gi);
+                    if (payMatches) {
+                        for (const pm of payMatches) {
+                            payCodeMap.set(pm.toUpperCase(), regData);
+                        }
+                    }
+                }
+                // Also extract PAY codes from the raw paymentNote string
+                const rawPayMatches = noteStr.match(/PAY[A-F0-9]{15,}/gi);
+                if (rawPayMatches) {
+                    for (const pm of rawPayMatches) {
+                        payCodeMap.set(pm.toUpperCase(), regData);
+                    }
                 }
             } catch {}
 
@@ -124,7 +153,6 @@ export async function GET(req: NextRequest, { params }: RouteParams) {
                 const cleanPhone = reg.phone.replace(/\D/g, "");
                 if (cleanPhone.length >= 9) {
                     phoneMap.set(cleanPhone, regData);
-                    // Also store last 9 digits (strip leading 0 or 84)
                     const last9 = cleanPhone.slice(-9);
                     phoneMap.set(last9, regData);
                 }
@@ -140,22 +168,28 @@ export async function GET(req: NextRequest, { params }: RouteParams) {
         const normalizeVN = (s: string) =>
             s.normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/đ/gi, "d").toLowerCase().trim();
 
-        console.log(`📋 ${registrations.length} regs, ${invoiceMap.size} invoices, ${phoneMap.size} phones`);
+        console.log(`📋 ${registrations.length} regs, ${invoiceMap.size} invoices, ${payCodeMap.size} payCodes, ${phoneMap.size} phones`);
 
         // Match transactions to registrations
         const enrichedTransactions = transactions.map((tx: any) => {
             const txContent = (tx.transaction_content || tx.content || "").toString().trim();
             const txCode = (tx.code || "").toString().trim();
             const txContentUpper = txContent.toUpperCase();
+            const txCodeUpper = txCode.toUpperCase();
 
             let matchedReg = null;
 
-            // Strategy 1: Direct code match against invoice numbers
+            // Strategy 1: Direct code match against invoice numbers (EFCUP-xxx)
             if (txCode && invoiceMap.has(txCode)) {
                 matchedReg = invoiceMap.get(txCode);
             }
 
-            // Strategy 2: Search for any invoice number in the content
+            // Strategy 2: Direct code match against PAY code map
+            if (!matchedReg && txCodeUpper && payCodeMap.has(txCodeUpper)) {
+                matchedReg = payCodeMap.get(txCodeUpper);
+            }
+
+            // Strategy 3: Search for any invoice number in the content
             if (!matchedReg && txContent) {
                 for (const [invoice, reg] of invoiceMap.entries()) {
                     if (txContentUpper.includes(invoice.toUpperCase())) {
@@ -165,7 +199,20 @@ export async function GET(req: NextRequest, { params }: RouteParams) {
                 }
             }
 
-            // Strategy 3: Look for EFCUP pattern in content
+            // Strategy 4: Search for PAY codes in content → match against payCodeMap
+            if (!matchedReg && txContent) {
+                const contentPayMatches = txContentUpper.match(/PAY[A-F0-9]{15,}/gi);
+                if (contentPayMatches) {
+                    for (const pm of contentPayMatches) {
+                        if (payCodeMap.has(pm.toUpperCase())) {
+                            matchedReg = payCodeMap.get(pm.toUpperCase());
+                            break;
+                        }
+                    }
+                }
+            }
+
+            // Strategy 5: Look for EFCUP pattern in content
             if (!matchedReg && txContent) {
                 const efcupMatch = txContent.match(/EFCUP-([A-Z0-9]+)-/i);
                 if (efcupMatch) {
@@ -176,23 +223,16 @@ export async function GET(req: NextRequest, { params }: RouteParams) {
                 }
             }
 
-            // Strategy 4: Look for PAY code in paymentNote of registrations
-            if (!matchedReg && txCode && txCode.startsWith("PAY")) {
-                for (const reg of registrations) {
-                    try {
-                        const noteStr = reg.paymentNote || "";
-                        if (noteStr.includes(txCode)) {
-                            matchedReg = buildRegData(reg, txCode);
-                            break;
-                        }
-                    } catch {}
+            // Strategy 6: Match by SePay transaction ID
+            if (!matchedReg && tx.id) {
+                const txIdStr = String(tx.id);
+                if (payCodeMap.has(txIdStr)) {
+                    matchedReg = payCodeMap.get(txIdStr);
                 }
             }
 
-            // Strategy 5: Match by phone number in transaction content
-            // Bank transfers often contain sender phone: "122052750878 0859932114 PAY..."
+            // Strategy 7: Match by phone number in transaction content
             if (!matchedReg && txContent) {
-                // Extract all potential phone numbers from content (9-11 digit sequences)
                 const phoneMatches = txContent.match(/\b\d{9,11}\b/g) || [];
                 for (const phoneStr of phoneMatches) {
                     const last9 = phoneStr.slice(-9);
@@ -207,8 +247,7 @@ export async function GET(req: NextRequest, { params }: RouteParams) {
                 }
             }
 
-            // Strategy 6: Match by player name in transaction content
-            // MoMo/manual transfers often contain player name: "PHAM DANG KHOA chuyen tien"
+            // Strategy 8: Match by player name in transaction content
             if (!matchedReg && txContent && txContent.length > 5) {
                 const normalizedContent = normalizeVN(txContent);
                 let bestMatch: any = null;
@@ -217,9 +256,7 @@ export async function GET(req: NextRequest, { params }: RouteParams) {
                 for (const reg of registrations) {
                     if (!reg.playerName || reg.playerName.length < 3) continue;
                     const normalizedName = normalizeVN(reg.playerName);
-                    // Check if full name appears in content
                     if (normalizedContent.includes(normalizedName)) {
-                        // Prefer longer name matches (more specific)
                         if (normalizedName.length > bestScore) {
                             bestScore = normalizedName.length;
                             bestMatch = buildRegData(reg);
