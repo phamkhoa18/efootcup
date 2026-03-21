@@ -562,7 +562,7 @@ export default function DangKyPage() {
     // =============================================
     // SePay Transactions
     // =============================================
-    const loadSepayTransactions = async () => {
+    const loadSepayTransactions = async (fromDate?: string, toDate?: string) => {
         setIsLoadingSepay(true);
         setSepayError(null);
         try {
@@ -570,20 +570,27 @@ export default function DangKyPage() {
             const token = localStorage.getItem("efootcup_token");
             if (token) headers.Authorization = `Bearer ${token}`;
 
-            const res = await fetch(`/api/tournaments/${id}/sepay-transactions`, { headers });
+            const params = new URLSearchParams();
+            const fd = fromDate ?? sepayDateFrom;
+            const td = toDate ?? sepayDateTo;
+            if (fd) params.set("from_date", fd);
+            if (td) params.set("to_date", td);
+
+            const qs = params.toString() ? `?${params.toString()}` : "";
+            const res = await fetch(`/api/tournaments/${id}/sepay-transactions${qs}`, { headers });
             const json = await res.json();
 
             if (json.success) {
                 setSepayTransactions(json.data?.transactions || []);
-                toast.success(`Đã tải ${json.data?.transactions?.length || 0} giao dịch từ SePay`);
+                toast.success(`Loaded ${json.data?.transactions?.length || 0} transactions`);
             } else {
-                setSepayError(json.message || "Lỗi khi tải giao dịch");
-                toast.error(json.message || "Lỗi khi tải giao dịch SePay");
+                setSepayError(json.message || "Error loading transactions");
+                toast.error(json.message || "Error loading SePay transactions");
             }
         } catch (err) {
             console.error(err);
-            setSepayError("Có lỗi xảy ra khi kết nối SePay API");
-            toast.error("Có lỗi xảy ra khi tải giao dịch");
+            setSepayError("Connection error with SePay API");
+            toast.error("Error loading transactions");
         } finally {
             setIsLoadingSepay(false);
         }
@@ -2374,7 +2381,7 @@ export default function DangKyPage() {
                                 <Button variant="outline" size="sm" className="h-9 text-sm px-3 gap-1.5" onClick={handleExportSepayTransactions} disabled={sepayTransactions.length === 0}>
                                     <Download className="w-4 h-4" /> {"Xuất Excel"}
                                 </Button>
-                                <Button variant="outline" size="sm" className="h-9 text-sm px-3 gap-1.5" onClick={loadSepayTransactions} disabled={isLoadingSepay}>
+                                <Button variant="outline" size="sm" className="h-9 text-sm px-3 gap-1.5" onClick={() => loadSepayTransactions()} disabled={isLoadingSepay}>
                                     <RefreshCw className={`w-4 h-4 ${isLoadingSepay ? 'animate-spin' : ''}`} /> {"Tải lại"}
                                 </Button>
                             </div>
@@ -2432,13 +2439,16 @@ export default function DangKyPage() {
                                 <>
                                     {/* Date filter + Stats */}
                                     <div className="flex flex-col sm:flex-row sm:items-center gap-3 mt-4 mb-4">
-                                        <div className="flex items-center gap-2 flex-shrink-0">
+                                        <div className="flex items-center gap-2 flex-shrink-0 flex-wrap">
                                             <CalendarIcon className="w-4 h-4 text-gray-400" />
                                             <input type="date" value={sepayDateFrom} onChange={e => { setSepayDateFrom(e.target.value); setSepayPage(1); }} className="h-8 px-2.5 text-sm border border-gray-200 rounded-lg bg-white text-gray-700 focus:outline-none focus:ring-2 focus:ring-purple-200 focus:border-purple-400" />
                                             <span className="text-gray-300 text-sm">{"\u2192"}</span>
                                             <input type="date" value={sepayDateTo} onChange={e => { setSepayDateTo(e.target.value); setSepayPage(1); }} className="h-8 px-2.5 text-sm border border-gray-200 rounded-lg bg-white text-gray-700 focus:outline-none focus:ring-2 focus:ring-purple-200 focus:border-purple-400" />
+                                            <button className="h-8 px-3 text-xs font-medium rounded-lg bg-purple-500 text-white hover:bg-purple-600 transition-colors disabled:opacity-50 flex items-center gap-1" disabled={isLoadingSepay} onClick={() => { setSepayPage(1); loadSepayTransactions(sepayDateFrom, sepayDateTo); }}>
+                                                <Search className="w-3.5 h-3.5" /> {"Lọc"}
+                                            </button>
                                             {(sepayDateFrom || sepayDateTo) && (
-                                                <button className="text-xs text-gray-400 hover:text-gray-600 underline ml-1" onClick={() => { setSepayDateFrom(''); setSepayDateTo(''); setSepayPage(1); }}>{"Xóa lọc"}</button>
+                                                <button className="text-xs text-gray-400 hover:text-gray-600 underline ml-1" onClick={() => { setSepayDateFrom(''); setSepayDateTo(''); setSepayPage(1); loadSepayTransactions('', ''); }}>{"Xóa lọc"}</button>
                                             )}
                                         </div>
                                         <div className="flex items-center gap-3 text-sm flex-wrap flex-1 sm:justify-end">

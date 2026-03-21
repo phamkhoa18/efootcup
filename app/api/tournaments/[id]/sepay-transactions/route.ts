@@ -47,19 +47,18 @@ export async function GET(req: NextRequest, { params }: RouteParams) {
         }
 
         const accountNumber = sepayMethod.accountNumber;
-        if (!accountNumber) {
-            return apiError("Chưa cấu hình số tài khoản ngân hàng cho SePay", 400);
-        }
 
         // Get query params for filtering
         const url = new URL(req.url);
         const fromDate = url.searchParams.get("from_date") || "";
         const toDate = url.searchParams.get("to_date") || "";
-        const limit = url.searchParams.get("limit") || "100";
+        const limit = url.searchParams.get("limit") || "5000"; // SePay max is 5000
 
         // Build SePay API URL
         const apiUrl = new URL("https://my.sepay.vn/userapi/transactions/list");
-        apiUrl.searchParams.set("account_number", accountNumber);
+        if (accountNumber) {
+            apiUrl.searchParams.set("account_number", accountNumber);
+        }
         apiUrl.searchParams.set("limit", limit);
         if (fromDate) apiUrl.searchParams.set("transaction_date_min", fromDate);
         if (toDate) apiUrl.searchParams.set("transaction_date_max", toDate);
