@@ -82,6 +82,14 @@ export async function GET(req: NextRequest, { params }: RouteParams) {
         const transactions = sepayData.transactions || sepayData.data || [];
 
         console.log(`📊 SePay returned ${transactions.length} transactions`);
+        // Debug: log first raw transaction to see actual field names
+        if (transactions.length > 0) {
+            console.log(`🔍 Sample raw tx keys: ${Object.keys(transactions[0]).join(', ')}`);
+            console.log(`🔍 Sample raw tx: amount_in=${transactions[0].amount_in}, amount_out=${transactions[0].amount_out}, transferAmount=${transactions[0].transferAmount}, amount=${transactions[0].amount}`);
+        }
+        // Raw total from SePay data
+        const rawTotal = transactions.reduce((s: number, t: any) => s + (parseFloat(String(t.amount_in ?? t.transferAmount ?? t.amount ?? 0)) || 0), 0);
+        console.log(`💰 Raw SePay total amount_in: ${rawTotal}`);
 
         // Get ALL registrations for this tournament to do broader matching
         const registrations = await Registration.find({
@@ -94,7 +102,7 @@ export async function GET(req: NextRequest, { params }: RouteParams) {
         const regIdPartMap = new Map<string, any>();    // last 8 chars of reg._id -> reg
         const payCodeMap = new Map<string, any>();      // PAY code -> reg (from stored webhook data)
         const emailMap = new Map<string, any>();        // email -> reg
-        const nameMap = new Map<string, any>();         // normalized name -> reg
+
 
         const buildRegData = (reg: any, invoiceNumber = "") => ({
             _id: reg._id,
@@ -109,16 +117,9 @@ export async function GET(req: NextRequest, { params }: RouteParams) {
             invoiceNumber,
         });
 
-        // Unpaid sepay registrations (for fallback matching)
-        const unpaidSepayRegs: any[] = [];
-
         for (const reg of registrations) {
             const regData = buildRegData(reg);
 
-            // Track unpaid sepay registrations for aggressive matching
-            if (reg.paymentMethod === "sepay" && reg.paymentStatus !== "paid") {
-                unpaidSepayRegs.push({ reg, regData });
-            }
 
             // Parse paymentNote for invoiceNumber and PAY codes
             try {
@@ -292,43 +293,6 @@ export async function GET(req: NextRequest, { params }: RouteParams) {
                 }
                 if (bestMatch) {
                     matchedReg = bestMatch;
-                }
-            }
-
-            // Strategy 9: For PAY code transactions with entry fee amount,
-            // match to unpaid sepay registrations by closest initiation time
-            if (!matchedReg && txCode && /^PAY[A-F0-9]{15,}$/i.test(txCode)) {
-                const txAmount = parseFloat(String(tx.amount_in ?? tx.transferAmount ?? tx.amount ?? 0)) || 0;
-                const entryFee = tournament.entryFee || 0;
-
-                if (txAmount > 0 && entryFee > 0 && txAmount === entryFee) {
-                    const txTime = new Date(tx.transaction_date).getTime();
-                    let bestCandidate: any = null;
-                    let bestTimeDiff = Infinity;
-
-                    for (const { reg, regData } of unpaidSepayRegs) {
-                        // Check if already matched to another transaction
-                        if ((reg as any)._matched) continue;
-                        
-                        // Parse paymentNote to get initiation time
-                        let regTime = new Date(reg.createdAt).getTime();
-                        try {
-                            const note = JSON.parse(reg.paymentNote || "{}");
-                            if (note.createdAt) regTime = new Date(note.createdAt).getTime();
-                        } catch {}
-
-                        const diff = Math.abs(txTime - regTime);
-                        // Match within 24 hours
-                        if (diff < 24 * 60 * 60 * 1000 && diff < bestTimeDiff) {
-                            bestTimeDiff = diff;
-                            bestCandidate = { reg, regData };
-                        }
-                    }
-
-                    if (bestCandidate) {
-                        matchedReg = bestCandidate.regData;
-                        (bestCandidate.reg as any)._matched = true;
-                    }
                 }
             }
 
