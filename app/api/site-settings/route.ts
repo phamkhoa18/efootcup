@@ -18,42 +18,43 @@ export async function GET() {
         }
 
         // Return only public-safe fields
+        const s = settings as any;
         const publicSettings = {
             // Website Identity
-            siteName: settings.siteName || "EFV CUP Vietnam",
-            siteTagline: settings.siteTagline || "",
-            siteDescription: settings.siteDescription || "",
-            siteUrl: settings.siteUrl || "",
+            siteName: s.siteName || "EFV CUP Vietnam",
+            siteTagline: s.siteTagline || "",
+            siteDescription: s.siteDescription || "",
+            siteUrl: s.siteUrl || "",
 
             // Branding
-            logo: settings.logo || "",
-            logoDark: settings.logoDark || "",
-            favicon: settings.favicon || "",
-            appleTouchIcon: settings.appleTouchIcon || "",
-            ogImage: settings.ogImage || "/assets/efootball_bg.webp",
+            logo: s.logo || "",
+            logoDark: s.logoDark || "",
+            favicon: s.favicon || "",
+            appleTouchIcon: s.appleTouchIcon || "",
+            ogImage: s.ogImage || "/assets/efootball_bg.webp",
 
             // SEO
-            seoTitle: settings.seoTitle || "",
-            seoDescription: settings.seoDescription || "",
-            seoKeywords: settings.seoKeywords || [],
+            seoTitle: s.seoTitle || "",
+            seoDescription: s.seoDescription || "",
+            seoKeywords: s.seoKeywords || [],
 
             // Social Media
-            socialFacebook: settings.socialFacebook || "",
-            socialYoutube: settings.socialYoutube || "",
-            socialTiktok: settings.socialTiktok || "",
-            socialDiscord: settings.socialDiscord || "",
-            socialTwitter: settings.socialTwitter || "",
-            socialInstagram: settings.socialInstagram || "",
-            socialTelegram: settings.socialTelegram || "",
+            socialFacebook: s.socialFacebook || "",
+            socialYoutube: s.socialYoutube || "",
+            socialTiktok: s.socialTiktok || "",
+            socialDiscord: s.socialDiscord || "",
+            socialTwitter: s.socialTwitter || "",
+            socialInstagram: s.socialInstagram || "",
+            socialTelegram: s.socialTelegram || "",
 
             // Contact
-            contactEmail: settings.contactEmail || "",
-            contactPhone: settings.contactPhone || "",
-            contactAddress: settings.contactAddress || "",
+            contactEmail: s.contactEmail || "",
+            contactPhone: s.contactPhone || "",
+            contactAddress: s.contactAddress || "",
 
             // Public Advanced
-            copyrightText: settings.copyrightText || "",
-            maintenanceMode: settings.maintenanceMode || false,
+            copyrightText: s.copyrightText || "",
+            maintenanceMode: s.maintenanceMode || false,
         };
 
         return NextResponse.json(
