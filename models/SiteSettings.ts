@@ -13,6 +13,9 @@ export interface ISiteSettings extends Document {
     favicon: string; // URL to favicon (16x16, 32x32)
     appleTouchIcon: string; // URL to Apple touch icon (180x180)
     ogImage: string; // Default Open Graph image (1200x630)
+    bxhMobileOgImage?: string;
+    bxhConsoleOgImage?: string;
+    bxhTeamsOgImage?: string;
 
     // === SEO ===
     seoTitle: string; // Default meta title
@@ -74,6 +77,9 @@ const SiteSettingsSchema = new Schema<ISiteSettings>(
         favicon: { type: String, default: "" },
         appleTouchIcon: { type: String, default: "" },
         ogImage: { type: String, default: "/assets/efootball_bg.webp" },
+        bxhMobileOgImage: { type: String, default: "" },
+        bxhConsoleOgImage: { type: String, default: "" },
+        bxhTeamsOgImage: { type: String, default: "" },
 
         // SEO
         seoTitle: { type: String, default: "eFootball Cup VN - Tổ Chức Giải Đấu eFootball Chuyên Nghiệp" },
@@ -131,8 +137,11 @@ SiteSettingsSchema.statics.getSingleton = async function () {
     return settings;
 };
 
-const SiteSettings =
-    mongoose.models.SiteSettings ||
-    mongoose.model<ISiteSettings>("SiteSettings", SiteSettingsSchema);
+// Next.js hot reload fix
+if (mongoose.models.SiteSettings) {
+    delete mongoose.models.SiteSettings;
+}
+
+const SiteSettings = mongoose.model<ISiteSettings>("SiteSettings", SiteSettingsSchema);
 
 export default SiteSettings;

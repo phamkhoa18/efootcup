@@ -45,6 +45,14 @@ export default function ManagerBxhPage() {
     const [isReloading, setIsReloading] = useState(false);
     const [activeMode, setActiveMode] = useState<"mobile" | "pc" | "teams">("mobile");
 
+    // ═══ SEO STATE ═══
+    const [isSeoModalOpen, setIsSeoModalOpen] = useState(false);
+    const [seoForm, setSeoForm] = useState({ bxhMobileOgImage: "", bxhConsoleOgImage: "", bxhTeamsOgImage: "" });
+    const [isSeoLoading, setIsSeoLoading] = useState(false);
+    const [seoUploadMode, setSeoUploadMode] = useState<"link" | "upload">("link");
+    const [seoFile, setSeoFile] = useState<File | null>(null);
+    const seoInputRef = useRef<HTMLInputElement>(null);
+
     // ═══ TEAMS STATE ═══
     const [teams, setTeams] = useState<any[]>([]);
     const [isTeamsLoading, setIsTeamsLoading] = useState(false);
@@ -98,6 +106,63 @@ export default function ManagerBxhPage() {
             console.error("Error loading BXH:", error);
         } finally {
             setIsLoading(false);
+        }
+    };
+
+    const handleOpenSeo = async () => {
+        setIsSeoLoading(true);
+        setIsSeoModalOpen(true);
+        setSeoUploadMode("link");
+        setSeoFile(null);
+        try {
+            const res = await fetch("/api/bxh/seo");
+            const result = await res.json();
+            if (result.success) {
+                setSeoForm({
+                    bxhMobileOgImage: result.data.bxhMobileOgImage || "",
+                    bxhConsoleOgImage: result.data.bxhConsoleOgImage || "",
+                    bxhTeamsOgImage: result.data.bxhTeamsOgImage || "",
+                });
+            }
+        } catch (error) {
+            toast.error("Không thể tải cấu hình SEO");
+        } finally {
+            setIsSeoLoading(false);
+        }
+    };
+
+    const handleSaveSeo = async () => {
+        setIsSeoLoading(true);
+        try {
+            const currentField = activeMode === "mobile" ? "bxhMobileOgImage" : activeMode === "pc" ? "bxhConsoleOgImage" : "bxhTeamsOgImage";
+            let finalImageUrl = (seoForm as any)[currentField];
+            
+            if (seoUploadMode === "upload" && seoFile) {
+                const fd = new FormData();
+                fd.append("file", seoFile);
+                fd.append("type", "general");
+                const uploadRes = await fetch("/api/upload", { method: "POST", body: fd });
+                const uploadData = await uploadRes.json();
+                if (!uploadRes.ok) throw new Error(uploadData.message || "Lỗi tải ảnh lên");
+                finalImageUrl = toDirectImageUrl(uploadData.data.url);
+            }
+
+            const payload = { [currentField]: finalImageUrl };
+
+            const res = await fetch("/api/bxh/seo", {
+                method: "PUT",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(payload)
+            });
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.message);
+            toast.success("Đã cập nhật ảnh SEO thành công");
+            setSeoForm(prev => ({ ...prev, ...payload }));
+            setIsSeoModalOpen(false);
+        } catch (error: any) {
+            toast.error(error.message || "Lưu thất bại");
+        } finally {
+            setIsSeoLoading(false);
         }
     };
 
@@ -594,6 +659,9 @@ export default function ManagerBxhPage() {
                         {players.length > 0 && <Button variant="destructive" onClick={handleDeleteAll} className="bg-rose-500 hover:bg-rose-600 text-white rounded-xl shadow-sm flex-1 sm:flex-none"><Trash2 className="w-4 h-4 mr-2" /> Xóa toàn bộ</Button>}
                         <Button onClick={handleAdd} className="bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl shadow-sm flex-1 sm:flex-none"><Plus className="w-4 h-4 mr-2" /> Thêm VĐV</Button>
                     </>)}
+                    <Button onClick={handleOpenSeo} variant="outline" className="border-purple-300 text-purple-700 hover:bg-purple-50 rounded-xl shadow-sm flex-1 sm:flex-none">
+                        <ImageIcon className="w-4 h-4 mr-2" /> Cài đặt SEO
+                    </Button>
                 </div>
             </div>
 
@@ -1069,6 +1137,68 @@ export default function ManagerBxhPage() {
                             </div>
                         </form>
                     </Tabs>
+                </DialogContent>
+            </Dialog>
+
+            {/* ═══ SEO MODAL ═══ */}
+            <Dialog open={isSeoModalOpen} onOpenChange={(v) => { if (!v) setIsSeoModalOpen(false); }}>
+                <DialogContent className="sm:max-w-[500px]">
+                    <DialogHeader>
+                        <DialogTitle>Cài đặt SEO - Bảng xếp hạng {activeMode === "mobile" ? "Mobile" : activeMode === "pc" ? "Console" : "Teams"}</DialogTitle>
+                    </DialogHeader>
+                    {isSeoLoading ? (
+                        <div className="py-12 flex justify-center"><Loader2 className="w-8 h-8 animate-spin text-purple-600" /></div>
+                    ) : (
+                        <div className="space-y-4 pt-4 text-[13px]">
+                            <p className="text-slate-500">Cấu hình ảnh Thumbnail dùng khi chia sẻ ({activeMode === "mobile" ? "Mobile" : activeMode === "pc" ? "Console" : "Teams"}) lên Facebook, Zalo, Telegram...</p>
+                            
+                            <div className="space-y-2">
+                                <Label>Ảnh Thumbnail (Open Graph Image)</Label>
+                                <div className="flex items-center gap-2 mb-2">
+                                    <button type="button" onClick={() => { setSeoUploadMode("link"); setSeoFile(null); }} className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[12px] font-semibold transition-all ${seoUploadMode === "link" ? "bg-purple-100 text-purple-700 border border-purple-200" : "bg-slate-50 text-slate-500 border border-slate-200 hover:bg-slate-100"}`}><Link2 className="w-3.5 h-3.5" /> Link URL</button>
+                                    <button type="button" onClick={() => setSeoUploadMode("upload")} className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[12px] font-semibold transition-all ${seoUploadMode === "upload" ? "bg-purple-100 text-purple-700 border border-purple-200" : "bg-slate-50 text-slate-500 border border-slate-200 hover:bg-slate-100"}`}><ImageIcon className="w-3.5 h-3.5" /> Upload ảnh</button>
+                                </div>
+                                
+                                {seoUploadMode === "link" ? (
+                                    <Input
+                                        type="url"
+                                        value={(seoForm as any)[activeMode === "mobile" ? "bxhMobileOgImage" : activeMode === "pc" ? "bxhConsoleOgImage" : "bxhTeamsOgImage"]}
+                                        onChange={e => setSeoForm({ ...seoForm, [activeMode === "mobile" ? "bxhMobileOgImage" : activeMode === "pc" ? "bxhConsoleOgImage" : "bxhTeamsOgImage"]: e.target.value })}
+                                        placeholder="https://example.com/seo-image.jpg"
+                                    />
+                                ) : (
+                                    <div className={`border-2 border-dashed rounded-xl p-4 text-center relative cursor-pointer ${seoFile ? 'border-purple-300 bg-purple-50/50' : 'border-slate-200 bg-slate-50/50 hover:bg-slate-50'}`}>
+                                        <input type="file" ref={seoInputRef} accept="image/*" onChange={(e) => {
+                                            const file = e.target.files?.[0];
+                                            if (file) setSeoFile(file);
+                                        }} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" />
+                                        <ImageIcon className={`w-6 h-6 mx-auto mb-2 ${seoFile ? 'text-purple-500' : 'text-slate-400'}`} />
+                                        <p className={`text-[12px] font-semibold ${seoFile ? 'text-purple-900' : 'text-slate-600'}`}>{seoFile ? seoFile.name : "Kéo thả hoặc click chọn ảnh upload"}</p>
+                                    </div>
+                                )}
+                                
+                                <div className="mt-3">
+                                    <Label className="text-[12px] text-slate-400">Xem trước (Kích thước chuẩn: 1200x630)</Label>
+                                    <div className="w-full aspect-[1200/630] rounded-xl overflow-hidden border border-slate-200 mt-2 bg-slate-100 flex flex-col items-center justify-center relative">
+                                        {(seoUploadMode === "upload" && seoFile) ? (
+                                            <img src={URL.createObjectURL(seoFile)} alt="SEO Preview" className="w-full h-full object-cover" />
+                                        ) : (seoForm as any)[activeMode === "mobile" ? "bxhMobileOgImage" : activeMode === "pc" ? "bxhConsoleOgImage" : "bxhTeamsOgImage"] ? (
+                                            <img src={(seoForm as any)[activeMode === "mobile" ? "bxhMobileOgImage" : activeMode === "pc" ? "bxhConsoleOgImage" : "bxhTeamsOgImage"]} alt="SEO Preview" className="w-full h-full object-cover" onError={(e) => { (e.target as HTMLImageElement).src = "/assets/efootball_bg.webp"; }} />
+                                        ) : (
+                                            <ImageIcon className="w-8 h-8 text-slate-300" />
+                                        )}
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div className="pt-4 flex gap-3">
+                                <Button type="button" variant="outline" className="w-full flex-1" onClick={() => setIsSeoModalOpen(false)}>Hủy</Button>
+                                <Button type="button" className="w-full flex-1 bg-purple-600 hover:bg-purple-700 text-white" disabled={isSeoLoading} onClick={handleSaveSeo}>
+                                    {isSeoLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : "Lưu cài đặt SEO"}
+                                </Button>
+                            </div>
+                        </div>
+                    )}
                 </DialogContent>
             </Dialog>
         </div>

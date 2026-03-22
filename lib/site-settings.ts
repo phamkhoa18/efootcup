@@ -11,6 +11,9 @@ export interface PublicSiteSettings {
     favicon: string;
     appleTouchIcon: string;
     ogImage: string;
+    bxhMobileOgImage?: string;
+    bxhConsoleOgImage?: string;
+    bxhTeamsOgImage?: string;
     seoTitle: string;
     seoDescription: string;
     seoKeywords: string[];
@@ -43,6 +46,9 @@ const defaults: PublicSiteSettings = {
     favicon: "",
     appleTouchIcon: "",
     ogImage: "/assets/efootball_bg.webp",
+    bxhMobileOgImage: "/assets/efootball_bg.webp",
+    bxhConsoleOgImage: "/assets/efootball_bg.webp",
+    bxhTeamsOgImage: "/assets/efootball_bg.webp",
     seoTitle: "eFootball VN - Tổ Chức Giải Đấu eFootball Chuyên Nghiệp",
     seoDescription: "Nền tảng tổ chức và quản lý giải đấu eFootball hàng đầu Việt Nam. Kết nối đam mê, chinh phục giải đấu.",
     seoKeywords: ["eFootball", "giải đấu", "tournament", "esports", "Việt Nam"],
@@ -85,6 +91,9 @@ export async function getSiteSettings(): Promise<PublicSiteSettings> {
             favicon: settings.favicon || defaults.favicon,
             appleTouchIcon: settings.appleTouchIcon || defaults.appleTouchIcon,
             ogImage: settings.ogImage || defaults.ogImage,
+            bxhMobileOgImage: settings.bxhMobileOgImage || defaults.bxhMobileOgImage,
+            bxhConsoleOgImage: settings.bxhConsoleOgImage || defaults.bxhConsoleOgImage,
+            bxhTeamsOgImage: settings.bxhTeamsOgImage || defaults.bxhTeamsOgImage,
             seoTitle: settings.seoTitle || defaults.seoTitle,
             seoDescription: settings.seoDescription || defaults.seoDescription,
             seoKeywords: settings.seoKeywords?.length ? settings.seoKeywords : defaults.seoKeywords,
