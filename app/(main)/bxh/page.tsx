@@ -22,6 +22,7 @@ type Player = {
     pointsEfv500?: number;
     pointsEfv1000?: number;
     efvId?: number | string;
+    avatar?: string;
 };
 
 type PointLog = {
@@ -176,7 +177,11 @@ export default function BXHPage() {
                                 return (
                                     <div key={oi} className={`flex-1 min-w-0 ${vi === 1 ? "order-2" : vi === 0 ? "order-1" : "order-3"}`}>
                                         <div className={`${c.bg} ${c.shadow} ${c.h} rounded-xl sm:rounded-2xl px-2 sm:px-5 py-3 sm:py-5 text-center flex flex-col items-center justify-end relative overflow-hidden transition-transform hover:-translate-y-2`}>
-                                            <span className={`text-2xl sm:text-5xl mb-1 sm:mb-2 drop-shadow-sm`}>{["🥇", "🥈", "🥉"][oi]}</span>
+                                            {p.avatar ? (
+                                                <img src={p.avatar} alt={p.name} className="w-10 h-10 sm:w-14 sm:h-14 rounded-full object-cover border-2 border-white/50 shadow-md mb-1 sm:mb-2" />
+                                            ) : (
+                                                <span className={`text-2xl sm:text-5xl mb-1 sm:mb-2 drop-shadow-sm`}>{["🥇", "🥈", "🥉"][oi]}</span>
+                                            )}
                                             <h3 className={`font-semibold tracking-tight text-[11px] sm:text-[15px] ${c.textMain} truncate w-full`}>{p.nickname || p.name}</h3>
                                             <div className={`font-bold tracking-tight text-lg sm:text-3xl ${c.textMain} leading-tight`}>{String(p.points)}</div>
                                             <span className={`text-[7px] sm:text-[9px] ${c.textSub} font-medium tracking-[0.05em] uppercase`}>ĐIỂM</span>
@@ -310,10 +315,19 @@ export default function BXHPage() {
                                             </div>
                                             {/* ID */}
                                             <span className="text-[12px] text-indigo-500 font-mono font-medium truncate pr-2">{p.id}</span>
-                                            {/* Name */}
-                                            <p className="font-semibold text-[14px] text-slate-800 truncate group-hover:text-blue-600 transition-colors pr-2">
-                                                {p.name}
-                                            </p>
+                                            {/* Name + Avatar */}
+                                            <div className="flex items-center gap-2.5 pr-2 min-w-0">
+                                                {p.avatar ? (
+                                                    <img src={p.avatar} alt={p.name} className="w-8 h-8 rounded-lg object-cover flex-shrink-0 border border-slate-200" />
+                                                ) : (
+                                                    <div className="w-8 h-8 rounded-lg bg-slate-100 flex items-center justify-center text-slate-400 font-bold text-xs flex-shrink-0">
+                                                        {p.name?.charAt(0) || "?"}
+                                                    </div>
+                                                )}
+                                                <p className="font-semibold text-[14px] text-slate-800 truncate group-hover:text-blue-600 transition-colors">
+                                                    {p.name}
+                                                </p>
+                                            </div>
                                             {/* Team */}
                                             <div className="pr-2">
                                                 {p.team ? (
@@ -378,9 +392,18 @@ export default function BXHPage() {
                                                     )}
                                                 </div>
                                                 <div className="flex-1 min-w-0">
-                                                    <p className="font-bold text-[14px] text-slate-800 truncate leading-tight">
-                                                        {p.name} {p.nickname ? <span className="text-slate-500 font-normal">({p.nickname})</span> : ""}
-                                                    </p>
+                                                    <div className="flex items-center gap-2">
+                                                        {p.avatar ? (
+                                                            <img src={p.avatar} alt={p.name} className="w-7 h-7 rounded-lg object-cover flex-shrink-0 border border-slate-200" />
+                                                        ) : (
+                                                            <div className="w-7 h-7 rounded-lg bg-slate-100 flex items-center justify-center text-slate-400 font-bold text-[10px] flex-shrink-0">
+                                                                {p.name?.charAt(0) || "?"}
+                                                            </div>
+                                                        )}
+                                                        <p className="font-bold text-[14px] text-slate-800 truncate leading-tight">
+                                                            {p.name} {p.nickname ? <span className="text-slate-500 font-normal">({p.nickname})</span> : ""}
+                                                        </p>
+                                                    </div>
                                                     <div className="flex items-center gap-2 flex-wrap mt-1">
                                                         <span className="text-[10px] text-indigo-500 font-mono bg-indigo-50 px-1.5 py-0.5 rounded border border-indigo-100">{p.id}</span>
                                                         {p.team && <span className="text-[10px] bg-slate-100 text-slate-600 px-2 py-0.5 rounded-full font-medium">{p.team}</span>}

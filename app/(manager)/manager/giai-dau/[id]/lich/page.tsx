@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
-import { Calendar, Download, Edit3, Filter, Settings2, Share2, Play, Users, X, Info, ChevronDown, CheckCircle2, Bone, Hexagon, SplitSquareHorizontal, Loader2, ArrowLeftRight, FileBarChart, Eye, ArrowUp, ArrowDown, Shuffle, Hash, Trophy } from "lucide-react";
+import { Calendar, Download, Edit3, Filter, Settings2, Share2, Play, Users, X, Info, ChevronDown, CheckCircle2, Bone, Hexagon, SplitSquareHorizontal, Loader2, ArrowLeftRight, FileBarChart, Eye, ArrowUp, ArrowDown, Shuffle, Hash, Trophy, Save, Sparkles, Search } from "lucide-react";
 import { tournamentAPI } from "@/lib/api";
 import { toast } from "sonner";
 import { useConfirmDialog } from "@/components/ui/confirm-dialog";
@@ -41,7 +41,10 @@ export default function LichThiDauPage() {
     const [viewingSubmissions, setViewingSubmissions] = useState<any>(null);
     const [statusFilter, setStatusFilter] = useState<'all' | 'pending' | 'live' | 'completed' | 'has_submissions' | 'pending_review'>('all');
     const [seedMode, setSeedMode] = useState<'random' | 'manual'>('random');
-    const [seedOrder, setSeedOrder] = useState<any[]>([]);
+    const [seedMap, setSeedMap] = useState<Record<string, number | null>>({});
+    const [allTeams, setAllTeams] = useState<any[]>([]);
+    const [seedSearchTerm, setSeedSearchTerm] = useState('');
+    const [matchSearchTerm, setMatchSearchTerm] = useState('');
     const { confirm, alert: showAlert } = useConfirmDialog();
 
     const handleDownloadPDF = async () => {
@@ -144,12 +147,30 @@ export default function LichThiDauPage() {
         setIsGeneratingModalOpen(false);
         setIsUpdating(true);
         try {
+            // Auto-save seeds to DB before generating
+            if (seedMode === 'manual') {
+                const seedsPayload = Object.entries(seedMap).map(([teamId, seed]) => ({
+                    teamId,
+                    seed: seed && seed > 0 ? seed : null,
+                }));
+                await tournamentAPI.updateTeamSeed(id, { seeds: seedsPayload });
+            }
+
             const payload: any = {};
-            if (seedMode === 'manual' && seedOrder.length > 0) {
-                payload.seeds = seedOrder.map((t: any) => t._id || t.id);
+            if (seedMode === 'manual') {
+                const seeded = allTeams
+                    .filter(t => seedMap[t._id] != null && seedMap[t._id]! > 0)
+                    .sort((a, b) => (seedMap[a._id] || 999) - (seedMap[b._id] || 999));
+                const nonSeeded = allTeams.filter(t => !seedMap[t._id] || seedMap[t._id]! <= 0);
+                for (let i = nonSeeded.length - 1; i > 0; i--) {
+                    const j = Math.floor(Math.random() * (i + 1));
+                    [nonSeeded[i], nonSeeded[j]] = [nonSeeded[j], nonSeeded[i]];
+                }
+                payload.seeds = [...seeded, ...nonSeeded].map(t => t._id || t.id);
             }
             const res = await tournamentAPI.generateBrackets(id, payload);
             if (res.success) {
+                toast.success(`Đã tạo lịch thi đấu với ${res.data?.totalMatches || 0} trận!`);
                 loadData();
             } else {
                 toast.error(`❌ ${res.message}`);
@@ -164,29 +185,71 @@ export default function LichThiDauPage() {
     // Load teams for seeding when modal opens
     const openGenerateModal = async () => {
         setIsGeneratingModalOpen(true);
+        setSeedSearchTerm('');
         try {
             const res = await tournamentAPI.getById(id);
             if (res.success) {
                 const teams = res.data?.teams || [];
-                setSeedOrder([...teams]);
+                setAllTeams(teams);
+                const map: Record<string, number | null> = {};
+                teams.forEach((team: any) => { map[team._id || team.id] = team.seed ?? null; });
+                setSeedMap(map);
+                // Auto-switch to manual mode if any seeds exist
+                if (teams.some((team: any) => team.seed != null && team.seed > 0)) {
+                    setSeedMode('manual');
+                }
             }
         } catch (e) {
             console.error(e);
         }
     };
 
-    const moveSeed = (index: number, direction: 'up' | 'down') => {
-        const newOrder = [...seedOrder];
-        const targetIndex = direction === 'up' ? index - 1 : index + 1;
-        if (targetIndex < 0 || targetIndex >= newOrder.length) return;
-        [newOrder[index], newOrder[targetIndex]] = [newOrder[targetIndex], newOrder[index]];
-        setSeedOrder(newOrder);
+    const autoAssignSeeds = () => {
+        const count = Math.max(1, Math.floor(allTeams.length / 4));
+        const newMap: Record<string, number | null> = {};
+        allTeams.forEach((t, i) => { newMap[t._id || t.id] = i < count ? i + 1 : null; });
+        setSeedMap(newMap);
+        toast.success(`Đã gán tự động ${count} hạt giống (¼ số đội)`);
     };
 
-    const shuffleSeeds = () => {
-        const shuffled = [...seedOrder].sort(() => Math.random() - 0.5);
-        setSeedOrder(shuffled);
+    const clearAllSeeds = () => {
+        const newMap: Record<string, number | null> = {};
+        allTeams.forEach(t => { newMap[t._id || t.id] = null; });
+        setSeedMap(newMap);
     };
+
+    const saveSeedsFromLich = async () => {
+        setIsUpdating(true);
+        try {
+            const seedsPayload = Object.entries(seedMap).map(([teamId, seed]) => ({
+                teamId,
+                seed: seed && seed > 0 ? seed : null,
+            }));
+            const res = await tournamentAPI.updateTeamSeed(id, { seeds: seedsPayload });
+            if (res.success) {
+                toast.success('💾 Đã lưu hạt giống thành công!');
+            } else {
+                toast.error(res.message || 'Lỗi lưu');
+            }
+        } catch (e) {
+            console.error(e);
+            toast.error('Có lỗi xảy ra');
+        } finally {
+            setIsUpdating(false);
+        }
+    };
+
+    const assignedSeedsList = Object.values(seedMap).filter(v => v != null && v > 0);
+    const filteredSeedTeams = allTeams.filter(t => {
+        if (!seedSearchTerm.trim()) return true;
+        const s = seedSearchTerm.toLowerCase();
+        return (
+            t.name?.toLowerCase().includes(s) ||
+            t.shortName?.toLowerCase().includes(s) ||
+            t.captain?.name?.toLowerCase().includes(s) ||
+            String(t.efvId || '').includes(s)
+        );
+    });
 
     const handleSwapTeams = async () => {
         setIsUpdating(true);
@@ -246,12 +309,37 @@ export default function LichThiDauPage() {
     const totalMatches = actualMatches.length;
 
     const filterMatch = (m: any) => {
-        if (statusFilter === 'all') return true;
-        if (statusFilter === 'completed') return m.status === 'completed';
-        if (statusFilter === 'live') return m.status === 'live';
-        if (statusFilter === 'pending') return m.status !== 'completed' && m.status !== 'live';
-        if (statusFilter === 'has_submissions') return m.resultSubmissions?.length > 0;
-        if (statusFilter === 'pending_review') return m.resultSubmissions?.length > 0 && m.status !== 'completed';
+        // Status filter
+        if (statusFilter === 'completed' && m.status !== 'completed') return false;
+        if (statusFilter === 'live' && m.status !== 'live') return false;
+        if (statusFilter === 'pending' && (m.status === 'completed' || m.status === 'live')) return false;
+        if (statusFilter === 'has_submissions' && !(m.resultSubmissions?.length > 0)) return false;
+        if (statusFilter === 'pending_review' && !(m.resultSubmissions?.length > 0 && m.status !== 'completed')) return false;
+
+        // Search filter
+        if (matchSearchTerm.trim()) {
+            const s = matchSearchTerm.toLowerCase();
+            const homeName = (m.homeTeam?.name || '').toLowerCase();
+            const awayName = (m.awayTeam?.name || '').toLowerCase();
+            const homeP1 = (m.homeTeam?.player1 || '').toLowerCase();
+            const awayP1 = (m.awayTeam?.player1 || '').toLowerCase();
+            const homeP2 = (m.homeTeam?.player2 || '').toLowerCase();
+            const awayP2 = (m.awayTeam?.player2 || '').toLowerCase();
+            const homeEfv = String(m.homeTeam?.efvId || '');
+            const awayEfv = String(m.awayTeam?.efvId || '');
+            const matchNum = String(m.matchNumber || '');
+            const homeShort = (m.homeTeam?.shortName || '').toLowerCase();
+            const awayShort = (m.awayTeam?.shortName || '').toLowerCase();
+
+            return (
+                homeName.includes(s) || awayName.includes(s) ||
+                homeP1.includes(s) || awayP1.includes(s) ||
+                homeP2.includes(s) || awayP2.includes(s) ||
+                homeEfv.includes(s) || awayEfv.includes(s) ||
+                matchNum.includes(s) ||
+                homeShort.includes(s) || awayShort.includes(s)
+            );
+        }
         return true;
     };
 
@@ -355,6 +443,28 @@ export default function LichThiDauPage() {
                         }`}>{f.count}</span>
                     </button>
                 ))}
+            </div>
+
+            {/* Search Bar */}
+            <div className="px-4 py-3 bg-white border-b border-gray-100">
+                <div className="relative">
+                    <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                    <input
+                        type="text"
+                        placeholder="Tìm kiếm trận đấu (tên đội, VĐV, mã EFV, số trận...)"
+                        value={matchSearchTerm}
+                        onChange={(e) => setMatchSearchTerm(e.target.value)}
+                        className="w-full pl-9 pr-9 py-2 rounded-lg bg-gray-50 border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-blue-100 focus:border-blue-300 placeholder:text-gray-400"
+                    />
+                    {matchSearchTerm && (
+                        <button
+                            onClick={() => setMatchSearchTerm('')}
+                            className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                        >
+                            <X className="w-4 h-4" />
+                        </button>
+                    )}
+                </div>
             </div>
 
             {/* Match List */}
@@ -589,7 +699,7 @@ export default function LichThiDauPage() {
             </AnimatePresence>
 
             <Dialog open={isGeneratingModalOpen} onOpenChange={setIsGeneratingModalOpen}>
-                <DialogContent className="w-[95vw] max-w-2xl p-0 overflow-hidden border-0 rounded-[16px] bg-white flex flex-col max-h-[90vh]" showCloseButton={false}>
+                <DialogContent className="w-[95vw] sm:w-[80vw] max-w-5xl p-0 overflow-hidden border-0 rounded-[16px] bg-white flex flex-col max-h-[90vh]" showCloseButton={false}>
                     <div className="px-6 sm:px-8 py-6 border-b border-gray-100 flex-shrink-0 relative">
                         <DialogTitle className="text-xl sm:text-2xl font-bold text-gray-900 mb-1">Tạo lịch thi đấu</DialogTitle>
                         <p className="text-gray-500 text-xs sm:text-sm font-medium">Hành động này sẽ TẠO LẠI TOÀN BỘ LỊCH TRÌNH VÀ XOÁ DỮ LIỆU ĐÃ CÓ.</p>
@@ -597,6 +707,7 @@ export default function LichThiDauPage() {
                             <X className="w-5 h-5" />
                         </button>
                     </div>
+
                     <div className="p-6 sm:p-8 overflow-y-auto custom-scrollbar flex-1">
                         {/* Seed Mode Toggle */}
                         <div className="bg-gray-50 rounded-2xl p-5 mb-6">
@@ -624,64 +735,153 @@ export default function LichThiDauPage() {
                             <p className="text-xs text-gray-400 mt-3">
                                 {seedMode === 'random'
                                     ? 'Đội sẽ được xếp ngẫu nhiên. Hạt giống #1 sẽ gặp hạt giống thấp nhất.'
-                                    : 'Sắp xếp thứ tự hạt giống. #1 là mạnh nhất (được ưu tiên BYE nếu có).'}
+                                    : 'Chọn số hạt giống cho các VĐV mạnh để họ không gặp nhau sớm. Nhập từ 1 trở lên, không giới hạn.'}
                             </p>
                         </div>
 
-                        {/* Manual Seed List */}
-                        {seedMode === 'manual' && seedOrder.length > 0 && (
-                            <div className="bg-gray-50 rounded-2xl p-5 mb-6">
-                                <div className="flex items-center justify-between mb-4">
-                                    <h3 className="text-sm font-bold text-gray-900 flex items-center gap-2">
-                                        <Trophy className="w-4 h-4 text-amber-500" /> Thứ tự hạt giống ({seedOrder.length} đội)
-                                    </h3>
-                                    <button
-                                        onClick={shuffleSeeds}
-                                        className="text-xs text-blue-600 hover:text-blue-700 font-semibold flex items-center gap-1 px-3 py-1.5 rounded-lg hover:bg-blue-50 transition-colors"
-                                    >
-                                        <Shuffle className="w-3.5 h-3.5" /> Trộn ngẫu nhiên
-                                    </button>
-                                </div>
-                                <div className="space-y-1.5 max-h-[300px] overflow-y-auto custom-scrollbar">
-                                    {seedOrder.map((team: any, idx: number) => (
-                                        <div
-                                            key={team._id || team.id}
-                                            className="flex items-center gap-3 px-3 py-2.5 rounded-xl bg-white hover:bg-gray-100 transition-colors group"
+                        {/* Manual Seed Table */}
+                        {seedMode === 'manual' && allTeams.length > 0 && (
+                            <div className="bg-white rounded-2xl border border-gray-100 shadow-sm mb-6 overflow-hidden">
+                                {/* Toolbar */}
+                                <div className="p-4 border-b border-gray-100 flex flex-col sm:flex-row items-start sm:items-center gap-3">
+                                    <div className="flex-1 relative w-full sm:w-auto">
+                                        <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                                        <input
+                                            type="text"
+                                            placeholder="Tìm VĐV, tên đội..."
+                                            value={seedSearchTerm}
+                                            onChange={(e) => setSeedSearchTerm(e.target.value)}
+                                            className="w-full pl-9 pr-4 py-2 rounded-xl bg-gray-50 border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-blue-100 focus:border-blue-300"
+                                        />
+                                    </div>
+                                    <div className="flex items-center gap-2 flex-wrap">
+                                        <span className="text-xs text-gray-400 whitespace-nowrap">
+                                            <span className="font-bold text-amber-600">{assignedSeedsList.length}</span> hạt giống
+                                        </span>
+                                        <button
+                                            onClick={saveSeedsFromLich}
+                                            disabled={isUpdating}
+                                            className="text-xs px-3 py-1.5 rounded-lg bg-emerald-50 text-emerald-600 hover:bg-emerald-100 font-semibold transition-colors flex items-center gap-1 disabled:opacity-50"
                                         >
-                                            <div className={`w-8 h-8 rounded-lg flex items-center justify-center text-xs font-bold flex-shrink-0 ${idx === 0 ? 'bg-amber-100 text-amber-700 border border-amber-200' :
-                                                idx === 1 ? 'bg-gray-200 text-gray-700 border border-gray-300' :
-                                                    idx === 2 ? 'bg-orange-100 text-orange-700 border border-orange-200' :
-                                                        'bg-white text-gray-500 border border-gray-200'
-                                                }`}>
-                                                #{idx + 1}
-                                            </div>
-                                            <div className="flex-1 min-w-0">
-                                                <div className="text-sm font-semibold text-gray-900 truncate">
-                                                    {team.name || team.shortName}
-                                                </div>
-                                                <div className="text-[10px] text-gray-400 truncate">
-                                                    {team.captain?.name || ''}
-                                                </div>
-                                            </div>
-                                            <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                                                <button
-                                                    onClick={() => moveSeed(idx, 'up')}
-                                                    disabled={idx === 0}
-                                                    className="w-7 h-7 rounded-lg bg-white border border-gray-200 flex items-center justify-center hover:bg-blue-50 hover:border-blue-200 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
-                                                >
-                                                    <ArrowUp className="w-3.5 h-3.5 text-gray-600" />
-                                                </button>
-                                                <button
-                                                    onClick={() => moveSeed(idx, 'down')}
-                                                    disabled={idx === seedOrder.length - 1}
-                                                    className="w-7 h-7 rounded-lg bg-white border border-gray-200 flex items-center justify-center hover:bg-blue-50 hover:border-blue-200 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
-                                                >
-                                                    <ArrowDown className="w-3.5 h-3.5 text-gray-600" />
-                                                </button>
-                                            </div>
-                                        </div>
-                                    ))}
+                                            {isUpdating ? <Loader2 className="w-3 h-3 animate-spin" /> : <Save className="w-3 h-3" />} Lưu
+                                        </button>
+                                        <button
+                                            onClick={autoAssignSeeds}
+                                            className="text-xs px-3 py-1.5 rounded-lg bg-blue-50 text-blue-600 hover:bg-blue-100 font-semibold transition-colors flex items-center gap-1"
+                                        >
+                                            <Sparkles className="w-3 h-3" /> Tự động (¼)
+                                        </button>
+                                        <button
+                                            onClick={clearAllSeeds}
+                                            className="text-xs px-3 py-1.5 rounded-lg bg-gray-50 text-gray-500 hover:bg-gray-100 font-semibold transition-colors"
+                                        >
+                                            Xóa hết
+                                        </button>
+                                    </div>
                                 </div>
+
+                                {/* Table */}
+                                <div className="overflow-x-auto max-h-[50vh] overflow-y-auto">
+                                    <table className="w-full text-sm">
+                                        <thead className="sticky top-0 z-10">
+                                            <tr className="bg-gray-50/80">
+                                                <th className="px-4 py-3 text-left text-xs font-bold text-gray-500 uppercase w-12">STT</th>
+                                                <th className="px-4 py-3 text-left text-xs font-bold text-gray-500 uppercase">VĐV / Đội</th>
+                                                <th className="px-4 py-3 text-center text-xs font-bold text-gray-500 uppercase w-32">Hạt giống</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody className="divide-y divide-gray-50">
+                                            {filteredSeedTeams.map((team, idx) => {
+                                                const teamId = team._id || team.id;
+                                                const currentSeed = seedMap[teamId];
+                                                const hasSeed = currentSeed != null && currentSeed > 0;
+
+                                                return (
+                                                    <tr key={teamId} className={`hover:bg-gray-50/50 transition-colors ${hasSeed ? 'bg-amber-50/30' : ''}`}>
+                                                        <td className="px-4 py-3 text-gray-400 text-xs font-medium">{idx + 1}</td>
+                                                        <td className="px-4 py-3">
+                                                            <div className="flex items-center gap-3">
+                                                                <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-gray-100 to-gray-200 flex items-center justify-center text-xs font-bold text-gray-500 flex-shrink-0">
+                                                                    {team.shortName || team.name?.charAt(0) || '?'}
+                                                                </div>
+                                                                <div className="min-w-0">
+                                                                    <div className="text-sm font-semibold text-gray-900 truncate">{team.name}</div>
+                                                                    <div className="text-[11px] text-gray-400 truncate">
+                                                                        {team.captain?.name || '—'}
+                                                                    </div>
+                                                                </div>
+                                                            </div>
+                                                        </td>
+                                                        <td className="px-4 py-3">
+                                                            <div className="flex items-center justify-center gap-2">
+                                                                <input
+                                                                    type="number"
+                                                                    min={0}
+                                                                    value={currentSeed || ''}
+                                                                    placeholder="—"
+                                                                    onChange={(e) => {
+                                                                        const val = e.target.value === '' ? null : parseInt(e.target.value);
+                                                                        if (val !== null && val < 0) return;
+                                                                        if (val !== null && val > 0) {
+                                                                            const duplicate = Object.entries(seedMap).find(
+                                                                                ([tid, sv]) => tid !== teamId && sv === val
+                                                                            );
+                                                                            if (duplicate) {
+                                                                                const dupTeam = allTeams.find(t => (t._id || t.id) === duplicate[0]);
+                                                                                toast.info(`Hạt giống #${val} đã chuyển từ ${dupTeam?.name || '?'} sang ${team.name}`);
+                                                                                setSeedMap(prev => ({ ...prev, [duplicate[0]]: null, [teamId]: val }));
+                                                                                return;
+                                                                            }
+                                                                        }
+                                                                        setSeedMap(prev => ({ ...prev, [teamId]: val }));
+                                                                    }}
+                                                                    className={`w-16 h-8 text-center text-sm rounded-lg border focus:outline-none focus:ring-2 transition-all ${hasSeed
+                                                                        ? 'border-amber-300 bg-amber-50 text-amber-700 font-bold focus:ring-amber-200'
+                                                                        : 'border-gray-200 bg-white text-gray-400 focus:ring-blue-200 focus:border-blue-300'
+                                                                        }`}
+                                                                />
+                                                                {hasSeed && (
+                                                                    <button
+                                                                        onClick={() => setSeedMap(prev => ({ ...prev, [teamId]: null }))}
+                                                                        className="w-6 h-6 rounded-md bg-gray-100 text-gray-400 hover:bg-red-100 hover:text-red-500 flex items-center justify-center transition-colors"
+                                                                        title="Xóa hạt giống"
+                                                                    >
+                                                                        <X className="w-3 h-3" />
+                                                                    </button>
+                                                                )}
+                                                            </div>
+                                                        </td>
+                                                    </tr>
+                                                );
+                                            })}
+                                        </tbody>
+                                    </table>
+                                </div>
+
+                                {/* Seed Summary */}
+                                {assignedSeedsList.length > 0 && (
+                                    <div className="p-4 border-t border-gray-100 bg-amber-50/50">
+                                        <div className="flex items-center gap-2 mb-2">
+                                            <Trophy className="w-3.5 h-3.5 text-amber-500" />
+                                            <span className="text-xs font-bold text-amber-800">Hạt giống đã chọn ({assignedSeedsList.length})</span>
+                                        </div>
+                                        <div className="flex flex-wrap gap-1.5">
+                                            {Object.entries(seedMap)
+                                                .filter(([, v]) => v != null && v > 0)
+                                                .sort(([, a], [, b]) => (a || 0) - (b || 0))
+                                                .map(([teamId, seedNum]) => {
+                                                    const t = allTeams.find(t => (t._id || t.id) === teamId);
+                                                    return (
+                                                        <span key={teamId} className="inline-flex items-center gap-1 px-2 py-1 rounded-lg bg-white border border-amber-200 text-xs">
+                                                            <span className="w-5 h-5 rounded bg-amber-100 text-amber-700 flex items-center justify-center font-bold text-[10px]">#{seedNum}</span>
+                                                            <span className="font-medium text-gray-700 truncate max-w-[100px]">{t?.name || '?'}</span>
+                                                        </span>
+                                                    );
+                                                })
+                                            }
+                                        </div>
+                                    </div>
+                                )}
                             </div>
                         )}
 

@@ -136,3 +136,48 @@ export async function GET(req: NextRequest, { params }: RouteParams) {
         return apiError("Có lỗi xảy ra", 500);
     }
 }
+
+// PUT /api/tournaments/[id]/teams — Save team seeds
+export async function PUT(req: NextRequest, { params }: RouteParams) {
+    try {
+        const { requireManager } = await import("@/lib/auth");
+        const authResult = await requireManager(req);
+        if (authResult instanceof Response) return authResult;
+
+        await dbConnect();
+        const { id: idOrSlug } = await params;
+        const query = mongoose.Types.ObjectId.isValid(idOrSlug) ? { _id: idOrSlug } : { slug: idOrSlug };
+
+        const tournament = await Tournament.findOne(query).select("_id createdBy collaborators").lean();
+        if (!tournament) return apiError("Không tìm thấy giải đấu", 404);
+
+        const isOwner = (tournament as any).createdBy.toString() === authResult.user._id;
+        const isCollaborator = ((tournament as any).collaborators || []).some(
+            (c: any) => c.userId.toString() === authResult.user._id
+        );
+        if (!isOwner && !isCollaborator) return apiError("Không có quyền", 403);
+
+        const body = await req.json();
+
+        // Bulk save seeds: { seeds: [{ teamId, seed }] }
+        if (body.seeds && Array.isArray(body.seeds)) {
+            const bulkOps = body.seeds.map((item: { teamId: string; seed: number | null }) => ({
+                updateOne: {
+                    filter: { _id: new mongoose.Types.ObjectId(item.teamId), tournament: tournament._id },
+                    update: { $set: { seed: item.seed } },
+                },
+            }));
+
+            if (bulkOps.length > 0) {
+                await Team.bulkWrite(bulkOps);
+            }
+
+            return apiResponse({ updated: bulkOps.length }, 200, "Đã lưu hạt giống");
+        }
+
+        return apiError("Thiếu dữ liệu", 400);
+    } catch (error) {
+        console.error("Update team seeds error:", error);
+        return apiError("Có lỗi xảy ra", 500);
+    }
+}

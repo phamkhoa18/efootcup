@@ -1,7 +1,7 @@
 import { Metadata } from "next";
 import { getSiteSettings } from "@/lib/site-settings";
 
-// Force dynamic so SEO changes from manager take effect immediately
+// Force dynamic so SEO changes take effect immediately
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
@@ -15,18 +15,18 @@ function toAbsoluteUrl(url: string, siteUrl: string): string {
 export async function generateMetadata(): Promise<Metadata> {
     const s = await getSiteSettings();
     const siteUrl = s.siteUrl || "https://efootball.vn";
-    const title = "Bảng Xếp Hạng Đội Tuyển - Vietnam Efootball Rankings";
-    const description = "Bảng xếp hạng top các đội tuyển (teams) bộ môn eFootball Việt Nam. Khám phá thành tích, điểm số và thông tin các câu lạc bộ eFootball xuất sắc.";
-    const rawImage = s.bxhTeamsOgImage || s.ogImage || "/assets/efootball_bg.webp";
-    const imageUrl = toAbsoluteUrl(rawImage, siteUrl);
+    const title = "Tin tức eFootball - Cập nhật mới nhất";
+    const description = "Cập nhật tin tức eFootball mới nhất, hướng dẫn chiến thuật, thông báo giải đấu và mọi thông tin về cộng đồng eFootball Việt Nam.";
+    const imageUrl = toAbsoluteUrl(s.ogImage || "/assets/efootball_bg.webp", siteUrl);
 
     return {
         title,
         description,
+        keywords: ["tin tức eFootball", "eFootball Vietnam", "giải đấu", "esports", "PES", "cập nhật"],
         openGraph: {
             title,
             description,
-            url: `${siteUrl}/bxh-teams`,
+            url: `${siteUrl}/tin-tuc`,
             siteName: s.siteName,
             images: [
                 {
@@ -48,7 +48,7 @@ export async function generateMetadata(): Promise<Metadata> {
     };
 }
 
-export default function BXHTeamsLayout({
+export default function TinTucLayout({
     children,
 }: {
     children: React.ReactNode;

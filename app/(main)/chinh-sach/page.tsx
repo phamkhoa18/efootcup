@@ -1,10 +1,45 @@
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
+import { Metadata } from "next";
+import { getSiteSettings } from "@/lib/site-settings";
 
-export const metadata = {
-    title: "Chính sách bảo mật",
-    description: "Chính sách bảo mật và quyền riêng tư của nền tảng eFootball Vietnam.",
-};
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
+function toAbsoluteUrl(url: string, siteUrl: string): string {
+    if (!url) return "";
+    if (url.startsWith("http://") || url.startsWith("https://")) return url;
+    const base = siteUrl.replace(/\/$/, "");
+    return `${base}${url.startsWith("/") ? url : "/" + url}`;
+}
+
+export async function generateMetadata(): Promise<Metadata> {
+    const s = await getSiteSettings();
+    const siteUrl = s.siteUrl || "https://efootball.vn";
+    const title = "Chính sách bảo mật";
+    const description = `Chính sách bảo mật và quyền riêng tư của nền tảng ${s.siteName}.`;
+    const imageUrl = toAbsoluteUrl(s.ogImage || "/assets/efootball_bg.webp", siteUrl);
+
+    return {
+        title,
+        description,
+        openGraph: {
+            title: `${title} | ${s.siteName}`,
+            description,
+            url: `${siteUrl}/chinh-sach`,
+            siteName: s.siteName,
+            images: [{ url: imageUrl, width: 1200, height: 630, alt: title }],
+            locale: "vi_VN",
+            type: "website",
+        },
+        twitter: {
+            card: "summary_large_image",
+            title,
+            description,
+            images: [imageUrl],
+        },
+    };
+}
 
 export default function ChinhSachPage() {
     return (

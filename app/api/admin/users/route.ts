@@ -78,7 +78,11 @@ export async function PUT(req: NextRequest) {
             return apiError("Không thể thay đổi role của chính mình", 400);
         }
 
-        const allowedFields = ["role", "isActive", "isVerified", "name", "email", "phone", "bio", "gamerId"];
+        const allowedFields = [
+            "role", "isActive", "isVerified", "name", "email", "phone", "bio", "gamerId",
+            "nickname", "teamName", "province", "facebookName", "facebookLink", "dateOfBirth",
+            "stats", "avatar",
+        ];
         const sanitized: any = {};
         for (const key of allowedFields) {
             if (updateData[key] !== undefined) {

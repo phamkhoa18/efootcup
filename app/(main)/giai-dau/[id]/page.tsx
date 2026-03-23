@@ -1,34 +1,39 @@
 import { Metadata } from "next";
 import { notFound } from "next/navigation";
+import { getSiteSettings } from "@/lib/site-settings";
 import TournamentDetailClient from "./TournamentDetailClient";
 
-// Force dynamic since we have real-time views and updates
-export const revalidate = 60; // Revalidate every minute
+// Force dynamic so SEO always reflects latest tournament data
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
+function toAbsoluteUrl(url: string, siteUrl: string): string {
+    if (!url) return "";
+    if (url.startsWith("http://") || url.startsWith("https://")) return url;
+    const base = siteUrl.replace(/\/$/, "");
+    return `${base}${url.startsWith("/") ? url : "/" + url}`;
+}
 
 async function getTournamentData(id: string) {
-    // Determine the base URL for server-side fetching.
-    // Relative URLs don't work in server components, so we must be absolute.
     const port = process.env.PORT || "3000";
     const envUrl = process.env.NEXT_PUBLIC_APP_URL;
 
-    // We try local addresses first because they are most reliable for server-to-self communication
     const localUrls = [
         `http://127.0.0.1:${port}`,
         `http://localhost:${port}`,
-        "http://127.0.0.1:3333", // Fallback for common deployment ports
+        "http://127.0.0.1:3333",
         "http://localhost:3333"
     ];
 
-    // If there's an environment variable, we consider it too (usually at the end as external DNS might fail on server)
     if (envUrl) {
-        localUrls.unshift(envUrl); // Try the configured one first if user provided it
+        localUrls.unshift(envUrl);
     }
 
     for (const baseUrl of localUrls) {
         try {
             const cleanBaseUrl = baseUrl.endsWith('/') ? baseUrl.slice(0, -1) : baseUrl;
             const res = await fetch(`${cleanBaseUrl}/api/tournaments/${id}`, {
-                next: { revalidate: 60 },
+                next: { revalidate: 0 },
                 signal: AbortSignal.timeout(2000)
             });
 
@@ -37,7 +42,6 @@ async function getTournamentData(id: string) {
                 if (data.success) return data.data;
             }
         } catch (error) {
-            // Silently fail and try next URL unless it's the last one
             if (baseUrl === localUrls[localUrls.length - 1] && !envUrl) {
                 console.error("Failed to fetch tournament data from all local addresses.");
             }
@@ -49,7 +53,10 @@ async function getTournamentData(id: string) {
 
 export async function generateMetadata({ params }: { params: { id: string } }): Promise<Metadata> {
     const { id } = await params;
-    const data = await getTournamentData(id);
+    const [data, siteSettings] = await Promise.all([
+        getTournamentData(id),
+        getSiteSettings(),
+    ]);
 
     if (!data || !data.tournament) {
         return {
@@ -58,24 +65,54 @@ export async function generateMetadata({ params }: { params: { id: string } }): 
     }
 
     const t = data.tournament;
+    const siteUrl = siteSettings.siteUrl || "https://efootball.vn";
+
     const description = t.description
-        ? t.description.substring(0, 160)
-        : `Tham gia giải đấu ${t.title} trên EFV CUP VN. ${t.maxTeams} đội, giải thưởng ${t.prize?.total || "hấp dẫn"}.`;
+        ? t.description.replace(/<[^>]*>/g, "").substring(0, 160)
+        : `Tham gia giải đấu ${t.title} trên ${siteSettings.siteName}. ${t.maxTeams} đội, giải thưởng ${t.prize?.total || "hấp dẫn"}.`;
+
+    // Tournament image: banner → thumbnail → site ogImage → default
+    const rawImage = t.banner || t.thumbnail || siteSettings.ogImage || "/assets/efootball_bg.webp";
+    const imageUrl = toAbsoluteUrl(rawImage, siteUrl);
+    const pageUrl = `${siteUrl}/giai-dau/${id}`;
+
+    // Build keywords from tournament data
+    const keywords = [
+        t.title,
+        "eFootball",
+        "giải đấu",
+        t.platform,
+        t.mode === "mobile" ? "Mobile" : t.mode === "pc" ? "Console" : "",
+        siteSettings.siteName,
+        "esports",
+        "Việt Nam",
+    ].filter(Boolean);
 
     return {
         title: t.title,
-        description: description,
+        description,
+        keywords,
         openGraph: {
             title: t.title,
-            description: description,
-            images: [t.banner || t.thumbnail || "/assets/efootball_bg.webp"],
+            description,
+            url: pageUrl,
+            siteName: siteSettings.siteName,
+            images: [
+                {
+                    url: imageUrl,
+                    width: 1200,
+                    height: 630,
+                    alt: t.title,
+                },
+            ],
+            locale: "vi_VN",
             type: "website",
         },
         twitter: {
             card: "summary_large_image",
             title: t.title,
-            description: description,
-            images: [t.banner || t.thumbnail || "/assets/efootball_bg.webp"],
+            description,
+            images: [imageUrl],
         },
     };
 }

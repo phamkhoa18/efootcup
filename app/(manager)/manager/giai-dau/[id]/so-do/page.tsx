@@ -1,7 +1,7 @@
 "use client";
 
 import { motion, AnimatePresence } from "framer-motion";
-import { Swords, Trophy, Users, Search, X, Copy, QrCode, Share2, Check, CheckCircle2, Info, Loader2, Download, ArrowUp, ArrowDown, Shuffle, Hash, RotateCcw, Sparkles, FileBarChart, Eye, ImageIcon, MessageSquare, Clock, User } from "lucide-react";
+import { Swords, Trophy, Users, Search, X, Copy, QrCode, Share2, Check, CheckCircle2, Info, Loader2, Download, ArrowUp, ArrowDown, Shuffle, Hash, RotateCcw, Sparkles, FileBarChart, Eye, ImageIcon, MessageSquare, Clock, User, Save } from "lucide-react";
 import { useState, useEffect } from "react";
 import { useParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
@@ -46,7 +46,10 @@ const MatchCard = ({ match, onClick }: { match: any; onClick: () => void }) => {
                 <div className="w-full bg-gradient-to-r from-gray-50 to-white rounded-[6px] border border-dashed border-gray-200 flex flex-col justify-center overflow-hidden z-20 relative px-2.5 py-1.5 h-[88px] opacity-70">
                     {/* Top row: player info */}
                     <div className="flex items-center justify-between mb-0.5">
-                        <span className="truncate text-[11px] text-gray-700 font-semibold flex-1">{p1Name}</span>
+                        <div className="flex items-center gap-1 min-w-0 flex-1">
+                            {match.homeTeam?.efvId != null && <span className="text-[8px] font-bold text-amber-600 bg-amber-50 border border-amber-200 px-1 py-px rounded flex-shrink-0">#{match.homeTeam.efvId}</span>}
+                            <span className="truncate text-[11px] text-gray-700 font-semibold">{p1Name}</span>
+                        </div>
                         <span className="text-[8px] font-bold text-emerald-600 bg-emerald-50 border border-emerald-200 px-1.5 py-px rounded-full ml-1 flex-shrink-0">BYE</span>
                     </div>
                     {p2Name && <span className="truncate text-[10px] text-gray-500">{p2Name}</span>}
@@ -76,7 +79,10 @@ const MatchCard = ({ match, onClick }: { match: any; onClick: () => void }) => {
                     onClick={onClick}
                     className="w-full bg-white rounded-[6px] border border-[#E2E8F0] shadow-sm flex flex-col justify-center cursor-pointer overflow-hidden z-20 relative px-2 py-1.5 h-[44px]"
                 >
-                    <span className="text-[8px] text-gray-400 font-bold text-center mb-0.5">{hName}</span>
+                    <span className="text-[8px] text-gray-400 font-bold text-center mb-0.5">
+                        {match.homeTeam?.efvId != null && <span className="text-[8px] font-bold text-amber-600 bg-amber-50 border border-amber-200 px-1 py-px rounded mr-1">#{match.homeTeam.efvId}</span>}
+                        {hName}
+                    </span>
                     <div className="flex flex-col items-center">
                         <span className={`truncate text-[11px] text-gray-800 font-bold ${!match.homeTeam && !match.p1 ? "text-gray-400 italic font-medium" : ""}`}>
                             {p1Name || (!match.homeTeam ? "Tự do" : "...")}
@@ -110,7 +116,10 @@ const MatchCard = ({ match, onClick }: { match: any; onClick: () => void }) => {
                 )}
 
                 <div className={`p-1.5 flex flex-col ${homeWin ? "bg-blue-50/20" : ""} ${isLive ? 'mt-[10px]' : ''}`}>
-                    <span className="text-[8px] text-gray-400 font-bold text-center mb-0.5">{homeName}</span>
+                    <span className="text-[8px] text-gray-400 font-bold text-center mb-0.5">
+                        {match.homeTeam?.efvId != null && <span className="text-[8px] font-bold text-amber-600 bg-amber-50 border border-amber-200 px-1 py-px rounded mr-1">#{match.homeTeam.efvId}</span>}
+                        {homeName}
+                    </span>
                     <div className="flex justify-between items-center px-1">
                         <div className="flex flex-col min-w-0 pr-1 leading-[1.1]">
                             <span className={`truncate text-[11px] ${homeWin ? "text-blue-700 font-bold" : "text-gray-800 font-medium"} ${!match.homeTeam && !match.p1 ? "text-gray-400 italic" : ""}`}>
@@ -129,7 +138,10 @@ const MatchCard = ({ match, onClick }: { match: any; onClick: () => void }) => {
                 <div className="h-px bg-[#E2E8F0] w-full" />
 
                 <div className={`p-1.5 flex flex-col ${awayWin ? "bg-blue-50/20" : ""}`}>
-                    <span className="text-[8px] text-gray-400 font-bold text-center mb-0.5">{awayName}</span>
+                    <span className="text-[8px] text-gray-400 font-bold text-center mb-0.5">
+                        {match.awayTeam?.efvId != null && <span className="text-[8px] font-bold text-amber-600 bg-amber-50 border border-amber-200 px-1 py-px rounded mr-1">#{match.awayTeam.efvId}</span>}
+                        {awayName}
+                    </span>
                     <div className="flex justify-between items-center px-1">
                         <div className="flex flex-col min-w-0 pr-1 leading-[1.1]">
                             <span className={`truncate text-[11px] ${awayWin ? "text-blue-700 font-bold" : "text-gray-800 font-medium"} ${!match.awayTeam && !match.p2 ? "text-gray-400 italic" : ""}`}>
@@ -719,6 +731,7 @@ const BracketCreator = ({ tournamentId, tournament, onCreated }: { tournamentId:
     const [seedMode, setSeedMode] = useState<'random' | 'manual'>('random');
     const [isLoading, setIsLoading] = useState(true);
     const [isCreating, setIsCreating] = useState(false);
+    const [isSaving, setIsSaving] = useState(false);
     const [searchTerm, setSearchTerm] = useState('');
     const [currentPage, setCurrentPage] = useState(1);
     const ITEMS_PER_PAGE = 10;
@@ -737,6 +750,10 @@ const BracketCreator = ({ tournamentId, tournament, onCreated }: { tournamentId:
                 const map: Record<string, number | null> = {};
                 t.forEach((team: any) => { map[team._id] = team.seed ?? null; });
                 setSeedMap(map);
+                // Auto-switch to manual mode if any seeds are loaded from DB
+                if (t.some((team: any) => team.seed != null && team.seed > 0)) {
+                    setSeedMode('manual');
+                }
             }
         } catch (e) {
             console.error(e);
@@ -760,17 +777,17 @@ const BracketCreator = ({ tournamentId, tournament, onCreated }: { tournamentId:
     const paginatedTeams = filteredTeams.slice((currentPage - 1) * ITEMS_PER_PAGE, currentPage * ITEMS_PER_PAGE);
 
     const assignedSeeds = Object.values(seedMap).filter(v => v != null && v > 0);
-    const maxSeed = Math.max(1, Math.floor(teams.length / 4));
 
     const setSeed = (teamId: string, value: number | null) => {
         setSeedMap(prev => ({ ...prev, [teamId]: value }));
     };
 
     const autoAssignSeeds = () => {
+        const count = Math.max(1, Math.floor(teams.length / 4));
         const newMap: Record<string, number | null> = {};
-        teams.forEach((t, i) => { newMap[t._id] = i < maxSeed ? i + 1 : null; });
+        teams.forEach((t, i) => { newMap[t._id] = i < count ? i + 1 : null; });
         setSeedMap(newMap);
-        toast.success(`Đã gán tự động ${maxSeed} hạt giống`);
+        toast.success(`Đã gán tự động ${count} hạt giống (¼ số đội)`);
     };
 
     const clearAllSeeds = () => {
@@ -779,9 +796,40 @@ const BracketCreator = ({ tournamentId, tournament, onCreated }: { tournamentId:
         setSeedMap(newMap);
     };
 
+    // Save seeds to DB
+    const saveSeeds = async () => {
+        setIsSaving(true);
+        try {
+            const seedsPayload = Object.entries(seedMap).map(([teamId, seed]) => ({
+                teamId,
+                seed: seed && seed > 0 ? seed : null,
+            }));
+            const res = await tournamentAPI.updateTeamSeed(tournamentId, { seeds: seedsPayload });
+            if (res.success) {
+                toast.success('💾 Đã lưu hạt giống thành công!');
+            } else {
+                toast.error(res.message || 'Lỗi lưu hạt giống');
+            }
+        } catch (e) {
+            console.error(e);
+            toast.error('Có lỗi xảy ra khi lưu');
+        } finally {
+            setIsSaving(false);
+        }
+    };
+
     const handleGenerate = async () => {
         setIsCreating(true);
         try {
+            // Auto-save seeds to DB before generating
+            if (seedMode === 'manual') {
+                const seedsPayload = Object.entries(seedMap).map(([teamId, seed]) => ({
+                    teamId,
+                    seed: seed && seed > 0 ? seed : null,
+                }));
+                await tournamentAPI.updateTeamSeed(tournamentId, { seeds: seedsPayload });
+            }
+
             const payload: any = {};
             if (seedMode === 'manual') {
                 const seeded = teams
@@ -869,7 +917,7 @@ const BracketCreator = ({ tournamentId, tournament, onCreated }: { tournamentId:
                     <p className="text-xs text-gray-400 mt-3">
                         {seedMode === 'random'
                             ? 'Đội sẽ được xếp ngẫu nhiên khi tạo sơ đồ. Hạt giống #1 sẽ gặp hạt giống thấp nhất.'
-                            : 'Chọn số hạt giống cho các VĐV mạnh để họ không gặp nhau sớm. Tối đa ¼ số đội.'}
+                            : 'Chọn số hạt giống cho các VĐV mạnh để họ không gặp nhau sớm. Nhập từ 1 trở lên, không giới hạn số lượng.'}
                     </p>
                 </div>
 
@@ -890,13 +938,20 @@ const BracketCreator = ({ tournamentId, tournament, onCreated }: { tournamentId:
                             </div>
                             <div className="flex items-center gap-2 flex-wrap">
                                 <span className="text-xs text-gray-400 whitespace-nowrap">
-                                    <span className="font-bold text-amber-600">{assignedSeeds.length}</span>/{maxSeed} hạt giống
+                                    <span className="font-bold text-amber-600">{assignedSeeds.length}</span> hạt giống
                                 </span>
+                                <button
+                                    onClick={saveSeeds}
+                                    disabled={isSaving}
+                                    className="text-xs px-3 py-1.5 rounded-lg bg-emerald-50 text-emerald-600 hover:bg-emerald-100 font-semibold transition-colors flex items-center gap-1 disabled:opacity-50"
+                                >
+                                    {isSaving ? <Loader2 className="w-3 h-3 animate-spin" /> : <Save className="w-3 h-3" />} Lưu
+                                </button>
                                 <button
                                     onClick={autoAssignSeeds}
                                     className="text-xs px-3 py-1.5 rounded-lg bg-blue-50 text-blue-600 hover:bg-blue-100 font-semibold transition-colors flex items-center gap-1"
                                 >
-                                    <Sparkles className="w-3 h-3" /> Tự động
+                                    <Sparkles className="w-3 h-3" /> Tự động (¼)
                                 </button>
                                 <button
                                     onClick={clearAllSeeds}
@@ -945,20 +1000,18 @@ const BracketCreator = ({ tournamentId, tournament, onCreated }: { tournamentId:
                                                         <input
                                                             type="number"
                                                             min={0}
-                                                            max={maxSeed}
                                                             value={currentSeed || ''}
                                                             placeholder="—"
                                                             onChange={(e) => {
                                                                 const val = e.target.value === '' ? null : parseInt(e.target.value);
-                                                                if (val !== null && val > maxSeed) {
-                                                                    toast.error(`Tối đa ${maxSeed} hạt giống (¼ số đội)`);
-                                                                    return;
-                                                                }
+                                                                if (val !== null && val < 0) return;
                                                                 if (val !== null && val > 0) {
                                                                     const duplicate = Object.entries(seedMap).find(
                                                                         ([tid, sv]) => tid !== team._id && sv === val
                                                                     );
                                                                     if (duplicate) {
+                                                                        const dupTeam = teams.find(t => t._id === duplicate[0]);
+                                                                        toast.info(`Hạt giống #${val} đã chuyển từ ${dupTeam?.name || '?'} sang ${team.name}`);
                                                                         setSeedMap(prev => ({ ...prev, [duplicate[0]]: null, [team._id]: val }));
                                                                         return;
                                                                     }

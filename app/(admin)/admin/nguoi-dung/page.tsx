@@ -1,11 +1,13 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
     Users, Search, Filter, Crown, Shield, UserCheck, UserX,
     MoreVertical, Mail, Phone, Calendar, Loader2, ChevronDown,
-    CheckCircle2, XCircle, Trash2, Edit, ArrowUpRight, Download, Hash, Key
+    CheckCircle2, XCircle, Trash2, Edit, ArrowUpRight, Download, Hash, Key,
+    User, Gamepad2, Trophy, Target, Swords, Save, MapPin, Facebook, MessageCircle,
+    Camera, ImagePlus, X
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -47,6 +49,14 @@ export default function AdminUsersPage() {
     const [resetUser, setResetUser] = useState<any>(null);
     const [newPassword, setNewPassword] = useState("");
     const [isResetting, setIsResetting] = useState(false);
+
+    // Profile Edit State
+    const [profileUser, setProfileUser] = useState<any>(null);
+    const [profileForm, setProfileForm] = useState<any>({});
+    const [isSavingProfile, setIsSavingProfile] = useState(false);
+    const [isUploadingAvatar, setIsUploadingAvatar] = useState(false);
+    const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
+    const avatarFileRef = useRef<HTMLInputElement>(null);
 
     const { confirm } = useConfirmDialog();
 
@@ -179,6 +189,120 @@ export default function AdminUsersPage() {
 
     const roles = ["", "admin", "manager", "user"];
 
+    const openProfileModal = (u: any) => {
+        setProfileUser(u);
+        setAvatarPreview(u.avatar || null);
+        setProfileForm({
+            name: u.name || "",
+            email: u.email || "",
+            phone: u.phone || "",
+            gamerId: u.gamerId || "",
+            nickname: u.nickname || "",
+            teamName: u.teamName || "",
+            bio: u.bio || "",
+            province: u.province || "",
+            dateOfBirth: u.dateOfBirth || "",
+            facebookName: u.facebookName || "",
+            facebookLink: u.facebookLink || "",
+            stats: {
+                tournamentsJoined: u.stats?.tournamentsJoined || 0,
+                tournamentsCreated: u.stats?.tournamentsCreated || 0,
+                wins: u.stats?.wins || 0,
+                losses: u.stats?.losses || 0,
+                draws: u.stats?.draws || 0,
+                goalsScored: u.stats?.goalsScored || 0,
+                goalsConceded: u.stats?.goalsConceded || 0,
+            },
+        });
+    };
+
+    const handleProfileSubmit = async () => {
+        if (!profileUser) return;
+        setIsSavingProfile(true);
+        try {
+            const res = await adminAPI.updateUser(profileUser._id, profileForm);
+            if (res.success) {
+                toast.success("Cập nhật hồ sơ thành công");
+                setProfileUser(null);
+                loadUsers();
+            } else {
+                toast.error(res.message);
+            }
+        } catch (e: any) {
+            toast.error(e.message || "Có lỗi xảy ra");
+        } finally {
+            setIsSavingProfile(false);
+        }
+    };
+
+    const compressImage = (file: File, maxDim = 800, quality = 0.8): Promise<File> =>
+        new Promise((resolve) => {
+            const img = new window.Image();
+            img.onload = () => {
+                let { width, height } = img;
+                if (width > maxDim || height > maxDim) {
+                    const ratio = Math.min(maxDim / width, maxDim / height);
+                    width = Math.round(width * ratio);
+                    height = Math.round(height * ratio);
+                }
+                const canvas = document.createElement('canvas');
+                canvas.width = width;
+                canvas.height = height;
+                const ctx = canvas.getContext('2d')!;
+                ctx.drawImage(img, 0, 0, width, height);
+                canvas.toBlob(
+                    (blob) => resolve(blob ? new File([blob], file.name.replace(/\.[^.]+$/, '.jpg'), { type: 'image/jpeg' }) : file),
+                    'image/jpeg',
+                    quality,
+                );
+            };
+            img.onerror = () => resolve(file);
+            img.src = URL.createObjectURL(file);
+        });
+
+    const handleAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file || !profileUser) return;
+
+        setIsUploadingAvatar(true);
+        try {
+            const compressed = await compressImage(file);
+            const formData = new FormData();
+            formData.append('file', compressed);
+            formData.append('type', 'avatar');
+
+            const tk = localStorage.getItem('efootcup_token');
+            const res = await fetch('/api/upload', {
+                method: 'POST',
+                headers: tk ? { Authorization: `Bearer ${tk}` } : {},
+                body: formData,
+            });
+
+            if (res.ok) {
+                const data = await res.json();
+                if (data.success) {
+                    const avatarUrl = data.data?.url || data.url;
+                    setAvatarPreview(avatarUrl);
+                    setProfileForm((prev: any) => ({ ...prev, avatar: avatarUrl }));
+                    toast.success('Đã tải ảnh lên thành công');
+                } else {
+                    toast.error(data.message || 'Upload thất bại');
+                }
+            } else {
+                toast.error(`Lỗi upload: ${res.status}`);
+            }
+        } catch {
+            toast.error('Có lỗi xảy ra khi tải ảnh');
+        } finally {
+            setIsUploadingAvatar(false);
+            if (avatarFileRef.current) avatarFileRef.current.value = '';
+        }
+    };
+
+    const handleRemoveAvatar = () => {
+        setAvatarPreview(null);
+        setProfileForm((prev: any) => ({ ...prev, avatar: '' }));
+    };
     return (
         <div className="space-y-6">
             {/* Header */}
@@ -270,9 +394,13 @@ export default function AdminUsersPage() {
                                             </td>
                                             <td className="px-6 py-4">
                                                 <div className="flex items-center gap-3">
-                                                    <div className={`w-9 h-9 rounded-lg flex items-center justify-center font-bold text-xs ${u.role === "admin" ? "bg-amber-50 text-amber-700" : u.role === "manager" ? "bg-blue-50 text-blue-700" : "bg-gray-100 text-gray-500"}`}>
-                                                        {u.name?.charAt(0) || "?"}
-                                                    </div>
+                                                    {u.avatar ? (
+                                                        <img src={u.avatar} alt={u.name} className="w-9 h-9 rounded-lg object-cover flex-shrink-0" />
+                                                    ) : (
+                                                        <div className={`w-9 h-9 rounded-lg flex items-center justify-center font-bold text-xs flex-shrink-0 ${u.role === "admin" ? "bg-amber-50 text-amber-700" : u.role === "manager" ? "bg-blue-50 text-blue-700" : "bg-gray-100 text-gray-500"}`}>
+                                                            {u.name?.charAt(0) || "?"}
+                                                        </div>
+                                                    )}
                                                     <div>
                                                         <div className="text-sm font-semibold text-efb-dark">{u.name}</div>
                                                         {u.gamerId && (
@@ -338,7 +466,10 @@ export default function AdminUsersPage() {
                                                     </DropdownMenuTrigger>
                                                     <DropdownMenuContent align="end" className="rounded-xl w-48">
                                                         <DropdownMenuItem onClick={() => openEditModal(u)} className="cursor-pointer">
-                                                            <Edit className="w-3.5 h-3.5 mr-2" /> Chỉnh sửa
+                                                            <Edit className="w-3.5 h-3.5 mr-2" /> Chỉnh sửa nhanh
+                                                        </DropdownMenuItem>
+                                                        <DropdownMenuItem onClick={() => openProfileModal(u)} className="cursor-pointer">
+                                                            <User className="w-3.5 h-3.5 mr-2" /> Sửa hồ sơ đầy đủ
                                                         </DropdownMenuItem>
                                                         <DropdownMenuItem onClick={() => handleToggleActive(u._id, u.isActive)} className="cursor-pointer">
                                                             {u.isActive ? (
@@ -515,6 +646,178 @@ export default function AdminUsersPage() {
                                 >
                                     {isResetting ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Key className="w-4 h-4 mr-2" />}
                                     Lưu mật khẩu mới
+                                </Button>
+                            </div>
+                        </div>
+                    )}
+                </DialogContent>
+            </Dialog>
+
+            {/* Profile Edit Modal */}
+            <Dialog open={!!profileUser} onOpenChange={(v) => !v && setProfileUser(null)}>
+                <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+                    <DialogHeader>
+                        <DialogTitle>Chỉnh sửa hồ sơ người dùng</DialogTitle>
+                    </DialogHeader>
+                    {profileUser && (
+                        <div className="space-y-6 pt-2">
+                            {/* User Header with Avatar Upload */}
+                            <div className="flex items-center gap-4 p-4 rounded-xl bg-gray-50 border border-gray-100">
+                                <div className="relative group">
+                                    <input
+                                        ref={avatarFileRef}
+                                        type="file"
+                                        accept="image/*"
+                                        onChange={handleAvatarUpload}
+                                        className="hidden"
+                                    />
+                                    {avatarPreview ? (
+                                        <img src={avatarPreview} alt={profileUser.name} className="w-16 h-16 rounded-xl object-cover" />
+                                    ) : (
+                                        <div className="w-16 h-16 rounded-xl bg-blue-50 flex items-center justify-center text-efb-blue font-bold text-2xl">
+                                            {profileUser.name?.charAt(0)}
+                                        </div>
+                                    )}
+                                    {/* Upload Overlay */}
+                                    <div
+                                        onClick={() => avatarFileRef.current?.click()}
+                                        className="absolute inset-0 rounded-xl bg-black/50 opacity-0 group-hover:opacity-100 transition-all flex items-center justify-center cursor-pointer"
+                                    >
+                                        {isUploadingAvatar ? (
+                                            <Loader2 className="w-5 h-5 text-white animate-spin" />
+                                        ) : (
+                                            <Camera className="w-5 h-5 text-white" />
+                                        )}
+                                    </div>
+                                    {/* Remove Avatar Button */}
+                                    {avatarPreview && (
+                                        <button
+                                            onClick={handleRemoveAvatar}
+                                            className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full bg-red-500 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-600 shadow-sm"
+                                            title="Xóa ảnh"
+                                        >
+                                            <X className="w-3 h-3" />
+                                        </button>
+                                    )}
+                                </div>
+                                <div className="flex-1">
+                                    <div className="text-base font-bold text-efb-dark">{profileUser.name}</div>
+                                    <div className="text-xs text-efb-text-muted">{profileUser.email}</div>
+                                    <div className="flex items-center gap-2 mt-1">
+                                        <span className="text-[10px] font-bold text-amber-700 bg-amber-50 border border-amber-200 px-1.5 py-0.5 rounded">EFV-{profileUser.efvId ?? '—'}</span>
+                                        {profileUser.gamerId && <span className="text-[10px] font-mono text-gray-500">GID: {profileUser.gamerId}</span>}
+                                    </div>
+                                    <p className="text-[10px] text-gray-400 mt-1">Di chuột vào ảnh để thay đổi avatar</p>
+                                </div>
+                            </div>
+
+                            {/* Personal Info */}
+                            <div>
+                                <h3 className="text-sm font-bold text-gray-900 mb-3 flex items-center gap-2">
+                                    <User className="w-4 h-4 text-blue-500" /> Thông tin cá nhân
+                                </h3>
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                    <div>
+                                        <Label className="text-xs text-gray-500">Họ tên</Label>
+                                        <Input value={profileForm.name} onChange={(e) => setProfileForm({ ...profileForm, name: e.target.value })} className="h-9 rounded-lg mt-1" />
+                                    </div>
+                                    <div>
+                                        <Label className="text-xs text-gray-500">Email</Label>
+                                        <Input value={profileForm.email} onChange={(e) => setProfileForm({ ...profileForm, email: e.target.value })} className="h-9 rounded-lg mt-1" />
+                                    </div>
+                                    <div>
+                                        <Label className="text-xs text-gray-500">SĐT</Label>
+                                        <Input value={profileForm.phone} onChange={(e) => setProfileForm({ ...profileForm, phone: e.target.value })} className="h-9 rounded-lg mt-1" />
+                                    </div>
+                                    <div>
+                                        <Label className="text-xs text-gray-500">Ngày sinh</Label>
+                                        <Input value={profileForm.dateOfBirth} onChange={(e) => setProfileForm({ ...profileForm, dateOfBirth: e.target.value })} placeholder="DD/MM/YYYY" className="h-9 rounded-lg mt-1" />
+                                    </div>
+                                    <div>
+                                        <Label className="text-xs text-gray-500">Tỉnh/Thành phố</Label>
+                                        <Input value={profileForm.province} onChange={(e) => setProfileForm({ ...profileForm, province: e.target.value })} className="h-9 rounded-lg mt-1" />
+                                    </div>
+                                    <div>
+                                        <Label className="text-xs text-gray-500">Biệt danh</Label>
+                                        <Input value={profileForm.nickname} onChange={(e) => setProfileForm({ ...profileForm, nickname: e.target.value })} className="h-9 rounded-lg mt-1" />
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Game Info */}
+                            <div>
+                                <h3 className="text-sm font-bold text-gray-900 mb-3 flex items-center gap-2">
+                                    <Gamepad2 className="w-4 h-4 text-purple-500" /> Thông tin game
+                                </h3>
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                    <div>
+                                        <Label className="text-xs text-gray-500">Gamer ID</Label>
+                                        <Input value={profileForm.gamerId} onChange={(e) => setProfileForm({ ...profileForm, gamerId: e.target.value })} className="h-9 rounded-lg mt-1" />
+                                    </div>
+                                    <div>
+                                        <Label className="text-xs text-gray-500">Tên đội</Label>
+                                        <Input value={profileForm.teamName} onChange={(e) => setProfileForm({ ...profileForm, teamName: e.target.value })} className="h-9 rounded-lg mt-1" />
+                                    </div>
+                                    <div>
+                                        <Label className="text-xs text-gray-500">Tên Facebook</Label>
+                                        <Input value={profileForm.facebookName} onChange={(e) => setProfileForm({ ...profileForm, facebookName: e.target.value })} className="h-9 rounded-lg mt-1" />
+                                    </div>
+                                    <div>
+                                        <Label className="text-xs text-gray-500">Link Facebook</Label>
+                                        <Input value={profileForm.facebookLink} onChange={(e) => setProfileForm({ ...profileForm, facebookLink: e.target.value })} className="h-9 rounded-lg mt-1" />
+                                    </div>
+                                    <div className="sm:col-span-2">
+                                        <Label className="text-xs text-gray-500">Tiểu sử</Label>
+                                        <textarea
+                                            value={profileForm.bio}
+                                            onChange={(e) => setProfileForm({ ...profileForm, bio: e.target.value })}
+                                            rows={2}
+                                            className="w-full mt-1 px-3 py-2 rounded-lg border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-blue-100 focus:border-blue-300 resize-none"
+                                        />
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Stats */}
+                            <div>
+                                <h3 className="text-sm font-bold text-gray-900 mb-3 flex items-center gap-2">
+                                    <Trophy className="w-4 h-4 text-amber-500" /> Thống kê thi đấu
+                                </h3>
+                                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                                    {[
+                                        { key: 'tournamentsJoined', label: 'Giải tham gia', color: 'text-blue-600' },
+                                        { key: 'tournamentsCreated', label: 'Giải tạo', color: 'text-purple-600' },
+                                        { key: 'wins', label: 'Thắng', color: 'text-emerald-600' },
+                                        { key: 'losses', label: 'Thua', color: 'text-red-500' },
+                                        { key: 'draws', label: 'Hòa', color: 'text-amber-600' },
+                                        { key: 'goalsScored', label: 'Bàn ghi', color: 'text-green-600' },
+                                        { key: 'goalsConceded', label: 'Bàn thua', color: 'text-rose-600' },
+                                    ].map((s) => (
+                                        <div key={s.key} className="text-center">
+                                            <Label className="text-[10px] text-gray-400 block mb-1">{s.label}</Label>
+                                            <Input
+                                                type="number"
+                                                min={0}
+                                                value={profileForm.stats?.[s.key] ?? 0}
+                                                onChange={(e) => setProfileForm({
+                                                    ...profileForm,
+                                                    stats: { ...profileForm.stats, [s.key]: parseInt(e.target.value) || 0 }
+                                                })}
+                                                className={`h-9 rounded-lg text-center font-bold ${s.color}`}
+                                            />
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+
+                            {/* Actions */}
+                            <div className="flex gap-3 pt-2 border-t border-gray-100">
+                                <Button variant="outline" onClick={() => setProfileUser(null)} className="flex-1 rounded-xl" disabled={isSavingProfile}>
+                                    Hủy
+                                </Button>
+                                <Button onClick={handleProfileSubmit} className="flex-1 bg-efb-blue text-white hover:bg-efb-blue/90 rounded-xl" disabled={isSavingProfile}>
+                                    {isSavingProfile ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Save className="w-4 h-4 mr-2" />}
+                                    Lưu hồ sơ
                                 </Button>
                             </div>
                         </div>

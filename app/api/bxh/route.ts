@@ -23,15 +23,37 @@ export async function GET(req: NextRequest) {
             return (b.points || 0) - (a.points || 0);
         });
 
+        // Look up User data (avatar, efvId, facebookLink) by efvId (stored as gamerId in BXH)
+        const User = (await import("@/models/User")).default;
+        const efvIds = bxhList.map(item => Number(item.gamerId)).filter(n => !isNaN(n));
+        const users = efvIds.length > 0
+            ? await User.find({ efvId: { $in: efvIds } }).select("efvId avatar facebookLink facebookName").lean()
+            : [];
+        const userMap = new Map<number, { avatar?: string; efvId: number; facebookLink?: string; facebookName?: string }>();
+        for (const u of users) {
+            userMap.set(u.efvId, { avatar: u.avatar || "", efvId: u.efvId, facebookLink: u.facebookLink || "", facebookName: u.facebookName || "" });
+        }
+
         const data = bxhList.map((item) => {
+            const userInfo = userMap.get(Number(item.gamerId));
+            // Determine the best facebook link: prefer User.facebookLink, then check if BXH.facebook is a URL
+            const bxhFb = item.facebook || "";
+            const isBxhFbUrl = bxhFb.startsWith("http") || bxhFb.startsWith("www.") || bxhFb.includes("facebook.com");
+            const facebookLink = userInfo?.facebookLink || (isBxhFbUrl ? bxhFb : "");
+            const facebookName = userInfo?.facebookName || (!isBxhFbUrl && bxhFb ? bxhFb : "");
+
             return {
                 id: item.gamerId,
                 _id: item._id,
                 name: item.name,
-                facebook: item.facebook,
+                facebook: facebookLink, // Always a URL now
+                facebookName: facebookName, // Display name
                 team: item.team,
                 nickname: item.nickname,
                 points: item.points,
+                // User profile
+                avatar: userInfo?.avatar || "",
+                efvId: userInfo?.efvId ?? item.gamerId,
                 // Mobile tiers
                 pointsEfv250: (item as any).pointsEfv250 || 0,
                 pointsEfv500: (item as any).pointsEfv500 || 0,

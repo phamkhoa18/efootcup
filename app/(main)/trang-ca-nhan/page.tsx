@@ -506,10 +506,34 @@ export default function TrangCaNhanPage() {
                                     <div className={`w-8 h-8 rounded-lg ${stat.color} flex items-center justify-center mx-auto mb-2`}>
                                         <stat.icon className="w-4 h-4" />
                                     </div>
-                                    <p className="text-xs text-gray-500 mt-0.5">{stat.label}</p>
+                                    <p className="text-2xl font-extrabold text-gray-900 leading-none">{stat.value}</p>
+                                    <p className="text-xs text-gray-500 mt-1">{stat.label}</p>
                                 </div>
                             ))}
                         </div>
+
+                        {/* Extended Stats Row */}
+                        {((user.stats?.goalsScored || 0) > 0 || (user.stats?.goalsConceded || 0) > 0 || (user.stats?.wins || 0) + (user.stats?.losses || 0) > 0) && (
+                            <div className="grid grid-cols-3 gap-3 mt-3">
+                                <div className="bg-emerald-50/50 rounded-xl p-3 text-center border border-emerald-100/50">
+                                    <p className="text-lg font-bold text-emerald-700">{user.stats?.goalsScored || 0}</p>
+                                    <p className="text-[10px] text-emerald-500 font-medium">Bàn ghi</p>
+                                </div>
+                                <div className="bg-red-50/50 rounded-xl p-3 text-center border border-red-100/50">
+                                    <p className="text-lg font-bold text-red-600">{user.stats?.goalsConceded || 0}</p>
+                                    <p className="text-[10px] text-red-400 font-medium">Bàn thua</p>
+                                </div>
+                                <div className="bg-blue-50/50 rounded-xl p-3 text-center border border-blue-100/50">
+                                    <p className="text-lg font-bold text-blue-700">
+                                        {(() => {
+                                            const total = (user.stats?.wins || 0) + (user.stats?.losses || 0) + (user.stats?.draws || 0);
+                                            return total > 0 ? Math.round(((user.stats?.wins || 0) / total) * 100) : 0;
+                                        })()}%
+                                    </p>
+                                    <p className="text-[10px] text-blue-400 font-medium">Tỷ lệ thắng</p>
+                                </div>
+                            </div>
+                        )}
                     </div>
 
                     <div className="h-px bg-gray-100" />
