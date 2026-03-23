@@ -1699,23 +1699,15 @@ export default function TournamentDetailClient({ initialData, id }: { initialDat
 
                                     {!playerLoading && (() => {
                                         const isElimFormat = t.format === 'single_elimination' || t.format === 'double_elimination';
-                                        const getPlacementLabel = (idx: number) => {
-                                            if (t.status !== 'completed') return '—';
-                                            if (idx === 0) return 'Vô địch';
-                                            if (idx === 1) return 'Á quân';
-                                            if (idx <= 3) return 'Top 4';
-                                            if (idx <= 7) return 'Top 8';
-                                            if (idx <= 15) return 'Top 16';
-                                            if (idx <= 31) return 'Top 32';
-                                            return 'Tham gia';
+                                        const placementLabelMap: Record<string, string> = { champion: 'Vô địch', runner_up: 'Á quân', top_4: 'Top 4', top_8: 'Top 8', top_16: 'Top 16', top_32: 'Top 32', participant: 'Tham gia' };
+                                        const placementColorMap: Record<string, string> = { champion: 'bg-amber-100 text-amber-700 border border-amber-200', runner_up: 'bg-slate-100 text-slate-700 border border-slate-200', top_4: 'bg-orange-50 text-orange-600 border border-orange-200', top_8: 'bg-blue-50 text-blue-600 border border-blue-200', top_16: 'bg-blue-50 text-blue-600 border border-blue-200', top_32: 'bg-gray-50 text-gray-500' };
+                                        const getPlacementLabel = (p?: string) => {
+                                            if (t.status !== 'completed' || !p) return '—';
+                                            return placementLabelMap[p] || 'Tham gia';
                                         };
-                                        const getPlacementColor = (idx: number) => {
-                                            if (t.status !== 'completed') return 'bg-gray-50 text-gray-400';
-                                            if (idx === 0) return 'bg-amber-100 text-amber-700 border border-amber-200';
-                                            if (idx === 1) return 'bg-slate-100 text-slate-700 border border-slate-200';
-                                            if (idx <= 3) return 'bg-orange-50 text-orange-600 border border-orange-200';
-                                            if (idx <= 7) return 'bg-blue-50 text-blue-600 border border-blue-200';
-                                            return 'bg-gray-50 text-gray-500';
+                                        const getPlacementColor = (p?: string) => {
+                                            if (t.status !== 'completed' || !p) return 'bg-gray-50 text-gray-400';
+                                            return placementColorMap[p] || 'bg-gray-50 text-gray-500';
                                         };
                                         return (
                                         <div className="overflow-x-auto">
@@ -1749,23 +1741,22 @@ export default function TournamentDetailClient({ initialData, id }: { initialDat
                                                         const i = ((pg?.page || 1) - 1) * (pg?.limit || 100) + pageIdx;
                                                         const reg = team._reg || {};
                                                         const playerName = reg.playerName || team.captain?.name || "—";
-                                                        const isTop1 = i === 0 && t.status === 'completed';
-                                                        const isTop2 = i === 1 && t.status === 'completed';
+                                                        const teamPlacement = team._placement as string | undefined;
+                                                        const isTop1 = teamPlacement === 'champion' && t.status === 'completed';
+                                                        const isTop2 = teamPlacement === 'runner_up' && t.status === 'completed';
                                                         const avatarSrc = reg?.user?.avatar || reg?.personalPhoto || team.logo || null;
 
                                                         const getEfvPts = () => {
                                                             if (!t.efvTier) return null;
-                                                            const table: Record<string, Record<string, number>> = {
-                                                                efv_250: { champion: 250, runner_up: 200, top_4: 150, top_8: 100, top_16: 50, top_32: 40, participant: 30 },
-                                                                efv_500: { champion: 500, runner_up: 400, top_4: 300, top_8: 200, top_16: 100, top_32: 70, participant: 50 },
-                                                                efv_1000: { champion: 1000, runner_up: 800, top_4: 600, top_8: 400, top_16: 200, top_32: 150, participant: 100 },
-                                                            };
-                                                            if (t.status !== 'completed') return table[t.efvTier]?.participant ?? 0;
-                                                            const placement = i === 0 ? 'champion' : i === 1 ? 'runner_up' : i <= 3 ? 'top_4' : i <= 7 ? 'top_8' : i <= 15 ? 'top_16' : i <= 31 ? 'top_32' : 'participant';
-                                                            return table[t.efvTier]?.[placement] ?? 0;
+                                                            if (team._efvPoints != null) return team._efvPoints;
+                                                            // Fallback for non-completed tournaments
+                                                            const partPts: Record<string, number> = { efv_250: 30, efv_500: 50, efv_1000: 100, efv_50: 5, efv_100: 10, efv_200: 20 };
+                                                            return partPts[t.efvTier] ?? 0;
                                                         };
                                                         const efvPts = getEfvPts();
-                                                        const placementEmoji = t.status === 'completed' ? (i === 0 ? '🥇' : i === 1 ? '🥈' : i <= 3 ? '🥉' : '') : '';
+                                                        const placementEmoji = t.status === 'completed' && teamPlacement
+                                                            ? (teamPlacement === 'champion' ? '🥇' : teamPlacement === 'runner_up' ? '🥈' : teamPlacement === 'top_4' ? '🥉' : '')
+                                                            : '';
 
                                                         return (
                                                             <tr key={team._id} className={`border-b border-gray-50 last:border-0 transition-colors ${reg?.user?.efvId ? 'hover:bg-blue-50/30 cursor-pointer' : ''} ${isTop1 ? 'bg-amber-50/40' : isTop2 ? 'bg-gray-50/40' : ''}`}
@@ -1813,8 +1804,8 @@ export default function TournamentDetailClient({ initialData, id }: { initialDat
                                                                             </span>
                                                                         </td>
                                                                         <td className="px-3 sm:px-4 py-3 text-center">
-                                                                            <span className={`inline-flex items-center justify-center px-2.5 py-1 rounded-lg font-bold text-[10px] sm:text-[11px] ${getPlacementColor(i)}`}>
-                                                                                {getPlacementLabel(i)}
+                                                                            <span className={`inline-flex items-center justify-center px-2.5 py-1 rounded-lg font-bold text-[10px] sm:text-[11px] ${getPlacementColor(teamPlacement)}`}>
+                                                                                {getPlacementLabel(teamPlacement)}
                                                                             </span>
                                                                         </td>
                                                                     </>
@@ -1833,9 +1824,9 @@ export default function TournamentDetailClient({ initialData, id }: { initialDat
                                                                 )}
                                                                 {t.efvTier && (
                                                                     <td className="px-3 sm:px-4 py-3 text-center">
-                                                                        <span className={`inline-flex items-center justify-center min-w-[36px] sm:min-w-[40px] h-6 sm:h-7 rounded-lg font-bold text-[11px] sm:text-xs px-1.5 sm:px-2 ${i === 0 && t.status === 'completed' ? 'bg-amber-100 text-amber-700' :
-                                                                            i === 1 && t.status === 'completed' ? 'bg-gray-100 text-gray-700' :
-                                                                                i <= 3 && t.status === 'completed' ? 'bg-orange-50 text-orange-600' :
+                                                                        <span className={`inline-flex items-center justify-center min-w-[36px] sm:min-w-[40px] h-6 sm:h-7 rounded-lg font-bold text-[11px] sm:text-xs px-1.5 sm:px-2 ${teamPlacement === 'champion' && t.status === 'completed' ? 'bg-amber-100 text-amber-700' :
+                                                                            teamPlacement === 'runner_up' && t.status === 'completed' ? 'bg-gray-100 text-gray-700' :
+                                                                                teamPlacement === 'top_4' && t.status === 'completed' ? 'bg-orange-50 text-orange-600' :
                                                                                     'bg-purple-50 text-purple-600'
                                                                             }`}>
                                                                             +{efvPts}

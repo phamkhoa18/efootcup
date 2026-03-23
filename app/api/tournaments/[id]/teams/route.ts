@@ -89,38 +89,111 @@ export async function GET(req: NextRequest, { params }: RouteParams) {
 
         // Fetch paginated teams — sort depends on format
         const isElimination = (tournament as any).format === "single_elimination" || (tournament as any).format === "double_elimination";
+        const isCompletedElim = isElimination && (tournament as any).status === "completed";
         const sortOrder: Record<string, 1 | -1> = isElimination
-            ? { seed: 1, registeredAt: 1 }  // By seed/placement for elimination
-            : { "stats.points": -1, "stats.goalDifference": -1 }; // By points for league
+            ? { seed: 1, registeredAt: 1 }
+            : { "stats.points": -1, "stats.goalDifference": -1 };
 
-        const teams = await Team.find(teamFilter)
-            .populate("captain", "name avatar efvId")
-            .sort(sortOrder)
-            .skip(skip)
-            .limit(limit)
-            .lean();
+        // For completed elimination: fetch ALL teams so we can sort by placement then paginate
+        let teams;
+        if (isCompletedElim) {
+            teams = await Team.find(teamFilter).populate("captain", "name avatar efvId").sort(sortOrder).lean();
+        } else {
+            teams = await Team.find(teamFilter).populate("captain", "name avatar efvId").sort(sortOrder).skip(skip).limit(limit).lean();
+        }
 
-        // Get registrations for these teams (for playerName, personalPhoto, user info)
+        // Get registrations for these teams
         const teamIds = teams.map((t: any) => t._id);
         const registrations = await Registration.find({
             tournament: tournamentId,
             team: { $in: teamIds },
-        })
-            .populate("user", "name email avatar efvId")
-            .lean();
+        }).populate("user", "name email avatar efvId").lean();
 
-        // Build a map for quick lookup
         const regMap: Record<string, any> = {};
         for (const reg of registrations) {
             const tId = (reg.team?._id || reg.team)?.toString();
             if (tId) regMap[tId] = reg;
         }
 
-        // Attach registration data to teams
-        const teamsWithReg = teams.map((team: any) => ({
-            ...team,
-            _reg: regMap[team._id.toString()] || null,
-        }));
+        // Calculate placements from bracket matches for completed elimination tournaments
+        let placementMap: Map<string, { placement: string; efvPoints: number }> | null = null;
+        let participantPts = 0;
+        if (isCompletedElim) {
+            const Match = (await import("@/models/Match")).default;
+            const { getPlacementFromBracketRound, getEfvPoints, PLACEMENT_RANK } = await import("@/lib/efv-points");
+
+            const efvTier = (tournament as any).efvTier;
+            participantPts = efvTier ? getEfvPoints(efvTier, "participant") : 0;
+
+            const matches = await Match.find({
+                tournament: tournamentId,
+                status: { $in: ["completed", "bye"] },
+            }).sort({ round: 1 }).lean();
+
+            if (matches.length > 0) {
+                const totalTeamCount = await Team.countDocuments({ tournament: tournamentId });
+                let S = 2; while (S < totalTeamCount) S *= 2;
+                const totalRounds = Math.log2(S);
+                const maxRound = Math.max(...matches.map((m: any) => m.round));
+
+                placementMap = new Map();
+                for (const match of matches as any[]) {
+                    if (match.status === "bye") continue;
+                    if (!match.winner || !match.homeTeam || !match.awayTeam) continue;
+                    const winnerId = match.winner.toString();
+                    const homeId = match.homeTeam.toString();
+                    const awayId = match.awayTeam.toString();
+                    const loserId = winnerId === homeId ? awayId : homeId;
+
+                    const placement = match.round === maxRound
+                        ? "runner_up"
+                        : getPlacementFromBracketRound(match.round, totalRounds, S);
+
+                    const existing = placementMap.get(loserId);
+                    const existingRank = existing ? (PLACEMENT_RANK[existing.placement] ?? 99) : 99;
+                    if ((PLACEMENT_RANK[placement] ?? 99) < existingRank) {
+                        placementMap.set(loserId, {
+                            placement,
+                            efvPoints: efvTier ? getEfvPoints(efvTier, placement) : 0,
+                        });
+                    }
+                }
+                // Champion = winner of final match
+                const finalMatch = (matches as any[]).find(m => m.round === maxRound && m.status === "completed");
+                if (finalMatch?.winner) {
+                    placementMap.set(finalMatch.winner.toString(), {
+                        placement: "champion",
+                        efvPoints: efvTier ? getEfvPoints(efvTier, "champion") : 0,
+                    });
+                }
+            }
+        }
+
+        // Attach registration + placement data to teams
+        let teamsWithReg = teams.map((team: any) => {
+            const teamId = team._id.toString();
+            const pi = placementMap?.get(teamId);
+            return {
+                ...team,
+                _reg: regMap[teamId] || null,
+                ...(placementMap ? {
+                    _placement: pi?.placement || "participant",
+                    _efvPoints: pi?.efvPoints ?? participantPts,
+                } : {}),
+            };
+        });
+
+        // Sort by placement rank for completed elimination, then paginate in memory
+        if (placementMap) {
+            const PR: Record<string, number> = { champion: 1, runner_up: 2, top_4: 3, top_8: 4, top_16: 5, top_32: 6, participant: 99 };
+            teamsWithReg.sort((a: any, b: any) => {
+                const rA = PR[a._placement || "participant"] ?? 99;
+                const rB = PR[b._placement || "participant"] ?? 99;
+                if (rA !== rB) return rA - rB;
+                return (a.seed || 999) - (b.seed || 999);
+            });
+            teamsWithReg = teamsWithReg.slice(skip, skip + limit);
+        }
 
         return apiResponse({
             teams: teamsWithReg,
