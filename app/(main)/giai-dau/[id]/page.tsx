@@ -2,6 +2,11 @@ import { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { getSiteSettings } from "@/lib/site-settings";
 import TournamentDetailClient from "./TournamentDetailClient";
+import dbConnect from "@/lib/mongodb";
+import Tournament from "@/models/Tournament";
+import Match from "@/models/Match";
+import Team from "@/models/Team";
+import Registration from "@/models/Registration";
 
 // Force dynamic so SEO always reflects latest tournament data
 export const dynamic = "force-dynamic";
@@ -15,40 +20,48 @@ function toAbsoluteUrl(url: string, siteUrl: string): string {
 }
 
 async function getTournamentData(id: string) {
-    const port = process.env.PORT || "3000";
-    const envUrl = process.env.NEXT_PUBLIC_APP_URL;
+    try {
+        await dbConnect();
 
-    const localUrls = [
-        `http://127.0.0.1:${port}`,
-        `http://localhost:${port}`,
-        "http://127.0.0.1:3333",
-        "http://localhost:3333"
-    ];
+        const tournament = await Tournament.findById(id)
+            .populate("createdBy", "name email avatar")
+            .lean();
+        if (!tournament) return null;
 
-    if (envUrl) {
-        localUrls.unshift(envUrl);
+        const [teams, registrations, matches] = await Promise.all([
+            Team.find({ tournament: id })
+                .populate("captain", "name avatar efvId gamerId personalPhoto")
+                .sort({ "stats.points": -1, "stats.goalDifference": -1 })
+                .lean(),
+            Registration.find({ tournament: id })
+                .populate("user", "name email avatar efvId")
+                .sort({ createdAt: -1 })
+                .lean(),
+            Match.find({ tournament: id })
+                .populate("homeTeam", "name shortName logo efvId seed")
+                .populate("awayTeam", "name shortName logo efvId seed")
+                .populate("winner", "name shortName")
+                .sort({ round: 1, matchNumber: 1 })
+                .lean(),
+        ]);
+
+        return {
+            tournament,
+            teams,
+            registrations,
+            matches,
+            stats: {
+                totalTeams: teams.length,
+                totalMatches: matches.length,
+                completedMatches: matches.filter((m) => m.status === "completed").length,
+                pendingRegistrations: registrations.filter((r) => r.status === "pending").length,
+                totalRegistrations: registrations.length,
+            },
+        };
+    } catch (error) {
+        console.error("Failed to fetch tournament data from DB:", error);
+        return null;
     }
-
-    for (const baseUrl of localUrls) {
-        try {
-            const cleanBaseUrl = baseUrl.endsWith('/') ? baseUrl.slice(0, -1) : baseUrl;
-            const res = await fetch(`${cleanBaseUrl}/api/tournaments/${id}`, {
-                next: { revalidate: 0 },
-                signal: AbortSignal.timeout(2000)
-            });
-
-            if (res.ok) {
-                const data = await res.json();
-                if (data.success) return data.data;
-            }
-        } catch (error) {
-            if (baseUrl === localUrls[localUrls.length - 1] && !envUrl) {
-                console.error("Failed to fetch tournament data from all local addresses.");
-            }
-        }
-    }
-
-    return null;
 }
 
 export async function generateMetadata({ params }: { params: { id: string } }): Promise<Metadata> {

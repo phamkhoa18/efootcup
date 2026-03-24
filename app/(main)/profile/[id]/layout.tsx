@@ -23,9 +23,12 @@ export async function generateMetadata({
         const [siteSettings] = await Promise.all([getSiteSettings(), dbConnect()]);
         const siteUrl = siteSettings.siteUrl || "https://efootball.vn";
 
-        const user = await User.findById(id)
-            .select("name nickname teamName avatar efvId")
-            .lean();
+        // id có thể là EFV ID (số nguyên, ví dụ "380") hoặc MongoDB ObjectId
+        const isObjectId = /^[a-f\d]{24}$/i.test(id);
+        const user = await (isObjectId
+            ? User.findById(id)
+            : User.findOne({ efvId: Number(id) })
+        ).select("name nickname teamName avatar efvId").lean();
 
         if (!user) {
             return {
