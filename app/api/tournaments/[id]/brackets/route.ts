@@ -84,8 +84,8 @@ export async function GET(req: NextRequest, { params }: RouteParams) {
 
         const id = tournament._id;
         const rawMatches = await Match.find({ tournament: id })
-            .populate("homeTeam", "name shortName logo stars")
-            .populate("awayTeam", "name shortName logo stars")
+            .populate("homeTeam", "name shortName logo stars seed")
+            .populate("awayTeam", "name shortName logo stars seed")
             .populate("winner", "name shortName")
             .sort({ round: 1, "bracketPosition.y": 1 })
             .lean();

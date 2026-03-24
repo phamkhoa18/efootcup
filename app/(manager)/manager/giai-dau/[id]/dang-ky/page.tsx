@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { useParams } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import { Button } from "@/components/ui/button";
@@ -45,7 +45,15 @@ export default function DangKyPage() {
     const [tournament, setTournament] = useState<any>(null);
     const [isLoading, setIsLoading] = useState(true);
     const [search, setSearch] = useState("");
+    const [debouncedSearch, setDebouncedSearch] = useState("");
     const [filter, setFilter] = useState("all");
+
+    // Pagination state
+    const [currentPage, setCurrentPage] = useState(1);
+    const [totalPages, setTotalPages] = useState(1);
+    const [totalItems, setTotalItems] = useState(0);
+    const [perPage, setPerPage] = useState(20);
+    const [serverStats, setServerStats] = useState<any>(null);
     const [processing, setProcessing] = useState<string | null>(null);
     const [isUploading, setIsUploading] = useState(false);
 
@@ -166,8 +174,25 @@ export default function DangKyPage() {
         }
     };
 
+    // Debounce search input
+    useEffect(() => {
+        const timer = setTimeout(() => {
+            setDebouncedSearch(search);
+        }, 400);
+        return () => clearTimeout(timer);
+    }, [search]);
+
+    // Reset to page 1 when search/filter changes
+    useEffect(() => {
+        setCurrentPage(1);
+    }, [debouncedSearch, filter]);
+
+    // Load registrations when page/search/filter/perPage changes
     useEffect(() => {
         loadRegistrations();
+    }, [id, currentPage, debouncedSearch, filter, perPage]);
+
+    useEffect(() => {
         loadTournament();
     }, [id]);
 
@@ -287,9 +312,23 @@ export default function DangKyPage() {
     const loadRegistrations = async () => {
         setIsLoading(true);
         try {
-            const res = await tournamentAPI.getRegistrations(id);
+            const params: Record<string, string> = {
+                page: String(currentPage),
+                limit: String(perPage),
+            };
+            if (debouncedSearch.trim()) params.search = debouncedSearch.trim();
+            if (filter !== "all") params.status = filter;
+
+            const res = await tournamentAPI.getRegistrations(id, params);
             if (res.success) {
                 setRegistrations(res.data?.registrations || res.data || []);
+                if (res.data?.pagination) {
+                    setTotalPages(res.data.pagination.totalPages);
+                    setTotalItems(res.data.pagination.total);
+                }
+                if (res.data?.stats) {
+                    setServerStats(res.data.stats);
+                }
             }
         } catch (e) {
             console.error("Load registrations error:", e);
@@ -482,13 +521,19 @@ export default function DangKyPage() {
         }
     };
 
-    const handleExportExcel = () => {
-        if (registrations.length === 0) {
+    const handleExportExcel = async () => {
+        toast.info("Đang tải dữ liệu xuất Excel...");
+        let allRegs = registrations;
+        try {
+            const res = await tournamentAPI.getRegistrations(id);
+            if (res.success) allRegs = res.data?.registrations || res.data || [];
+        } catch {}
+        if (allRegs.length === 0) {
             toast.error("Không có dữ liệu để xuất");
             return;
         }
 
-        const data = registrations.map((r: any, idx: number) => {
+        const data = allRegs.map((r: any, idx: number) => {
             // Parse paymentNote JSON to extract payment details
             let noteData: any = {};
             try {
@@ -558,7 +603,7 @@ export default function DangKyPage() {
 
         const fileName = `DangKy_${tournament?.title?.replace(/[^a-zA-Z0-9\u00C0-\u024F\u1E00-\u1EFF]/g, '_') || 'GiaiDau'}_${new Date().toISOString().slice(0, 10)}.xlsx`;
         XLSX.writeFile(wb, fileName);
-        toast.success(`Đã xuất ${data.length} bản đăng ký ra Excel`);
+        toast.success(`Đã xuất toàn bộ ${data.length} bản đăng ký ra Excel`);
     };
 
     // =============================================
@@ -750,13 +795,19 @@ export default function DangKyPage() {
     };
 
     const handleExportPlayerList = async () => {
-        if (registrations.length === 0) {
+        toast.info("Đang tải dữ liệu xuất danh sách VĐV...");
+        let allRegs = registrations;
+        try {
+            const res = await tournamentAPI.getRegistrations(id);
+            if (res.success) allRegs = res.data?.registrations || res.data || [];
+        } catch {}
+        if (allRegs.length === 0) {
             toast.error("Không có dữ liệu để xuất");
             return;
         }
 
         // Only export approved registrations for the player list
-        const approvedRegs = registrations.filter((r: any) => r.status === "approved");
+        const approvedRegs = allRegs.filter((r: any) => r.status === "approved");
         if (approvedRegs.length === 0) {
             toast.error("Chưa có VĐV nào được duyệt");
             return;
@@ -849,28 +900,10 @@ export default function DangKyPage() {
         toast.success(`Đã xuất danh sách ${data.length} VĐV ra Excel${isAwarded ? " (kèm điểm EFV)" : ""}`);
     };
 
-    const filtered = registrations.filter((r) => {
-        if (filter !== "all" && r.status !== filter) return false;
-        if (search.trim()) {
-            const q = search.toLowerCase();
-            return (
-                r.name?.toLowerCase().includes(q) ||
-                r.teamName?.toLowerCase().includes(q) ||
-                r.ingameId?.toLowerCase().includes(q) ||
-                r.email?.toLowerCase().includes(q) ||
-                r.playerName?.toLowerCase().includes(q) ||
-                r.gamerId?.toLowerCase().includes(q) ||
-                r.nickname?.toLowerCase().includes(q) ||
-                r.facebookName?.toLowerCase().includes(q) ||
-                r.province?.toLowerCase().includes(q) ||
-                r.phone?.toLowerCase().includes(q) ||
-                String(r.user?.efvId || "").includes(q)
-            );
-        }
-        return true;
-    });
+    // Data is already filtered server-side via pagination API
+    const filtered = registrations;
 
-    const counts = {
+    const counts = serverStats || {
         total: registrations.length,
         pending: registrations.filter((r) => r.status === "pending").length,
         approved: registrations.filter((r) => r.status === "approved").length,
@@ -878,6 +911,26 @@ export default function DangKyPage() {
         paid: registrations.filter((r) => r.paymentStatus === "paid").length,
         pendingPayment: registrations.filter((r) => r.paymentStatus === "pending_verification").length,
     };
+
+    // Build page numbers for pagination UI
+    const paginationPages = useMemo(() => {
+        const pages: (number | 'ellipsis')[] = [];
+        if (totalPages <= 7) {
+            for (let i = 1; i <= totalPages; i++) pages.push(i);
+        } else {
+            pages.push(1);
+            if (currentPage > 3) pages.push('ellipsis');
+            const start = Math.max(2, currentPage - 1);
+            const end = Math.min(totalPages - 1, currentPage + 1);
+            for (let i = start; i <= end; i++) pages.push(i);
+            if (currentPage < totalPages - 2) pages.push('ellipsis');
+            pages.push(totalPages);
+        }
+        return pages;
+    }, [currentPage, totalPages]);
+
+    const startItem = totalItems === 0 ? 0 : (currentPage - 1) * perPage + 1;
+    const endItem = Math.min(currentPage * perPage, totalItems);
 
     return (
         <div className="space-y-6 overflow-x-hidden">
@@ -1059,6 +1112,7 @@ export default function DangKyPage() {
                                 {filtered.map((r, i) => {
                                     const payConfig = paymentStatusConfig[r.paymentStatus] || paymentStatusConfig.unpaid;
                                     const PayIcon = payConfig.icon;
+                                    const rowNumber = (currentPage - 1) * perPage + i + 1;
 
                                     return (
                                         <motion.tr
@@ -1068,7 +1122,7 @@ export default function DangKyPage() {
                                             key={r._id || i}
                                             className="border-b border-gray-50 hover:bg-gray-50/50 transition-colors"
                                         >
-                                            <td className="px-4 py-4 text-sm text-gray-400 font-medium">{i + 1}</td>
+                                            <td className="px-4 py-4 text-sm text-gray-400 font-medium">{rowNumber}</td>
                                             <td className="px-4 py-4">
                                                 {r.user?.efvId != null ? (
                                                     <span className="inline-flex items-center text-[11px] font-bold text-amber-700 bg-amber-50 border border-amber-200 px-2 py-1 rounded-md tabular-nums">#{r.user.efvId}</span>
@@ -1199,6 +1253,100 @@ export default function DangKyPage() {
                             </tbody>
                         </table>
                     </div>
+
+                    {/* ===== Premium Pagination Bar ===== */}
+                    {totalPages > 0 && (
+                        <div className="border-t border-gray-100 bg-gradient-to-r from-gray-50/30 via-white to-gray-50/30 px-3 sm:px-5 py-3 sm:py-4">
+                            <div className="flex flex-col sm:flex-row items-center justify-between gap-3">
+                                {/* Info + Per page selector */}
+                                <div className="flex items-center gap-2 sm:gap-3 text-xs text-gray-500 w-full sm:w-auto justify-between sm:justify-start">
+                                    <span className="font-medium whitespace-nowrap">
+                                        <span className="hidden sm:inline">Hiển thị </span>
+                                        <span className="font-bold text-gray-700">{startItem}–{endItem}</span>
+                                        <span className="hidden sm:inline"> trong </span>
+                                        <span className="sm:hidden"> / </span>
+                                        <span className="font-bold text-blue-600">{totalItems}</span>
+                                    </span>
+                                    <div className="flex items-center gap-1.5">
+                                        <span className="text-gray-400 hidden sm:inline">|</span>
+                                        <select
+                                            value={perPage}
+                                            onChange={(e) => {
+                                                setPerPage(Number(e.target.value));
+                                                setCurrentPage(1);
+                                            }}
+                                            className="h-7 sm:h-8 px-1.5 sm:px-2 rounded-lg border border-gray-200 bg-white text-xs font-medium text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-400 cursor-pointer hover:border-gray-300 transition-colors appearance-none pr-5 sm:pr-6"
+                                            style={{ backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%236b7280' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E")`, backgroundRepeat: 'no-repeat', backgroundPosition: 'right 4px center' }}
+                                        >
+                                            {[10, 20, 50, 100].map(n => (
+                                                <option key={n} value={n}>{n}/trang</option>
+                                            ))}
+                                        </select>
+                                    </div>
+                                </div>
+
+                                {/* Page buttons */}
+                                <div className="flex items-center gap-1 sm:gap-1.5">
+                                    {/* First page */}
+                                    <button
+                                        onClick={() => setCurrentPage(1)}
+                                        disabled={currentPage === 1}
+                                        className="hidden sm:flex w-8 h-8 rounded-lg items-center justify-center text-gray-400 hover:bg-gray-100 hover:text-gray-600 disabled:opacity-30 disabled:cursor-not-allowed transition-all duration-200"
+                                        title="Trang đầu"
+                                    >
+                                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="11 17 6 12 11 7"/><polyline points="18 17 13 12 18 7"/></svg>
+                                    </button>
+                                    {/* Prev */}
+                                    <button
+                                        onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                                        disabled={currentPage === 1}
+                                        className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl flex items-center justify-center text-gray-500 hover:bg-blue-50 hover:text-blue-600 disabled:opacity-30 disabled:cursor-not-allowed transition-all duration-200 border border-transparent hover:border-blue-100"
+                                        title="Trang trước"
+                                    >
+                                        <ChevronLeft className="w-4 h-4" />
+                                    </button>
+
+                                    {/* Page numbers */}
+                                    {paginationPages.map((p, idx) => (
+                                        p === 'ellipsis' ? (
+                                            <span key={`e${idx}`} className="w-6 sm:w-8 h-8 flex items-center justify-center text-gray-300 text-xs select-none">•••</span>
+                                        ) : (
+                                            <button
+                                                key={p}
+                                                onClick={() => setCurrentPage(p as number)}
+                                                className={`min-w-[32px] sm:min-w-[36px] h-8 sm:h-9 rounded-xl text-xs sm:text-sm font-bold transition-all duration-200 ${
+                                                    currentPage === p
+                                                        ? 'bg-gradient-to-br from-blue-500 to-indigo-600 text-white shadow-md shadow-blue-500/25 scale-105'
+                                                        : 'text-gray-500 hover:bg-gray-100 hover:text-gray-700 border border-transparent hover:border-gray-200'
+                                                }`}
+                                            >
+                                                {p}
+                                            </button>
+                                        )
+                                    ))}
+
+                                    {/* Next */}
+                                    <button
+                                        onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                                        disabled={currentPage === totalPages}
+                                        className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl flex items-center justify-center text-gray-500 hover:bg-blue-50 hover:text-blue-600 disabled:opacity-30 disabled:cursor-not-allowed transition-all duration-200 border border-transparent hover:border-blue-100"
+                                        title="Trang sau"
+                                    >
+                                        <ChevronRight className="w-4 h-4" />
+                                    </button>
+                                    {/* Last page */}
+                                    <button
+                                        onClick={() => setCurrentPage(totalPages)}
+                                        disabled={currentPage === totalPages}
+                                        className="hidden sm:flex w-8 h-8 rounded-lg items-center justify-center text-gray-400 hover:bg-gray-100 hover:text-gray-600 disabled:opacity-30 disabled:cursor-not-allowed transition-all duration-200"
+                                        title="Trang cuối"
+                                    >
+                                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="13 17 18 12 13 7"/><polyline points="6 17 11 12 6 7"/></svg>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    )}
                 </motion.div>
             )}
 

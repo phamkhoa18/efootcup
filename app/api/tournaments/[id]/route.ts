@@ -34,7 +34,7 @@ export async function GET(req: NextRequest, { params }: RouteParams) {
         // Get related data
         const [teams, registrations, matches] = await Promise.all([
             Team.find({ tournament: id })
-                .populate("captain", "name avatar efvId")
+                .populate("captain", "name avatar efvId gamerId personalPhoto")
                 .sort({ "stats.points": -1, "stats.goalDifference": -1 })
                 .lean(),
             Registration.find({ tournament: id })

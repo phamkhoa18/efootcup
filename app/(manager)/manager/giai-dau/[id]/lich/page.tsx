@@ -247,7 +247,7 @@ export default function LichThiDauPage() {
             t.name?.toLowerCase().includes(s) ||
             t.shortName?.toLowerCase().includes(s) ||
             t.captain?.name?.toLowerCase().includes(s) ||
-            String(t.efvId || '').includes(s)
+            String(t.captain?.efvId || '').includes(s.replace(/^#/, ''))
         );
     });
 
@@ -524,13 +524,15 @@ export default function LichThiDauPage() {
                                                     <div className="col-span-2 flex flex-col gap-1.5">
                                                         <div className="border border-gray-200 rounded px-1.5 py-0.5 shadow-sm bg-white text-[11px] font-semibold text-gray-700 truncate w-fit max-w-full flex items-center gap-1">
                                                             <div className="w-1.5 h-1.5 rounded-full bg-blue-400" />
-                                                            {m.homeTeam?.efvId != null && <span className="text-[9px] font-bold text-amber-600 bg-amber-50 border border-amber-200 px-1 py-px rounded">#{m.homeTeam.efvId}</span>}
-                                                            {homeName}
+                                                            {m.homeTeam?.efvId != null && <span className="text-[9px] font-bold text-amber-600 bg-amber-50 border border-amber-200 px-1 py-px rounded flex-shrink-0">#{m.homeTeam.efvId}</span>}
+                                                            {m.homeTeam?.seed != null && m.homeTeam.seed > 0 && <span className="text-[9px] font-bold text-blue-600 bg-blue-50 border border-blue-200 px-1 py-px rounded flex-shrink-0" title={`Hạt giống số ${m.homeTeam.seed}`}>Seed {m.homeTeam.seed}</span>}
+                                                            <span className="truncate">{homeName}</span>
                                                         </div>
                                                         <div className="border border-gray-200 rounded px-1.5 py-0.5 shadow-sm bg-white text-[11px] font-semibold text-gray-700 truncate w-fit max-w-full flex items-center gap-1">
                                                             <div className="w-1.5 h-1.5 rounded-full bg-red-400" />
-                                                            {m.awayTeam?.efvId != null && <span className="text-[9px] font-bold text-amber-600 bg-amber-50 border border-amber-200 px-1 py-px rounded">#{m.awayTeam.efvId}</span>}
-                                                            {awayName}
+                                                            {m.awayTeam?.efvId != null && <span className="text-[9px] font-bold text-amber-600 bg-amber-50 border border-amber-200 px-1 py-px rounded flex-shrink-0">#{m.awayTeam.efvId}</span>}
+                                                            {m.awayTeam?.seed != null && m.awayTeam.seed > 0 && <span className="text-[9px] font-bold text-blue-600 bg-blue-50 border border-blue-200 px-1 py-px rounded flex-shrink-0" title={`Hạt giống số ${m.awayTeam.seed}`}>Seed {m.awayTeam.seed}</span>}
+                                                            <span className="truncate">{awayName}</span>
                                                         </div>
                                                     </div>
                                                     <div className="col-span-4 flex flex-col gap-1.5 text-[13px] font-medium">
@@ -598,8 +600,9 @@ export default function LichThiDauPage() {
                                                     <div className={`flex items-center justify-between py-1.5 ${isHomeWin ? 'font-bold' : ''}`}>
                                                         <div className="flex items-center gap-2 min-w-0 flex-1">
                                                             <div className="w-1.5 h-1.5 rounded-full bg-blue-400 flex-shrink-0" />
-                                                            <span className={`text-[13px] truncate ${isCompleted ? (isHomeWin ? "text-gray-900" : "text-gray-400") : "text-purple-600"}`}>
-                                                                {p1Name}{p1Sub}
+                                                            <span className={`text-[13px] truncate flex items-center gap-1.5 ${isCompleted ? (isHomeWin ? "text-gray-900" : "text-gray-400") : "text-purple-600"}`}>
+                                                                {m.homeTeam?.seed != null && m.homeTeam.seed > 0 && <span className="text-[9px] font-bold text-blue-600 bg-blue-50 border border-blue-200 px-1 py-px rounded flex-shrink-0 leading-tight" title={`Hạt giống số ${m.homeTeam.seed}`}>Seed {m.homeTeam.seed}</span>}
+                                                                <span className="truncate">{p1Name}{p1Sub}</span>
                                                             </span>
                                                         </div>
                                                         <span className={`text-sm tabular-nums ml-2 ${isHomeWin ? 'text-blue-600 font-bold' : 'text-gray-400'}`}>
@@ -610,8 +613,9 @@ export default function LichThiDauPage() {
                                                     <div className={`flex items-center justify-between py-1.5 ${isAwayWin ? 'font-bold' : ''}`}>
                                                         <div className="flex items-center gap-2 min-w-0 flex-1">
                                                             <div className="w-1.5 h-1.5 rounded-full bg-red-400 flex-shrink-0" />
-                                                            <span className={`text-[13px] truncate ${isCompleted ? (isAwayWin ? "text-gray-900" : "text-gray-400") : "text-purple-600"}`}>
-                                                                {p2Name}{p2Sub}
+                                                            <span className={`text-[13px] truncate flex items-center gap-1.5 ${isCompleted ? (isAwayWin ? "text-gray-900" : "text-gray-400") : "text-purple-600"}`}>
+                                                                {m.awayTeam?.seed != null && m.awayTeam.seed > 0 && <span className="text-[9px] font-bold text-blue-600 bg-blue-50 border border-blue-200 px-1 py-px rounded flex-shrink-0 leading-tight" title={`Hạt giống số ${m.awayTeam.seed}`}>Seed {m.awayTeam.seed}</span>}
+                                                                <span className="truncate">{p2Name}{p2Sub}</span>
                                                             </span>
                                                         </div>
                                                         <span className={`text-sm tabular-nums ml-2 ${isAwayWin ? 'text-blue-600 font-bold' : 'text-gray-400'}`}>
@@ -748,7 +752,7 @@ export default function LichThiDauPage() {
                                         <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
                                         <input
                                             type="text"
-                                            placeholder="Tìm VĐV, tên đội..."
+                                            placeholder="Tìm VĐV theo tên, EFV ID, đội..."
                                             value={seedSearchTerm}
                                             onChange={(e) => setSeedSearchTerm(e.target.value)}
                                             className="w-full pl-9 pr-4 py-2 rounded-xl bg-gray-50 border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-blue-100 focus:border-blue-300"
@@ -801,13 +805,22 @@ export default function LichThiDauPage() {
                                                         <td className="px-4 py-3 text-gray-400 text-xs font-medium">{idx + 1}</td>
                                                         <td className="px-4 py-3">
                                                             <div className="flex items-center gap-3">
-                                                                <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-gray-100 to-gray-200 flex items-center justify-center text-xs font-bold text-gray-500 flex-shrink-0">
-                                                                    {team.shortName || team.name?.charAt(0) || '?'}
-                                                                </div>
+                                                                {(team.captain?.avatar || team.captain?.personalPhoto) ? (
+                                                                    <img src={team.captain.avatar || team.captain.personalPhoto} alt={team.captain.name || ''} className="w-9 h-9 rounded-xl object-cover border-2 border-white shadow-sm flex-shrink-0" />
+                                                                ) : (
+                                                                    <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-blue-100 to-indigo-100 flex items-center justify-center text-xs font-bold text-blue-600 flex-shrink-0 border border-blue-200/50">
+                                                                        {(team.captain?.name || team.name || '?').charAt(0).toUpperCase()}
+                                                                    </div>
+                                                                )}
                                                                 <div className="min-w-0">
-                                                                    <div className="text-sm font-semibold text-gray-900 truncate">{team.name}</div>
-                                                                    <div className="text-[11px] text-gray-400 truncate">
-                                                                        {team.captain?.name || '—'}
+                                                                    <div className="flex items-center gap-1.5 flex-wrap">
+                                                                        {team.captain?.efvId != null && (
+                                                                            <span className="text-[9px] font-bold text-amber-600 bg-amber-50 border border-amber-200 px-1.5 py-px rounded flex-shrink-0">#{team.captain.efvId}</span>
+                                                                        )}
+                                                                        <span className="text-sm font-semibold text-gray-900 truncate">{team.captain?.name || team.name || '—'}</span>
+                                                                    </div>
+                                                                    <div className="text-[11px] text-gray-400 truncate mt-0.5">
+                                                                        {team.name}{team.shortName ? ` (${team.shortName})` : ''}
                                                                     </div>
                                                                 </div>
                                                             </div>
@@ -871,10 +884,12 @@ export default function LichThiDauPage() {
                                                 .sort(([, a], [, b]) => (a || 0) - (b || 0))
                                                 .map(([teamId, seedNum]) => {
                                                     const t = allTeams.find(t => (t._id || t.id) === teamId);
+                                                    const playerName = t?.captain?.name || t?.name || '?';
                                                     return (
-                                                        <span key={teamId} className="inline-flex items-center gap-1 px-2 py-1 rounded-lg bg-white border border-amber-200 text-xs">
+                                                        <span key={teamId} className="inline-flex items-center gap-1.5 px-2 py-1 rounded-lg bg-white border border-amber-200 text-xs">
                                                             <span className="w-5 h-5 rounded bg-amber-100 text-amber-700 flex items-center justify-center font-bold text-[10px]">#{seedNum}</span>
-                                                            <span className="font-medium text-gray-700 truncate max-w-[100px]">{t?.name || '?'}</span>
+                                                            {t?.captain?.efvId != null && <span className="text-[8px] font-bold text-amber-600 bg-amber-50 border border-amber-200 px-1 py-px rounded">#{t.captain.efvId}</span>}
+                                                            <span className="font-medium text-gray-700 truncate max-w-[120px]">{playerName}</span>
                                                         </span>
                                                     );
                                                 })
@@ -1024,6 +1039,11 @@ function EditMatchModal({ match, tournament, onClose, onSaved }: { match: any; t
     const [selectedWinner, setSelectedWinner] = useState<'home' | 'away' | null>(
         match.homeScore > match.awayScore ? 'home' : (match.awayScore > match.homeScore ? 'away' : null)
     );
+    const [sets, setSets] = useState<{homeScore: string; awayScore: string}[]>(
+        match.sets && match.sets.length > 0
+            ? match.sets.map((s: any) => ({ homeScore: String(s.homeScore), awayScore: String(s.awayScore) }))
+            : [{ homeScore: match.homeScore ?? "", awayScore: match.awayScore ?? "" }]
+    );
     const [isSaving, setIsSaving] = useState(false);
 
     const formatNameStr = (team: any, pFallback: any) => {
@@ -1035,6 +1055,34 @@ function EditMatchModal({ match, tournament, onClose, onSaved }: { match: any; t
     const hName = formatNameStr(match.homeTeam, match.p1);
     const aName = formatNameStr(match.awayTeam, match.p2);
 
+    useEffect(() => {
+        if (sets.length > 1) {
+            let hWins = 0;
+            let aWins = 0;
+            sets.forEach(s => {
+                if (s.homeScore !== "" && s.awayScore !== "") {
+                    const h = Number(s.homeScore);
+                    const a = Number(s.awayScore);
+                    if (h > a) hWins++;
+                    else if (a > h) aWins++;
+                }
+            });
+            setHomeScore(String(hWins));
+            setAwayScore(String(aWins));
+            if (hWins > aWins) setSelectedWinner('home');
+            else if (aWins > hWins) setSelectedWinner('away');
+        } else if (sets.length === 1) {
+            setHomeScore(sets[0].homeScore);
+            setAwayScore(sets[0].awayScore);
+            const h = Number(sets[0].homeScore);
+            const a = Number(sets[0].awayScore);
+            if (sets[0].homeScore !== "" && sets[0].awayScore !== "") {
+                if (h > a) setSelectedWinner('home');
+                else if (a > h) setSelectedWinner('away');
+            }
+        }
+    }, [sets]);
+
     const handleSave = async () => {
         setIsSaving(true);
         try {
@@ -1044,16 +1092,34 @@ function EditMatchModal({ match, tournament, onClose, onSaved }: { match: any; t
             if (selectedWinner === 'home') resolvedWinnerId = match.homeTeam?._id;
             if (selectedWinner === 'away') resolvedWinnerId = match.awayTeam?._id;
 
-            const payload = {
+            const payload: any = {
                 matchId: match._id || match.id,
                 homeScore: homeScore === "" ? 0 : Number(homeScore),
                 awayScore: awayScore === "" ? 0 : Number(awayScore),
                 status: status === 'completed' && homeScore === "" && awayScore === "" ? "scheduled" : status, // slight safe guard
+                sets: sets.filter(s => s.homeScore !== "" || s.awayScore !== "").map(s => ({
+                    homeScore: s.homeScore === "" ? 0 : Number(s.homeScore),
+                    awayScore: s.awayScore === "" ? 0 : Number(s.awayScore),
+                }))
             };
 
             // If the user checked it as completed, make sure we have status complete
             if (homeScore !== "" && awayScore !== "") {
                 payload.status = "completed";
+            }
+
+            // Check if entered score mismatches with player submissions
+            if (match.resultSubmissions && match.resultSubmissions.length > 0) {
+                const matchesAny = match.resultSubmissions.some((sub: any) => 
+                    sub.homeScore === payload.homeScore && sub.awayScore === payload.awayScore
+                );
+                
+                if (!matchesAny) {
+                    if (!confirm("Kết quả khác với người chơi đã gửi, bạn có chắc chắn nhập kết quả này không?")) {
+                        setIsSaving(false);
+                        return;
+                    }
+                }
             }
 
             const res = await tournamentAPI.updateMatch(tournament._id, payload);
@@ -1104,76 +1170,127 @@ function EditMatchModal({ match, tournament, onClose, onSaved }: { match: any; t
                             <div>Kết quả</div>
                         </div>
 
-                        {/* Player Inputs & Score — stacks on mobile */}
-                        <div className="flex flex-col sm:flex-row gap-4">
-                            {/* Tên VĐV Column */}
-                            <div className="flex-1 flex flex-col gap-3">
-                                {/* Home Input */}
-                                <div className="border border-gray-200 rounded-lg px-3 py-2.5 sm:py-0 sm:h-12 flex items-center justify-between">
-                                    <div className="flex items-center gap-2 min-w-0 flex-1">
-                                        {match.homeTeam?.logo && <img src={match.homeTeam.logo} alt="" className="w-6 h-6 rounded-full object-cover flex-shrink-0" />}
-                                        <div className="min-w-0 flex items-center gap-1.5 flex-wrap">
-                                            {match.homeTeam?.efvId != null && (
-                                                <span className="text-[9px] font-bold text-amber-600 bg-amber-50 border border-amber-200 px-1.5 py-px rounded flex-shrink-0">#{match.homeTeam.efvId}</span>
-                                            )}
-                                            <span className="text-sm font-medium text-gray-900 truncate">{match.homeTeam?.player1 || match.p1?.name || "Tự do"}</span>
-                                            {match.homeTeam?.shortName && <span className="text-[10px] text-gray-400 flex-shrink-0">({match.homeTeam.shortName})</span>}
+                        {/* Scoreboard Table - Premium Sticky Layout */}
+                        <div className="rounded-xl border border-gray-200 overflow-x-auto custom-scrollbar bg-white shadow-sm mt-2 relative w-full">
+                            <div className="min-w-max flex flex-col">
+                                {/* Header Row */}
+                                <div className="flex items-center bg-gray-50 border-b border-gray-200">
+                                    <div className="w-[160px] sm:w-[220px] sticky left-0 z-10 bg-gray-50 py-2 px-3 text-xs font-bold text-gray-500 uppercase tracking-widest border-r border-gray-200 flex-shrink-0">VĐV / Đội</div>
+                                    <div className="flex items-center">
+                                        {sets.map((_, index) => (
+                                            <div key={`header-s${index}`} className="w-14 text-center text-[11px] font-bold text-gray-400 uppercase py-2 border-l border-gray-100">
+                                                S{index + 1}
+                                            </div>
+                                        ))}
+                                        {sets.length > 1 && (
+                                            <div className="w-14 text-center text-[11px] font-bold text-orange-400 uppercase py-2 border-l border-orange-100">
+                                                Tổng
+                                            </div>
+                                        )}
+                                        <div className="w-24 text-center text-[11px] font-bold text-gray-400 uppercase py-2 border-l border-gray-100">
+                                            Tùy chọn
                                         </div>
                                     </div>
                                 </div>
-                                <div className="border-b border-gray-100"></div>
-                                {/* Away Input */}
-                                <div className="border border-gray-200 rounded-lg px-3 py-2.5 sm:py-0 sm:h-12 flex items-center justify-between">
-                                    <div className="flex items-center gap-2 min-w-0 flex-1">
-                                        {match.awayTeam?.logo && <img src={match.awayTeam.logo} alt="" className="w-6 h-6 rounded-full object-cover flex-shrink-0" />}
-                                        <div className="min-w-0 flex items-center gap-1.5 flex-wrap">
-                                            {match.awayTeam?.efvId != null && (
-                                                <span className="text-[9px] font-bold text-amber-600 bg-amber-50 border border-amber-200 px-1.5 py-px rounded flex-shrink-0">#{match.awayTeam.efvId}</span>
-                                            )}
-                                            <span className="text-sm font-medium text-gray-900 truncate">{match.awayTeam?.player1 || match.p2?.name || "Tự do"}</span>
-                                            {match.awayTeam?.shortName && <span className="text-[10px] text-gray-400 flex-shrink-0">({match.awayTeam.shortName})</span>}
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
 
-                            {/* Kết quả Column — label visible on mobile */}
-                            <div className="w-full sm:w-[120px]">
-                                <div className="sm:hidden text-sm font-bold text-gray-900 mb-2">Kết quả</div>
-                                <div className="flex flex-row sm:flex-col items-center sm:items-stretch gap-3">
-                                    <div className="flex flex-row sm:flex-col items-center gap-3 flex-1 sm:flex-none relative">
-                                        <div className="flex-1 sm:flex-none w-full">
-                                            <Input
-                                                type="number"
-                                                value={homeScore}
-                                                onChange={(e) => {
-                                                    setHomeScore(e.target.value);
-                                                    if (Number(e.target.value) > Number(awayScore)) setSelectedWinner('home');
-                                                    else if (Number(e.target.value) < Number(awayScore)) setSelectedWinner('away');
-                                                }}
-                                                placeholder="0"
-                                                className="w-full h-12 sm:h-10 text-center font-bold text-lg sm:text-base rounded-lg border-gray-200"
-                                            />
-                                        </div>
-                                        <div className="hidden sm:block absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-[10px] text-gray-400 font-medium bg-white px-1 z-10">VS</div>
-                                        <span className="sm:hidden text-gray-300 font-bold text-xl">-</span>
-                                        <div className="flex-1 sm:flex-none w-full">
-                                            <Input
-                                                type="number"
-                                                value={awayScore}
-                                                onChange={(e) => {
-                                                    setAwayScore(e.target.value);
-                                                    if (Number(homeScore) > Number(e.target.value)) setSelectedWinner('home');
-                                                    else if (Number(homeScore) < Number(e.target.value)) setSelectedWinner('away');
-                                                }}
-                                                placeholder="0"
-                                                className="w-full h-12 sm:h-10 text-center font-bold text-lg sm:text-base rounded-lg border-gray-200"
-                                            />
+                                {/* Home Row */}
+                                <div className="flex items-center border-b border-gray-100">
+                                    {/* Player Name - Sticky */}
+                                    <div className="w-[160px] sm:w-[220px] sticky left-0 z-10 bg-white py-3 px-3 flex items-center min-w-0 border-r border-gray-100 flex-shrink-0">
+                                        <div className="flex items-center gap-2 min-w-0">
+                                            {match.homeTeam?.logo && <img src={match.homeTeam.logo} alt="" className="w-6 h-6 rounded-full object-cover flex-shrink-0 border border-gray-100" />}
+                                            <div className="min-w-0">
+                                                <div className="flex items-center gap-1 flex-wrap">
+                                                    {match.homeTeam?.efvId != null && <span className="text-[9px] font-bold text-amber-600 bg-amber-50 border border-amber-200 px-1 py-px rounded">#{match.homeTeam.efvId}</span>}
+                                                    <span className="text-[13px] font-semibold text-gray-900 truncate inline-block max-w-[90px] sm:max-w-none align-bottom leading-tight">{match.homeTeam?.player1 || match.p1?.name || "Tự do"}</span>
+                                                </div>
+                                                {match.homeTeam?.shortName && <div className="text-[10px] text-gray-400 mt-0.5 truncate">{match.homeTeam.shortName}</div>}
+                                            </div>
                                         </div>
                                     </div>
-                                    <div className="flex sm:flex-row flex-col overflow-hidden rounded-lg border border-blue-100 h-12 sm:h-8 w-12 sm:w-full sm:mt-1">
-                                        <button className="flex-1 bg-blue-50 text-blue-500 hover:bg-blue-100 flex items-center justify-center font-bold text-lg">+</button>
-                                        <button className="flex-1 bg-red-50 text-red-500 hover:bg-red-100 flex items-center justify-center font-bold text-lg">-</button>
+                                    
+                                    {/* Score Cells */}
+                                    <div className="flex items-center">
+                                        {sets.map((set, index) => (
+                                            <div key={`home-score-${index}`} className="w-14 border-l border-gray-100 py-1.5 px-1.5">
+                                                <input
+                                                    type="number"
+                                                    value={set.homeScore}
+                                                    onChange={(e) => {
+                                                        const newSets = [...sets];
+                                                        newSets[index] = { ...newSets[index], homeScore: e.target.value };
+                                                        setSets(newSets);
+                                                    }}
+                                                    placeholder="0"
+                                                    className="w-full h-11 text-center font-bold text-lg rounded-md border border-gray-200 bg-gray-50 focus:bg-white focus:border-blue-400 focus:outline-none focus:ring-1 focus:ring-blue-400 transition-colors"
+                                                />
+                                            </div>
+                                        ))}
+                                        {sets.length > 1 && (
+                                            <div className="w-14 border-l border-orange-100 py-1.5 px-1.5">
+                                                <div className="w-full h-11 flex items-center justify-center font-black text-xl text-orange-600 bg-orange-50 rounded-md border border-orange-100">
+                                                    {homeScore || 0}
+                                                </div>
+                                            </div>
+                                        )}
+                                        <div className="w-24 border-l border-gray-100 flex items-center justify-center gap-1.5 py-1.5 px-2">
+                                            <button
+                                                onClick={() => setSets([...sets, { homeScore: "", awayScore: "" }])}
+                                                className="flex-1 h-11 rounded-md bg-blue-50 text-blue-600 hover:bg-blue-100 font-bold text-lg transition-colors border border-blue-100 flex items-center justify-center"
+                                                title="Thêm Set"
+                                            >+</button>
+                                            <button
+                                                onClick={() => sets.length > 1 && setSets(sets.slice(0, -1))}
+                                                className={`flex-1 h-11 rounded-md font-bold text-lg transition-colors border flex items-center justify-center ${sets.length > 1 ? 'bg-red-50 text-red-500 hover:bg-red-100 border-red-100' : 'bg-gray-50 text-gray-300 border-gray-200 opacity-40 cursor-not-allowed'}`}
+                                                disabled={sets.length <= 1}
+                                                title="Xóa Set cuối"
+                                            >-</button>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {/* Away Row */}
+                                <div className="flex items-center">
+                                    {/* Player Name - Sticky */}
+                                    <div className="w-[160px] sm:w-[220px] sticky left-0 z-10 bg-white py-3 px-3 flex items-center min-w-0 border-r border-gray-100 flex-shrink-0">
+                                        <div className="flex items-center gap-2 min-w-0">
+                                            {match.awayTeam?.logo && <img src={match.awayTeam.logo} alt="" className="w-6 h-6 rounded-full object-cover flex-shrink-0 border border-gray-100" />}
+                                            <div className="min-w-0">
+                                                <div className="flex items-center gap-1 flex-wrap">
+                                                    {match.awayTeam?.efvId != null && <span className="text-[9px] font-bold text-amber-600 bg-amber-50 border border-amber-200 px-1 py-px rounded">#{match.awayTeam.efvId}</span>}
+                                                    <span className="text-[13px] font-semibold text-gray-900 truncate inline-block max-w-[90px] sm:max-w-none align-bottom leading-tight">{match.awayTeam?.player1 || match.p2?.name || "Tự do"}</span>
+                                                </div>
+                                                {match.awayTeam?.shortName && <div className="text-[10px] text-gray-400 mt-0.5 truncate">{match.awayTeam.shortName}</div>}
+                                            </div>
+                                        </div>
+                                    </div>
+                                    
+                                    {/* Score Cells */}
+                                    <div className="flex items-center">
+                                        {sets.map((set, index) => (
+                                            <div key={`away-score-${index}`} className="w-14 border-l border-gray-100 py-1.5 px-1.5">
+                                                <input
+                                                    type="number"
+                                                    value={set.awayScore}
+                                                    onChange={(e) => {
+                                                        const newSets = [...sets];
+                                                        newSets[index] = { ...newSets[index], awayScore: e.target.value };
+                                                        setSets(newSets);
+                                                    }}
+                                                    placeholder="0"
+                                                    className="w-full h-11 text-center font-bold text-lg rounded-md border border-gray-200 bg-gray-50 focus:bg-white focus:border-blue-400 focus:outline-none focus:ring-1 focus:ring-blue-400 transition-colors"
+                                                />
+                                            </div>
+                                        ))}
+                                        {sets.length > 1 && (
+                                            <div className="w-14 border-l border-orange-100 py-1.5 px-1.5">
+                                                <div className="w-full h-11 flex items-center justify-center font-black text-xl text-orange-600 bg-orange-50 rounded-md border border-orange-100">
+                                                    {awayScore || 0}
+                                                </div>
+                                            </div>
+                                        )}
+                                        {/* Placeholder to align with +/- buttons above */}
+                                        <div className="w-24 border-l border-gray-100"></div>
                                     </div>
                                 </div>
                             </div>

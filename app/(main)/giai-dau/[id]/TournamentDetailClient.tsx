@@ -21,7 +21,7 @@ import {
     Gamepad2, Award, FileText, UserPlus, Clock, Shield, Swords, Camera, MapPinned, Facebook,
     Loader2, Globe, CheckCircle2, Eye, Ban, DollarSign, Phone, Mail, MessageCircle,
     LogIn, AlertCircle, Info, X, Watch, CreditCard, Upload, ExternalLink, Wallet, Image as ImageIcon, User,
-    Zap, Target, ArrowRight, Search
+    Zap, Target, ArrowRight, Search, Maximize2, Minimize2
 } from "lucide-react";
 import { tournamentAPI, tournamentPaymentAPI, paymentConfigAPI } from "@/lib/api";
 import { useAuth } from "@/contexts/AuthContext";
@@ -80,20 +80,11 @@ const MatchCard = ({ match, onClick }: { match: any; onClick: () => void }) => {
     const homeWin = isCompleted && (match.winner === (match.homeTeam?._id || match.homeTeam?.id) || (homeScore !== "" && awayScore !== "" && Number(homeScore) > Number(awayScore)));
     const awayWin = isCompleted && (match.winner === (match.awayTeam?._id || match.awayTeam?.id) || (homeScore !== "" && awayScore !== "" && Number(awayScore) > Number(homeScore)));
 
-    // Reworked: Player name big on top, team name small below
-    const homeP1 = match.homeTeam?.player1 || match.p1?.name || "Chờ kết quả";
-    const homeP2 = match.homeTeam?.player2 && match.homeTeam.player2 !== "TBD" ? match.homeTeam.player2 : "";
-    const awayP1 = match.awayTeam?.player1 || match.p2?.name || "Chờ kết quả";
-    const awayP2 = match.awayTeam?.player2 && match.awayTeam.player2 !== "TBD" ? match.awayTeam.player2 : "";
-    const homeEfvId = match.homeTeam?.efvId;
-    const awayEfvId = match.awayTeam?.efvId;
-
     // BYE match - compact single-team card with BYE badge
     if (isBye) {
-        const byeP1 = match.homeTeam?.player1 || match.p1?.name || "Tự do";
-        const byeP2 = match.homeTeam?.player2 && match.homeTeam.player2 !== "TBD" ? match.homeTeam.player2 : "";
-        const byeTeamName = match.homeTeam?.name || match.homeTeam?.shortName || "";
-        const byeEfvId = match.homeTeam?.efvId;
+        const p1Name = match.homeTeam?.player1 || match.p1?.name || "Tự do";
+        const p2Name = match.homeTeam?.player2 && match.homeTeam.player2 !== "TBD" ? match.homeTeam.player2 : "";
+        const teamName = match.homeTeam?.name || match.homeTeam?.shortName || "";
 
         return (
             <div className="flex items-center relative z-20 w-[200px]">
@@ -101,15 +92,17 @@ const MatchCard = ({ match, onClick }: { match: any; onClick: () => void }) => {
                     {bracketNumber}
                 </div>
                 <div className="w-full bg-gradient-to-r from-gray-50 to-white rounded-[6px] border border-dashed border-gray-200 flex flex-col justify-center overflow-hidden z-20 relative px-2.5 py-1.5 h-[88px] opacity-70">
+                    {/* Top row: player info */}
                     <div className="flex items-center justify-between mb-0.5">
                         <div className="flex items-center gap-1 min-w-0 flex-1">
-                            {byeEfvId != null && <span className="text-[9px] font-bold text-amber-600 bg-amber-50 border border-amber-200 px-1 py-px rounded flex-shrink-0">#{byeEfvId}</span>}
-                            <span className="truncate text-[11px] text-gray-700 font-semibold">{byeP1}</span>
+                            {match.homeTeam?.efvId != null && <span className="text-[8px] font-bold text-amber-600 bg-amber-50 border border-amber-200 px-1 py-px rounded flex-shrink-0">#{match.homeTeam.efvId}</span>}
+                            <span className="truncate text-[11px] text-gray-700 font-semibold">{p1Name}</span>
                         </div>
                         <span className="text-[8px] font-bold text-emerald-600 bg-emerald-50 border border-emerald-200 px-1.5 py-px rounded-full ml-1 flex-shrink-0">BYE</span>
                     </div>
-                    {byeP2 && <span className="truncate text-[10px] text-gray-500">{byeP2}</span>}
-                    {byeTeamName && <span className="truncate text-[8px] text-gray-400 mt-0.5">{byeTeamName}</span>}
+                    {p2Name && <span className="truncate text-[10px] text-gray-500">{p2Name}</span>}
+                    {teamName && <span className="truncate text-[8px] text-gray-400 mt-0.5">{teamName}</span>}
+                    {/* Bottom row: empty opponent placeholder */}
                     <div className="mt-1 pt-1 border-t border-dashed border-gray-200">
                         <span className="text-[10px] text-gray-300 italic">— Không có đối thủ —</span>
                     </div>
@@ -119,22 +112,35 @@ const MatchCard = ({ match, onClick }: { match: any; onClick: () => void }) => {
     }
 
     if (isWalkover) {
+        const hName = match.homeTeam?.name || match.homeTeam?.shortName || match.p1?.ingame || "Tự do";
+        const p1Name = match.homeTeam?.player1 || match.p1?.name || "";
+        const p2Name = match.homeTeam?.player2 && match.homeTeam.player2 !== "TBD" ? match.homeTeam.player2 : "";
+
         return (
             <div className="flex items-center relative z-20 w-[200px]">
                 <div className="absolute -left-2 top-1/2 -translate-y-1/2 w-4 h-4 bg-[#F8FAFC] border border-[#CBD5E1] rounded-full flex items-center justify-center text-[7px] font-bold text-gray-500 z-30">
                     {bracketNumber}
                 </div>
+
                 <motion.div
                     whileHover={{ y: -2, scale: 1.02 }}
                     onClick={onClick}
-                    className="w-full bg-white rounded-[6px] border border-[#E2E8F0] shadow-sm flex flex-col justify-center cursor-pointer overflow-hidden z-20 relative px-2.5 py-2 h-[50px]"
+                    className="w-full bg-white rounded-[6px] border border-[#E2E8F0] shadow-sm flex flex-col justify-center cursor-pointer overflow-hidden z-20 relative px-2 py-1.5 h-[44px]"
                 >
-                    <span className={`truncate text-[12px] font-bold text-gray-800 ${!match.homeTeam && !match.p1 ? "text-gray-400 italic font-medium" : ""}`}>
-                        {homeEfvId != null && <span className="text-[9px] font-bold text-amber-600 bg-amber-50 border border-amber-200 px-1 py-px rounded mr-1">#{homeEfvId}</span>}
-                        {homeP1}
+                    <span className="text-[8px] text-gray-400 font-bold text-center mb-0.5">
+                        {match.homeTeam?.efvId != null && <span className="text-[8px] font-bold text-amber-600 bg-amber-50 border border-amber-200 px-1 py-px rounded mr-1">#{match.homeTeam.efvId}</span>}
+                        {hName}
                     </span>
-                    {homeP2 && <span className="truncate text-[11px] text-gray-700 font-semibold">{homeP2}</span>}
-                    <span className="text-[9px] text-gray-400 truncate mt-0.5">{homeName}</span>
+                    <div className="flex flex-col items-center">
+                        <span className={`truncate text-[11px] text-gray-800 font-bold ${!match.homeTeam && !match.p1 ? "text-gray-400 italic font-medium" : ""}`}>
+                            {p1Name || (!match.homeTeam ? "Tự do" : "...")}
+                        </span>
+                        {p2Name && (
+                            <span className="truncate text-[10px] text-gray-700 font-bold mt-0.5">
+                                {p2Name}
+                            </span>
+                        )}
+                    </div>
                 </motion.div>
             </div>
         );
@@ -157,39 +163,47 @@ const MatchCard = ({ match, onClick }: { match: any; onClick: () => void }) => {
                     </div>
                 )}
 
-                {/* Home */}
-                <div className={`px-2.5 py-1.5 flex flex-col ${homeWin ? "bg-blue-50/30" : ""} ${isLive ? 'mt-[12px]' : ''}`}>
-                    <div className="flex justify-between items-start">
-                        <div className="flex flex-col min-w-0 pr-1 leading-[1.2] flex-1">
-                            <span className={`truncate text-[12px] ${homeWin ? "text-blue-700 font-bold" : "text-gray-900 font-semibold"} ${!match.homeTeam && !match.p1 ? "text-gray-400 italic font-normal" : ""}`}>
-                                {homeEfvId != null && <span className="text-[9px] font-bold text-amber-600 bg-amber-50 border border-amber-200 px-1 py-px rounded mr-1">#{homeEfvId}</span>}
-                                {homeP1}
+                <div className={`p-1.5 flex flex-col ${homeWin ? "bg-blue-50/20" : ""} ${isLive ? 'mt-[10px]' : ''}`}>
+                    <span className="text-[8px] text-gray-400 font-bold text-center mb-0.5">
+                        {match.homeTeam?.efvId != null && <span className="text-[8px] font-bold text-amber-600 bg-amber-50 border border-amber-200 px-1 py-px rounded mr-1">#{match.homeTeam.efvId}</span>}
+                        {match.homeTeam?.seed != null && match.homeTeam.seed > 0 && <span className="text-[8px] font-bold text-blue-600 bg-blue-50 border border-blue-200 px-1 py-px rounded mr-1" title={`Hạt giống số ${match.homeTeam.seed}`}>Seed {match.homeTeam.seed}</span>}
+                        {homeName}
+                    </span>
+                    <div className="flex justify-between items-center px-1">
+                        <div className="flex flex-col min-w-0 pr-1 leading-[1.1]">
+                            <span className={`truncate text-[11px] ${homeWin ? "text-blue-700 font-bold" : "text-gray-800 font-medium"} ${!match.homeTeam && !match.p1 ? "text-gray-400 italic" : ""}`}>
+                                {match.homeTeam?.player1 || match.p1?.name || "Chờ kết quả"}
                             </span>
-                            {homeP2 && (
-                                <span className={`truncate text-[11px] ${homeWin ? "text-blue-600 font-semibold" : "text-gray-700 font-medium"}`}>{homeP2}</span>
+                            {match.homeTeam?.player2 && match.homeTeam.player2 !== "TBD" && (
+                                <span className={`truncate text-[11px] mt-0.5 ${homeWin ? "text-blue-700 font-bold" : "text-gray-800 font-medium"}`}>
+                                    {match.homeTeam.player2}
+                                </span>
                             )}
-                            <span className="text-[9px] text-gray-400 truncate mt-0.5">{homeName}</span>
                         </div>
-                        <span className={`text-[13px] tabular-nums ml-1 mt-0.5 ${homeWin ? "text-blue-600 font-bold" : "text-gray-400 font-semibold"}`}>{homeScore}</span>
+                        <span className={`text-[12px] tabular-nums ml-1 ${homeWin ? "text-blue-600 font-bold" : "text-gray-400 font-semibold"}`}>{homeScore}</span>
                     </div>
                 </div>
 
                 <div className="h-px bg-[#E2E8F0] w-full" />
 
-                {/* Away */}
-                <div className={`px-2.5 py-1.5 flex flex-col ${awayWin ? "bg-blue-50/30" : ""}`}>
-                    <div className="flex justify-between items-start">
-                        <div className="flex flex-col min-w-0 pr-1 leading-[1.2] flex-1">
-                            <span className={`truncate text-[12px] ${awayWin ? "text-blue-700 font-bold" : "text-gray-900 font-semibold"} ${!match.awayTeam && !match.p2 ? "text-gray-400 italic font-normal" : ""}`}>
-                                {awayEfvId != null && <span className="text-[9px] font-bold text-amber-600 bg-amber-50 border border-amber-200 px-1 py-px rounded mr-1">#{awayEfvId}</span>}
-                                {awayP1}
+                <div className={`p-1.5 flex flex-col ${awayWin ? "bg-blue-50/20" : ""}`}>
+                    <span className="text-[8px] text-gray-400 font-bold text-center mb-0.5">
+                        {match.awayTeam?.efvId != null && <span className="text-[8px] font-bold text-amber-600 bg-amber-50 border border-amber-200 px-1 py-px rounded mr-1">#{match.awayTeam.efvId}</span>}
+                        {match.awayTeam?.seed != null && match.awayTeam.seed > 0 && <span className="text-[8px] font-bold text-blue-600 bg-blue-50 border border-blue-200 px-1 py-px rounded mr-1" title={`Hạt giống số ${match.awayTeam.seed}`}>Seed {match.awayTeam.seed}</span>}
+                        {awayName}
+                    </span>
+                    <div className="flex justify-between items-center px-1">
+                        <div className="flex flex-col min-w-0 pr-1 leading-[1.1]">
+                            <span className={`truncate text-[11px] ${awayWin ? "text-blue-700 font-bold" : "text-gray-800 font-medium"} ${!match.awayTeam && !match.p2 ? "text-gray-400 italic" : ""}`}>
+                                {match.awayTeam?.player1 || match.p2?.name || "Chờ kết quả"}
                             </span>
-                            {awayP2 && (
-                                <span className={`truncate text-[11px] ${awayWin ? "text-blue-600 font-semibold" : "text-gray-700 font-medium"}`}>{awayP2}</span>
+                            {match.awayTeam?.player2 && match.awayTeam.player2 !== "TBD" && (
+                                <span className={`truncate text-[11px] mt-0.5 ${awayWin ? "text-blue-700 font-bold" : "text-gray-800 font-medium"}`}>
+                                    {match.awayTeam.player2}
+                                </span>
                             )}
-                            <span className="text-[9px] text-gray-400 truncate mt-0.5">{awayName}</span>
                         </div>
-                        <span className={`text-[13px] tabular-nums ml-1 mt-0.5 ${awayWin ? "text-blue-600 font-bold" : "text-gray-400 font-semibold"}`}>{awayScore}</span>
+                        <span className={`text-[12px] tabular-nums ml-1 ${awayWin ? "text-blue-600 font-bold" : "text-gray-400 font-semibold"}`}>{awayScore}</span>
                     </div>
                 </div>
             </motion.div>
@@ -676,6 +690,16 @@ export default function TournamentDetailClient({ initialData, id }: { initialDat
     const [countries, setCountries] = useState<{ name: string; code: string }[]>([]);
     const [countryOpen, setCountryOpen] = useState(false);
     const [bracketSearch, setBracketSearch] = useState("");
+    const [bracketFullscreen, setBracketFullscreen] = useState(false);
+
+    // Close fullscreen bracket on ESC key
+    useEffect(() => {
+        if (!bracketFullscreen) return;
+        const handleEsc = (e: KeyboardEvent) => { if (e.key === 'Escape') setBracketFullscreen(false); };
+        document.addEventListener('keydown', handleEsc);
+        document.body.style.overflow = 'hidden';
+        return () => { document.removeEventListener('keydown', handleEsc); document.body.style.overflow = ''; };
+    }, [bracketFullscreen]);
     const [playerSearch, setPlayerSearch] = useState("");
     const [playerPage, setPlayerPage] = useState(1);
     const [playerData, setPlayerData] = useState<{ teams: any[]; pagination: { page: number; limit: number; total: number; totalPages: number } } | null>(null);
@@ -1533,8 +1557,9 @@ export default function TournamentDetailClient({ initialData, id }: { initialDat
 
                         {activeTab === "bracket" && (
                             <div>
-                                {/* Search bar for bracket */}
-                                <div className="mb-4 relative max-w-xs">
+                                {/* Search bar + Fullscreen toggle */}
+                                <div className="mb-4 flex items-center gap-3">
+                                    <div className="relative max-w-xs flex-1">
                                     <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
                                     <Input
                                         placeholder="Tìm đối thủ, đội..."
@@ -1542,6 +1567,15 @@ export default function TournamentDetailClient({ initialData, id }: { initialDat
                                         onChange={(e) => setBracketSearch(e.target.value)}
                                         className="pl-9 h-9 text-sm rounded-lg border-gray-200"
                                     />
+                                    </div>
+                                    <button
+                                        onClick={() => setBracketFullscreen(true)}
+                                        className="flex items-center gap-1.5 px-3 h-9 rounded-lg bg-slate-800 hover:bg-slate-700 text-white text-xs font-semibold transition-colors shadow-sm"
+                                        title="Xem toàn màn hình"
+                                    >
+                                        <Maximize2 className="w-3.5 h-3.5" />
+                                        <span className="hidden sm:inline">Mở rộng</span>
+                                    </button>
                                 </div>
                                 <div className="bg-[#FDFDFD] rounded-2xl border p-8 overflow-auto min-h-[500px] relative shadow-inner" ref={scrollContainerRef} onMouseDown={onMouseDown} onMouseLeave={onMouseLeave} onMouseUp={onMouseUp} onMouseMove={onMouseMove}>
                                     <div className="absolute inset-0 opacity-[0.4] pointer-events-none" style={{ backgroundImage: `radial-gradient(#E2E8F0 1.2px, transparent 1.2px)`, backgroundSize: '32px 32px' }} />
@@ -1656,6 +1690,107 @@ export default function TournamentDetailClient({ initialData, id }: { initialDat
                                         })}
                                     </div>
                                 </div>
+
+                        {/* Fullscreen Bracket Overlay */}
+                        <AnimatePresence>
+                            {bracketFullscreen && (
+                                <motion.div
+                                    initial={{ opacity: 0 }}
+                                    animate={{ opacity: 1 }}
+                                    exit={{ opacity: 0 }}
+                                    className="fixed inset-0 z-[100] bg-white flex flex-col"
+                                >
+                                    {/* Fullscreen Header */}
+                                    <div className="flex items-center justify-between px-4 sm:px-6 py-3 border-b border-gray-200 bg-gradient-to-r from-slate-800 to-slate-900 flex-shrink-0">
+                                        <div className="flex items-center gap-3">
+                                            <Swords className="w-5 h-5 text-amber-400" />
+                                            <div>
+                                                <h2 className="text-sm sm:text-base font-bold text-white">{t.title}</h2>
+                                                <p className="text-[10px] sm:text-xs text-white/50">Sơ đồ thi đấu</p>
+                                            </div>
+                                        </div>
+                                        <div className="flex items-center gap-2">
+                                            <div className="relative">
+                                                <Search className="w-3.5 h-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400" />
+                                                <Input
+                                                    placeholder="Tìm VĐV..."
+                                                    value={bracketSearch}
+                                                    onChange={(e) => setBracketSearch(e.target.value)}
+                                                    className="pl-8 h-8 text-xs rounded-lg border-gray-600 bg-white/10 text-white placeholder:text-gray-400 w-[140px] sm:w-[200px] focus:bg-white focus:text-gray-900"
+                                                />
+                                            </div>
+                                            <button
+                                                onClick={() => setBracketFullscreen(false)}
+                                                className="flex items-center gap-1.5 px-3 h-8 rounded-lg bg-white/10 hover:bg-white/20 text-white text-xs font-semibold transition-colors"
+                                                title="Thoát toàn màn hình"
+                                            >
+                                                <Minimize2 className="w-3.5 h-3.5" />
+                                                <span className="hidden sm:inline">Thu nhỏ</span>
+                                            </button>
+                                        </div>
+                                    </div>
+                                    {/* Fullscreen Bracket Body */}
+                                    <div className="flex-1 overflow-auto bg-[#F8FAFC] relative" onMouseDown={onMouseDown} onMouseLeave={onMouseLeave} onMouseUp={onMouseUp} onMouseMove={onMouseMove}>
+                                        <div className="absolute inset-0 opacity-[0.3] pointer-events-none" style={{ backgroundImage: `radial-gradient(#E2E8F0 1.2px, transparent 1.2px)`, backgroundSize: '32px 32px' }} />
+                                        <div className="inline-flex p-12 min-w-full relative z-10">
+                                            {bracketRounds.map((round, rIndex) => {
+                                                const isLastRound = rIndex === bracketRounds.length - 1;
+                                                const scale = Math.pow(2, rIndex);
+                                                const GAP = 128;
+                                                const halfGap = GAP / 2;
+                                                return (
+                                                    <div key={`fs-${rIndex}`} className="flex">
+                                                        <div className="flex flex-col w-[220px]">
+                                                            <div className="h-10 flex items-center justify-center mb-12">
+                                                                <div className="w-[160px] py-2 rounded-md bg-gradient-to-r from-amber-100 to-orange-100 border border-amber-200 flex items-center justify-center shadow-sm">
+                                                                    <span className="text-[13px] font-bold text-gray-800">{round.name}</span>
+                                                                </div>
+                                                            </div>
+                                                            <div className="relative flex-1">
+                                                                {round.matches.map((match, mIdx) => {
+                                                                    const topPadding = (scale - 1) * (UNIT_HEIGHT / 2);
+                                                                    const yOffset = topPadding + (match.bracketPosition?.y || 0) * UNIT_HEIGHT * scale;
+                                                                    const matchesSearch = bracketSearch.trim() === "" || [
+                                                                        match.homeTeam?.name, match.homeTeam?.shortName, match.homeTeam?.player1, match.homeTeam?.player2,
+                                                                        match.awayTeam?.name, match.awayTeam?.shortName, match.awayTeam?.player1, match.awayTeam?.player2,
+                                                                        match.p1?.name, match.p2?.name,
+                                                                        match.homeTeam?.efvId != null ? String(match.homeTeam.efvId) : null,
+                                                                        match.awayTeam?.efvId != null ? String(match.awayTeam.efvId) : null,
+                                                                    ].some(v => v && v.toLowerCase().includes(bracketSearch.toLowerCase()));
+                                                                    return (
+                                                                        <div
+                                                                            key={match._id || match.id}
+                                                                            className={`absolute left-0 flex items-center transition-opacity ${matchesSearch ? 'opacity-100' : 'opacity-20'}`}
+                                                                            style={{ top: `${yOffset}px`, height: `${UNIT_HEIGHT}px`, width: '100%' }}
+                                                                        >
+                                                                            <MatchCard match={match} onClick={() => setSelectedMatch(match)} />
+                                                                            {match.nextMatch && !isLastRound && (() => {
+                                                                                const bY = match.bracketPosition?.y ?? 0;
+                                                                                const isTop = bY % 2 === 0;
+                                                                                const vLen = (UNIT_HEIGHT * scale) / 2;
+                                                                                return (
+                                                                                    <>
+                                                                                        <div className="absolute bg-[#CBD5E1]" style={{ right: `-${halfGap}px`, width: `${halfGap}px`, height: '1px', top: '50%' }} />
+                                                                                        <div className="absolute bg-[#CBD5E1]" style={{ right: `-${halfGap}px`, width: '1px', height: `${vLen}px`, ...(isTop ? { top: '50%' } : { bottom: '50%' }) }} />
+                                                                                        {isTop && <div className="absolute bg-[#CBD5E1]" style={{ right: `-${GAP}px`, width: `${halfGap}px`, height: '1px', top: `calc(50% + ${vLen}px)` }} />}
+                                                                                    </>
+                                                                                );
+                                                                            })()}
+                                                                            {rIndex > 0 && <div className="absolute bg-[#CBD5E1]" style={{ left: `-${halfGap}px`, width: `${halfGap}px`, height: '1px', top: '50%' }} />}
+                                                                        </div>
+                                                                    );
+                                                                })}
+                                                            </div>
+                                                        </div>
+                                                        <div style={{ width: `${GAP}px` }} />
+                                                    </div>
+                                                );
+                                            })}
+                                        </div>
+                                    </div>
+                                </motion.div>
+                            )}
+                        </AnimatePresence>
                             </div>
                         )}
 

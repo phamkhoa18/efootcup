@@ -21,6 +21,10 @@ export interface IMatch extends Document {
     startedAt?: Date;
     completedAt?: Date;
     leg: number; // 1 or 2 (for two-legged ties)
+    sets?: {
+        homeScore: number;
+        awayScore: number;
+    }[];
     venue?: string;
     referee?: mongoose.Types.ObjectId;
     events: {
@@ -83,6 +87,12 @@ const MatchSchema = new Schema<IMatch>(
         startedAt: { type: Date },
         completedAt: { type: Date },
         leg: { type: Number, default: 1 },
+        sets: [
+            {
+                homeScore: { type: Number, required: true },
+                awayScore: { type: Number, required: true },
+            }
+        ],
         venue: { type: String },
         referee: { type: Schema.Types.ObjectId, ref: "User" },
         events: [

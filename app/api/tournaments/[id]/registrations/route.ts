@@ -5,6 +5,7 @@ import Registration from "@/models/Registration";
 import Tournament from "@/models/Tournament";
 import Team from "@/models/Team";
 import Notification from "@/models/Notification";
+import User from "@/models/User";
 import { requireAuth, requireManager, apiResponse, apiError, getCurrentUser } from "@/lib/auth";
 
 interface RouteParams {
@@ -40,7 +41,7 @@ export async function GET(req: NextRequest, { params }: RouteParams) {
             // Add search filter
             if (search) {
                 const searchRegex = new RegExp(search, "i");
-                query.$or = [
+                const orConditions: any[] = [
                     { playerName: searchRegex },
                     { teamName: searchRegex },
                     { email: searchRegex },
@@ -51,6 +52,18 @@ export async function GET(req: NextRequest, { params }: RouteParams) {
                     { province: searchRegex },
                     { ingameId: searchRegex },
                 ];
+
+                // Support EFV-ID search (numeric or starts with #)
+                const cleanSearch = search.replace(/^#/, '');
+                if (/^\d+$/.test(cleanSearch)) {
+                    const efvIdNum = parseInt(cleanSearch);
+                    const matchingUsers = await User.find({ efvId: efvIdNum }).select('_id').lean();
+                    if (matchingUsers.length > 0) {
+                        orConditions.push({ user: { $in: matchingUsers.map(u => u._id) } });
+                    }
+                }
+
+                query.$or = orConditions;
             }
 
             const total = await Registration.countDocuments(query);

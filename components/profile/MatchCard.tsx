@@ -33,14 +33,21 @@ function PlayerCard({ team, label, labelColor }: { team: any; label: string; lab
             <p className="text-[11px] sm:text-xs font-semibold text-gray-800 truncate max-w-full mt-0.5 leading-tight">
                 {playerName}
             </p>
-            {/* EFV ID */}
-            {efvId ? (
-                <span className="inline-flex items-center gap-0.5 text-[9px] font-medium text-amber-600 bg-amber-50 border border-amber-100 px-1.5 py-0.5 rounded mt-1">
-                    <Hash className="w-2.5 h-2.5" />EFV-{efvId}
-                </span>
-            ) : (
-                <span className="text-[9px] text-gray-300 mt-1">—</span>
-            )}
+            {/* Labels (EFV / Seed) */}
+            <div className="flex items-center gap-1 mt-1 justify-center flex-wrap">
+                {efvId ? (
+                    <span className="inline-flex items-center gap-0.5 text-[9px] font-medium text-amber-600 bg-amber-50 border border-amber-100 px-1.5 py-0.5 rounded">
+                        <Hash className="w-2.5 h-2.5" />EFV-{efvId}
+                    </span>
+                ) : (
+                    <span className="text-[9px] text-gray-300">—</span>
+                )}
+                {team?.seed != null && team.seed > 0 && (
+                    <span className="inline-flex items-center gap-0.5 text-[9px] font-bold text-blue-600 bg-blue-50 border border-blue-200 px-1.5 py-0.5 rounded">
+                        Seed {team.seed}
+                    </span>
+                )}
+            </div>
         </div>
     );
 }
@@ -205,13 +212,20 @@ export function SubmitResultForm({
                     <p className="text-[11px] sm:text-xs font-semibold text-gray-800 truncate max-w-full mt-0.5 leading-tight">
                         {resolvedHomeName}
                     </p>
-                    {resolvedHomeEfvId ? (
-                        <span className="inline-flex items-center gap-0.5 text-[9px] font-medium text-amber-600 bg-amber-50 border border-amber-100 px-1.5 py-0.5 rounded mt-1">
-                            <Hash className="w-2.5 h-2.5" />EFV-{resolvedHomeEfvId}
-                        </span>
-                    ) : (
-                        <span className="text-[9px] text-gray-300 mt-1">—</span>
-                    )}
+                    <div className="flex items-center gap-1 mt-1 justify-center flex-wrap">
+                        {resolvedHomeEfvId ? (
+                            <span className="inline-flex items-center gap-0.5 text-[9px] font-medium text-amber-600 bg-amber-50 border border-amber-100 px-1.5 py-0.5 rounded">
+                                <Hash className="w-2.5 h-2.5" />EFV-{resolvedHomeEfvId}
+                            </span>
+                        ) : (
+                            <span className="text-[9px] text-gray-300">—</span>
+                        )}
+                        {myTeam?.seed != null && myTeam.seed > 0 && (
+                            <span className="inline-flex items-center gap-0.5 text-[9px] font-bold text-blue-600 bg-blue-50 border border-blue-200 px-1.5 py-0.5 rounded">
+                                Seed {myTeam.seed}
+                            </span>
+                        )}
+                    </div>
                     {/* Score input */}
                     <input type="number" min="0" max="99" value={homeScore} onChange={e => setHomeScore(e.target.value)} className="w-14 h-11 text-center text-lg font-black rounded-xl border-2 border-gray-200 focus:border-blue-500 outline-none bg-white transition-colors mt-3" placeholder="0" />
                 </div>
@@ -239,13 +253,20 @@ export function SubmitResultForm({
                     <p className="text-[11px] sm:text-xs font-semibold text-gray-800 truncate max-w-full mt-0.5 leading-tight">
                         {resolvedAwayName}
                     </p>
-                    {resolvedAwayEfvId ? (
-                        <span className="inline-flex items-center gap-0.5 text-[9px] font-medium text-amber-600 bg-amber-50 border border-amber-100 px-1.5 py-0.5 rounded mt-1">
-                            <Hash className="w-2.5 h-2.5" />EFV-{resolvedAwayEfvId}
-                        </span>
-                    ) : (
-                        <span className="text-[9px] text-gray-300 mt-1">—</span>
-                    )}
+                    <div className="flex items-center gap-1 mt-1 justify-center flex-wrap">
+                        {resolvedAwayEfvId ? (
+                            <span className="inline-flex items-center gap-0.5 text-[9px] font-medium text-amber-600 bg-amber-50 border border-amber-100 px-1.5 py-0.5 rounded">
+                                <Hash className="w-2.5 h-2.5" />EFV-{resolvedAwayEfvId}
+                            </span>
+                        ) : (
+                            <span className="text-[9px] text-gray-300">—</span>
+                        )}
+                        {opponent?.seed != null && opponent.seed > 0 && (
+                            <span className="inline-flex items-center gap-0.5 text-[9px] font-bold text-blue-600 bg-blue-50 border border-blue-200 px-1.5 py-0.5 rounded">
+                                Seed {opponent.seed}
+                            </span>
+                        )}
+                    </div>
                     {/* Score input */}
                     <input type="number" min="0" max="99" value={awayScore} onChange={e => setAwayScore(e.target.value)} className="w-14 h-11 text-center text-lg font-black rounded-xl border-2 border-gray-200 focus:border-blue-500 outline-none bg-white transition-colors mt-3" placeholder="0" />
                 </div>
