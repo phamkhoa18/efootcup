@@ -565,7 +565,7 @@ export default function DangKyPage() {
                 "Số tiền (VNĐ)": r.paymentAmount || 0,
                 "Phương thức TT": r.paymentMethod || "",
                 "Ngày TT": r.paymentDate ? new Date(r.paymentDate).toLocaleString('vi-VN') : "",
-                "Xác nhận TT lúc": r.paymentConfirmedAt ? new Date(r.paymentConfirmedAt).toLocaleString('vi-VN') : "",
+                "Xác nhận TT lúc": (r.paymentConfirmedAt && r.paymentStatus === 'paid') ? new Date(r.paymentConfirmedAt).toLocaleString('vi-VN') : "",
                 // === THÔNG TIN THANH TOÁN (ĐỐI CHIẾU) ===
                 "Mã hóa đơn (EFCUP)": noteData.invoiceNumber || "",
                 "Mã PAY (SePay)": noteData.bankPayCode || noteData.orderCode || "",
@@ -1752,7 +1752,7 @@ export default function DangKyPage() {
                                                 <span className="text-[13px] text-gray-900 font-normal">{new Date(playerDetailView.paymentDate).toLocaleString('vi-VN')}</span>
                                             </div>
                                         )}
-                                        {playerDetailView.paymentConfirmedAt && (
+                                        {playerDetailView.paymentConfirmedAt && playerDetailView.paymentStatus === 'paid' && (
                                             <div className="flex items-center justify-between py-2.5 border-b border-gray-50">
                                                 <span className="text-[13px] text-gray-400 font-light">Xác nhận lúc</span>
                                                 <span className="text-[13px] text-gray-900 font-normal">{new Date(playerDetailView.paymentConfirmedAt).toLocaleString('vi-VN')}</span>

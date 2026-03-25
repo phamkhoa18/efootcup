@@ -398,11 +398,15 @@ export async function PUT(req: NextRequest, { params }: RouteParams) {
                 registration.paymentAmount = body.paymentAmount || tournament.entryFee;
             }
 
-            // If changing to unpaid, clear payment data
-            if (newPaymentStatus === "unpaid") {
-                registration.paymentProof = "";
+            // If changing from paid to non-paid (e.g., pending_verification), clear confirmation data
+            if (newPaymentStatus !== "paid") {
                 registration.paymentConfirmedBy = undefined;
                 registration.paymentConfirmedAt = undefined;
+            }
+
+            // If changing to unpaid or refunded, clear payment data
+            if (newPaymentStatus === "unpaid" || newPaymentStatus === "refunded") {
+                registration.paymentProof = "";
                 registration.paymentAmount = 0;
             }
 
