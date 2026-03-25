@@ -128,12 +128,9 @@ export async function POST(req: NextRequest) {
             const isApiKeyValid = apiKeyValue === secretKey;
 
             if (!isSecretKeyValid && !isApiKeyValid) {
-                // If neither auth method matches, log but DON'T reject
-                // SePay may be configured without auth, or using different auth
-                console.warn("⚠️ SePay webhook: Auth header mismatch. X-Secret-Key:", xSecretKey ? "present" : "absent", "Authorization:", authHeader ? authHeader.substring(0, 20) + "..." : "absent");
-                // Don't return 401 — always accept and log, to prevent missed payments
-                // return jsonRes({ error: "Unauthorized" }, 401);
-                console.log("⚠️ SePay webhook: Proceeding without auth verification (to prevent missed payments)");
+                // Return 401 to reject unauthorized payloads
+                console.error("🚨 CRITICAL: SePay webhook auth mismatch. Rejecting payload to prevent fake payments.");
+                return jsonRes({ error: "Unauthorized" }, 401);
             } else {
                 console.log("✅ SePay webhook: Auth verified via", isSecretKeyValid ? "X-Secret-Key" : "Apikey");
             }
@@ -370,7 +367,7 @@ async function processPayment(registration: any, paymentInfo: {
         });
         registration.paymentStatus = "pending_verification";
         registration.paymentAmount = paymentInfo.amount;
-        registration.paymentDate = paymentInfo.transactionDate ? new Date(paymentInfo.transactionDate) : new Date();
+        registration.paymentDate = parseVietnamTime(paymentInfo.transactionDate);
         await registration.save();
 
         // Notify manager
@@ -390,7 +387,7 @@ async function processPayment(registration: any, paymentInfo: {
     // ============================================================
     registration.paymentStatus = "paid";
     registration.paymentAmount = paymentInfo.amount;
-    registration.paymentDate = paymentInfo.transactionDate ? new Date(paymentInfo.transactionDate) : new Date();
+    registration.paymentDate = parseVietnamTime(paymentInfo.transactionDate);
     registration.paymentConfirmedAt = new Date();
 
     const existingNote = JSON.parse(registration.paymentNote || "{}");
@@ -469,7 +466,7 @@ async function processPayment(registration: any, paymentInfo: {
                 tournamentId: tournament._id.toString(),
                 amount: paymentInfo.amount,
                 currency: tournament.currency || "VNĐ",
-                paymentDate: paymentInfo.transactionDate ? new Date(paymentInfo.transactionDate) : new Date(),
+                paymentDate: parseVietnamTime(paymentInfo.transactionDate),
                 orderCode: paymentInfo.invoiceNumber,
                 reference: paymentInfo.transactionId,
                 paymentMethod: `Chuyển khoản tự động (${paymentInfo.paymentMethod})`,
@@ -504,7 +501,7 @@ async function processPayment(registration: any, paymentInfo: {
                 tournamentId: tournament._id.toString(),
                 amount: paymentInfo.amount,
                 currency: tournament.currency || "VNĐ",
-                paymentDate: paymentInfo.transactionDate ? new Date(paymentInfo.transactionDate) : new Date(),
+                paymentDate: parseVietnamTime(paymentInfo.transactionDate),
                 orderCode: paymentInfo.invoiceNumber,
                 reference: paymentInfo.transactionId,
                 paymentMethod: `Chuyển khoản tự động (${paymentInfo.paymentMethod})`,
@@ -530,7 +527,7 @@ async function processPayment(registration: any, paymentInfo: {
             tournamentId: tournament._id.toString(),
             amount: paymentInfo.amount,
             currency: tournament.currency || "VNĐ",
-            paymentDate: paymentInfo.transactionDate ? new Date(paymentInfo.transactionDate) : new Date(),
+            paymentDate: parseVietnamTime(paymentInfo.transactionDate),
             orderCode: paymentInfo.invoiceNumber,
             reference: paymentInfo.transactionId,
             paymentMethod: `Chuyển khoản tự động (${paymentInfo.paymentMethod})`,
@@ -567,4 +564,18 @@ async function findRegistrationByInvoice(invoiceNumber: string) {
     }
 
     return null;
+}
+
+/**
+ * Parse SePay's Vietnam time string (YYYY-MM-DD HH:mm:ss) into a correct Date object
+ * Avoids UTC mismatch when Node runs in UTC
+ */
+function parseVietnamTime(dateString?: string): Date {
+    if (!dateString) return new Date();
+    // If it already has timezone info or T, pass it through
+    if (dateString.includes('T') || dateString.includes('+') || dateString.includes('Z')) {
+        return new Date(dateString);
+    }
+    // Convert "2026-03-21 00:16:13" to "2026-03-21T00:16:13+07:00"
+    return new Date(dateString.replace(' ', 'T') + '+07:00');
 }
