@@ -343,7 +343,6 @@ TournamentSchema.index({ status: 1 });
 TournamentSchema.index({ "schedule.tournamentStart": 1 });
 TournamentSchema.index({ isFeatured: 1 });
 TournamentSchema.index({ tags: 1 });
-TournamentSchema.index({ inviteCode: 1 });
 TournamentSchema.index({ "collaborators.userId": 1 });
 
 const Tournament: Model<ITournament> =

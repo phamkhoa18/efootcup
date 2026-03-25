@@ -240,6 +240,9 @@ export async function PUT(req: NextRequest, { params }: RouteParams) {
             match.startedAt = new Date();
         }
 
+        // Track who updated this match
+        match.updatedBy = new mongoose.Types.ObjectId(authResult.user._id as string);
+
         // ========================================
         // PHASE 3: ADVANCE winner if status is completed
         // ========================================

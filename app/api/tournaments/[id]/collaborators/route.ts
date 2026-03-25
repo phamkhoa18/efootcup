@@ -3,6 +3,7 @@ import mongoose from "mongoose";
 import dbConnect from "@/lib/mongodb";
 import Tournament from "@/models/Tournament";
 import User from "@/models/User";
+import Match from "@/models/Match";
 import { requireManager, apiResponse, apiError } from "@/lib/auth";
 
 interface RouteParams {
@@ -39,8 +40,26 @@ export async function GET(req: NextRequest, { params }: RouteParams) {
             return apiError("Không có quyền", 403);
         }
 
+        // Fetch matches updated by collaborators
+        const matchCounts = await Match.aggregate([
+            { $match: { tournament: new mongoose.Types.ObjectId(id), updatedBy: { $exists: true, $ne: null } } },
+            { $group: { _id: "$updatedBy", count: { $sum: 1 } } }
+        ]);
+        
+        const countsMap = matchCounts.reduce((acc, curr) => {
+            if (curr._id) {
+                acc[curr._id.toString()] = curr.count;
+            }
+            return acc;
+        }, {} as Record<string, number>);
+
+        const collaboratorsWithStats = (tournament.collaborators || []).map((c: any) => ({
+            ...c,
+            matchesUpdated: countsMap[c.userId.toString()] || 0,
+        }));
+
         return apiResponse({
-            collaborators: tournament.collaborators || [],
+            collaborators: collaboratorsWithStats,
             inviteCode: tournament.inviteCode || null,
         });
     } catch (error) {

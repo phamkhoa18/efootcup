@@ -54,6 +54,7 @@ export interface IMatch extends Document {
         x: number;
         y: number;
     };
+    updatedBy?: mongoose.Types.ObjectId;
     createdAt: Date;
     updatedAt: Date;
 }
@@ -139,6 +140,7 @@ const MatchSchema = new Schema<IMatch>(
             x: { type: Number, default: 0 },
             y: { type: Number, default: 0 },
         },
+        updatedBy: { type: Schema.Types.ObjectId, ref: "User" },
     },
     {
         timestamps: true,

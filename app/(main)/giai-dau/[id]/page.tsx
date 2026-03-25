@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { getSiteSettings } from "@/lib/site-settings";
 import TournamentDetailClient from "./TournamentDetailClient";
 import dbConnect from "@/lib/mongodb";
+import mongoose from "mongoose";
 import Tournament from "@/models/Tournament";
 import Match from "@/models/Match";
 import Team from "@/models/Team";
@@ -23,21 +24,26 @@ async function getTournamentData(id: string) {
     try {
         await dbConnect();
 
-        const tournament = await Tournament.findById(id)
+        // id có thể là ObjectId hoặc slug (vd: "efv500-efootball-mobile-season-1-mmyxvppv")
+        const query = mongoose.Types.ObjectId.isValid(id) ? { _id: id } : { slug: id };
+        const tournament = await Tournament.findOne(query)
             .populate("createdBy", "name email avatar")
             .lean();
         if (!tournament) return null;
 
+        // Dùng ObjectId thực từ tournament, không dùng id gốc (có thể là slug)
+        const tournamentId = tournament._id;
+
         const [teams, registrations, matches] = await Promise.all([
-            Team.find({ tournament: id })
+            Team.find({ tournament: tournamentId })
                 .populate("captain", "name avatar efvId gamerId personalPhoto")
                 .sort({ "stats.points": -1, "stats.goalDifference": -1 })
                 .lean(),
-            Registration.find({ tournament: id })
+            Registration.find({ tournament: tournamentId })
                 .populate("user", "name email avatar efvId")
                 .sort({ createdAt: -1 })
                 .lean(),
-            Match.find({ tournament: id })
+            Match.find({ tournament: tournamentId })
                 .populate("homeTeam", "name shortName logo efvId seed")
                 .populate("awayTeam", "name shortName logo efvId seed")
                 .populate("winner", "name shortName")
@@ -138,5 +144,5 @@ export default async function TournamentDetailPage({ params }: { params: { id: s
         return notFound();
     }
 
-    return <TournamentDetailClient initialData={data} id={id} />;
+    return <TournamentDetailClient initialData={JSON.parse(JSON.stringify(data))} id={id} />;
 }

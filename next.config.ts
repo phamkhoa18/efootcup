@@ -4,6 +4,11 @@ const nextConfig: NextConfig = {
     // Enable standalone output for production deployments
     output: "standalone",
 
+    // Whitelist image quality values used by <Image> components
+    images: {
+        qualities: [75, 85, 90],
+    },
+
     // Increase body size limit for file uploads (default is 4MB)
     experimental: {
         serverActions: {

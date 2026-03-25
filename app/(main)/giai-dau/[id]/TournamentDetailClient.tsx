@@ -211,7 +211,7 @@ const MatchCard = ({ match, onClick }: { match: any; onClick: () => void }) => {
     );
 };
 
-const MatchDetailViewModal = ({ match, tournament, onClose, user, myRegistration }: { match: any; tournament: any; onClose: () => void; user?: any; myRegistration?: any }) => {
+const MatchDetailViewModal = ({ match, tournament, onClose, user, myRegistration, homeFb, awayFb }: { match: any; tournament: any; onClose: () => void; user?: any; myRegistration?: any; homeFb?: string; awayFb?: string }) => {
     const homeScore = match.homeScore ?? "";
     const awayScore = match.awayScore ?? "";
 
@@ -336,7 +336,10 @@ const MatchDetailViewModal = ({ match, tournament, onClose, user, myRegistration
                         <div className="grid grid-cols-2 divide-x divide-gray-100 bg-white">
                             <div className={`p-3 sm:p-4 ${match.homeScore > match.awayScore ? 'bg-blue-50/50' : ''}`}>
                                 <p className="text-[10px] text-gray-400 font-semibold uppercase tracking-wider mb-1">Đội nhà</p>
-                                <p className="text-sm font-bold text-gray-900 truncate">{match.homeTeam?.player1 || match.p1?.name || "—"}</p>
+                                <div className="text-sm font-bold text-gray-900 flex items-center gap-1.5 min-w-0">
+                                    <span className="truncate">{match.homeTeam?.player1 || match.p1?.name || "—"}</span>
+                                    {homeFb && <a href={homeFb} target="_blank" title="Facebook" className="text-blue-500 hover:text-blue-700 flex-shrink-0"><Facebook className="w-4 h-4" /></a>}
+                                </div>
                                 {match.homeTeam?.player2 && match.homeTeam.player2 !== "TBD" && (
                                     <p className="text-xs text-gray-500 mt-0.5">ID: {match.homeTeam.player2}</p>
                                 )}
@@ -344,7 +347,10 @@ const MatchDetailViewModal = ({ match, tournament, onClose, user, myRegistration
                             </div>
                             <div className={`p-3 sm:p-4 ${match.awayScore > match.homeScore ? 'bg-blue-50/50' : ''}`}>
                                 <p className="text-[10px] text-gray-400 font-semibold uppercase tracking-wider mb-1">Đội khách</p>
-                                <p className="text-sm font-bold text-gray-900 truncate">{match.awayTeam?.player1 || match.p2?.name || "—"}</p>
+                                <div className="text-sm font-bold text-gray-900 flex items-center gap-1.5 min-w-0">
+                                    <span className="truncate">{match.awayTeam?.player1 || match.p2?.name || "—"}</span>
+                                    {awayFb && <a href={awayFb} target="_blank" title="Facebook" className="text-blue-500 hover:text-blue-700 flex-shrink-0"><Facebook className="w-4 h-4" /></a>}
+                                </div>
                                 {match.awayTeam?.player2 && match.awayTeam.player2 !== "TBD" && (
                                     <p className="text-xs text-gray-500 mt-0.5">ID: {match.awayTeam.player2}</p>
                                 )}
@@ -2040,6 +2046,10 @@ export default function TournamentDetailClient({ initialData, id }: { initialDat
 
                         {activeTab === "schedule" && (() => {
                             const scheduleMatches = brackets?.matches || matches;
+                            const fbLinks = (data?.registrations || []).reduce((acc: any, r: any) => {
+                                if (r.team && r.facebookLink) acc[r.team.toString()] = r.facebookLink;
+                                return acc;
+                            }, {});
                             const roundMap: Record<string, any[]> = {};
                             scheduleMatches.filter((m: any) => m.status !== 'walkover' && m.status !== 'bye').forEach((m: any) => {
                                 const rn = m.roundName || `Vòng ${m.round}`;
@@ -2170,9 +2180,23 @@ export default function TournamentDetailClient({ initialData, id }: { initialDat
                                                                                     <span className="truncate">{awayName}</span>
                                                                                 </div>
                                                                             </div>
-                                                                            <div className="col-span-4 flex flex-col gap-1.5 text-[13px] font-medium">
-                                                                                <div className={`truncate ${isCompleted ? (isHomeWin ? "font-bold text-gray-900" : "text-gray-400 line-through") : isLive ? "text-gray-800" : "text-purple-600"}`}>{p1Name}{p1Sub}</div>
-                                                                                <div className={`truncate ${isCompleted ? (isAwayWin ? "font-bold text-gray-900" : "text-gray-400 line-through") : isLive ? "text-gray-800" : "text-purple-600"}`}>{p2Name}{p2Sub}</div>
+                                                                            <div className="col-span-4 flex flex-col gap-1.5 text-[13px] font-medium min-w-0">
+                                                                                <div className={`truncate flex items-center gap-1.5 ${isCompleted ? (isHomeWin ? "font-bold text-gray-900" : "text-gray-400 line-through") : isLive ? "text-gray-800" : "text-purple-600"}`}>
+                                                                                    <span className="truncate">{p1Name}{p1Sub}</span>
+                                                                                    {m.homeTeam && fbLinks[m.homeTeam._id || m.homeTeam.id] && (
+                                                                                        <a href={fbLinks[m.homeTeam._id || m.homeTeam.id]} target="_blank" onClick={e => e.stopPropagation()} className="inline-flex flex-shrink-0 items-center text-blue-500 hover:text-blue-700 transition-colors" title="Facebook">
+                                                                                            <Facebook className="w-3.5 h-3.5" />
+                                                                                        </a>
+                                                                                    )}
+                                                                                </div>
+                                                                                <div className={`truncate flex items-center gap-1.5 ${isCompleted ? (isAwayWin ? "font-bold text-gray-900" : "text-gray-400 line-through") : isLive ? "text-gray-800" : "text-purple-600"}`}>
+                                                                                    <span className="truncate">{p2Name}{p2Sub}</span>
+                                                                                    {m.awayTeam && fbLinks[m.awayTeam._id || m.awayTeam.id] && (
+                                                                                        <a href={fbLinks[m.awayTeam._id || m.awayTeam.id]} target="_blank" onClick={e => e.stopPropagation()} className="inline-flex flex-shrink-0 items-center text-blue-500 hover:text-blue-700 transition-colors" title="Facebook">
+                                                                                            <Facebook className="w-3.5 h-3.5" />
+                                                                                        </a>
+                                                                                    )}
+                                                                                </div>
                                                                             </div>
                                                                             <div className="col-span-2 flex justify-center">
                                                                                 {isCompleted || isLive ? (
@@ -2232,6 +2256,11 @@ export default function TournamentDetailClient({ initialData, id }: { initialDat
                                                                             <div className="flex items-center gap-2">
                                                                                 <div className={`flex-1 min-w-0 text-right ${homeWin ? '' : isCompleted ? 'opacity-50' : ''}`}>
                                                                                     <div className="flex items-center justify-end gap-1 mb-0.5">
+                                                                                        {m.homeTeam && fbLinks[m.homeTeam._id || m.homeTeam.id] && (
+                                                                                            <a href={fbLinks[m.homeTeam._id || m.homeTeam.id]} target="_blank" onClick={e => e.stopPropagation()} className="text-blue-500 hover:text-blue-700 flex-shrink-0">
+                                                                                                <Facebook className="w-3 h-3" />
+                                                                                            </a>
+                                                                                        )}
                                                                                         {homeEfvId != null && <span className="text-[8px] font-bold text-amber-600 bg-amber-50 border border-amber-200 px-1 py-px rounded flex-shrink-0">#{homeEfvId}</span>}
                                                                                         <span className={`text-xs font-bold truncate ${homeWin ? 'text-blue-700' : 'text-gray-800'}`}>{homePlayer}</span>
                                                                                     </div>
@@ -2244,6 +2273,11 @@ export default function TournamentDetailClient({ initialData, id }: { initialDat
                                                                                     <div className="flex items-center gap-1 mb-0.5">
                                                                                         <span className={`text-xs font-bold truncate ${awayWin ? 'text-blue-700' : 'text-gray-800'}`}>{awayPlayer}</span>
                                                                                         {awayEfvId != null && <span className="text-[8px] font-bold text-amber-600 bg-amber-50 border border-amber-200 px-1 py-px rounded flex-shrink-0">#{awayEfvId}</span>}
+                                                                                        {m.awayTeam && fbLinks[m.awayTeam._id || m.awayTeam.id] && (
+                                                                                            <a href={fbLinks[m.awayTeam._id || m.awayTeam.id]} target="_blank" onClick={e => e.stopPropagation()} className="text-blue-500 hover:text-blue-700 flex-shrink-0">
+                                                                                                <Facebook className="w-3 h-3" />
+                                                                                            </a>
+                                                                                        )}
                                                                                     </div>
                                                                                     {awayCLB && <p className="text-[9px] text-gray-400 truncate">{awayCLB}</p>}
                                                                                 </div>
@@ -2707,7 +2741,21 @@ export default function TournamentDetailClient({ initialData, id }: { initialDat
                 </DialogContent>
             </Dialog>
 
-            {selectedMatch && <MatchDetailViewModal match={selectedMatch} tournament={t} onClose={() => setSelectedMatch(null)} user={user} myRegistration={myRegistration} />}
+            {selectedMatch && (() => {
+                const fbMap = (data?.registrations || []).reduce((acc: any, r: any) => {
+                    if (r.team && r.facebookLink) acc[r.team.toString()] = r.facebookLink;
+                    return acc;
+                }, {});
+                return <MatchDetailViewModal 
+                    match={selectedMatch} 
+                    tournament={t} 
+                    onClose={() => setSelectedMatch(null)} 
+                    user={user} 
+                    myRegistration={myRegistration}
+                    homeFb={selectedMatch.homeTeam ? fbMap[selectedMatch.homeTeam._id || selectedMatch.homeTeam.id] : undefined}
+                    awayFb={selectedMatch.awayTeam ? fbMap[selectedMatch.awayTeam._id || selectedMatch.awayTeam.id] : undefined}
+                />;
+            })()}
 
             {/* Lineup Viewer Dialog */}
             <Dialog open={!!lineupViewTeam} onOpenChange={(open) => !open && setLineupViewTeam(null)}>

@@ -45,7 +45,6 @@ const UserSchema = new Schema<IUser>(
             type: Number,
             unique: true,
             sparse: true,
-            index: true,
         },
         name: {
             type: String,

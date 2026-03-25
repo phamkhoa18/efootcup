@@ -177,7 +177,6 @@ PostSchema.pre("save", function () {
 
 PostSchema.index({ status: 1, publishedAt: -1 });
 PostSchema.index({ category: 1 });
-PostSchema.index({ slug: 1 });
 PostSchema.index({ tags: 1 });
 PostSchema.index({ isFeatured: 1 });
 

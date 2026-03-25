@@ -316,6 +316,12 @@ export default function ChiaSePage() {
                                                 <Badge className="text-[9px] bg-indigo-50 text-indigo-600 border-indigo-100 px-1.5 py-0 font-bold">
                                                     Lịch + Sơ đồ
                                                 </Badge>
+                                                {collab.matchesUpdated !== undefined && (
+                                                    <Badge className="text-[9px] bg-emerald-50 text-emerald-600 border-emerald-100 px-1.5 py-0 font-bold flex items-center gap-1">
+                                                        <CheckCircle2 className="w-2.5 h-2.5" />
+                                                        Đã cập nhật {collab.matchesUpdated} trận
+                                                    </Badge>
+                                                )}
                                             </div>
                                         </div>
                                     </div>
