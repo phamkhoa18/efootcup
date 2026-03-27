@@ -129,18 +129,29 @@ async function main() {
             const oppSlot = teamPos.get(oppId)!;
             if (oppSlot >= oppHalfStart && oppSlot < oppHalfStart + halfSize) continue; // already correct
 
-            // Find best target in opponent's half (prefer null/bye slot)
+            // Find best target: prefer slot where R1 PARTNER is null (creates BYE)
+            // This ensures the swapped team auto-advances to the right round
             let target = -1;
+            // Priority 1: null slot with null partner (both-null pair → becomes bye)
             for (let s = oppHalfStart; s < oppHalfStart + halfSize; s++) {
-                if (slots[s] === null) { target = s; break; }
+                if (slots[s] === null) {
+                    const partner = s % 2 === 0 ? s + 1 : s - 1;
+                    if (slots[partner] === null) { target = s; break; }
+                }
             }
+            // Priority 2: null slot (partner might be a team → creates R1 real match)
             if (target === -1) {
-                // No null slot, find a non-chain team
+                for (let s = oppHalfStart; s < oppHalfStart + halfSize; s++) {
+                    if (slots[s] === null) { target = s; break; }
+                }
+            }
+            // Priority 3: slot with non-chain team
+            if (target === -1) {
                 for (let s = oppHalfStart; s < oppHalfStart + halfSize; s++) {
                     if (!teamWins.has(slots[s]!)) { target = s; break; }
                 }
             }
-            if (target === -1) target = oppHalfStart; // last resort
+            if (target === -1) target = oppHalfStart;
 
             swapTo(oppId, target);
             totalSwaps++;
