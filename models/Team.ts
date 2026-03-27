@@ -29,6 +29,7 @@ export interface ITeam extends Document {
         form: string[]; // ['W', 'L', 'D', 'W', 'W']
     };
     status: "active" | "eliminated" | "withdrawn" | "disqualified";
+    recoveredPlacement?: string; // Only set for recovered tournaments (e.g. "top_512")
     registeredAt: Date;
     createdAt: Date;
     updatedAt: Date;
@@ -92,6 +93,7 @@ const TeamSchema = new Schema<ITeam>(
             enum: ["active", "eliminated", "withdrawn", "disqualified"],
             default: "active",
         },
+        recoveredPlacement: { type: String }, // Only for recovery: "top_512", "top_256", etc.
         registeredAt: { type: Date, default: Date.now },
     },
     {

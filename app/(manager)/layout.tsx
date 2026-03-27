@@ -1,11 +1,9 @@
-import { Navbar } from "@/components/Navbar";
-import { Footer } from "@/components/Footer";
 import { getSiteSettings } from "@/lib/site-settings";
 import { MaintenanceView } from "@/components/MaintenanceView";
 import { cookies } from "next/headers";
 import { verifyToken } from "@/lib/auth";
 
-export default async function MainLayout({
+export default async function ManagerRootLayout({
     children,
 }: {
     children: React.ReactNode;
@@ -32,11 +30,5 @@ export default async function MainLayout({
         }
     }
 
-    return (
-        <>
-            <Navbar />
-            <main>{children}</main>
-            <Footer />
-        </>
-    );
+    return <>{children}</>;
 }

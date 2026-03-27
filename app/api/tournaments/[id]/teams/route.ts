@@ -180,6 +180,10 @@ export async function GET(req: NextRequest, { params }: RouteParams) {
                     _placement: pi?.placement || "participant",
                     _efvPoints: pi?.efvPoints ?? participantPts,
                 } : {}),
+                // For recovered tournaments: show placement even if not completed
+                ...(team.recoveredPlacement && !placementMap ? {
+                    _recoveredPlacement: team.recoveredPlacement,
+                } : {}),
             };
         });
 
