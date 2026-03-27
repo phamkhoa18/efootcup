@@ -1,22 +1,14 @@
 /**
- * 🔧 RESTORE TOURNAMENT - APPLY SCRIPT
+ * 🔧 RESTORE TOURNAMENT - APPLY v2 (with match results)
  * 
- * This script APPLIES the recovery data to restore the tournament.
+ * This script:
+ * 1. Reads recovery data
+ * 2. Builds bracket tree from recovered match chains
+ * 3. Seeds teams so known opponents face each other
+ * 4. Creates bracket with completed matches + scores
+ * 5. Advances winners through rounds
  * 
- * What it does:
- * 1. Reads tournament_recovery_v2.json 
- * 2. Deletes the WRONG bracket (1023 matches)
- * 3. Marks confirmed eliminated teams (125+)
- * 4. Generates a NEW bracket with only remaining active teams
- * 5. The tournament continues from this point
- * 
- * SAFETY:
- * - DRY RUN by default (shows what will happen)
- * - Add --apply flag to actually execute:
- *     npx tsx scripts/restore-tournament-apply.ts --apply
- * 
- * Run on server:
- *   cd /root/apps/efootcup
+ * Run:
  *   npx tsx scripts/restore-tournament-apply.ts           # dry run
  *   npx tsx scripts/restore-tournament-apply.ts --apply    # execute
  */
@@ -30,287 +22,302 @@ const IS_DRY_RUN = !process.argv.includes("--apply");
 
 async function apply() {
     console.log("=".repeat(80));
-    console.log(`🔧 TOURNAMENT RESTORATION - ${IS_DRY_RUN ? "⚠️ DRY RUN" : "🚀 APPLYING"}`);
+    console.log(`🔧 TOURNAMENT RESTORATION v2 - ${IS_DRY_RUN ? "⚠️ DRY RUN" : "🚀 APPLYING"}`);
     console.log("=".repeat(80));
 
-    if (IS_DRY_RUN) {
-        console.log("\n  ℹ️  This is a DRY RUN. No changes will be made.");
-        console.log("  ℹ️  To apply changes, run with --apply flag:");
-        console.log("      npx tsx scripts/restore-tournament-apply.ts --apply\n");
-    }
-
-    // 1. Load recovery data
+    // Load recovery data
     let recoveryData: any;
     try {
         const raw = await fs.readFile("tournament_recovery_v2.json", "utf-8");
         recoveryData = JSON.parse(raw);
-    } catch (e) {
-        console.error("❌ Cannot read tournament_recovery_v2.json. Run restore-tournament-v2.ts first!");
+    } catch {
+        console.error("❌ Cannot read tournament_recovery_v2.json!");
         process.exit(1);
     }
 
-    console.log(`📋 Recovery data loaded:`);
-    console.log(`   Tournament: ${recoveryData.tournament.title}`);
-    console.log(`   Total teams: ${recoveryData.tournament.totalTeams}`);
-    console.log(`   Fully resolved matches: ${recoveryData.summary.fullyResolved}`);
-    console.log(`   Partially resolved: ${recoveryData.summary.partiallyResolved}`);
-    console.log(`   Confirmed eliminated: ${recoveryData.summary.confirmedEliminated}`);
-    console.log(`   Confirmed active: ${recoveryData.summary.confirmedActive}`);
+    const fullyResolved = recoveryData.matches.filter((m: any) => m.confidence === "exact");
+    console.log(`📋 Fully resolved matches: ${fullyResolved.length}`);
 
-    // 2. Connect to DB
-    console.log("\n🔌 Connecting to MongoDB...");
     await mongoose.connect(MONGODB_URI);
-    console.log("✅ Connected!");
-
+    console.log("✅ Connected to MongoDB\n");
     const db = mongoose.connection.db!;
 
-    // 3. Collect ALL eliminated teams
-    // From fully resolved matches (loser is eliminated)
-    const eliminatedTeamIds = new Set<string>(recoveryData.eliminatedTeamIds);
-
-    // Also extract from partially resolved matches
-    const fullyResolved = recoveryData.matches.filter((m: any) => m.confidence === "exact");
-    const partiallyResolved = recoveryData.matches.filter((m: any) => m.confidence !== "exact" && m.confidence !== "unresolved");
-
-    for (const m of partiallyResolved) {
-        // If we know one team and they LOST → that team is eliminated
-        if (m.homeTeamId && m.homeScore < m.awayScore) {
-            eliminatedTeamIds.add(m.homeTeamId);
-        }
-        if (m.awayTeamId && m.awayScore < m.homeScore) {
-            eliminatedTeamIds.add(m.awayTeamId);
-        }
-    }
-
-    console.log(`\n📊 PLAN:`);
-    console.log(`   1. Delete ${1023} wrong matches (current bracket)`);
-    console.log(`   2. Mark ${eliminatedTeamIds.size} teams as eliminated`);
-    console.log(`   3. Generate new bracket with remaining active teams`);
-
-    // Load current state
+    // Load all teams
     const allTeams = await db.collection("teams").find({
         tournament: new mongoose.Types.ObjectId(TOURNAMENT_ID)
     }).toArray();
+    const teamById = new Map(allTeams.map(t => [t._id.toString(), t]));
+    console.log(`   Teams: ${allTeams.length}`);
 
-    const totalTeams = allTeams.length;
-    const activeAfterRestore = totalTeams - eliminatedTeamIds.size;
+    // ═══════════════════════════════════════════
+    // BUILD MATCH CHAINS FROM RECOVERY DATA
+    // ═══════════════════════════════════════════
+    // For each team, track their wins (chronological order)
+    const teamWinChain = new Map<string, { oppId: string; hScore: number; aScore: number; date: Date; isHome: boolean }[]>();
+    const teamLostTo = new Map<string, string>(); // teamId → winnerId
 
-    console.log(`\n   Total teams: ${totalTeams}`);
-    console.log(`   Will be eliminated: ${eliminatedTeamIds.size}`);
-    console.log(`   Will remain active: ${activeAfterRestore}`);
-    console.log(`   Expected bracket size: ${Math.pow(2, Math.ceil(Math.log2(activeAfterRestore)))}`);
+    for (const m of fullyResolved) {
+        if (!m.homeTeamId || !m.awayTeamId) continue;
+        const winnerId = m.homeScore > m.awayScore ? m.homeTeamId : m.awayTeamId;
+        const loserId = m.homeScore > m.awayScore ? m.awayTeamId : m.homeTeamId;
 
-    // Show win distribution for remaining active teams
-    const activeTeamStats = allTeams.filter(t => !eliminatedTeamIds.has(t._id.toString()));
-    const winDist = new Map<number, number>();
-    for (const t of activeTeamStats) {
-        const w = t.stats?.wins || 0;
-        winDist.set(w, (winDist.get(w) || 0) + 1);
+        if (!teamWinChain.has(winnerId)) teamWinChain.set(winnerId, []);
+        teamWinChain.get(winnerId)!.push({
+            oppId: loserId,
+            hScore: m.homeScore,
+            aScore: m.awayScore,
+            date: new Date(m.date),
+            isHome: winnerId === m.homeTeamId,
+        });
+        teamLostTo.set(loserId, winnerId);
     }
-    console.log(`\n   Win distribution of remaining active teams:`);
-    for (const [w, c] of Array.from(winDist.entries()).sort((a, b) => b[0] - a[0])) {
-        console.log(`     ${w} wins: ${c} teams`);
+
+    // Sort each chain by date
+    for (const [, chain] of teamWinChain) {
+        chain.sort((a, b) => a.date.getTime() - b.date.getTime());
     }
+
+    // ═══════════════════════════════════════════
+    // BUILD SEED LIST (place known opponents adjacent)
+    // ═══════════════════════════════════════════
+    // Build bracket subtrees from win chains
+    // A team's tree: R1 opponent as leaf, R2 opponent's subtree, etc.
+
+    const placedTeams = new Set<string>();
+
+    interface TreeNode {
+        teamId?: string;
+        leaves: string[]; // flattened team IDs in bracket order
+        matchResults: { homeId: string; awayId: string; hScore: number; aScore: number; depth: number }[];
+    }
+
+    function buildTree(teamId: string): TreeNode {
+        if (placedTeams.has(teamId)) return { teamId, leaves: [teamId], matchResults: [] };
+        placedTeams.add(teamId);
+
+        const wins = teamWinChain.get(teamId) || [];
+        if (wins.length === 0) {
+            return { teamId, leaves: [teamId], matchResults: [] };
+        }
+
+        // Build bottom-up: R1 first, then R2, etc.
+        // Start: just the team itself
+        let node: TreeNode = { teamId, leaves: [teamId], matchResults: [] };
+
+        for (let i = 0; i < wins.length; i++) {
+            const win = wins[i];
+            if (placedTeams.has(win.oppId)) {
+                // Opponent already placed elsewhere, skip
+                continue;
+            }
+
+            const oppTree = buildTree(win.oppId);
+
+            // Pad both sides to same power-of-2 size
+            const maxLen = Math.max(node.leaves.length, oppTree.leaves.length);
+            let padSize = 1;
+            while (padSize < maxLen) padSize *= 2;
+
+            while (node.leaves.length < padSize) node.leaves.push("__BYE__");
+            while (oppTree.leaves.length < padSize) oppTree.leaves.push("__BYE__");
+
+            const depth = Math.log2(padSize * 2);
+
+            const hId = win.isHome ? teamId : win.oppId;
+            const aId = win.isHome ? win.oppId : teamId;
+
+            node = {
+                teamId,
+                leaves: [...node.leaves, ...oppTree.leaves],
+                matchResults: [
+                    ...node.matchResults,
+                    ...oppTree.matchResults,
+                    { homeId: hId, awayId: aId, hScore: win.hScore, aScore: win.aScore, depth: Math.ceil(depth) },
+                ],
+            };
+        }
+
+        return node;
+    }
+
+    // Build trees starting from teams with most wins (deepest paths)
+    const teamsByWins = Array.from(teamWinChain.entries())
+        .sort((a, b) => b[1].length - a[1].length);
+
+    const subtrees: TreeNode[] = [];
+    for (const [teamId] of teamsByWins) {
+        if (!placedTeams.has(teamId)) {
+            subtrees.push(buildTree(teamId));
+        }
+    }
+
+    // Also build trees for teams that only lost (have no wins but were in a resolved match)
+    for (const [loserId] of teamLostTo) {
+        if (!placedTeams.has(loserId)) {
+            subtrees.push(buildTree(loserId));
+        }
+    }
+
+    // Collect all match results from trees
+    const allMatchResults: { homeId: string; awayId: string; hScore: number; aScore: number }[] = [];
+    for (const tree of subtrees) {
+        allMatchResults.push(...tree.matchResults);
+    }
+
+    // Build seed list from subtree leaves
+    const seedList: (string | null)[] = [];
+    for (const tree of subtrees) {
+        for (const leaf of tree.leaves) {
+            if (leaf === "__BYE__") seedList.push(null);
+            else seedList.push(leaf);
+        }
+    }
+
+    // Add remaining teams not in any recovered match
+    for (const t of allTeams) {
+        const id = t._id.toString();
+        if (!placedTeams.has(id)) {
+            seedList.push(id);
+        }
+    }
+
+    // Pad to next power of 2 with nulls (byes)
+    let S = 2;
+    while (S < seedList.length) S *= 2;
+    while (seedList.length < S) seedList.push(null);
+
+    const totalRounds = Math.log2(S);
+    const realTeams = seedList.filter(s => s !== null).length;
+    const byes = S - realTeams;
+
+    console.log(`\n📊 BRACKET PLAN:`);
+    console.log(`   Seed list size: ${S} (${totalRounds} rounds)`);
+    console.log(`   Real teams: ${realTeams}`);
+    console.log(`   Byes: ${byes}`);
+    console.log(`   Match results to apply: ${allMatchResults.length}`);
+    console.log(`   Subtrees built: ${subtrees.length}`);
 
     if (IS_DRY_RUN) {
-        console.log("\n" + "=".repeat(80));
-        console.log("  ⚠️  DRY RUN COMPLETE - No changes made");
-        console.log("  To apply: npx tsx scripts/restore-tournament-apply.ts --apply");
-        console.log("=".repeat(80));
+        console.log("\n⚠️ DRY RUN - run with --apply to execute");
         await mongoose.disconnect();
         return;
     }
 
-    // ════════════════════════════════════════
-    // APPLY CHANGES
-    // ════════════════════════════════════════
-    console.log("\n" + "=".repeat(80));
-    console.log("  🚀 APPLYING CHANGES...");
-    console.log("=".repeat(80));
-
-    // Step 1: Delete all current (wrong) matches
-    console.log("\n  Step 1: Deleting wrong bracket...");
-    const deleteResult = await db.collection("matches").deleteMany({
+    // ═══════════════════════════════════════════
+    // APPLY: Delete old + Create new bracket
+    // ═══════════════════════════════════════════
+    console.log("\n🚀 Step 1: Deleting wrong bracket...");
+    const del = await db.collection("matches").deleteMany({
         tournament: new mongoose.Types.ObjectId(TOURNAMENT_ID)
     });
-    console.log(`    ✅ Deleted ${deleteResult.deletedCount} matches`);
+    console.log(`   ✅ Deleted ${del.deletedCount} matches`);
 
-    // Step 2: Mark eliminated teams
-    console.log("\n  Step 2: Marking eliminated teams...");
-    let eliminatedCount = 0;
-    for (const teamId of eliminatedTeamIds) {
-        await db.collection("teams").updateOne(
-            { _id: new mongoose.Types.ObjectId(teamId) },
-            { $set: { status: "eliminated" } }
-        );
-        eliminatedCount++;
-    }
-    console.log(`    ✅ Marked ${eliminatedCount} teams as eliminated`);
+    // Reset ALL teams to active first, then mark eliminated after applying results
+    await db.collection("teams").updateMany(
+        { tournament: new mongoose.Types.ObjectId(TOURNAMENT_ID) },
+        { $set: { status: "active", "stats.played": 0, "stats.wins": 0, "stats.draws": 0, "stats.losses": 0, "stats.goalsFor": 0, "stats.goalsAgainst": 0, "stats.points": 0 } }
+    );
 
-    // Step 3: Generate new bracket with remaining active teams
-    console.log("\n  Step 3: Generating new bracket for active teams...");
-
-    const activeTeams = await db.collection("teams").find({
-        tournament: new mongoose.Types.ObjectId(TOURNAMENT_ID),
-        status: "active"
-    }).toArray();
-
-    console.log(`    Active teams: ${activeTeams.length}`);
-
-    const N = activeTeams.length;
-    if (N < 2) {
-        console.error("    ❌ Less than 2 active teams! Cannot generate bracket.");
-        await mongoose.disconnect();
-        return;
-    }
-
-    // Shuffle teams randomly for new bracket
-    const shuffled = [...activeTeams].sort(() => Math.random() - 0.5);
-
-    let S = 2;
-    while (S < N) S *= 2;
-    const totalRounds = Math.log2(S);
-
-    console.log(`    Bracket size: ${S} (${totalRounds} rounds)`);
-    console.log(`    Byes: ${S - N}`);
-    console.log(`    Real matches: ${N - 1}`);
-
-    // Standard seeding order
-    const getSeedOrder = (size: number): number[] => {
-        let order = [1];
-        while (order.length < size) {
-            const nextSize = order.length * 2;
-            order = order.flatMap(s => [s, nextSize + 1 - s]);
-        }
-        return order;
-    };
-    const seedOrder = getSeedOrder(S);
-
-    // Place teams in slots
-    const teamSlots = new Array(S).fill(null);
-    for (let i = 0; i < N; i++) {
-        const slotIndex = seedOrder.indexOf(i + 1);
-        teamSlots[slotIndex] = shuffled[i];
-    }
+    console.log("\n🚀 Step 2: Creating bracket...");
 
     const getRoundName = (r: number, max: number, size: number) => {
         if (r === max) return "Chung kết";
         if (r === max - 1) return "Bán kết";
         if (r === max - 2) return "Tứ kết";
-        const teamsInRound = size / Math.pow(2, r - 1);
-        return `Vòng ${teamsInRound}`;
+        return `Vòng ${size / Math.pow(2, r - 1)}`;
     };
 
-    const tId = TOURNAMENT_ID;
-    const matchesMap = new Map<number, Map<number, any>>();
-    let totalCreated = 0;
+    const tOid = new mongoose.Types.ObjectId(TOURNAMENT_ID);
+    const matchesMap = new Map<number, Map<number, any>>(); // round → matchIdx → doc
 
     // Pre-create Round 2+ matches
     for (let r = 2; r <= totalRounds; r++) {
         matchesMap.set(r, new Map());
-        const matchCount = S / Math.pow(2, r);
-        for (let i = 0; i < matchCount; i++) {
-            const result = await db.collection("matches").insertOne({
-                tournament: new mongoose.Types.ObjectId(tId),
-                round: r,
-                roundName: getRoundName(r, totalRounds, S),
-                matchNumber: i + 1,
-                homeTeam: null,
-                awayTeam: null,
-                homeScore: null,
-                awayScore: null,
-                winner: null,
-                status: "scheduled",
-                bracketPosition: { x: r - 1, y: i },
-                leg: 1,
-                events: [],
-                resultSubmissions: [],
-                screenshots: [],
-                createdAt: new Date(),
-                updatedAt: new Date(),
+        const count = S / Math.pow(2, r);
+        for (let i = 0; i < count; i++) {
+            const res = await db.collection("matches").insertOne({
+                tournament: tOid, round: r, roundName: getRoundName(r, totalRounds, S),
+                matchNumber: i + 1, homeTeam: null, awayTeam: null,
+                homeScore: null, awayScore: null, winner: null, status: "scheduled",
+                bracketPosition: { x: r - 1, y: i }, leg: 1,
+                events: [], resultSubmissions: [], screenshots: [],
+                createdAt: new Date(), updatedAt: new Date(),
             });
-            matchesMap.get(r)!.set(i, { _id: result.insertedId, matchNumber: i + 1 });
-            totalCreated++;
+            matchesMap.get(r)!.set(i, { _id: res.insertedId });
         }
     }
 
-    // Create Round 1 matches (including BYEs)
+    // Create Round 1 matches
     matchesMap.set(1, new Map());
-    let byeCount = 0;
-    let realMatchCount = 0;
+    let byeCount = 0, realCount = 0;
 
     for (let i = 0; i < S / 2; i++) {
-        const teamA = teamSlots[i * 2];
-        const teamB = teamSlots[i * 2 + 1];
-
+        const tA = seedList[i * 2];
+        const tB = seedList[i * 2 + 1];
         const nextIdx = Math.floor(i / 2);
         const side = i % 2 === 0 ? "homeTeam" : "awayTeam";
         const r2Match = matchesMap.get(2)!.get(nextIdx);
 
-        if (teamA && teamB) {
-            // Both teams → real match
-            const result = await db.collection("matches").insertOne({
-                tournament: new mongoose.Types.ObjectId(tId),
-                round: 1,
-                roundName: getRoundName(1, totalRounds, S),
-                matchNumber: i + 1,
-                homeTeam: teamA._id,
-                awayTeam: teamB._id,
-                homeScore: null,
-                awayScore: null,
-                winner: null,
-                status: "scheduled",
-                bracketPosition: { x: 0, y: i },
-                nextMatch: r2Match._id,
-                leg: 1,
-                events: [],
-                resultSubmissions: [],
-                screenshots: [],
-                createdAt: new Date(),
-                updatedAt: new Date(),
-            });
-            matchesMap.get(1)!.set(i, { _id: result.insertedId });
-            totalCreated++;
-            realMatchCount++;
-        } else if (teamA || teamB) {
-            // One team → BYE
-            const byeTeam = teamA || teamB;
-            const result = await db.collection("matches").insertOne({
-                tournament: new mongoose.Types.ObjectId(tId),
-                round: 1,
-                roundName: getRoundName(1, totalRounds, S),
-                matchNumber: i + 1,
-                homeTeam: byeTeam._id,
-                awayTeam: null,
-                homeScore: 0,
-                awayScore: 0,
-                winner: byeTeam._id,
-                status: "bye",
-                bracketPosition: { x: 0, y: i },
-                nextMatch: r2Match._id,
-                leg: 1,
-                events: [],
-                resultSubmissions: [],
-                screenshots: [],
-                createdAt: new Date(),
-                updatedAt: new Date(),
-            });
-            matchesMap.get(1)!.set(i, { _id: result.insertedId });
-            totalCreated++;
-            byeCount++;
+        if (tA && tB) {
+            const aOid = new mongoose.Types.ObjectId(tA);
+            const bOid = new mongoose.Types.ObjectId(tB);
 
-            // Auto-promote bye team to Round 2
-            await db.collection("matches").updateOne(
-                { _id: r2Match._id },
-                { $set: { [side]: byeTeam._id } }
+            // Check if this pair has a known result
+            const result = allMatchResults.find(
+                r => (r.homeId === tA && r.awayId === tB) || (r.homeId === tB && r.awayId === tA)
             );
+
+            let status = "scheduled", hScore: any = null, aScore: any = null, winner: any = null;
+            let homeId = aOid, awayId = bOid;
+
+            if (result) {
+                homeId = new mongoose.Types.ObjectId(result.homeId);
+                awayId = new mongoose.Types.ObjectId(result.awayId);
+                hScore = result.hScore;
+                aScore = result.aScore;
+                winner = hScore > aScore ? homeId : awayId;
+                status = "completed";
+
+                // Advance winner to R2
+                await db.collection("matches").updateOne(
+                    { _id: r2Match._id },
+                    { $set: { [side]: winner } }
+                );
+
+                // Update team stats
+                await updateTeamStats(db, homeId.toString(), awayId.toString(), hScore, aScore);
+            }
+
+            const res = await db.collection("matches").insertOne({
+                tournament: tOid, round: 1, roundName: getRoundName(1, totalRounds, S),
+                matchNumber: i + 1, homeTeam: homeId, awayTeam: awayId,
+                homeScore: hScore, awayScore: aScore, winner, status,
+                bracketPosition: { x: 0, y: i }, nextMatch: r2Match._id, leg: 1,
+                events: [], resultSubmissions: [], screenshots: [],
+                completedAt: status === "completed" ? new Date() : undefined,
+                createdAt: new Date(), updatedAt: new Date(),
+            });
+            matchesMap.get(1)!.set(i, { _id: res.insertedId });
+            realCount++;
+        } else if (tA || tB) {
+            const byeTeamId = new mongoose.Types.ObjectId((tA || tB)!);
+            const res = await db.collection("matches").insertOne({
+                tournament: tOid, round: 1, roundName: getRoundName(1, totalRounds, S),
+                matchNumber: i + 1, homeTeam: byeTeamId, awayTeam: null,
+                homeScore: 0, awayScore: 0, winner: byeTeamId, status: "bye",
+                bracketPosition: { x: 0, y: i }, nextMatch: r2Match._id, leg: 1,
+                events: [], resultSubmissions: [], screenshots: [],
+                createdAt: new Date(), updatedAt: new Date(),
+            });
+            matchesMap.get(1)!.set(i, { _id: res.insertedId });
+            byeCount++;
+            await db.collection("matches").updateOne({ _id: r2Match._id }, { $set: { [side]: byeTeamId } });
         }
     }
 
-    // Link Round 2+ matches to their successors (nextMatch)
+    // Link Round 2+ nextMatch
     for (let r = 2; r < totalRounds; r++) {
-        const roundMatches = matchesMap.get(r)!;
-        for (const [idx, match] of roundMatches.entries()) {
+        for (const [idx, match] of matchesMap.get(r)!.entries()) {
             const nextIdx = Math.floor(idx / 2);
             const nextMatch = matchesMap.get(r + 1)!.get(nextIdx);
             await db.collection("matches").updateOne(
@@ -320,67 +327,96 @@ async function apply() {
         }
     }
 
-    console.log(`    ✅ Created ${totalCreated} matches`);
-    console.log(`       Real matches: ${realMatchCount}`);
-    console.log(`       Bye matches: ${byeCount}`);
-    console.log(`       Later rounds: ${totalCreated - realMatchCount - byeCount}`);
+    // Now apply results to Round 2+ matches
+    console.log("\n🚀 Step 3: Applying results to higher rounds...");
+    let appliedHigherRounds = 0;
 
-    // Step 4: Reset stats for active teams (fresh start for new bracket)
-    console.log("\n  Step 4: Resetting stats for active teams (new bracket = fresh start)...");
-    const resetResult = await db.collection("teams").updateMany(
-        {
-            tournament: new mongoose.Types.ObjectId(TOURNAMENT_ID),
-            status: "active"
-        },
-        {
-            $set: {
-                "stats.played": 0,
-                "stats.wins": 0,
-                "stats.draws": 0,
-                "stats.losses": 0,
-                "stats.goalsFor": 0,
-                "stats.goalsAgainst": 0,
-                "stats.points": 0,
+    for (let r = 2; r <= totalRounds; r++) {
+        for (const [idx, match] of matchesMap.get(r)!.entries()) {
+            const doc = await db.collection("matches").findOne({ _id: match._id });
+            if (!doc || !doc.homeTeam || !doc.awayTeam) continue;
+
+            const hId = doc.homeTeam.toString();
+            const aId = doc.awayTeam.toString();
+
+            const result = allMatchResults.find(
+                mr => (mr.homeId === hId && mr.awayId === aId) || (mr.homeId === aId && mr.awayId === hId)
+            );
+
+            if (result) {
+                const isFlipped = result.homeId === aId;
+                const hScore = isFlipped ? result.aScore : result.hScore;
+                const aScore = isFlipped ? result.hScore : result.aScore;
+                const winnerId = new mongoose.Types.ObjectId(
+                    result.hScore > result.aScore ? result.homeId : result.awayId
+                );
+
+                await db.collection("matches").updateOne({ _id: match._id }, {
+                    $set: { homeScore: hScore, awayScore: aScore, winner: winnerId, status: "completed", completedAt: new Date() }
+                });
+
+                // Advance winner to next round
+                if (r < totalRounds) {
+                    const nextIdx = Math.floor(idx / 2);
+                    const nextSide = idx % 2 === 0 ? "homeTeam" : "awayTeam";
+                    const nextMatch = matchesMap.get(r + 1)!.get(nextIdx);
+                    await db.collection("matches").updateOne(
+                        { _id: nextMatch._id },
+                        { $set: { [nextSide]: winnerId } }
+                    );
+                }
+
+                await updateTeamStats(db, result.homeId, result.awayId, result.hScore, result.aScore);
+                appliedHigherRounds++;
             }
         }
-    );
-    console.log(`    ✅ Reset stats for ${resetResult.modifiedCount} teams`);
+    }
 
-    // ════════════════════════════════════════
-    // SUMMARY
-    // ════════════════════════════════════════
+    console.log(`   ✅ Applied ${appliedHigherRounds} results to higher rounds`);
+
+    // Mark eliminated teams
+    console.log("\n🚀 Step 4: Marking eliminated teams...");
+    const completedMatches = await db.collection("matches").find({
+        tournament: tOid, status: "completed"
+    }).toArray();
+
+    let elimCount = 0;
+    for (const m of completedMatches) {
+        if (!m.winner || !m.homeTeam || !m.awayTeam) continue;
+        const loserId = m.winner.toString() === m.homeTeam.toString() ? m.awayTeam : m.homeTeam;
+        await db.collection("teams").updateOne(
+            { _id: loserId },
+            { $set: { status: "eliminated" } }
+        );
+        elimCount++;
+    }
+    console.log(`   ✅ Eliminated ${elimCount} teams`);
+
+    // Count results
+    const finalCompleted = await db.collection("matches").countDocuments({ tournament: tOid, status: "completed" });
+    const finalTotal = await db.collection("matches").countDocuments({ tournament: tOid, status: { $ne: "bye" } });
+
     console.log("\n" + "=".repeat(80));
     console.log("  ✅ RESTORATION COMPLETE!");
+    console.log(`  ${finalCompleted}/${finalTotal} matches completed`);
+    console.log(`  ${elimCount} teams eliminated`);
     console.log("=".repeat(80));
-    console.log(`
-  Summary:
-    ✅ Deleted ${deleteResult.deletedCount} wrong matches
-    ✅ Eliminated ${eliminatedCount} teams
-    ✅ Generated new bracket: ${totalCreated} matches
-       - ${realMatchCount} real matches (Round 1)
-       - ${byeCount} byes
-       - ${totalCreated - realMatchCount - byeCount} later round slots
-    ✅ ${activeTeams.length} teams continue in the tournament
-
-  What to do next:
-    1. Open the tournament bracket page
-    2. Verify the bracket looks correct
-    3. Manager can start entering match results
-    4. Review partially resolved matches (${recoveryData.summary.partiallyResolved})
-       for any teams that should be eliminated but weren't identified
-
-  ⚠️ NOTES:
-    - Teams that were eliminated but NOT identified in recovery data
-      may still be "active" in the bracket. Manager should review.
-    - Old match history is preserved in tournament_recovery_v2.json
-    - Notifications with old results are still in the database
-    `);
 
     await mongoose.disconnect();
-    console.log("✅ Done.");
 }
 
-apply().catch(err => {
-    console.error("❌ Error:", err);
-    process.exit(1);
-});
+async function updateTeamStats(db: any, homeId: string, awayId: string, hScore: number, aScore: number) {
+    const winnerId = hScore > aScore ? homeId : awayId;
+    const loserId = hScore > aScore ? awayId : homeId;
+
+    await db.collection("teams").updateOne(
+        { _id: new mongoose.Types.ObjectId(winnerId) },
+        { $inc: { "stats.played": 1, "stats.wins": 1, "stats.goalsFor": hScore > aScore ? hScore : aScore, "stats.goalsAgainst": hScore > aScore ? aScore : hScore, "stats.points": 3 } }
+    );
+    await db.collection("teams").updateOne(
+        { _id: new mongoose.Types.ObjectId(loserId) },
+        { $inc: { "stats.played": 1, "stats.losses": 1, "stats.goalsFor": hScore > aScore ? aScore : hScore, "stats.goalsAgainst": hScore > aScore ? hScore : aScore } }
+    );
+}
+
+apply().catch(err => { console.error("❌", err); process.exit(1); });
