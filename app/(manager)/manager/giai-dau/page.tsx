@@ -9,7 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
-    Trophy, Plus, Search, Eye, Users, Flame, Clock, CheckCircle2,
+    Trophy, Plus, Search, Eye, EyeOff, Users, Flame, Clock, CheckCircle2,
     Loader2, Trash2, Edit, ExternalLink, CalendarPlus, ArrowRight,
     FileX, ChevronLeft, ChevronRight, Gamepad2, MapPin, CreditCard,
     Calendar, RefreshCw, BarChart3, Wifi, ArrowUpDown, KeyRound, X
@@ -422,6 +422,12 @@ export default function ManagerGiaiDauPage() {
                                             <span className="inline-flex items-center gap-1 text-[9px] font-bold bg-indigo-100 text-indigo-700 px-1.5 py-0.5 rounded">
                                                 <Users className="w-2.5 h-2.5" />
                                                 Cộng tác
+                                            </span>
+                                        )}
+                                        {t.isPublic === false && (
+                                            <span className="inline-flex items-center gap-1 text-[9px] font-bold bg-orange-100 text-orange-600 px-1.5 py-0.5 rounded">
+                                                <EyeOff className="w-2.5 h-2.5" />
+                                                Đã ẩn
                                             </span>
                                         )}
                                         <Link href={isShared ? `/manager/giai-dau/${t._id}/lich` : `/manager/giai-dau/${t._id}`}>

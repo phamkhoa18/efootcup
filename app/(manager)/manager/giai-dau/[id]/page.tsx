@@ -5,7 +5,7 @@ import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, CheckCircle2, Clock, Edit3, Flame, Loader2, Pause, Play, Settings, Trophy, Users, AlertCircle, Ban, Eye, FileText, Calendar, Gamepad2, Bone, Hexagon, SplitSquareHorizontal, MapPin, Globe, DollarSign, X, Crown, Award, Camera, ImageIcon } from "lucide-react";
+import { ArrowLeft, CheckCircle2, Clock, Edit3, Flame, Loader2, Pause, Play, Settings, Trophy, Users, AlertCircle, Ban, Eye, EyeOff, FileText, Calendar, Gamepad2, Bone, Hexagon, SplitSquareHorizontal, MapPin, Globe, DollarSign, X, Crown, Award, Camera, ImageIcon } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useAuth } from "@/contexts/AuthContext";
 import { tournamentAPI } from "@/lib/api";
@@ -178,6 +178,27 @@ export default function TournamentDetailPage() {
         }
     };
 
+    const [isTogglingVisibility, setIsTogglingVisibility] = useState(false);
+
+    const handleToggleVisibility = async () => {
+        setIsTogglingVisibility(true);
+        const newValue = !data.tournament.isPublic;
+        try {
+            const res = await tournamentAPI.update(id, { isPublic: newValue });
+            if (res.success) {
+                setData((prev: any) => ({
+                    ...prev,
+                    tournament: { ...prev.tournament, isPublic: newValue },
+                }));
+                toast.success(newValue ? "Giải đấu đã được hiện trên trang công khai" : "Giải đấu đã được ẩn khỏi trang công khai");
+            }
+        } catch {
+            toast.error("Có lỗi xảy ra khi thay đổi trạng thái hiển thị");
+        } finally {
+            setIsTogglingVisibility(false);
+        }
+    };
+
     if (isLoading) {
         return (
             <div className="flex items-center justify-center min-h-[60vh]">
@@ -344,6 +365,48 @@ export default function TournamentDetailPage() {
                             Đã trao điểm EFV
                         </span>
                     )}
+                </div>
+            </div>
+
+            {/* Visibility Toggle */}
+            <div className="card-white p-5">
+                <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                        <div className={`w-10 h-10 rounded-xl flex items-center justify-center transition-colors ${t.isPublic !== false ? 'bg-emerald-50 text-emerald-600' : 'bg-orange-50 text-orange-500'}`}>
+                            {t.isPublic !== false ? <Eye className="w-5 h-5" /> : <EyeOff className="w-5 h-5" />}
+                        </div>
+                        <div>
+                            <h3 className="text-sm font-semibold text-efb-dark">
+                                {t.isPublic !== false ? 'Đang hiển thị công khai' : 'Đang ẩn khỏi công khai'}
+                            </h3>
+                            <p className="text-xs text-efb-text-muted mt-0.5">
+                                {t.isPublic !== false
+                                    ? 'Giải đấu đang hiện trên trang giải đấu công khai (/giai-dau)'
+                                    : 'Giải đấu đang bị ẩn, không hiển thị trên trang công khai'}
+                            </p>
+                        </div>
+                    </div>
+                    <button
+                        onClick={handleToggleVisibility}
+                        disabled={isTogglingVisibility}
+                        className={`relative inline-flex h-7 w-[52px] flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-300 ease-in-out focus:outline-none focus-visible:ring-2 focus-visible:ring-efb-blue focus-visible:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed ${
+                            t.isPublic !== false ? 'bg-emerald-500' : 'bg-gray-300'
+                        }`}
+                        role="switch"
+                        aria-checked={t.isPublic !== false}
+                        aria-label="Ẩn/Hiện giải đấu"
+                    >
+                        <span
+                            className={`pointer-events-none inline-block h-[22px] w-[22px] transform rounded-full bg-white shadow-lg ring-0 transition-transform duration-300 ease-in-out mt-[1px] ${
+                                t.isPublic !== false ? 'translate-x-[25px]' : 'translate-x-[2px]'
+                            }`}
+                        />
+                        {isTogglingVisibility && (
+                            <span className="absolute inset-0 flex items-center justify-center">
+                                <Loader2 className="w-3.5 h-3.5 animate-spin text-white" />
+                            </span>
+                        )}
+                    </button>
                 </div>
             </div>
 
