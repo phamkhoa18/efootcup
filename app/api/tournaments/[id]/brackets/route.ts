@@ -56,6 +56,17 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
             return apiError(msg, 400);
         }
 
+        // 🛡️ CRITICAL: Block force regeneration when significant data exists
+        if (completedMatches > 10 && forceRegenerate) {
+            console.error(`🚫 [BRACKETS] BLOCKED force regeneration for tournament ${id}. ${completedMatches} completed matches would be lost! User: ${authResult.user._id}`);
+            return apiError(
+                `🚫 KHÔNG THỂ TẠO LẠI: Giải đấu đã có ${completedMatches} trận hoàn thành. ` +
+                `Tạo lại bracket sẽ XÓA TOÀN BỘ dữ liệu và KHÔNG THỂ KHÔI PHỤC. ` +
+                `Nếu cần khôi phục, liên hệ admin để sử dụng script phục hồi chuyên dụng.`,
+                403
+            );
+        }
+
         if (completedMatches > 0 && forceRegenerate) {
             console.warn(`⚠️ [BRACKETS] Force regeneration for tournament ${id}. Deleting ${existingMatches} matches (${completedMatches} completed) by user ${authResult.user._id} at ${new Date().toISOString()}`);
         }

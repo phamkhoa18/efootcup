@@ -45,6 +45,7 @@ export default function LichThiDauPage() {
     const [allTeams, setAllTeams] = useState<any[]>([]);
     const [seedSearchTerm, setSeedSearchTerm] = useState('');
     const [matchSearchTerm, setMatchSearchTerm] = useState('');
+    const [isExporting, setIsExporting] = useState(false);
     const { confirm, alert: showAlert } = useConfirmDialog();
 
     const handleDownloadPDF = async () => {
@@ -343,6 +344,39 @@ export default function LichThiDauPage() {
         return true;
     };
 
+    const handleExportPlayers = async () => {
+        setIsExporting(true);
+        try {
+            const token = localStorage.getItem("efootcup_token");
+            const res = await fetch(`/api/tournaments/${id}/export-players`, {
+                headers: token ? { Authorization: `Bearer ${token}` } : {},
+            });
+            if (!res.ok) {
+                const err = await res.json().catch(() => null);
+                toast.error(err?.message || "Không thể tải danh sách");
+                return;
+            }
+            const blob = await res.blob();
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement("a");
+            a.href = url;
+            // Extract filename from Content-Disposition or fallback
+            const cd = res.headers.get("Content-Disposition");
+            const fnMatch = cd?.match(/filename="?(.+?)"?$/);
+            a.download = fnMatch?.[1] ? decodeURIComponent(fnMatch[1]) : `DS_VDV_${id}.xlsx`;
+            document.body.appendChild(a);
+            a.click();
+            a.remove();
+            URL.revokeObjectURL(url);
+            toast.success("Đã tải danh sách VĐV!");
+        } catch (err) {
+            console.error("Export error:", err);
+            toast.error("Có lỗi xảy ra khi tải");
+        } finally {
+            setIsExporting(false);
+        }
+    };
+
     if (isLoading) {
         return (
             <div className="flex items-center justify-center min-h-[60vh]">
@@ -359,7 +393,16 @@ export default function LichThiDauPage() {
                     <div className="w-1 h-6 bg-blue-600 rounded-full" />
                     <h1 className="text-xl font-bold text-gray-900">Lịch thi đấu</h1>
                 </div>
-                <div className="flex gap-2">
+                <div className="flex gap-2 flex-wrap">
+                    <Button
+                        onClick={handleExportPlayers}
+                        disabled={isExporting}
+                        variant="outline"
+                        className="border-emerald-200 text-emerald-700 hover:bg-emerald-50 rounded-md h-9 text-sm font-semibold shadow-sm"
+                    >
+                        {isExporting ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <FileBarChart className="w-4 h-4 mr-2 text-emerald-500" />}
+                        Export DS VĐV
+                    </Button>
                     <Button
                         onClick={openGenerateModal}
                         variant="outline"
