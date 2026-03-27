@@ -13,21 +13,21 @@ export default async function MainLayout({
     const settings = await getSiteSettings();
 
     if (settings.maintenanceMode) {
-        let isAdmin = false;
+        let canBypass = false;
         try {
             const cookieStore = await cookies();
             const token = cookieStore.get("token")?.value;
             if (token) {
                 const user = verifyToken(token);
-                if (user?.role === "admin") {
-                    isAdmin = true;
+                if (user?.role === "admin" || user?.role === "manager") {
+                    canBypass = true;
                 }
             }
         } catch (e) {
             console.error("Lỗi parse cookies", e);
         }
 
-        if (!isAdmin) {
+        if (!canBypass) {
             return <MaintenanceView />;
         }
     }

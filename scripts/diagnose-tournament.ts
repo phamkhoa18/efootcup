@@ -133,14 +133,14 @@ async function diagnose() {
         console.log(`  Members: ${serverStatus.members?.length}`);
         
         // Try to read oplog for deleted matches
-        const localDb = mongoose.connection.client.db("local");
+        const localDb = (mongoose.connection as any).client.db("local");
         const oplog = localDb.collection("oplog.rs");
         
         const deletedOps = await oplog.find({
             ns: /matches/,
             op: "d", // delete operation
             "o._id": { $exists: true },
-            ts: { $gte: new mongoose.Types.Timestamp({ t: Math.floor(Date.now() / 1000) - 86400 * 7, i: 0 }) } // last 7 days
+            ts: { $gte: new mongoose.mongo.Timestamp({ t: Math.floor(Date.now() / 1000) - 86400 * 7, i: 0 }) } // last 7 days
         }).limit(5).toArray();
         
         if (deletedOps.length > 0) {
