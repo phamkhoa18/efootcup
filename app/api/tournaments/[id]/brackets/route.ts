@@ -26,20 +26,39 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
 
         const id = tournament._id;
         const isOwner = tournament.createdBy.toString() === authResult.user._id;
-        const isCollaborator = (tournament.collaborators || []).some(
-            (c: any) => c.userId.toString() === authResult.user._id
-        );
-        if (!isOwner && !isCollaborator)
-            return apiError("Không có quyền", 403);
 
-        // Parse optional seeds from request body
+        // 🛡️ FIX: Chỉ owner mới được tạo/tạo lại bracket - collaborator KHÔNG được phép
+        if (!isOwner) {
+            return apiError("Chỉ chủ giải mới có quyền tạo lịch thi đấu. Cộng tác viên chỉ có thể nhập kết quả trận đấu.", 403);
+        }
+
+        // Parse optional seeds and force flag from request body
         let seeds: string[] = [];
+        let forceRegenerate = false;
         try {
             const body = await req.json();
             if (body?.seeds && Array.isArray(body.seeds)) {
                 seeds = body.seeds;
             }
+            if (body?.force === true) {
+                forceRegenerate = true;
+            }
         } catch { }
+
+        // 🛡️ FIX: Ngăn tạo lại bracket khi giải đang diễn ra và đã có trận hoàn thành
+        const existingMatches = await Match.countDocuments({ tournament: id });
+        const completedMatches = await Match.countDocuments({ tournament: id, status: "completed" });
+
+        if (existingMatches > 0 && !forceRegenerate) {
+            const msg = completedMatches > 0
+                ? `⚠️ Giải đấu đã có ${existingMatches} trận đấu (${completedMatches} trận đã hoàn thành). Tạo lại lịch sẽ XÓA TOÀN BỘ kết quả. Liên hệ chủ giải nếu cần thiết.`
+                : `Giải đấu đã có ${existingMatches} trận đấu. Gửi lại request với force: true để xác nhận tạo lại.`;
+            return apiError(msg, 400);
+        }
+
+        if (completedMatches > 0 && forceRegenerate) {
+            console.warn(`⚠️ [BRACKETS] Force regeneration for tournament ${id}. Deleting ${existingMatches} matches (${completedMatches} completed) by user ${authResult.user._id} at ${new Date().toISOString()}`);
+        }
 
         // Reset any previously eliminated teams back to active
         await Team.updateMany(
