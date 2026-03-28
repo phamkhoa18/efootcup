@@ -1,0 +1,18 @@
+﻿Total submissions: 473
+Old bracket: 469, New bracket (post-regen): 4
+Unique matches (old bracket): 356
+Teams in DB: 566
+
+====== COMPREHENSIVE RESULTS ======
+Total teams: 566
+Bracket size: 1024 (next power of 2 >= 566)
+BYEs needed: 458
+Unique matches recovered: 356
+---
+ELIMINATED (confirmed losers): 346
+ACTIVE (confirmed winners only): 175
+NO MATCH DATA (BYE/not played): 43
+UNKNOWN (need manual check): 2
+
+âœ… Excel: scripts/tournament-recovery-FINAL.xlsx
+JSON: scripts/recovery-data-final.json

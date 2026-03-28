@@ -1,0 +1,12 @@
+﻿Teams: 566 | Notifs: 458 | Parsed: 458 | Deduped: 356
+Pass 1: 8 new resolutions (total: 8/356)
+Pass 2: 0 new resolutions (total: 8/356)
+
+=== RESULTS ===
+Resolved: 8/356
+Eliminated: 8
+Active (confirmed wins): 8
+BYE: 77
+Never mentioned: 550
+
+Excel saved: scripts/tournament-recovery-report.xlsx

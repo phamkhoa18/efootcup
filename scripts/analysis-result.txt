@@ -1,0 +1,588 @@
+=== TOURNAMENT ===
+Title: EFV500 - EFOOTBALL MOBILE - SEASON 1
+Status: ongoing
+Teams: 566 / 1024
+Format: single_elimination
+
+=== ALL MATCHES: 255 ===
+
+=== TRUSTED COMPLETED (before cutoff): 0 ===
+
+=== CREATED AFTER CUTOFF (untrusted): 0 ===
+
+=== TEAMS: 566 ===
+Active: 179 | Eliminated: 387
+
+--- ACTIVE TEAMS ---
+69bd4eefd4d24902b39dbe55 | Tây Nam Bộ Esport Team | S:- | W:0 D:0 L:0
+69bd4f66d4d24902b39dc275 | Phạm Bằng Việt | S:- | W:0 D:0 L:0
+69bd4fa1d4d24902b39dc463 | Undefeated | S:- | W:0 D:0 L:0
+69bd5012d4d24902b39dc852 | UND TEAM | S:- | W:0 D:0 L:0
+69bd50f8d4d24902b39dcf0a | Vu Quoc Trung | S:- | W:0 D:0 L:0
+69bd5135159e7077fce12f0d | Đặng Hồng Quân | S:- | W:0 D:0 L:0
+69bd5145159e7077fce13038 | Pham Quang Duy | S:- | W:0 D:0 L:0
+69bd5156159e7077fce13124 | HaNoi Efootball (HNEF) | S:- | W:0 D:0 L:0
+69bd5191159e7077fce13394 | Nguyễn Văn Nam Anh | S:- | W:0 D:0 L:0
+69bd519c159e7077fce13472 | DeatX Team | S:- | W:0 D:0 L:0
+69bd51a6159e7077fce13549 | Shadow Owl Spirit | S:- | W:0 D:0 L:0
+69bd51c7159e7077fce137a4 | Minh anh | S:- | W:0 D:0 L:0
+69bd51da159e7077fce1385f | Nguyễn Văn Tuấn | S:- | W:0 D:0 L:0
+69bd5213159e7077fce13a5f | FlashEfootball | S:- | W:0 D:0 L:0
+69bd5216159e7077fce13a94 | Thế Thế | S:- | W:0 D:0 L:0
+69bd528b159e7077fce13f21 | Flash Wolves Soccer | S:- | W:0 D:0 L:0
+69bd534d159e7077fce14862 | Pes UTC | S:- | W:0 D:0 L:0
+69bd535c159e7077fce14920 | SOS | S:- | W:0 D:0 L:0
+69bd5360159e7077fce14943 | TNB | S:- | W:0 D:0 L:0
+69bd5362159e7077fce14966 | TON (Thầy Ông Nội) | S:3 | W:0 D:0 L:0
+69bd5378159e7077fce14a1a | Fog Team | S:- | W:0 D:0 L:0
+69bd53f1159e7077fce14e07 | N.V.TOẢN | S:- | W:0 D:0 L:0
+69bd543b159e7077fce1509d | PHOENIX FC | S:- | W:0 D:0 L:0
+69bd5454159e7077fce151c1 | nguyễn tuấn tú | S:- | W:0 D:0 L:0
+69bd5477159e7077fce152df | HaNoi Efootball Team | S:- | W:0 D:0 L:0
+69bd5573159e7077fce15ada | Flash Wolves Soccer | S:- | W:0 D:0 L:0
+69bd557b159e7077fce15b46 | Phạm Minh Hưng | S:- | W:0 D:0 L:0
+69bd5582159e7077fce15ba0 | UNDEFEATED | S:- | W:0 D:0 L:0
+69bd5617159e7077fce15f0f | Đào Tùng Dương | S:- | W:0 D:0 L:0
+69bd56c8159e7077fce16378 | Flash Wolves FC | S:5 | W:0 D:0 L:0
+69bd5709159e7077fce1655b | Thép Xanh Nam Định | S:- | W:0 D:0 L:0
+69bd5710159e7077fce165a0 | MRPES | S:- | W:0 D:0 L:0
+69bd571e159e7077fce165f2 | NTFC | S:- | W:0 D:0 L:0
+69bd5845159e7077fce16eab | Phoenix Fc | S:- | W:0 D:0 L:0
+69bd58e9159e7077fce1730e | Hưng Phòng Fc | S:- | W:0 D:0 L:0
+69bd58f2159e7077fce17379 | Shadow Owl Spirit | S:- | W:0 D:0 L:0
+69bd595d159e7077fce176f3 | Thanh Tân | S:- | W:0 D:0 L:0
+69bd5a38159e7077fce17d19 | Phoenix Fc | S:- | W:0 D:0 L:0
+69bd5a50159e7077fce17e76 | TNB | S:- | W:0 D:0 L:0
+69bd5ae1159e7077fce182f9 | VNPL | S:- | W:0 D:0 L:0
+69bd5c46159e7077fce18f12 | Young boy team | S:- | W:0 D:0 L:0
+69bd5d4f159e7077fce198fa | Chỉ Biết Chuyền | S:- | W:0 D:0 L:0
+69bd5d83159e7077fce19ab5 | Đỗ Hoàng Anh Tú | S:- | W:0 D:0 L:0
+69bd5e9a159e7077fce1a1a3 | Phạm Ngọc Khánh | S:- | W:0 D:0 L:0
+69bd5ea2159e7077fce1a225 | TANK | S:- | W:0 D:0 L:0
+69bd5ea4159e7077fce1a256 | Tạ Thành Trung | S:- | W:0 D:0 L:0
+69bd600b159e7077fce1ab49 | Huỳnh Văn Quý | S:- | W:0 D:0 L:0
+69bd6054159e7077fce1ad94 | VNPL | S:- | W:0 D:0 L:0
+69bd61f0159e7077fce1b7d3 | Black Panthers | S:- | W:0 D:0 L:0
+69bd623a159e7077fce1b956 | Văn Tùng Efootball | S:- | W:0 D:0 L:0
+69bd6291159e7077fce1bad2 | YOB | S:- | W:0 D:0 L:0
+69bd6364159e7077fce1bfac | Tank | S:- | W:0 D:0 L:0
+69bd6448159e7077fce1c3fe | HaNoi Efootball (HNEF) | S:- | W:0 D:0 L:0
+69bd6455159e7077fce1c49b | Phạm Duy | S:- | W:0 D:0 L:0
+69bd657e159e7077fce1cb5e | Phạm Phú Thái | S:- | W:0 D:0 L:0
+69bd67fc159e7077fce1dad1 | PES UTC | S:- | W:0 D:0 L:0
+69bd6869159e7077fce1dddb | VNPL | S:- | W:0 D:0 L:0
+69bd68d6159e7077fce1df12 | Đường Thạch Sơn | S:- | W:0 D:0 L:0
+69bd6a4c159e7077fce1e5ee | Thầy Ông Nội - TON | S:- | W:0 D:0 L:0
+69bd6c61159e7077fce1efe9 | Hồ Tấn Tài | S:- | W:0 D:0 L:0
+69bd6d53159e7077fce1f68f | VNPL | S:- | W:0 D:0 L:0
+69bd6d6f159e7077fce1f7cb | BUI HAI PHONG | S:- | W:0 D:0 L:0
+69bd6e29159e7077fce1fba0 | Đỗ Gia Huy | S:- | W:0 D:0 L:0
+69bd6e58159e7077fce1fcb2 | Luu Quang Trung | S:- | W:0 D:0 L:0
+69bd6fc5159e7077fce20483 | Luyện Hồng Sơn | S:- | W:0 D:0 L:0
+69bd70b1159e7077fce20aa4 | Nguyễn Hoàng Hiệp | S:- | W:0 D:0 L:0
+69bd71b0159e7077fce2101b | Trịnh Đức Anh | S:- | W:0 D:0 L:0
+69bd724a159e7077fce214bb | DeatX Team | S:- | W:0 D:0 L:0
+69bd7352159e7077fce219e2 | Hồ Thiên | S:- | W:0 D:0 L:0
+69bd748a159e7077fce21f1c | Viet Nam Premier League (VNPL) | S:- | W:0 D:0 L:0
+69bd759c159e7077fce224f4 | TANK | S:- | W:0 D:0 L:0
+69bd7bc3159e7077fce23af4 | le minh duc | S:- | W:0 D:0 L:0
+69bd7c3b159e7077fce23c17 | Fc mu | S:- | W:0 D:0 L:0
+69bd7ef2159e7077fce24414 | Lê Nhật Quang | S:- | W:0 D:0 L:0
+69bd8382159e7077fce24f56 | UTE | S:- | W:0 D:0 L:0
+69bd86c8159e7077fce2532a | Chỉ biết chuyền | S:- | W:0 D:0 L:0
+69bd96f1159e7077fce26504 | Phạm Minh Đức | S:- | W:0 D:0 L:0
+69bdb4ea159e7077fce27146 | Lê Thanh Nguyên | S:- | W:0 D:0 L:0
+69bdb554159e7077fce271be | Flash Wolves Soccer | S:- | W:0 D:0 L:0
+69bdce82159e7077fce27b5a | Flash Wolves Soccer | S:- | W:0 D:0 L:0
+69bdd13a159e7077fce27cc1 | Nguyễn Việt Tiến | S:- | W:0 D:0 L:0
+69bdd640159e7077fce28285 | Nguyễn Kim Thành | S:- | W:0 D:0 L:0
+69bdd71a159e7077fce2838f | Hoàng Huy | S:- | W:0 D:0 L:0
+69bde17f159e7077fce290ed | Nguyễn Tiến Thành | S:- | W:0 D:0 L:0
+69bde850159e7077fce2976b | TDS | S:- | W:0 D:0 L:0
+69bde860159e7077fce297b5 | Black Panthers | S:1 | W:0 D:0 L:0
+69bdeabb159e7077fce29ae3 | phạm gia hào | S:- | W:0 D:0 L:0
+69bdf1d4159e7077fce2ae2b | Tank team | S:- | W:0 D:0 L:0
+69bdfa0d159e7077fce2c0ad | myClub | S:- | W:0 D:0 L:0
+69bdfc33159e7077fce2c5a8 | Nguyễn Huy Thắng | S:- | W:0 D:0 L:0
+69bdfd35159e7077fce2c8e0 | UNDEFEATED | S:- | W:0 D:0 L:0
+69bdffc5159e7077fce2d288 | Trần Hoài Nam | S:- | W:0 D:0 L:0
+69be006d159e7077fce2d58e | Nguyễn Minh Đức | S:- | W:0 D:0 L:0
+69be0269159e7077fce2de1e | trần đinh quân | S:- | W:0 D:0 L:0
+69be08ed159e7077fce2f02e | Nguyễn Vinh Thành | S:- | W:0 D:0 L:0
+69be098a159e7077fce2f1cc | Fc Hiệp và Vũ | S:- | W:0 D:0 L:0
+69be10ef159e7077fce30723 | Phan Trọng Nhân | S:- | W:0 D:0 L:0
+69be1576159e7077fce313a8 | Do Khanh Duy | S:- | W:0 D:0 L:0
+69be16ca159e7077fce31905 | PG(PesGame) | S:- | W:0 D:0 L:0
+69be18ca159e7077fce31f8a | Đào Hữu Đạt | S:- | W:0 D:0 L:0
+69be1902159e7077fce320fc | LÊ VĂN TÂM | S:- | W:0 D:0 L:0
+69be1bf0159e7077fce32901 | HYDRA FC | S:- | W:0 D:0 L:0
+69be237c159e7077fce33c0c | Fc Hiệp và Vũ | S:- | W:0 D:0 L:0
+69be29d8159e7077fce34bef | Đinh Vũ Khánh Duy | S:- | W:0 D:0 L:0
+69be2b48159e7077fce34ec9 | Lý Kim Long | S:- | W:0 D:0 L:0
+69be2dea159e7077fce353fc | Quách Bảo Bo | S:- | W:0 D:0 L:0
+69be30da76321ffd810783e6 | Vietnam PremierLeague + | S:- | W:0 D:0 L:0
+69be36125398667343e4e6b0 | Trần Minh Thiện | S:- | W:0 D:0 L:0
+69be36625398667343e4e767 | MUVN | S:- | W:0 D:0 L:0
+69be3e9afd30bbe01f7d0436 | Flash Wolves Soccer | S:- | W:0 D:0 L:0
+69be449ffd30bbe01f7d1265 | VNPL | S:- | W:0 D:0 L:0
+69be45bd90e4293d040b3b65 | VNPL | S:6 | W:0 D:0 L:0
+69be4b713d7cc70b7fc04026 | Nguyễn Gia Huy | S:- | W:0 D:0 L:0
+69be4c843d7cc70b7fc042f7 | Hoàng nguyễn Nhật Nam | S:- | W:0 D:0 L:0
+69be57113d7cc70b7fc05c57 | Undefeated Esports | S:- | W:0 D:0 L:0
+69be5b113d7cc70b7fc06710 | Nguyễn Công Thiên | S:- | W:0 D:0 L:0
+69be5ca63d7cc70b7fc06afc | Hydra FC | S:- | W:0 D:0 L:0
+69be5cbe3d7cc70b7fc06b62 | HNEF | S:- | W:0 D:0 L:0
+69be5cc13d7cc70b7fc06b7e | Mr Pes | S:- | W:0 D:0 L:0
+69be668d3d7cc70b7fc07ec7 | Shadow Owl Spirit | S:- | W:0 D:0 L:0
+69be66c53d7cc70b7fc07fae | Lê Văn Điệp | S:- | W:0 D:0 L:0
+69be672d3d7cc70b7fc08079 | Golden Reign Team | S:- | W:0 D:0 L:0
+69be681e3d7cc70b7fc082d3 | Nguyễn Đặng Chí Nghĩa | S:- | W:0 D:0 L:0
+69be68c33d7cc70b7fc0843d | TANK team | S:- | W:0 D:0 L:0
+69be694b3d7cc70b7fc085d4 | Flash Wolves Soccer | S:- | W:0 D:0 L:0
+69be6b003d7cc70b7fc08940 | CBC | S:- | W:0 D:0 L:0
+69be70593d7cc70b7fc09693 | CNE | S:- | W:0 D:0 L:0
+69be761a3d7cc70b7fc09f35 | SOS | S:- | W:0 D:0 L:0
+69be7bb93d7cc70b7fc0ab4c | New Start United | S:- | W:0 D:0 L:0
+69be834b3d7cc70b7fc0b996 | I Just Wanna Dance | S:- | W:0 D:0 L:0
+69be83693d7cc70b7fc0b9e0 | Đỗ Cao Trí | S:- | W:0 D:0 L:0
+69be87a43d7cc70b7fc0c176 | SOS | S:- | W:0 D:0 L:0
+69be92f13d7cc70b7fc0d745 | VNPL | S:- | W:0 D:0 L:0
+69be98213d7cc70b7fc0e0f1 | 3inha1 | S:- | W:0 D:0 L:0
+69be9c283d7cc70b7fc0ea0b | HÀ VĂN TRƯỜNG | S:- | W:0 D:0 L:0
+69bea7c83d7cc70b7fc108dc | Tạ Quang Anh | S:- | W:0 D:0 L:0
+69bea87f3d7cc70b7fc10d4b | SOS | S:- | W:0 D:0 L:0
+69beab813d7cc70b7fc11532 | SOS | S:- | W:0 D:0 L:0
+69beb0e23d7cc70b7fc1228c | Hồ Thanh Huy | S:- | W:0 D:0 L:0
+69beb0e83d7cc70b7fc122a1 | Hồ Biên Cương | S:- | W:0 D:0 L:0
+69beb46d3d7cc70b7fc12d4e | UNDEFEATED FC | S:- | W:0 D:0 L:0
+69beb8523d7cc70b7fc13917 | Lô Thành | S:- | W:0 D:0 L:0
+69bec32f3d7cc70b7fc14e28 | Đặng thành đạt | S:- | W:0 D:0 L:0
+69bec96e3d7cc70b7fc1586c | Ma Viết Thắng | S:- | W:0 D:0 L:0
+69bedd523d7cc70b7fc16a77 | 108 Lương Sơn Bạc | S:- | W:0 D:0 L:0
+69bf13043d7cc70b7fc17945 | FC NKBT | S:- | W:0 D:0 L:0
+69bf44793d7cc70b7fc18ac9 | Flash Wolves Soccer | S:- | W:0 D:0 L:0
+69bf57113d7cc70b7fc1a1bf | Phạm Quốc Đạt | S:- | W:0 D:0 L:0
+69bf82913d7cc70b7fc1d7a1 | Nguyễn Thành Vinh | S:- | W:0 D:0 L:0
+69bf874e3d7cc70b7fc1de2f | Lê Hoàng Đức | S:- | W:0 D:0 L:0
+69bfa84a3d7cc70b7fc2082f | PHOENIX FC | S:- | W:0 D:0 L:0
+69bfb8a0f0792ab61162f4cc | FC NKBT | S:- | W:0 D:0 L:0
+69bfbe1ff0792ab61162fbd3 | Nguyễn Tiến Đạt | S:- | W:0 D:0 L:0
+69bfcfccf0792ab611631056 | Phoenix | S:- | W:0 D:0 L:0
+69bfda37f0792ab6116317a9 | BLACK PANTHERS | S:- | W:0 D:0 L:0
+69bffaa3f0792ab611633832 | Trần Nguyễn Minh Quân | S:- | W:0 D:0 L:0
+69c000daf0792ab611633f79 | Phan Anh | S:- | W:0 D:0 L:0
+69c003e1f0792ab611634521 | Nguyễn Lại Gia Bách | S:- | W:0 D:0 L:0
+69c00e8ef0792ab6116354af | Khôi Chùa | S:- | W:0 D:0 L:0
+69c025d1f0792ab611636736 | FC OnlyOne | S:- | W:0 D:0 L:0
+69c0ae8cf0792ab61163a411 | Đặng Bùi Ngọc Minh | S:- | W:0 D:0 L:0
+69c0b6a2f0792ab61163b274 | Đinh Hà Khoa | S:- | W:0 D:0 L:0
+69c0c1fef0792ab61163c53f | Nguyên Giáp | S:- | W:0 D:0 L:0
+69c0f73e157ff8dfd041ba20 | Hoàng Tú Kiệt | S:- | W:0 D:0 L:0
+69c109c8157ff8dfd041de34 | Đỗ Chung | S:- | W:0 D:0 L:0
+69c140f4157ff8dfd04218f1 | RTE | S:- | W:0 D:0 L:0
+69c14cca9d4ea1e3cff5ffe2 | Flash Wolves Soccer | S:- | W:0 D:0 L:0
+69c16a569d4ea1e3cff64876 | Nguyễn Hoàng Đức | S:- | W:0 D:0 L:0
+69c1c4369d4ea1e3cff68330 | Nguyễn Minh Thiện | S:- | W:0 D:0 L:0
+69c1e6289d4ea1e3cff69707 | Nguyễn Ngọc Anh | S:- | W:0 D:0 L:0
+69c201869d4ea1e3cff6c8b2 | Phoenix FC | S:- | W:0 D:0 L:0
+69c201d39d4ea1e3cff6c965 | Phoenix FC | S:- | W:0 D:0 L:0
+69c203979d4ea1e3cff6cfb8 | Anh Tu Le | S:- | W:0 D:0 L:0
+69c21b6d9d4ea1e3cff6fb9b | TDK | S:- | W:0 D:0 L:0
+69c2365d9d4ea1e3cff78e03 | NGUYỄN NGỌC MINH | S:- | W:0 D:0 L:0
+69c258536daae387df9c636b | TDS | S:- | W:0 D:0 L:0
+69c25c1f6daae387df9c6e1b | Hiện chưa có | S:- | W:0 D:0 L:0
+69c25f306daae387df9c75c8 | Nguyễn Văn Triệu Vỹ | S:- | W:0 D:0 L:0
+69c25fb66daae387df9c76c1 | Vương Nam | S:- | W:0 D:0 L:0
+
+--- ELIMINATED TEAMS ---
+69bd4e7ed4d24902b39dba69 | UND | W:0 D:0 L:0
+69bd4ebed4d24902b39dbc2e | Plash wolver soccer | W:0 D:0 L:0
+69bd4ecad4d24902b39dbca2 | 69CAMAU | W:0 D:0 L:0
+69bd4ed2d4d24902b39dbd05 | Flash Wolves Soccer | W:0 D:0 L:0
+69bd4f00d4d24902b39dbf4d | Undefeated Esports | W:1 D:0 L:0
+69bd4f61d4d24902b39dc21b | Flash Wolves Soccer | W:0 D:0 L:0
+69bd4f86d4d24902b39dc376 | Black Panthers | W:0 D:0 L:0
+69bd4fcdd4d24902b39dc549 | Flash Wolves Soccer | W:0 D:0 L:0
+69bd4fd9d4d24902b39dc5c3 | UND | W:0 D:0 L:0
+69bd4fe0d4d24902b39dc60b | UNDEFEATED | W:0 D:0 L:0
+69bd50ced4d24902b39dcdd5 | UND | W:0 D:0 L:1
+69bd50d5d4d24902b39dce0c | Lê Tú Bảo Duy | W:0 D:0 L:1
+69bd5158159e7077fce1315a | HaNoi Efootball (HNEF) | W:0 D:0 L:0
+69bd517d159e7077fce1329d | HaNoi Efootball (HNEF) | W:0 D:0 L:0
+69bd51a1159e7077fce134e1 | Fc Du Nội | W:0 D:0 L:0
+69bd51e8159e7077fce1390c | Nguyễn Trung Hiếu | W:0 D:0 L:0
+69bd5230159e7077fce13bb9 | Không Có | W:0 D:0 L:0
+69bd52b5159e7077fce1413d | Không | W:0 D:0 L:0
+69bd52bc159e7077fce141d0 | LFC | W:0 D:0 L:0
+69bd52e2159e7077fce14459 | Trần Ngọc Phương Nam | W:0 D:0 L:0
+69bd5344159e7077fce147f7 | Nguyễn Văn Cường | W:0 D:0 L:0
+69bd5371159e7077fce149f5 | Nguyễn Đức | W:0 D:0 L:0
+69bd53a6159e7077fce14bdf | BlackPanthers | W:0 D:0 L:0
+69bd53a7159e7077fce14c02 | Nguyễn Huấn | W:0 D:0 L:0
+69bd53ca159e7077fce14cd5 | TON | W:0 D:0 L:0
+69bd53f2159e7077fce14e2a | Chỉ Biết Chuyền(CBC) | W:0 D:0 L:0
+69bd5420159e7077fce14fbe | VietNam Legacy Esports | W:0 D:0 L:0
+69bd5431159e7077fce15023 | Phạm Đức Lương | W:0 D:0 L:0
+69bd5432159e7077fce1504d | Nguyễn Đức Hoàng An | W:0 D:0 L:0
+69bd544f159e7077fce15177 | Chỉ biết Chuyền | W:0 D:0 L:0
+69bd546d159e7077fce15278 | Nguyễn Hữu Nhật Nam | W:0 D:0 L:1
+69bd549d159e7077fce1540d | Nguyễn Thanh Thiên | W:0 D:0 L:1
+69bd54ec159e7077fce1566b | Flash Wolves Soccer | W:0 D:0 L:0
+69bd5529159e7077fce15837 | Vũ Minh Ngọc | W:0 D:0 L:1
+69bd553f159e7077fce15938 | Giang Tuấn Minh | W:0 D:0 L:0
+69bd554c159e7077fce159b0 | KuTiiii FC | W:0 D:0 L:0
+69bd5571159e7077fce15ab7 | Mrpes | W:0 D:0 L:0
+69bd56a9159e7077fce1627a | VLE | W:0 D:0 L:0
+69bd56d8159e7077fce16413 | Dương Minh Khoa | W:0 D:0 L:0
+69bd5731159e7077fce166b7 | SOS | W:0 D:0 L:0
+69bd5734159e7077fce16706 | Black Panthers | W:0 D:0 L:0
+69bd5781159e7077fce1691c | Flash Wolves Soccer | W:0 D:0 L:0
+69bd579a159e7077fce169b7 | Hà Nội Efootball | W:0 D:0 L:1
+69bd57b6159e7077fce16a56 | Khánh | W:0 D:0 L:1
+69bd57dd159e7077fce16b30 | Nguyễn Hữu Bính | W:0 D:0 L:1
+69bd5860159e7077fce16fc5 | Nguyễn Ngọc Chí Trung | W:0 D:0 L:0
+69bd58ae159e7077fce171c9 | VNPL | W:0 D:0 L:0
+69bd58c5159e7077fce17269 | CBC | W:0 D:0 L:0
+69bd5903159e7077fce17409 | Lâm Nhựt Duy | W:0 D:0 L:0
+69bd590b159e7077fce17464 | Hướng Hoá Fc | W:0 D:0 L:0
+69bd592a159e7077fce1750c | HYDRA FC | W:0 D:0 L:0
+69bd59b8159e7077fce179aa | Vũ Mạnh Cường | W:0 D:0 L:0
+69bd59c7159e7077fce17a5d | Young Boy ( YOB ) | W:0 D:0 L:0
+69bd59dc159e7077fce17afd | Trương Minh Tuấn | W:0 D:0 L:0
+69bd5a43159e7077fce17dda | CỌP | W:0 D:0 L:1
+69bd5a71159e7077fce17f7c | Tạ Duy Bảo | W:0 D:0 L:0
+69bd5acb159e7077fce18218 | Phoenix FC | W:0 D:0 L:0
+69bd5ad6159e7077fce18278 | Fc yêu vợ | W:0 D:0 L:0
+69bd5ae5159e7077fce1833e | Trần minh nghĩa | W:0 D:0 L:1
+69bd5aec159e7077fce1836a | PHOENIX FC | W:0 D:0 L:0
+69bd5b5b159e7077fce1869c | Chi Biet Chuyen | W:0 D:0 L:1
+69bd5c33159e7077fce18e0e | DeatX Team | W:0 D:0 L:0
+69bd5c45159e7077fce18f03 | Nguyễn Ngọc Khánh | W:0 D:0 L:0
+69bd5c8a159e7077fce19129 | VNPL | W:0 D:0 L:0
+69bd5cbd159e7077fce192db | NGUYỄN HỒNG NAM | W:0 D:0 L:0
+69bd5cda159e7077fce1941a | Trần Ngọc Hậu | W:0 D:0 L:0
+69bd5cf4159e7077fce1959b | Trần Đoàn Khánh Tân | W:0 D:0 L:0
+69bd5d08159e7077fce19620 | Phoenix FC | W:0 D:0 L:0
+69bd5d64159e7077fce199c5 | Lê Trung Đức | W:0 D:0 L:0
+69bd5d84159e7077fce19ac5 | Vũ Mạnh Hiếu | W:0 D:0 L:0
+69bd5e26159e7077fce19dde | Quàng Văn Việt | W:0 D:0 L:1
+69bd5e5a159e7077fce19f33 | CBC | W:0 D:0 L:1
+69bd5e6f159e7077fce1a022 | Nguyễn Kim Hải | W:1 D:0 L:0
+69bd5f10159e7077fce1a456 | Undefeated | W:0 D:0 L:1
+69bd5f16159e7077fce1a4aa | Đặng Đình Ngọc Hiệu | W:0 D:0 L:1
+69bd5f3d159e7077fce1a594 | Phạm Ngọc Nguyên | W:0 D:0 L:0
+69bd5fc5159e7077fce1a9cb | Phạm Bình Minh | W:0 D:0 L:0
+69bd5fe5159e7077fce1aaa1 | YOB | W:0 D:0 L:0
+69bd6046159e7077fce1acc6 | Phạm Đăng Khoa | W:0 D:0 L:0
+69bd6048159e7077fce1aced | Lê Phạm Gia Anh | W:0 D:0 L:1
+69bd60e0159e7077fce1b15d | Dỹ Hào | W:0 D:0 L:0
+69bd60fb159e7077fce1b1ad | Chỉ Biết Chuyền | W:0 D:0 L:0
+69bd6122159e7077fce1b2b4 | NO TEAM | W:1 D:0 L:1
+69bd61a8159e7077fce1b535 | Huỳnh Hữu Phong | W:0 D:0 L:0
+69bd61ab159e7077fce1b564 | Happy FC | W:0 D:0 L:1
+69bd61b2159e7077fce1b5d6 | Nguyễn Phan Đức Khang | W:0 D:0 L:0
+69bd61c1159e7077fce1b671 | Phonenix FC | W:0 D:0 L:0
+69bd64d1159e7077fce1c756 | VNPL | W:0 D:0 L:1
+69bd64f1159e7077fce1c80e | Phan Văn Dương | W:0 D:0 L:0
+69bd650f159e7077fce1c8e5 | Trần Đức Minh | W:0 D:0 L:0
+69bd6522159e7077fce1c95d | Flash Wolves Soccer | W:1 D:0 L:0
+69bd6526159e7077fce1c989 | FC Đất Mỏ | W:0 D:0 L:0
+69bd6603159e7077fce1cef2 | Yob | W:0 D:0 L:0
+69bd6617159e7077fce1cf58 | VNPL | W:0 D:0 L:0
+69bd6666159e7077fce1d0c4 | VNPL | W:0 D:0 L:0
+69bd6686159e7077fce1d161 | Đặng Vĩ | W:0 D:0 L:0
+69bd66a2159e7077fce1d23a | Trần Đình Trường | W:0 D:0 L:1
+69bd66f3159e7077fce1d49e | VNPL+ | W:0 D:0 L:0
+69bd67f4159e7077fce1da66 | Dang Thanh Tú | W:0 D:0 L:1
+69bd6849159e7077fce1dcee | Vnpl | W:0 D:0 L:0
+69bd6923159e7077fce1e02b | Bùi Tuấn Khanh | W:0 D:0 L:0
+69bd6961159e7077fce1e163 | Lê Thiên Bảo | W:0 D:0 L:0
+69bd6b81159e7077fce1eb00 | Y Khanh Byă | W:0 D:0 L:0
+69bd6c04159e7077fce1ed81 | Đam Rông City | W:0 D:0 L:1
+69bd6c35159e7077fce1eec5 | VNPL | W:0 D:0 L:0
+69bd6cd2159e7077fce1f304 | Mu | W:0 D:0 L:0
+69bd6d35159e7077fce1f56e | TDK | W:0 D:0 L:0
+69bd6d60159e7077fce1f739 | Trần Doãn Toàn | W:0 D:0 L:1
+69bd6da1159e7077fce1f8ed | Nguyễn Dương | W:0 D:0 L:0
+69bd6dd9159e7077fce1f9f1 | HaNoiEfootball | W:0 D:0 L:0
+69bd6e16159e7077fce1fb1e | FC NB | W:0 D:0 L:0
+69bd6e78159e7077fce1fd24 | HP ManUnited | W:0 D:0 L:1
+69bd6f60159e7077fce2025d | FC TDNB | W:0 D:0 L:0
+69bd6f95159e7077fce203a5 | Trưởng Thiên Đồ | W:0 D:0 L:1
+69bd702d159e7077fce206e2 | FC Only One | W:0 D:0 L:0
+69bd706f159e7077fce208cd | Nguyễn Minh Hiếu | W:1 D:0 L:0
+69bd7076159e7077fce2091e | 0 | W:0 D:0 L:1
+69bd7239159e7077fce21414 | UNDEFEATED | W:0 D:0 L:1
+69bd723a159e7077fce21427 | HNEF | W:0 D:0 L:0
+69bd72db159e7077fce2186a | HaNoi Efootball (HNEF) | W:0 D:0 L:0
+69bd732c159e7077fce21959 | Dương Hoàng Sơn | W:0 D:0 L:1
+69bd73f6159e7077fce21be6 | Tank-Efootball | W:0 D:0 L:0
+69bd7452159e7077fce21de4 | Black Panthers | W:0 D:0 L:1
+69bd745d159e7077fce21e52 | Nha Trang sport club | W:0 D:0 L:1
+69bd7505159e7077fce220e5 | Dương Quốc Thịnh | W:0 D:0 L:0
+69bd7593159e7077fce22467 | Newcastle United FC | W:0 D:0 L:0
+69bd75c1159e7077fce226ad | Lê Văn Huân | W:0 D:0 L:1
+69bd75e0159e7077fce22757 | Nguyễn Trần Quốc Bảo | W:0 D:0 L:0
+69bd7680159e7077fce22a72 | Lê Nguyễn Duy Khang | W:0 D:0 L:0
+69bd77e9159e7077fce22cef | Man City | W:0 D:0 L:0
+69bd785d159e7077fce22f4d | Nguyễn khoa nam | W:0 D:0 L:0
+69bd79c2159e7077fce2338f | Phoenix | W:0 D:0 L:0
+69bd79e7159e7077fce23421 | Nghệ Tĩnh FC | W:0 D:0 L:0
+69bd7a45159e7077fce23561 | Nguyễn Thanh Phong | W:0 D:0 L:1
+69bd7a8b159e7077fce23690 | Vi Quốc Thái | W:0 D:0 L:1
+69bd7a9f159e7077fce236fe | Nguyễn Lưu Hoàng Sang | W:0 D:0 L:0
+69bd7b3a159e7077fce238f5 | TANK | W:0 D:0 L:0
+69bd7b9a159e7077fce23a6d | Võ tấn khải | W:0 D:0 L:1
+69bd7bad159e7077fce23aa8 | Nguyen Dinh Loc | W:0 D:0 L:0
+69bd7cca159e7077fce23ed7 | TANK | W:0 D:0 L:0
+69bd7d62159e7077fce23fc0 | UND | W:0 D:0 L:0
+69bd7eb3159e7077fce242f4 | Hà Tuấn Huy | W:0 D:0 L:1
+69bd7f8c159e7077fce245e9 | Cuong Luu Dinh | W:0 D:0 L:1
+69bd8048159e7077fce247b7 | Phạm Anh Tuấn | W:0 D:0 L:0
+69bd8057159e7077fce24879 | CBC | W:0 D:0 L:1
+69bd8065159e7077fce248e0 | Dương Thành Danh | W:0 D:0 L:0
+69bd80e9159e7077fce24adb | Flash Wolves Soccer | W:0 D:0 L:0
+69bd811e159e7077fce24b34 | Nguyễn Trọng Khánh | W:0 D:0 L:0
+69bd8350159e7077fce24eda | Ngô Thanh Bình | W:0 D:0 L:0
+69bd894e159e7077fce25703 | VNPl + | W:0 D:0 L:0
+69bd8eaf159e7077fce25cf3 | Nguyễn Đặng Phúc Sơn | W:0 D:0 L:0
+69bd8f45159e7077fce25e49 | Phan Thanh Ngân | W:0 D:0 L:1
+69bd8faf159e7077fce25f3b | Doãn Tiến Đức | W:0 D:0 L:0
+69bd8fe2159e7077fce25fdc | Nguyễn Hữu Anh Khoa | W:0 D:0 L:0
+69bda27b159e7077fce26917 | FC ITALY | W:0 D:0 L:0
+69bdaee1159e7077fce26f20 | FCPASSTOWIN | W:0 D:0 L:1
+69bdb9d0159e7077fce273ee | Phạm Ngọc Sỹ | W:0 D:0 L:0
+69bdc7de159e7077fce276b0 | TDS | W:0 D:0 L:0
+69bdcb63159e7077fce27a01 | DƯƠNG VINH QUANG | W:0 D:0 L:1
+69bdd45f159e7077fce27fb0 | Bùi Quốc Bảo | W:0 D:0 L:0
+69bdd4c1159e7077fce280af | VNPL | W:0 D:0 L:0
+69bdd948159e7077fce285a3 | VLE | W:0 D:0 L:1
+69bddabd159e7077fce286fd | Flash Wolves Soccer | W:0 D:0 L:0
+69bde533159e7077fce293ad | Dương công kiên | W:0 D:0 L:0
+69bde53d159e7077fce293dc | Nguyễn Thức Nguyên | W:0 D:0 L:0
+69bde7c0159e7077fce2960b | Lục Hoàng Hùng | W:0 D:0 L:0
+69bdec52159e7077fce29df3 | Nguyễn Thanh Hải | W:0 D:0 L:1
+69bded48159e7077fce2a042 | Hydra FC | W:0 D:0 L:1
+69bdef35159e7077fce2a733 | Nguyễn Chí Anh | W:0 D:0 L:0
+69bdefc7159e7077fce2a8e1 | Nguyễn Tấn Phúc | W:0 D:0 L:0
+69bdefd3159e7077fce2a93e | PHÀN QUỐC HÙNG | W:0 D:0 L:0
+69bdf1eb159e7077fce2ae82 | Nguyễn Sinh Hùng | W:0 D:0 L:0
+69bdf2e5159e7077fce2b02f | DeatX Team | W:0 D:0 L:0
+69bdf497159e7077fce2b508 | Trần Mạnh Hà | W:0 D:0 L:0
+69bdf637159e7077fce2b8c1 | FChihi | W:0 D:0 L:1
+69bdf8de159e7077fce2bdcd | Flash Wolves Soccer | W:0 D:0 L:1
+69bdfc6d159e7077fce2c67d | Lưu Tiến Tùng | W:0 D:0 L:1
+69bdfcf5159e7077fce2c802 | Hoàng Xuân Huy | W:0 D:0 L:0
+69bdfd0d159e7077fce2c846 | FC DANANG | W:0 D:0 L:0
+69bdfdab159e7077fce2ca93 | Fc inabe | W:0 D:0 L:1
+69bdff5c159e7077fce2d082 | Đặng Vũ Hà Minh | W:0 D:0 L:0
+69be0060159e7077fce2d4e0 | VNPL | W:0 D:0 L:0
+69be0066159e7077fce2d532 | Nguyễn Văn Phụng | W:0 D:0 L:0
+69be0168159e7077fce2da85 | Fc Dongnai | W:0 D:0 L:1
+69be0478159e7077fce2e4b9 | Nguyễn Bảo Huy | W:0 D:0 L:0
+69be04f1159e7077fce2e5ef | PG Team | W:0 D:0 L:1
+69be050e159e7077fce2e6b4 | Nghệ Tĩnh FC | W:0 D:0 L:0
+69be0564159e7077fce2e79d | Đinh hữu lợi | W:0 D:0 L:0
+69be0641159e7077fce2e996 | Phạm Trần Đức | W:0 D:0 L:1
+69be0658159e7077fce2ea0e | Udinese | W:0 D:0 L:1
+69be06f4159e7077fce2eb97 | Fc brvt | W:0 D:0 L:0
+69be0787159e7077fce2ed37 | Phan Sơn | W:0 D:0 L:0
+69be08a0159e7077fce2ef61 | VNPL | W:0 D:0 L:1
+69be09a3159e7077fce2f25b | FC_BG | W:0 D:0 L:1
+69be0a29159e7077fce2f327 | Trần Khánh An | W:0 D:0 L:0
+69be0af6159e7077fce2f550 | FC SONGDOC | W:0 D:0 L:0
+69be0b79159e7077fce2f759 | An Đinh Văn | W:0 D:0 L:1
+69be0c19159e7077fce2f93d | Nguyễn Đắc Nhật | W:0 D:0 L:0
+69be0c8b159e7077fce2fa8b | Bùi Đức Dũng | W:0 D:0 L:1
+69be0ca5159e7077fce2fabf | Nguyễn thành luân | W:0 D:0 L:0
+69be0ed4159e7077fce30119 | Tín Lukaku | W:0 D:0 L:1
+69be0fb9159e7077fce303a8 | BacGiangEFB | W:0 D:0 L:0
+69be0fc0159e7077fce303da | Trần Thành Đạt | W:0 D:0 L:0
+69be10ac159e7077fce30685 | TuanFC | W:0 D:0 L:0
+69be1108159e7077fce30793 | Ngô Văn Kiên | W:0 D:0 L:0
+69be12f4159e7077fce30b85 | Lê Tấn Tài | W:0 D:0 L:0
+69be13b8159e7077fce30d41 | FC quangninh | W:0 D:0 L:0
+69be14cb159e7077fce3109e | Trịnh Nguyễn Minh Anh | W:0 D:0 L:1
+69be152a159e7077fce311ed | Mc 47 | W:0 D:0 L:0
+69be1684159e7077fce317c9 | nguyễn văn cương | W:0 D:0 L:0
+69be16d4159e7077fce31950 | Lương Ngọc Lâm | W:0 D:0 L:0
+69be17ae159e7077fce31c43 | Trần Văn Dũng | W:0 D:0 L:0
+69be17c8159e7077fce31cb6 | FC NKBT | W:0 D:0 L:0
+69be1814159e7077fce31d53 | NGUYỄN VIẾT ĐĂNG | W:0 D:0 L:0
+69be1d03159e7077fce32c38 | Vũ Công Danh | W:0 D:0 L:0
+69be2287159e7077fce339c5 | Fc LoKi | W:0 D:0 L:0
+69be260d159e7077fce34156 | Huỳnh Triết Hoàng | W:0 D:0 L:0
+69be2640159e7077fce341ec | FC Duy Dương | W:0 D:0 L:1
+69be2c6c159e7077fce35122 | Nguyễn Võ Chí Cường | W:0 D:0 L:0
+69be314876321ffd8107858b | Nguyễn Đình Đức | W:0 D:0 L:0
+69be31bb76321ffd8107867c | Huế Team | W:0 D:0 L:0
+69be33c45398667343e4e09f | Nguyễn Trần Vĩnh Phát | W:0 D:0 L:0
+69be33c65398667343e4e0ac | TNB Team | W:0 D:0 L:1
+69be344a5398667343e4e1ea | Bank | W:0 D:0 L:1
+69be3745993f58d8f9ebc31f | Nguyễn văn mạnh | W:0 D:0 L:0
+69be3772993f58d8f9ebc434 | Manchester United Fc | W:0 D:0 L:0
+69be389e993f58d8f9ebc6f3 | Trần Chí Bình | W:0 D:0 L:0
+69be3e53fd30bbe01f7d037c | Thanh Dũng | W:0 D:0 L:0
+69be4141fd30bbe01f7d0aa2 | Lại Văn Duy | W:0 D:0 L:0
+69be43d3fd30bbe01f7d1088 | FC BARCELONA | W:0 D:0 L:0
+69be443efd30bbe01f7d1174 | fc bayer | W:0 D:0 L:0
+69be4508fd30bbe01f7d134d | VNPL+ | W:0 D:0 L:1
+69be466c90e4293d040b3d13 | Trần Văn Quang | W:0 D:0 L:0
+69be492c3d7cc70b7fc03c02 | Lê đức long | W:0 D:0 L:0
+69be4b5e3d7cc70b7fc03fd8 | Ehn fc | W:0 D:0 L:1
+69be4bc23d7cc70b7fc040d6 | Đỗ Mạnh Dũng | W:0 D:0 L:0
+69be4e483d7cc70b7fc047c0 | Quang Cao | W:0 D:0 L:1
+69be56b93d7cc70b7fc05baf | Viet Nam | W:0 D:0 L:0
+69be59243d7cc70b7fc0636d | VNPL | W:0 D:0 L:1
+69be5c383d7cc70b7fc0697a | Hoàng Dũng | W:0 D:0 L:0
+69be5cf93d7cc70b7fc06c67 | FC UIT | W:0 D:0 L:0
+69be62be3d7cc70b7fc076eb | Sheriff FC | W:0 D:0 L:0
+69be665d3d7cc70b7fc07e0b | Nguyễn Tài Phúc | W:0 D:0 L:0
+69be67473d7cc70b7fc080bb | Le Van Huyen | W:0 D:0 L:0
+69be68643d7cc70b7fc08375 | Final Victory Esport | W:0 D:0 L:0
+69be6c5f3d7cc70b7fc08bf4 | Phan Vũ Phong | W:0 D:0 L:1
+69be6c7a3d7cc70b7fc08ca1 | trung04011997 | W:0 D:0 L:0
+69be6d4d3d7cc70b7fc08e54 | FC 513 | W:0 D:0 L:0
+69be6d773d7cc70b7fc08f09 | Nguyễn Danh Dương | W:0 D:0 L:0
+69be6f0e3d7cc70b7fc09398 | Hanoi Efootball | W:0 D:0 L:1
+69be6f833d7cc70b7fc09486 | Bùi Đức Long Vũ | W:0 D:0 L:0
+69be81933d7cc70b7fc0b64f | NSU | W:0 D:0 L:0
+69be82383d7cc70b7fc0b7af | Duong Quang Minh | W:0 D:0 L:0
+69be85c73d7cc70b7fc0be01 | CBV | W:0 D:0 L:0
+69be87a33d7cc70b7fc0c15f | Nguyễn Hoàng Thịnh | W:0 D:0 L:0
+69be89c23d7cc70b7fc0c618 | Không | W:0 D:0 L:0
+69be8ad73d7cc70b7fc0c803 | GRT | W:0 D:0 L:1
+69be8bb13d7cc70b7fc0ca32 | Nguyễn Văn Hậu | W:0 D:0 L:0
+69be8dce3d7cc70b7fc0ccae | LE HUY DONG | W:0 D:0 L:0
+69be8ff03d7cc70b7fc0d041 | Fc Bắc Ninh | W:0 D:0 L:0
+69be909e3d7cc70b7fc0d18e | Dương Gia Bảo | W:0 D:0 L:0
+69be976e3d7cc70b7fc0dee6 | Nguyễn Vũ Công Kiên | W:0 D:0 L:0
+69be97903d7cc70b7fc0df38 | Huế | W:0 D:0 L:1
+69be9bec3d7cc70b7fc0e9a2 | Nguyễn Lâm Duy | W:0 D:0 L:0
+69be9dea3d7cc70b7fc0edc6 | Nguyễn Văn Quân | W:0 D:0 L:0
+69bea37e3d7cc70b7fc0fa41 | Bùi duy thái | W:0 D:0 L:0
+69bea38a3d7cc70b7fc0faa9 | Nông Trọng Tín | W:0 D:0 L:0
+69bea4303d7cc70b7fc0fccf | Nguyễn Thế Minh | W:0 D:0 L:0
+69bea5c83d7cc70b7fc102c6 | CHỈ BIẾT CHUYỀN | W:0 D:0 L:0
+69bea6803d7cc70b7fc10469 | Nedutoo | W:0 D:0 L:0
+69bea8e13d7cc70b7fc10ede | Hà Huy Trọng Tín | W:0 D:0 L:0
+69beaa4b3d7cc70b7fc1128a | SOS | W:0 D:0 L:0
+69bead063d7cc70b7fc11aa5 | Ngô hoàng nam | W:0 D:0 L:0
+69bead7e3d7cc70b7fc11c57 | VLE | W:0 D:0 L:0
+69beb1bf3d7cc70b7fc124ac | FC Hải Phòng | W:0 D:0 L:0
+69beb24d3d7cc70b7fc12615 | Trần Quốc Anh | W:0 D:0 L:1
+69beb3903d7cc70b7fc12a2e | Nguyễn Đức Tài | W:0 D:0 L:0
+69beb4363d7cc70b7fc12c9a | Nguyễn tiến tài | W:0 D:0 L:0
+69beb51e3d7cc70b7fc1306e | Phạm Đức Duy | W:0 D:0 L:0
+69beb64c3d7cc70b7fc1353b | Chơi Vuốt | W:0 D:0 L:1
+69beb7d53d7cc70b7fc13831 | MU | W:0 D:0 L:0
+69bebc983d7cc70b7fc141e8 | FC Hải Phòng | W:0 D:0 L:0
+69bebd383d7cc70b7fc14379 | Hanoi Efootball (HNEF) | W:0 D:0 L:1
+69bebdc93d7cc70b7fc14460 | Đào Viết Dương | W:0 D:0 L:0
+69bebfe23d7cc70b7fc147b3 | Chỉ Biết Chuyền | W:0 D:0 L:0
+69bec3f23d7cc70b7fc14f8d | Tran xuan vinh | W:0 D:0 L:1
+69bec63e3d7cc70b7fc152d7 | noo | W:0 D:0 L:1
+69bed1f13d7cc70b7fc16120 | TDK-SOS | W:0 D:0 L:0
+69bed3af3d7cc70b7fc162c5 | Đào Nam Anh | W:0 D:0 L:0
+69bed8423d7cc70b7fc165b5 | Bùi Bình | W:0 D:0 L:0
+69bf00113d7cc70b7fc1765f | 15M | W:0 D:0 L:1
+69bf07913d7cc70b7fc177c8 | Nông Tiến Trường | W:0 D:0 L:0
+69bf3d8a3d7cc70b7fc18379 | CHUONG | W:0 D:0 L:0
+69bf40ed3d7cc70b7fc186c5 | Vũ Hồng Sơn | W:0 D:0 L:0
+69bf481f3d7cc70b7fc18f30 | VNPL | W:0 D:0 L:0
+69bf4cba3d7cc70b7fc193ab | Nguyễn Thế Thành | W:0 D:0 L:1
+69bf4d253d7cc70b7fc19500 | Đỗ Văn Thành | W:0 D:0 L:0
+69bf50d03d7cc70b7fc19865 | Nguyễn Hữu Nhật Anh | W:0 D:0 L:0
+69bf51623d7cc70b7fc1992a | Manchester united | W:0 D:0 L:0
+69bf73163d7cc70b7fc1bb28 | Tuấn Đạt | W:0 D:0 L:1
+69bf7bad3d7cc70b7fc1c4b1 | Phạm Duy Tùng | W:0 D:0 L:0
+69bf889c3d7cc70b7fc1e053 | Sos | W:0 D:0 L:1
+69bf916d3d7cc70b7fc1eb01 | FC Hữu Duyên | W:0 D:0 L:1
+69bf94993d7cc70b7fc1efd9 | FC Hữu duyên | W:0 D:0 L:0
+69bf954e3d7cc70b7fc1f0ed | HNFC | W:0 D:0 L:1
+69bf9a793d7cc70b7fc1f5b9 | Nguyen Dinh Minh Kien | W:0 D:0 L:0
+69bfa10a3d7cc70b7fc1fe3a | Nguyễn Cường Thịnh | W:0 D:0 L:0
+69bfa3263d7cc70b7fc20105 | Trần Đình Bắc | W:0 D:0 L:0
+69bfa66d3d7cc70b7fc206a5 | Lương Thế Vinh | W:0 D:0 L:0
+69bfa9a33d7cc70b7fc2095a | HaNoi Efootball (HNEF) | W:0 D:0 L:0
+69bfb60af0792ab61162f1d3 | Trần Hữu Duy | W:1 D:0 L:1
+69bfb6c9f0792ab61162f372 | Trần Hữu Chí Hải | W:0 D:0 L:0
+69bfc45df0792ab611630211 | Phong Nguyen | W:0 D:0 L:0
+69bfc88ef0792ab6116307a9 | Trần Tuấn Kiệt | W:0 D:0 L:0
+69bfca75f0792ab611630b84 | Đào Nhật Minh | W:0 D:0 L:0
+69bfd244f0792ab61163126e | FC NKBT | W:0 D:0 L:0
+69bfd89ef0792ab61163164f | Nguyễn Hữu Xuân Trường | W:0 D:0 L:0
+69bfdea1f0792ab611631bce | Ngô Kỳ Minh | W:0 D:0 L:0
+69bfe8bcf0792ab6116323d5 | Không | W:0 D:0 L:0
+69bfedf1f0792ab611632876 | BoyMienNam | W:0 D:0 L:0
+69bffa34f0792ab611633708 | Phạm Tiến Đạt | W:0 D:0 L:0
+69bffde8f0792ab611633be4 | HaNoi Efootball (HNEF) | W:0 D:0 L:0
+69c00871f0792ab611634ca1 | Nguyễn Viết Lộc | W:0 D:0 L:0
+69c00cd7f0792ab611635202 | Đồng Huy | W:0 D:0 L:1
+69c00edff0792ab611635566 | Nhat Duy | W:0 D:0 L:1
+69c00fc8f0792ab611635674 | Vũ Thành Trung | W:0 D:0 L:0
+69c0144bf0792ab611635a09 | FC NKBT | W:0 D:0 L:0
+69c020a2f0792ab611636375 | Bùi Đức Huy | W:0 D:0 L:0
+69c02fd5f0792ab611636b34 | Đỗ Hoàng Duy Minh | W:0 D:0 L:1
+69c05332f0792ab61163742f | Flash Wolves Soccer | W:0 D:0 L:0
+69c09105f0792ab611637e10 | Phạm Văn Giáp | W:0 D:0 L:0
+69c09dc3f0792ab61163887c | Fc yêu vợ. | W:0 D:0 L:0
+69c0a0b5f0792ab611638b46 | Bùi tới | W:0 D:0 L:0
+69c0a6e9f0792ab611639473 | Khuất Duy Quang | W:0 D:0 L:0
+69c0aeabf0792ab61163a486 | Nguyễn Khắc Tuyên | W:0 D:0 L:0
+69c0c2b3f0792ab61163c5a9 | Phạm Huy Bảo | W:0 D:0 L:0
+69c0c8e4f0792ab61163ceb8 | FC Thái Nguyên | W:0 D:0 L:0
+69c0ca0cf0792ab61163d268 | VNPL | W:0 D:0 L:0
+69c0cafaf0792ab61163d347 | Lê Hoàng Duyên | W:0 D:0 L:0
+69c0ccd6f0792ab61163d864 | DeatX Team | W:0 D:0 L:0
+69c0de30157ff8dfd0419ead | Hồ Đức Tùng | W:0 D:0 L:0
+69c0ee4f157ff8dfd041ae58 | Trần Gia Huy | W:1 D:0 L:0
+69c0f02e157ff8dfd041b0c0 | Nguyễn Ngọc Tài | W:0 D:0 L:1
+69c0f6dc157ff8dfd041b95a | không có | W:0 D:0 L:1
+69c10242157ff8dfd041d26e | Đinh tiến đạt | W:0 D:0 L:0
+69c1095f157ff8dfd041dbbc | AS Monaco | W:0 D:0 L:1
+69c10ff5157ff8dfd041e18d | RTE | W:0 D:0 L:0
+69c1350c157ff8dfd0420ac5 | Trần Quang Huy | W:0 D:0 L:0
+69c13ac5157ff8dfd0420ea0 | Ông Bùi FC | W:0 D:0 L:0
+69c144539d4ea1e3cff5e740 | Nguyễn Việt Anh | W:0 D:0 L:1
+69c145d89d4ea1e3cff5eaf4 | RTE | W:0 D:0 L:0
+69c14b249d4ea1e3cff5fac3 | Mai Xuân Hưng | W:0 D:0 L:0
+69c1537c9d4ea1e3cff61294 | FC NKBT | W:0 D:0 L:0
+69c154979d4ea1e3cff61722 | Trần Công Quốc Đạt | W:0 D:0 L:0
+69c155409d4ea1e3cff61906 | Team HNEF | W:0 D:0 L:1
+69c1569a9d4ea1e3cff61c04 | FC-RTE | W:0 D:0 L:1
+69c157a69d4ea1e3cff61d76 | Arsenal | W:0 D:0 L:0
+69c159449d4ea1e3cff625d7 | Vân đồn | W:0 D:0 L:0
+69c15af09d4ea1e3cff62977 | Chelsea | W:0 D:0 L:0
+69c15d439d4ea1e3cff62ea8 | FC NKBT | W:0 D:0 L:0
+69c16d259d4ea1e3cff65238 | Minh Tri Trinh | W:0 D:0 L:0
+69c16d869d4ea1e3cff65375 | Manchester United FC | W:0 D:0 L:1
+69c182599d4ea1e3cff672e1 | Trần Điền Tân | W:0 D:0 L:0
+69c18f819d4ea1e3cff679e1 | Nguyễn Quốc Đạt | W:0 D:0 L:0
+69c1b47b9d4ea1e3cff6810b | Hoàn Trần | W:0 D:0 L:0
+69c1fad39d4ea1e3cff6b55c | Tạ Quang Minh | W:0 D:0 L:0
+69c1fd6b9d4ea1e3cff6bcdc | Vũ Văn Phương | W:0 D:0 L:0
+69c203319d4ea1e3cff6ce7f | Nguyễn Trường Thịnh | W:0 D:0 L:0
+69c206b09d4ea1e3cff6d63f | Phoenix FC | W:0 D:0 L:0
+69c208019d4ea1e3cff6d8b5 | Nguyễn Khôi Nguyên | W:0 D:0 L:0
+69c218029d4ea1e3cff6f675 | TON- THẦY ÔNG NỘI | W:0 D:0 L:0
+69c2283d9d4ea1e3cff75455 | Huy Hùng | W:0 D:0 L:1
+69c22d459d4ea1e3cff774c8 | Thiên Phú | W:0 D:0 L:1
+69c233e69d4ea1e3cff78963 | TON | W:0 D:0 L:0
+69c239c09d4ea1e3cff79782 | Đoàn Kiên | W:0 D:0 L:1
+69c23ee19d4ea1e3cff7a3bf | VNPL | W:0 D:0 L:0
+69c245399d4ea1e3cff7afde | Phan Thanh Sang | W:0 D:0 L:1
+69c25d6c6daae387df9c7022 | FC Rình Ai Tắm | W:0 D:0 L:0
+69c2670d6daae387df9c8042 | Mai Hữu Khương | W:0 D:0 L:0
+69c26dc76daae387df9c967c | Hoàng Chí Bảo | W:0 D:0 L:0
+69c270d46daae387df9ca7a6 | Trịnh Đức Anh | W:0 D:0 L:0
+69c274886daae387df9cb5e6 | UND | W:0 D:0 L:0
+69c27b046daae387df9cd351 | Không có trình | W:0 D:0 L:0
+69c283e26daae387df9cfe81 | Phoenix F.C | W:0 D:0 L:0
+69c284df6daae387df9d033f | THE KOP | W:0 D:0 L:1
+69c286506daae387df9d0d89 | YOB | W:0 D:0 L:0
+69c286926daae387df9d1034 | Hd | W:0 D:0 L:0
+
+=== MATCH NOTIFICATIONS (before cutoff): 0 ===
+
+=== ROUNDS with completed matches:  ===

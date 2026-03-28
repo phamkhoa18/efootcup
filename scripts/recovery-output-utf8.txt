@@ -1,0 +1,43 @@
+﻿đŸ“ Starting Tournament Recovery...
+
+1ï¸âƒ£  Loading teams...
+   Found 566 teams
+   Unique shortNames: 107, Ambiguous: 61
+
+2ï¸âƒ£  Loading registrations...
+   Found 566 approved registrations
+
+3ï¸âƒ£  Parsing match result notifications...
+   Found 458 notifications
+   Parsed 458 results
+
+4ï¸âƒ£  Deduplicating...
+   Deduped to 365 unique matches
+
+5ï¸âƒ£  Determining winners...
+   Fully resolved: 8, Ambiguous: 357
+
+6ï¸âƒ£  Building elimination tracking...
+   Confirmed eliminated (from resolved): 8
+   Confirmed active (have wins, no losses): 8
+   BYE teams: 77
+   Teams with NO match data: 550
+
+7ï¸âƒ£  Exporting to Excel...
+
+âœ… Report saved to: scripts/tournament-recovery-report.xlsx
+
+============================================================
+đŸ“ RECOVERY SUMMARY
+============================================================
+Total teams: 566
+Total match notifications: 458
+Unique matches (deduped): 365
+Fully resolved: 8 (2.2%)
+Ambiguous: 357
+---
+âœ… Confirmed ELIMINATED: 8
+âœ… Confirmed ACTIVE: 8
+đŸ”„ BYE teams: 77
+â“ Unknown status: 550
+============================================================

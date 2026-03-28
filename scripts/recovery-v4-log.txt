@@ -1,0 +1,14 @@
+﻿Total blocks: 473
+Parsed submissions: 473
+Unique matches: 358
+Teams in DB: 566
+
+====== RECOVERY RESULTS ======
+Unique matches from PM2 logs: 358
+ELIMINATED (confirmed losers): 347
+ACTIVE (confirmed winners, no loss): 174
+BYE teams: 77
+Unknown: 45
+
+Excel: scripts/tournament-recovery-v4.xlsx
+JSON: scripts/recovery-data.json

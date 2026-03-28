@@ -1,0 +1,220 @@
+=== FULL NOTIFICATION STRUCTURE (sample) ===
+{
+  "_id": "69c61ccfe842d3369915c702",
+  "recipient": "69ad2d72e039f2574dbb6108",
+  "type": "tournament",
+  "title": "Kết quả trận đấu mới",
+  "message": "Người chơi đã gửi kết quả trận đấu: PHẠ 0 - 2 ANH trong giải \"EFV500 - EFOOTBALL MOBILE - SEASON 1\"",
+  "link": "/manager/giai-dau/69bd4c8ad4d24902b39db3d5/lich",
+  "isRead": false,
+  "createdAt": "2026-03-27T05:59:43.473Z",
+  "updatedAt": "2026-03-27T05:59:43.473Z",
+  "__v": 0
+}
+---
+{
+  "_id": "69c61a40e842d3369915bf1a",
+  "recipient": "69ad2d72e039f2574dbb6108",
+  "type": "tournament",
+  "title": "Kết quả trận đấu mới",
+  "message": "Người chơi đã gửi kết quả trận đấu: PHẠ 2 - 1 NGU trong giải \"EFV500 - EFOOTBALL MOBILE - SEASON 1\"",
+  "link": "/manager/giai-dau/69bd4c8ad4d24902b39db3d5/lich",
+  "isRead": false,
+  "createdAt": "2026-03-27T05:48:48.030Z",
+  "updatedAt": "2026-03-27T05:48:48.030Z",
+  "__v": 0
+}
+---
+{
+  "_id": "69c619b5e842d3369915bd73",
+  "recipient": "69ad2d72e039f2574dbb6108",
+  "type": "tournament",
+  "title": "Kết quả trận đấu mới",
+  "message": "Người chơi đã gửi kết quả trận đấu: PHẠ 0 - 2 ANH trong giải \"EFV500 - EFOOTBALL MOBILE - SEASON 1\"",
+  "link": "/manager/giai-dau/69bd4c8ad4d24902b39db3d5/lich",
+  "isRead": false,
+  "createdAt": "2026-03-27T05:46:29.329Z",
+  "updatedAt": "2026-03-27T05:46:29.329Z",
+  "__v": 0
+}
+---
+{
+  "_id": "69c6180ce842d3369915b835",
+  "recipient": "69ad2d72e039f2574dbb6108",
+  "type": "tournament",
+  "title": "Kết quả trận đấu mới",
+  "message": "Người chơi đã gửi kết quả trận đấu: FC 2 - 1 AN trong giải \"EFV500 - EFOOTBALL MOBILE - SEASON 1\"",
+  "link": "/manager/giai-dau/69bd4c8ad4d24902b39db3d5/lich",
+  "isRead": false,
+  "createdAt": "2026-03-27T05:39:24.511Z",
+  "updatedAt": "2026-03-27T05:39:24.511Z",
+  "__v": 0
+}
+---
+{
+  "_id": "69c61298e842d3369915a643",
+  "recipient": "69ad2d72e039f2574dbb6108",
+  "type": "tournament",
+  "title": "Kết quả trận đấu mới",
+  "message": "Người chơi đã gửi kết quả trận đấu: NGU 0 - 2 TAN trong giải \"EFV500 - EFOOTBALL MOBILE - SEASON 1\"",
+  "link": "/manager/giai-dau/69bd4c8ad4d24902b39db3d5/lich",
+  "isRead": false,
+  "createdAt": "2026-03-27T05:16:08.713Z",
+  "updatedAt": "2026-03-27T05:16:08.713Z",
+  "__v": 0
+}
+---
+
+=== NOTIFICATION LINK FORMATS ===
+Unique links: 1
+   /manager/giai-dau/69bd4c8ad4d24902b39db3d5/lich
+
+=== BXHS COLLECTION ===
+Total bxhs docs: 511
+{
+  "_id": "69b6c9bee75c5ba6b5e1d939",
+  "gamerId": "663",
+  "mode": "pc",
+  "__v": 0,
+  "createdAt": "2026-03-15T15:01:18.879Z",
+  "facebook": "https://www.facebook.com/nghiem.xuannam",
+  "name": "Nghiêm Xuân Nam",
+  "nickname": "VN_namnx",
+  "points": 50,
+  "pointsEfv100": 0,
+  "pointsEfv1000": 0,
+  "pointsEfv200": 0,
+  "pointsEfv250": 0,
+  "pointsEfv50": 0,
+  "pointsEfv500": 0,
+  "rank": 1,
+  "team": "CFT",
+  "updatedAt": "2026-03-18T03:00:15.556Z"
+}
+---
+{
+  "_id": "69b6c9bee75c5ba6b5e1d93a",
+  "gamerId": "1000",
+  "mode": "pc",
+  "__v": 0,
+  "createdAt": "2026-03-15T15:01:18.879Z",
+  "facebook": "https://www.facebook.com/share/1FRREG5swz/?mibextid=wwXIfr",
+  "name": "Hà Trung",
+  "nickname": "Trung Sự",
+  "points": 40,
+  "pointsEfv100": 0,
+  "pointsEfv1000": 0,
+  "pointsEfv200": 0,
+  "pointsEfv250": 0,
+  "pointsEfv50": 0,
+  "pointsEfv500": 0,
+  "rank": 2,
+  "team": "",
+  "updatedAt": "2026-03-15T15:02:18.605Z"
+}
+---
+{
+  "_id": "69b6c9bee75c5ba6b5e1d93b",
+  "gamerId": "1001",
+  "mode": "pc",
+  "__v": 0,
+  "createdAt": "2026-03-15T15:01:18.879Z",
+  "facebook": "https://www.facebook.com/share/1FWmoNwncM/?mibextid=wwXIfr",
+  "name": "Nguyễn Nghĩa Lễ",
+  "nickname": "Lễ Nguyễn",
+  "points": 30,
+  "pointsEfv100": 0,
+  "pointsEfv1000": 0,
+  "pointsEfv200": 0,
+  "pointsEfv250": 0,
+  "pointsEfv50": 0,
+  "pointsEfv500": 0,
+  "rank": 3,
+  "team": "322",
+  "updatedAt": "2026-03-15T15:02:18.605Z"
+}
+---
+
+BXHS for our tournament: 0
+
+=== ALL COLLECTIONS ===
+tournaments : 3 docs
+notifications : 13785 docs
+feedbacks : 0 docs
+bxhs : 511 docs
+counters : 1 docs
+users : 1243 docs
+tournamentexpenses : 0 docs
+sitemenus : 1 docs
+paymentconfigs : 1 docs
+bxhteams : 24 docs
+matches : 5129 docs
+registrations : 4434 docs
+posts : 3 docs
+sitesettings : 1 docs
+efvpointlogs : 420 docs
+categories : 1 docs
+teams : 4382 docs
+
+=== EFVPOINTS SAMPLE ===
+
+=== MATCH DOCUMENT STRUCTURE (current) ===
+{
+  "_id": "69c64ed07d1f5c8b7ad3f86e",
+  "tournament": "69bd4c8ad4d24902b39db3d5",
+  "round": 1,
+  "roundName": "Vòng 256",
+  "matchNumber": 1,
+  "homeTeam": "69bde860159e7077fce297b5",
+  "awayTeam": null,
+  "homeScore": 0,
+  "awayScore": 0,
+  "winner": "69bde860159e7077fce297b5",
+  "status": "bye",
+  "bracketPosition": {
+    "x": 0,
+    "y": 0
+  },
+  "nextMatch": "69c64ed07d1f5c8b7ad3f7ef",
+  "leg": 1,
+  "events": [],
+  "resultSubmissions": [],
+  "screenshots": [],
+  "createdAt": "2026-03-27T09:33:04.269Z",
+  "updatedAt": "2026-03-27T09:33:04.269Z"
+}
+
+=== MATCHES WITH resultSubmissions ===
+Count: 2
+[
+  {
+    "user": "69ae96c7e039f2574dbc2126",
+    "team": "69bd748a159e7077fce21f1c",
+    "homeScore": 0,
+    "awayScore": 2,
+    "screenshots": [
+      "/api/files/screenshots/69ae96c7e039f2574dbc2126_1774606493668.jpg"
+    ],
+    "notes": "quoc anh win 2-0",
+    "submittedAt": "2026-03-27T10:15:01.845Z",
+    "_id": "69c658a5e842d3369916f29a"
+  }
+]
+[
+  {
+    "user": "69c13dc9157ff8dfd04212bf",
+    "team": "69c140f4157ff8dfd04218f1",
+    "homeScore": 0,
+    "awayScore": 2,
+    "screenshots": [
+      "/api/files/screenshots/69c13dc9157ff8dfd04212bf_1774615420557.jpg",
+      "/api/files/screenshots/69c13dc9157ff8dfd04212bf_1774616403400.jpg"
+    ],
+    "notes": "Trịnh Quốc Trí win 2-0",
+    "submittedAt": "2026-03-27T14:50:45.554Z",
+    "_id": "69c67b88d0737acc3d588a60"
+  }
+]
+
+=== CHECKING FOR SCREENSHOT REFERENCES IN NOTIFICATIONS ===
+Notifs with extra data: 0
