@@ -1,0 +1,8 @@
+⏳ Connecting to Database...
+⏳ Reading Excel...
+✅ Excel has 191 players.
+✅ Database has 566 teams mapped to EFV IDs.
+
+✅ All Excel players are present in the tournament database.
+
+✅ All Excel players are marked as 'active' in the bracket.

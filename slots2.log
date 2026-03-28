@@ -1,0 +1,6 @@
+
+v<=64: 7 (reqSize=16) -> 112 slots
+v<=128: 63 (reqSize=8) -> 504 slots
+v<=256: 87 (reqSize=4) -> 348 slots
+v<=512: 34 (reqSize=2) -> 68 slots
+Total consumed slots: 1032

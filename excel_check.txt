@@ -1,0 +1,3 @@
+Cols: ["STT","EFV ID","Vòng"]
+Rows: 191
+First: {"STT":1,"EFV ID":14,"Vòng":256}

@@ -1,0 +1,136 @@
+{
+  "_id": "69c05332f0792ab61163742f",
+  "name": "Flash Wolves Soccer",
+  "shortName": "FLA",
+  "logo": "",
+  "banner": "",
+  "tournament": "69bd4c8ad4d24902b39db3d5",
+  "captain": "69aed0158efd097b85168ef2",
+  "members": [
+    {
+      "user": "69aed0158efd097b85168ef2",
+      "role": "captain",
+      "joinedAt": "2026-03-22T20:38:10.484Z",
+      "_id": "69c05332f0792ab611637430"
+    }
+  ],
+  "stats": {
+    "played": 0,
+    "wins": 0,
+    "draws": 0,
+    "losses": 0,
+    "goalsFor": 0,
+    "goalsAgainst": 0,
+    "goalDifference": 0,
+    "points": 0,
+    "form": []
+  },
+  "status": "active",
+  "registeredAt": "2026-03-22T20:38:10.488Z",
+  "createdAt": "2026-03-22T20:38:10.492Z",
+  "updatedAt": "2026-03-28T06:41:50.062Z",
+  "__v": 0,
+  "seed": null
+}
+{
+  "_id": "69c201869d4ea1e3cff6c8b2",
+  "name": "Phoenix FC",
+  "shortName": "PHOE",
+  "logo": "",
+  "banner": "",
+  "tournament": "69bd4c8ad4d24902b39db3d5",
+  "captain": "69bdeec7159e7077fce2a505",
+  "members": [
+    {
+      "user": "69bdeec7159e7077fce2a505",
+      "role": "captain",
+      "joinedAt": "2026-03-24T03:14:14.068Z",
+      "_id": "69c201869d4ea1e3cff6c8b3"
+    }
+  ],
+  "stats": {
+    "played": 1,
+    "wins": 1,
+    "draws": 0,
+    "losses": 0,
+    "goalsFor": 2,
+    "goalsAgainst": 0,
+    "goalDifference": 2,
+    "points": 3,
+    "form": []
+  },
+  "status": "active",
+  "registeredAt": "2026-03-24T03:14:14.071Z",
+  "createdAt": "2026-03-24T03:14:14.073Z",
+  "updatedAt": "2026-03-28T06:41:50.062Z",
+  "__v": 0,
+  "seed": null
+}
+{
+  "_id": "69c25c1f6daae387df9c6e1b",
+  "name": "Hiện chưa có",
+  "shortName": "HIỆ",
+  "logo": "",
+  "banner": "",
+  "tournament": "69bd4c8ad4d24902b39db3d5",
+  "captain": "69c25a596daae387df9c6905",
+  "members": [
+    {
+      "user": "69c25a596daae387df9c6905",
+      "role": "captain",
+      "joinedAt": "2026-03-24T09:40:47.175Z",
+      "_id": "69c25c1f6daae387df9c6e1c"
+    }
+  ],
+  "stats": {
+    "played": 1,
+    "wins": 1,
+    "draws": 0,
+    "losses": 0,
+    "goalsFor": 2,
+    "goalsAgainst": 1,
+    "goalDifference": 1,
+    "points": 3,
+    "form": []
+  },
+  "status": "active",
+  "registeredAt": "2026-03-24T09:40:47.177Z",
+  "createdAt": "2026-03-24T09:40:47.178Z",
+  "updatedAt": "2026-03-28T06:41:50.062Z",
+  "__v": 0,
+  "seed": null
+}
+{
+  "_id": "69c283e26daae387df9cfe81",
+  "name": "Phoenix F.C",
+  "shortName": "PHO",
+  "logo": "",
+  "banner": "",
+  "tournament": "69bd4c8ad4d24902b39db3d5",
+  "captain": "69c23d389d4ea1e3cff7a005",
+  "members": [
+    {
+      "user": "69c23d389d4ea1e3cff7a005",
+      "role": "captain",
+      "joinedAt": "2026-03-24T12:30:26.028Z",
+      "_id": "69c283e26daae387df9cfe82"
+    }
+  ],
+  "stats": {
+    "played": 0,
+    "wins": 0,
+    "draws": 0,
+    "losses": 0,
+    "goalsFor": 0,
+    "goalsAgainst": 0,
+    "goalDifference": 0,
+    "points": 0,
+    "form": []
+  },
+  "status": "active",
+  "registeredAt": "2026-03-24T12:30:26.029Z",
+  "createdAt": "2026-03-24T12:30:26.030Z",
+  "updatedAt": "2026-03-28T06:41:50.062Z",
+  "__v": 0,
+  "seed": null
+}
