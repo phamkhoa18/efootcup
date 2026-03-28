@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import { Button } from "@/components/ui/button";
@@ -14,6 +14,9 @@ import { useConfirmDialog } from "@/components/ui/confirm-dialog";
 import { toCanvas } from "html-to-image";
 import { jsPDF } from "jspdf";
 import autoTable from "jspdf-autotable";
+import { useBracketSwap } from "@/hooks/useBracketSwap";
+import SwapFloatingBar from "@/components/SwapFloatingBar";
+import { useAuth } from "@/contexts/AuthContext";
 
 // Reusable icons/components
 const ClearIcon = () => (
@@ -26,6 +29,7 @@ export default function LichThiDauPage() {
     const params = useParams();
     const router = useRouter();
     const id = params.id as string;
+    const { user } = useAuth();
 
     const [tournament, setTournament] = useState<any>(null);
     const [matches, setMatches] = useState<any[]>([]);
@@ -144,6 +148,17 @@ export default function LichThiDauPage() {
         }
     };
 
+    const bracketsForSwap = useMemo(() => Object.entries(rounds).map(([name, matches]) => ({ name, matches })), [rounds]);
+    const swap = useBracketSwap(id, bracketsForSwap, loadData);
+
+    const displayRoundsObj = useMemo(() => {
+        const obj: Record<string, any[]> = {};
+        swap.displayRounds.forEach(r => { obj[r.name] = r.matches; });
+        return obj;
+    }, [swap.displayRounds]);
+
+    const isOwner = user?._id === (tournament?.createdBy?._id || tournament?.createdBy);
+
     const confirmGenerateBrackets = async () => {
         setIsGeneratingModalOpen(false);
         setIsUpdating(true);
@@ -169,6 +184,7 @@ export default function LichThiDauPage() {
                 }
                 payload.seeds = [...seeded, ...nonSeeded].map(t => t._id || t.id);
             }
+            payload.force = true;
             const res = await tournamentAPI.generateBrackets(id, payload);
             if (res.success) {
                 toast.success(`Đã tạo lịch thi đấu với ${res.data?.totalMatches || 0} trận!`);
@@ -403,14 +419,16 @@ export default function LichThiDauPage() {
                         {isExporting ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <FileBarChart className="w-4 h-4 mr-2 text-emerald-500" />}
                         Export DS VĐV
                     </Button>
-                    <Button
-                        onClick={openGenerateModal}
-                        variant="outline"
-                        className="border-gray-200 text-gray-700 hover:bg-gray-50 rounded-md h-9 text-sm font-semibold shadow-sm"
-                    >
-                        <Calendar className="w-4 h-4 mr-2 text-gray-400" />
-                        Tạo lịch
-                    </Button>
+                    {isOwner && (
+                        <Button
+                            onClick={openGenerateModal}
+                            variant="outline"
+                            className="border-gray-200 text-gray-700 hover:bg-gray-50 rounded-md h-9 text-sm font-semibold shadow-sm"
+                        >
+                            <Calendar className="w-4 h-4 mr-2 text-gray-400" />
+                            Tạo lịch
+                        </Button>
+                    )}
                     <Button
                         onClick={handleDownloadPDF}
                         disabled={isUpdating}
@@ -451,15 +469,24 @@ export default function LichThiDauPage() {
                     <Button variant="outline" size="sm" className="text-blue-600 border-blue-200 bg-blue-50 hover:bg-blue-100 h-8 px-3 rounded text-xs font-semibold" onClick={() => router.push(`/manager/giai-dau/${id}/so-do`)}>
                         <Share2 className="w-3.5 h-3.5 mr-1.5" /> Sơ đồ
                     </Button>
-                    <Button variant="outline" size="icon" className="h-8 w-8 rounded text-gray-500 border-gray-200" onClick={() => setIsSwapModalOpen(true)}>
-                        <ArrowLeftRight className="w-4 h-4" />
-                    </Button>
+                    {isOwner && (
+                        <Button 
+                            variant={swap.isSwapMode ? "default" : "outline"} 
+                            size="sm" 
+                            className={`h-8 px-3 rounded text-xs font-semibold transition-all ${swap.isSwapMode ? 'bg-blue-600 text-white hover:bg-blue-700 ring-2 ring-blue-300 ring-offset-1 shadow-lg shadow-blue-200' : 'text-amber-600 border-amber-200 bg-amber-50 hover:bg-amber-100'}`} 
+                            onClick={swap.isSwapMode ? swap.exitSwapMode : swap.enterSwapMode}
+                        >
+                            <Shuffle className="w-3.5 h-3.5 mr-1.5" /> {swap.isSwapMode ? 'Thoát' : 'Sắp xếp'}
+                        </Button>
+                    )}
                     <Button variant="outline" size="icon" className="h-8 w-8 rounded text-gray-500 border-gray-200">
                         <Filter className="w-4 h-4" />
                     </Button>
-                    <Button variant="outline" size="icon" className="h-8 w-8 rounded text-gray-500 border-gray-200" onClick={openGenerateModal}>
-                        <Settings2 className="w-4 h-4" />
-                    </Button>
+                    {isOwner && (
+                        <Button variant="outline" size="icon" className="h-8 w-8 rounded text-gray-500 border-gray-200" onClick={openGenerateModal}>
+                            <Settings2 className="w-4 h-4" />
+                        </Button>
+                    )}
                 </div>
             </div>
 
@@ -515,14 +542,14 @@ export default function LichThiDauPage() {
                 <style jsx>{`
                     .print-container { background: white !important; }
                 `}</style>
-                {Object.entries(rounds).length === 0 ? (
+                {Object.entries(displayRoundsObj).length === 0 ? (
                     <div className="text-center py-20 bg-gray-50">
                         <Calendar className="w-12 h-12 text-gray-300 mx-auto mb-3" />
                         <h3 className="text-gray-900 font-semibold">Chưa có lịch đấu nào</h3>
                         <p className="text-gray-500 text-sm">Vui lòng bấm Tải lịch thi đấu để khởi tạo.</p>
                     </div>
                 ) : (
-                    Object.entries(rounds).map(([roundName, roundMatches]) => {
+                    Object.entries(displayRoundsObj).map(([roundName, roundMatches]) => {
                         const visibleMatches = roundMatches.filter((m: any) => m.status !== 'walkover' && m.status !== 'bye').filter(filterMatch);
                         if (visibleMatches.length === 0) return null;
 
@@ -555,23 +582,39 @@ export default function LichThiDauPage() {
                                         const p2Sub = m.awayTeam?.player2 && m.awayTeam.player2 !== "TBD" ? ` / ${m.awayTeam.player2}` : "";
 
                                         const isWalkover = m.status === 'walkover';
+                                        const isBye = m.status === 'bye';
                                         const isCompleted = m.status === 'completed' || isWalkover;
                                         const isHomeWin = isCompleted && (m.winner === (m.homeTeam?._id || m.homeTeam?.id) || (m.homeScore || 0) > (m.awayScore || 0));
                                         const isAwayWin = isCompleted && (m.winner === (m.awayTeam?._id || m.awayTeam?.id) || (m.awayScore || 0) > (m.homeScore || 0));
 
+                                        const hTeamId = m.homeTeam?._id || m.homeTeam?.id || '';
+                                        const aTeamId = m.awayTeam?._id || m.awayTeam?.id || '';
+
+                                        const isSwappable = swap.isSwapMode && !isCompleted && !isWalkover && !isBye;
+
+                                        const homeContainerClasses = `border rounded px-1.5 py-0.5 shadow-sm text-[11px] font-semibold truncate w-fit max-w-full flex items-center gap-1 transition-all ${isSwappable && hTeamId ? 'cursor-pointer' : 'border-gray-200 bg-white text-gray-700'} ${isSwappable && hTeamId === swap.selectedTeamId ? 'bg-blue-100 border-blue-400 ring-2 ring-blue-500 ring-inset text-blue-900 shadow-md transform scale-[1.02]' : ''} ${isSwappable && swap.swappedTeamIds?.has(hTeamId) && hTeamId !== swap.selectedTeamId ? 'bg-amber-50 border-amber-300 text-amber-900' : ''} ${isSwappable && hTeamId && hTeamId !== swap.selectedTeamId && !swap.swappedTeamIds?.has(hTeamId) ? 'border-blue-200 bg-blue-50/50 hover:bg-blue-50 hover:border-blue-300 text-blue-800' : ''}`;
+
+                                        const awayContainerClasses = `border rounded px-1.5 py-0.5 shadow-sm text-[11px] font-semibold truncate w-fit max-w-full flex items-center gap-1 transition-all ${isSwappable && aTeamId ? 'cursor-pointer' : 'border-gray-200 bg-white text-gray-700'} ${isSwappable && aTeamId === swap.selectedTeamId ? 'bg-blue-100 border-blue-400 ring-2 ring-blue-500 ring-inset text-blue-900 shadow-md transform scale-[1.02]' : ''} ${isSwappable && swap.swappedTeamIds?.has(aTeamId) && aTeamId !== swap.selectedTeamId ? 'bg-amber-50 border-amber-300 text-amber-900' : ''} ${isSwappable && aTeamId && aTeamId !== swap.selectedTeamId && !swap.swappedTeamIds?.has(aTeamId) ? 'border-blue-200 bg-blue-50/50 hover:bg-blue-50 hover:border-blue-300 text-blue-800' : ''}`;
+
                                         return (
-                                            <div key={m._id}>
+                                            <div key={m._id} className={swap.isSwapMode && (isCompleted || isWalkover || isBye) ? 'opacity-40 grayscale pointer-events-none' : ''}>
                                                 {/* Desktop Row */}
-                                                <div className="hidden lg:grid grid-cols-12 gap-4 items-center py-2 px-4 hover:bg-gray-50 transition-colors">
+                                                <div className={`hidden lg:grid grid-cols-12 gap-4 items-center py-2 px-4 transition-colors ${swap.isSwapMode ? 'hover:bg-transparent' : 'hover:bg-gray-50'}`}>
                                                     <div className="col-span-1 text-gray-900 font-bold text-sm">{m.matchNumber}</div>
                                                     <div className="col-span-2 flex flex-col gap-1.5">
-                                                        <div className="border border-gray-200 rounded px-1.5 py-0.5 shadow-sm bg-white text-[11px] font-semibold text-gray-700 truncate w-fit max-w-full flex items-center gap-1">
+                                                        <div 
+                                                            className={homeContainerClasses}
+                                                            onClick={isSwappable && hTeamId ? () => swap.handleTeamSelect(hTeamId, m.homeTeam?.player1 || homeName) : undefined}
+                                                        >
                                                             <div className="w-1.5 h-1.5 rounded-full bg-blue-400" />
                                                             {m.homeTeam?.efvId != null && <span className="text-[9px] font-bold text-amber-600 bg-amber-50 border border-amber-200 px-1 py-px rounded flex-shrink-0">#{m.homeTeam.efvId}</span>}
                                                             {m.homeTeam?.seed != null && m.homeTeam.seed > 0 && <span className="text-[9px] font-bold text-blue-600 bg-blue-50 border border-blue-200 px-1 py-px rounded flex-shrink-0" title={`Hạt giống số ${m.homeTeam.seed}`}>Seed {m.homeTeam.seed}</span>}
                                                             <span className="truncate">{homeName}</span>
                                                         </div>
-                                                        <div className="border border-gray-200 rounded px-1.5 py-0.5 shadow-sm bg-white text-[11px] font-semibold text-gray-700 truncate w-fit max-w-full flex items-center gap-1">
+                                                        <div 
+                                                            className={awayContainerClasses}
+                                                            onClick={isSwappable && aTeamId ? () => swap.handleTeamSelect(aTeamId, m.awayTeam?.player1 || awayName) : undefined}
+                                                        >
                                                             <div className="w-1.5 h-1.5 rounded-full bg-red-400" />
                                                             {m.awayTeam?.efvId != null && <span className="text-[9px] font-bold text-amber-600 bg-amber-50 border border-amber-200 px-1 py-px rounded flex-shrink-0">#{m.awayTeam.efvId}</span>}
                                                             {m.awayTeam?.seed != null && m.awayTeam.seed > 0 && <span className="text-[9px] font-bold text-blue-600 bg-blue-50 border border-blue-200 px-1 py-px rounded flex-shrink-0" title={`Hạt giống số ${m.awayTeam.seed}`}>Seed {m.awayTeam.seed}</span>}
@@ -639,9 +682,11 @@ export default function LichThiDauPage() {
                                                             </div>
                                                         </div>
                                                     </div>
-                                                    {/* Home team */}
-                                                    <div className={`flex items-center justify-between py-1.5 ${isHomeWin ? 'font-bold' : ''}`}>
-                                                        <div className="flex items-center gap-2 min-w-0 flex-1">
+                                                    <div className="flex items-center justify-between py-1.5 mb-1">
+                                                        <div 
+                                                            className={`flex items-center gap-2 min-w-0 flex-1 px-1.5 py-1 -ml-1.5 rounded transition-all ${isHomeWin ? 'font-bold' : ''} ${isSwappable && hTeamId ? 'cursor-pointer' : ''} ${isSwappable && hTeamId === swap.selectedTeamId ? 'bg-blue-100 ring-2 ring-blue-500 text-blue-900 shadow-sm' : ''} ${isSwappable && swap.swappedTeamIds?.has(hTeamId) && hTeamId !== swap.selectedTeamId ? 'bg-amber-50 ring-1 ring-amber-300 text-amber-900' : ''} ${isSwappable && hTeamId && hTeamId !== swap.selectedTeamId && !swap.swappedTeamIds?.has(hTeamId) ? 'hover:bg-blue-50 ring-1 ring-blue-200' : ''}`}
+                                                            onClick={isSwappable && hTeamId ? () => swap.handleTeamSelect(hTeamId, m.homeTeam?.player1 || homeName) : undefined}
+                                                        >
                                                             <div className="w-1.5 h-1.5 rounded-full bg-blue-400 flex-shrink-0" />
                                                             <span className={`text-[13px] truncate flex items-center gap-1.5 ${isCompleted ? (isHomeWin ? "text-gray-900" : "text-gray-400") : "text-purple-600"}`}>
                                                                 {m.homeTeam?.seed != null && m.homeTeam.seed > 0 && <span className="text-[9px] font-bold text-blue-600 bg-blue-50 border border-blue-200 px-1 py-px rounded flex-shrink-0 leading-tight" title={`Hạt giống số ${m.homeTeam.seed}`}>Seed {m.homeTeam.seed}</span>}
@@ -652,9 +697,11 @@ export default function LichThiDauPage() {
                                                             {isCompleted || m.status === "live" ? (m.homeScore ?? 0) : "-"}
                                                         </span>
                                                     </div>
-                                                    {/* Away team */}
-                                                    <div className={`flex items-center justify-between py-1.5 ${isAwayWin ? 'font-bold' : ''}`}>
-                                                        <div className="flex items-center gap-2 min-w-0 flex-1">
+                                                    <div className="flex items-center justify-between py-1.5">
+                                                        <div 
+                                                            className={`flex items-center gap-2 min-w-0 flex-1 px-1.5 py-1 -ml-1.5 rounded transition-all ${isAwayWin ? 'font-bold' : ''} ${isSwappable && aTeamId ? 'cursor-pointer' : ''} ${isSwappable && aTeamId === swap.selectedTeamId ? 'bg-blue-100 ring-2 ring-blue-500 text-blue-900 shadow-sm' : ''} ${isSwappable && swap.swappedTeamIds?.has(aTeamId) && aTeamId !== swap.selectedTeamId ? 'bg-amber-50 ring-1 ring-amber-300 text-amber-900' : ''} ${isSwappable && aTeamId && aTeamId !== swap.selectedTeamId && !swap.swappedTeamIds?.has(aTeamId) ? 'hover:bg-blue-50 ring-1 ring-blue-200' : ''}`}
+                                                            onClick={isSwappable && aTeamId ? () => swap.handleTeamSelect(aTeamId, m.awayTeam?.player1 || awayName) : undefined}
+                                                        >
                                                             <div className="w-1.5 h-1.5 rounded-full bg-red-400 flex-shrink-0" />
                                                             <span className={`text-[13px] truncate flex items-center gap-1.5 ${isCompleted ? (isAwayWin ? "text-gray-900" : "text-gray-400") : "text-purple-600"}`}>
                                                                 {m.awayTeam?.seed != null && m.awayTeam.seed > 0 && <span className="text-[9px] font-bold text-blue-600 bg-blue-50 border border-blue-200 px-1 py-px rounded flex-shrink-0 leading-tight" title={`Hạt giống số ${m.awayTeam.seed}`}>Seed {m.awayTeam.seed}</span>}

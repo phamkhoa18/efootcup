@@ -51,24 +51,13 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
 
         if (existingMatches > 0 && !forceRegenerate) {
             const msg = completedMatches > 0
-                ? `⚠️ Giải đấu đã có ${existingMatches} trận đấu (${completedMatches} trận đã hoàn thành). Tạo lại lịch sẽ XÓA TOÀN BỘ kết quả. Liên hệ chủ giải nếu cần thiết.`
+                ? `⚠️ Giải đấu đã có ${existingMatches} trận đấu (${completedMatches} trận đã hoàn thành). Tạo lại lịch sẽ XÓA TOÀN BỘ kết quả. Bấm xác nhận lưu / tạo lại để tiếp tục (Bắt buộc với Chủ giải).`
                 : `Giải đấu đã có ${existingMatches} trận đấu. Gửi lại request với force: true để xác nhận tạo lại.`;
             return apiError(msg, 400);
         }
 
-        // 🛡️ CRITICAL: Block force regeneration when significant data exists
-        if (completedMatches > 10 && forceRegenerate) {
-            console.error(`🚫 [BRACKETS] BLOCKED force regeneration for tournament ${id}. ${completedMatches} completed matches would be lost! User: ${authResult.user._id}`);
-            return apiError(
-                `🚫 KHÔNG THỂ TẠO LẠI: Giải đấu đã có ${completedMatches} trận hoàn thành. ` +
-                `Tạo lại bracket sẽ XÓA TOÀN BỘ dữ liệu và KHÔNG THỂ KHÔI PHỤC. ` +
-                `Nếu cần khôi phục, liên hệ admin để sử dụng script phục hồi chuyên dụng.`,
-                403
-            );
-        }
-
         if (completedMatches > 0 && forceRegenerate) {
-            console.warn(`⚠️ [BRACKETS] Force regeneration for tournament ${id}. Deleting ${existingMatches} matches (${completedMatches} completed) by user ${authResult.user._id} at ${new Date().toISOString()}`);
+            console.warn(`⚠️ [BRACKETS] Force regeneration for tournament ${id}. Deleting ${existingMatches} matches (${completedMatches} completed) by Owner user ${authResult.user._id} at ${new Date().toISOString()}`);
         }
 
         // Reset any previously eliminated teams back to active

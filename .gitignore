@@ -42,3 +42,4 @@ next-env.d.ts
 
 # uploads (user-uploaded files, served via /api/files/)
 /uploads/
+/public/uploads/

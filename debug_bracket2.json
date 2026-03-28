@@ -1,0 +1,20 @@
+{
+  "scheduledCount": 448,
+  "roundDist": {
+    "1": 15,
+    "2": 184,
+    "3": 122,
+    "4": 64,
+    "5": 32,
+    "6": 16,
+    "7": 8,
+    "8": 4,
+    "9": 2,
+    "10": 1
+  },
+  "sched0_homeId": "69bd4ebed4d24902b39dbc2e",
+  "sched0_awayId": "69bd4ecad4d24902b39dbca2",
+  "sched0_homeNull": false,
+  "sched0_awayNull": false,
+  "sched0_round": 1
+}

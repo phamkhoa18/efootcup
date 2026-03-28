@@ -1,0 +1,23 @@
+{
+  "total": 816,
+  "statuses": {
+    "completed": 324,
+    "scheduled": 448,
+    "bye": 44
+  },
+  "homeKeys": [
+    "_id",
+    "name",
+    "shortName",
+    "logo",
+    "seed",
+    "player1",
+    "player2",
+    "efvId",
+    "avatar",
+    "personalPhoto"
+  ],
+  "homeId": "69bd543b159e7077fce1509d",
+  "awayId": "69be4141fd30bbe01f7d0aa2",
+  "sampleStatus": "completed"
+}

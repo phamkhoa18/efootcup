@@ -3,7 +3,7 @@
 import { motion, AnimatePresence } from "framer-motion";
 import { Swords, Trophy, Users, Search, X, Copy, QrCode, Share2, Check, CheckCircle2, Info, Loader2, Download, ArrowUp, ArrowDown, Shuffle, Hash, RotateCcw, Sparkles, FileBarChart, Eye, ImageIcon, MessageSquare, Clock, User, Save } from "lucide-react";
 import { useState, useEffect } from "react";
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -11,12 +11,24 @@ import { tournamentAPI } from "@/lib/api";
 import { toast } from "sonner";
 import { toCanvas } from "html-to-image";
 import { jsPDF } from "jspdf";
+import { useBracketSwap } from "@/hooks/useBracketSwap";
+import SwapFloatingBar from "@/components/SwapFloatingBar";
+import { useAuth } from "@/contexts/AuthContext";
 
 const UNIT_HEIGHT = 110;
 
 // --- Components ---
 
-const MatchCard = ({ match, onClick }: { match: any; onClick: () => void }) => {
+const MatchCard = ({ match, onClick, isSwapMode, selectedTeamId, swappedTeamIds, onTeamSelect }: {
+    match: any; onClick: () => void;
+    isSwapMode?: boolean; selectedTeamId?: string | null;
+    swappedTeamIds?: Set<string>;
+    onTeamSelect?: (teamId: string, teamName: string) => void;
+}) => {
+    const homeTeamId = match.homeTeam?._id || match.homeTeam?.id || '';
+    const awayTeamId = match.awayTeam?._id || match.awayTeam?.id || '';
+    // DEBUG - remove after fixing
+    if (isSwapMode) console.log('[SWAP DEBUG] MatchCard render:', { isSwapMode, homeTeamId, awayTeamId, status: match.status, hasOnTeamSelect: !!onTeamSelect });
     const isWalkover = match.status === "walkover";
     const isBye = match.status === "bye";
     const bracketNumber = match.bracketPosition?.y !== undefined ? match.bracketPosition.y + 1 : (match.matchNumber || 0);
@@ -75,9 +87,9 @@ const MatchCard = ({ match, onClick }: { match: any; onClick: () => void }) => {
                 </div>
 
                 <motion.div
-                    whileHover={{ y: -2, scale: 1.02 }}
-                    onClick={onClick}
-                    className="w-full bg-white rounded-[6px] border border-[#E2E8F0] shadow-sm flex flex-col justify-center cursor-pointer overflow-hidden z-20 relative px-2 py-1.5 h-[44px]"
+                    whileHover={!isSwapMode ? { y: -2, scale: 1.02 } : undefined}
+                    onClick={() => { if (!isSwapMode) onClick(); }}
+                    className={`w-full bg-white rounded-[6px] border border-[#E2E8F0] shadow-sm flex flex-col cursor-pointer overflow-hidden z-20 relative px-2 py-1.5 h-[44px] ${isSwapMode ? 'opacity-40 pointer-events-none' : ''}`}
                 >
                     <span className="text-[8px] text-gray-400 font-bold text-center mb-0.5">
                         {match.homeTeam?.efvId != null && <span className="text-[8px] font-bold text-amber-600 bg-amber-50 border border-amber-200 px-1 py-px rounded mr-1">#{match.homeTeam.efvId}</span>}
@@ -105,9 +117,13 @@ const MatchCard = ({ match, onClick }: { match: any; onClick: () => void }) => {
             </div>
 
             <motion.div
-                whileHover={{ y: -2, scale: 1.02 }}
-                onClick={onClick}
-                className="w-full bg-white rounded-[6px] border border-[#E2E8F0] shadow-sm flex flex-col cursor-pointer overflow-hidden z-20 group relative"
+                whileHover={!isSwapMode ? { y: -2, scale: 1.02 } : undefined}
+                onClick={(e: any) => {
+                    console.log('[SWAP DEBUG] motion.div clicked, isSwapMode=', isSwapMode);
+                    if (isSwapMode) { e.stopPropagation(); return; }
+                    onClick();
+                }}
+                className={`w-full bg-white rounded-[6px] border shadow-sm flex flex-col overflow-hidden z-20 group relative ${isSwapMode ? 'border-dashed border-blue-300 ring-1 ring-blue-100' : 'border-[#E2E8F0] cursor-pointer'}`}
             >
                 {isLive && (
                     <div className="absolute top-0 right-0 left-0 bg-red-500 text-white text-[7px] font-bold text-center py-[1px] uppercase tracking-wider flex items-center justify-center gap-1 z-10">
@@ -115,7 +131,15 @@ const MatchCard = ({ match, onClick }: { match: any; onClick: () => void }) => {
                     </div>
                 )}
 
-                <div className={`p-1.5 flex flex-col ${homeWin ? "bg-blue-50/20" : ""} ${isLive ? 'mt-[10px]' : ''}`}>
+                <div
+                    className={`p-1.5 flex flex-col ${homeWin ? "bg-blue-50/20" : ""} ${isLive ? 'mt-[10px]' : ''} ${isSwapMode && homeTeamId ? 'cursor-pointer transition-all hover:bg-blue-50/50 active:scale-[0.97]' : ''} ${isSwapMode && homeTeamId === selectedTeamId ? '!bg-blue-100/80 ring-2 ring-inset ring-blue-500 rounded-t-[5px]' : ''} ${isSwapMode && swappedTeamIds?.has(homeTeamId) && homeTeamId !== selectedTeamId ? '!bg-amber-50/60' : ''}`}
+                    onClick={(e: any) => {
+                        console.log('[SWAP DEBUG] home team clicked, isSwapMode=', isSwapMode, 'homeTeamId=', homeTeamId);
+                        if (!isSwapMode || !homeTeamId) return;
+                        e.stopPropagation();
+                        onTeamSelect?.(homeTeamId, match.homeTeam?.player1 || homeName);
+                    }}
+                >
                     <span className="text-[8px] text-gray-400 font-bold text-center mb-0.5">
                         {match.homeTeam?.efvId != null && <span className="text-[8px] font-bold text-amber-600 bg-amber-50 border border-amber-200 px-1 py-px rounded mr-1">#{match.homeTeam.efvId}</span>}
                         {match.homeTeam?.seed != null && match.homeTeam.seed > 0 && <span className="text-[8px] font-bold text-blue-600 bg-blue-50 border border-blue-200 px-1 py-px rounded mr-1" title={`Hạt giống số ${match.homeTeam.seed}`}>Seed {match.homeTeam.seed}</span>}
@@ -138,7 +162,14 @@ const MatchCard = ({ match, onClick }: { match: any; onClick: () => void }) => {
 
                 <div className="h-px bg-[#E2E8F0] w-full" />
 
-                <div className={`p-1.5 flex flex-col ${awayWin ? "bg-blue-50/20" : ""}`}>
+                <div
+                    className={`p-1.5 flex flex-col ${awayWin ? "bg-blue-50/20" : ""} ${isSwapMode && awayTeamId ? 'cursor-pointer transition-all hover:bg-blue-50/50 active:scale-[0.97]' : ''} ${isSwapMode && awayTeamId === selectedTeamId ? '!bg-blue-100/80 ring-2 ring-inset ring-blue-500 rounded-b-[5px]' : ''} ${isSwapMode && swappedTeamIds?.has(awayTeamId) && awayTeamId !== selectedTeamId ? '!bg-amber-50/60' : ''}`}
+                    onClick={(e: any) => {
+                        if (!isSwapMode || !awayTeamId) return;
+                        e.stopPropagation();
+                        onTeamSelect?.(awayTeamId, match.awayTeam?.player1 || awayName);
+                    }}
+                >
                     <span className="text-[8px] text-gray-400 font-bold text-center mb-0.5">
                         {match.awayTeam?.efvId != null && <span className="text-[8px] font-bold text-amber-600 bg-amber-50 border border-amber-200 px-1 py-px rounded mr-1">#{match.awayTeam.efvId}</span>}
                         {match.awayTeam?.seed != null && match.awayTeam.seed > 0 && <span className="text-[8px] font-bold text-blue-600 bg-blue-50 border border-blue-200 px-1 py-px rounded mr-1" title={`Hạt giống số ${match.awayTeam.seed}`}>Seed {match.awayTeam.seed}</span>}
@@ -1248,6 +1279,7 @@ const BracketCreator = ({ tournamentId, tournament, onCreated }: { tournamentId:
 export default function SoDoThiDauPage() {
     const params = useParams();
     const id = params.id as string;
+    const { user } = useAuth();
 
     const [search, setSearch] = useState("");
     const [selectedMatch, setSelectedMatch] = useState<any>(null);
@@ -1334,9 +1366,13 @@ export default function SoDoThiDauPage() {
     // filteredRounds is used only for the empty-state check (show BracketCreator)
     const filteredRounds = bracketRounds;
 
+    const swap = useBracketSwap(id, bracketRounds, loadData);
+
     const totalTeams = bracketRounds.reduce((sum, r) => sum + r.matches.filter((m: any) => m.status !== 'walkover').length, 0);
     const totalRounds = bracketRounds.length;
     const tournamentName = tournament?.title || "Giải đấu";
+
+    const isOwner = user?._id === (tournament?.createdBy?._id || tournament?.createdBy);
 
     if (isLoading) {
         return (
@@ -1374,22 +1410,33 @@ export default function SoDoThiDauPage() {
                             onChange={(e) => setSearch(e.target.value)}
                         />
                     </div>
-                    <Button
-                        onClick={async () => {
-                            if (!confirm('Bạn có chắc muốn tạo lại sơ đồ? Toàn bộ kết quả sẽ bị xóa.')) return;
-                            const res = await tournamentAPI.generateBrackets(id);
-                            if (res.success) {
-                                toast.success('Đã tạo lại sơ đồ!');
-                                loadData();
-                            } else {
-                                toast.error(res.message || 'Lỗi tạo lại');
-                            }
-                        }}
-                        variant="outline"
-                        className="h-9 sm:h-11 px-3 sm:px-5 rounded-xl border-red-200 text-red-600 hover:bg-red-50 font-bold flex items-center gap-1.5 text-xs sm:text-sm"
-                    >
-                        <RotateCcw className="w-3.5 h-3.5 sm:w-4 sm:h-4" /> <span className="hidden sm:inline">Tạo lại</span>
-                    </Button>
+                    {isOwner && (
+                        <>
+                            <Button
+                                onClick={swap.isSwapMode ? swap.exitSwapMode : swap.enterSwapMode}
+                                variant={swap.isSwapMode ? "default" : "outline"}
+                                className={`h-9 sm:h-11 px-3 sm:px-5 rounded-xl font-bold flex items-center gap-1.5 text-xs sm:text-sm transition-all ${swap.isSwapMode ? 'bg-blue-600 text-white hover:bg-blue-700 ring-2 ring-blue-300 ring-offset-1 shadow-lg shadow-blue-200' : 'border-amber-200 text-amber-600 hover:bg-amber-50'}`}
+                            >
+                                <Shuffle className="w-3.5 h-3.5 sm:w-4 sm:h-4" /> <span className="hidden sm:inline">{swap.isSwapMode ? 'Thoát' : 'Sắp xếp'}</span>
+                            </Button>
+                            <Button
+                                onClick={async () => {
+                                    if (!confirm('Bạn có chắc muốn tạo lại sơ đồ? Toàn bộ kết quả sẽ bị xóa.')) return;
+                                    const res = await tournamentAPI.generateBrackets(id, { force: true });
+                                    if (res.success) {
+                                        toast.success('Đã tạo lại sơ đồ!');
+                                        loadData();
+                                    } else {
+                                        toast.error(res.message || 'Lỗi tạo lại');
+                                    }
+                                }}
+                                variant="outline"
+                                className="h-9 sm:h-11 px-3 sm:px-5 rounded-xl border-red-200 text-red-600 hover:bg-red-50 font-bold flex items-center gap-1.5 text-xs sm:text-sm"
+                            >
+                                <RotateCcw className="w-3.5 h-3.5 sm:w-4 sm:h-4" /> <span className="hidden sm:inline">Tạo lại</span>
+                            </Button>
+                        </>
+                    )}
                     <Button
                         onClick={handleDownloadPDF}
                         disabled={isLoading}
@@ -1415,8 +1462,8 @@ export default function SoDoThiDauPage() {
                 <div id="bracket-capture-area" className="flex-1 overflow-auto bg-[#FDFDFD] rounded-[24px] border border-gray-100 relative custom-scrollbar shadow-inner">
                     <div className="absolute inset-0 opacity-[0.4] pointer-events-none" style={{ backgroundImage: `radial-gradient(#E2E8F0 1.2px, transparent 1.2px)`, backgroundSize: '32px 32px' }} />
                     <div className="inline-flex p-12 min-w-full relative z-10">
-                        {bracketRounds.map((round, rIndex) => {
-                            const isLastRound = rIndex === bracketRounds.length - 1;
+                        {swap.displayRounds.map((round, rIndex) => {
+                            const isLastRound = rIndex === swap.displayRounds.length - 1;
                             const scale = Math.pow(2, rIndex);
                             const GAP = 128;
 
@@ -1452,7 +1499,14 @@ export default function SoDoThiDauPage() {
                                                             width: '100%'
                                                         }}
                                                     >
-                                                        <MatchCard match={match} onClick={() => setSelectedMatch(match)} />
+                                                        <MatchCard
+                                                            match={match}
+                                                            onClick={() => { if (!swap.isSwapMode) setSelectedMatch(match); }}
+                                                            isSwapMode={swap.isSwapMode && match.status !== 'completed' && match.status !== 'walkover' && match.status !== 'bye'}
+                                                            selectedTeamId={swap.selectedTeamId}
+                                                            swappedTeamIds={swap.swappedTeamIds}
+                                                            onTeamSelect={swap.handleTeamSelect}
+                                                        />
 
                                                         {/* Connector lines to next round */}
                                                         {match.nextMatch && !isLastRound && (() => {
@@ -1527,6 +1581,17 @@ export default function SoDoThiDauPage() {
                     </div>
                 </div>
             )}
+
+            {/* Swap Floating Bar */}
+            <SwapFloatingBar
+                isSwapMode={swap.isSwapMode}
+                selectedTeamId={swap.selectedTeamId}
+                pendingSwaps={swap.pendingSwaps}
+                isSaving={swap.isSaving}
+                onUndo={swap.undoLastSwap}
+                onCancel={swap.exitSwapMode}
+                onSave={swap.handleBatchSave}
+            />
 
             {/* Modals Container */}
             <AnimatePresence>
