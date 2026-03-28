@@ -3,8 +3,10 @@ const mongoose = require("mongoose");
 const fs = require("fs");
 
 const TOURNAMENT_ID = "69bd4c8ad4d24902b39db3d5";
+
 const TeamSchema = new mongoose.Schema({ status: String }, { strict: false });
 const Team = mongoose.models.Team || mongoose.model("Team", TeamSchema);
+
 const MatchSchema = new mongoose.Schema({
     tournament: mongoose.Schema.Types.ObjectId,
     homeTeam: mongoose.Schema.Types.ObjectId,
@@ -18,11 +20,12 @@ const MatchSchema = new mongoose.Schema({
 }, { strict: false });
 const Match = mongoose.models.Match || mongoose.model("Match", MatchSchema);
 
-async function injectVong512() {
+async function injectVong512Dynamic() {
     let out = "";
     const log = (msg) => { console.log(msg); out += msg + "\n"; };
     await mongoose.connect(process.env.MONGODB_URI);
 
+    // ID của 4 Đội Tái Xuất
     const missingIds = [
         "69c05332f0792ab61163742f",
         "69c201869d4ea1e3cff6c8b2",
@@ -30,75 +33,78 @@ async function injectVong512() {
         "69c283e26daae387df9cfe81"
     ];
     const missingTeams = await Team.find({ _id: { $in: missingIds } });
-
-    // BRANCH A (The one we previously modified, we will overwrite its children to be BYEs)
-    const m2A = await Match.findById("69c78777c1f1fdf12f3d0b86");
-    const childA = await Match.find({ nextMatch: m2A._id, round: 1 }).sort({ _id: 1 });
-
-    // Ensure we have two children
-    if (childA.length === 2) {
-        // M1 child 1: BYE for missingTeams[0]
-        childA[0].homeTeam = missingTeams[0]._id;
-        childA[0].awayTeam = null;
-        childA[0].status = 'bye';
-        childA[0].winner = missingTeams[0]._id;
-        childA[0].homeScore = 0; childA[0].awayScore = 0;
-        await childA[0].save();
-
-        // M1 child 2: BYE for missingTeams[1]
-        childA[1].homeTeam = missingTeams[1]._id;
-        childA[1].awayTeam = null;
-        childA[1].status = 'bye';
-        childA[1].winner = missingTeams[1]._id;
-        childA[1].homeScore = 0; childA[1].awayScore = 0;
-        await childA[1].save();
-
-        // M2 A: Scheduled (Missing[0] vs Missing[1])
-        m2A.homeTeam = missingTeams[0]._id;
-        m2A.awayTeam = missingTeams[1]._id;
-        m2A.status = 'scheduled';
-        m2A.winner = null;
-        m2A.homeScore = null; m2A.awayScore = null;
-        await m2A.save();
-        log("Branch A successfully shifted to Vong 512!");
+    if (missingTeams.length < 4) {
+        log("LỖI: Không tìm đủ 4 đội bị rớt trong DB!");
+        process.exit(1);
+    }
+    
+    for (const t of missingTeams) {
+        t.status = 'active'; // Kích hoạt lại trạng thái
+        await t.save();
     }
 
-    // BRANCH B (A new dead branch: 69c78777c1f1fdf12f3d0b89)
-    const m2B = await Match.findById("69c78777c1f1fdf12f3d0b89");
-    const childB = await Match.find({ nextMatch: m2B._id, round: 1 }).sort({ _id: 1 });
+    log("Đang quét dọn Server để tìm 2 nhánh ma...");
+    // Tự động quét để tìm ra 2 nhánh ma (Dead Branches) trong Round 2
+    const r2Matches = await Match.find({ tournament: TOURNAMENT_ID, round: 2 }).lean();
+    let deadR2Matches = [];
+    
+    for (const m2 of r2Matches) {
+        if (!m2.homeTeam || !m2.awayTeam) continue;
+        const ht = await Team.findById(m2.homeTeam).lean();
+        const at = await Team.findById(m2.awayTeam).lean();
+        
+        if (ht && ht.status === "eliminated" && at && at.status === "eliminated") {
+            const children = await Match.find({ nextMatch: m2._id, round: 1 }).lean();
+            if (children.length === 2) {
+                deadR2Matches.push(m2);
+                if (deadR2Matches.length === 2) break; // Chỉ cần tìm đúng 2 nhánh là đủ nhét 4 người
+            }
+        }
+    }
 
-    if (childB.length === 2) {
-        // M1 child 1: BYE for missingTeams[2]
-        childB[0].homeTeam = missingTeams[2]._id;
-        childB[0].awayTeam = null;
-        childB[0].status = 'bye';
-        childB[0].winner = missingTeams[2]._id;
-        childB[0].homeScore = 0; childB[0].awayScore = 0;
-        await childB[0].save();
+    if (deadR2Matches.length < 2) {
+        log("LỖI: Sơ đồ hiện tại không có đủ 2 nhánh ma ở Round 2 để chèn VĐV! Báo admin tạo lại sơ đồ.");
+        process.exit(1);
+    }
 
-        // M1 child 2: BYE for missingTeams[3]
-        childB[1].homeTeam = missingTeams[3]._id;
-        childB[1].awayTeam = null;
-        childB[1].status = 'bye';
-        childB[1].winner = missingTeams[3]._id;
-        childB[1].homeScore = 0; childB[1].awayScore = 0;
-        await childB[1].save();
+    log(`Đã dò ra 2 trận ma lý tưởng (ID: ${deadR2Matches[0]._id} và ${deadR2Matches[1]._id}) - Bắt đầu bơm VĐV!`);
 
-        // M2 B: Scheduled (Missing[2] vs Missing[3])
-        let oldWinnerToScrub = m2B.winner; // This was the ghost who "won" Branch B
-        m2B.homeTeam = missingTeams[2]._id;
-        m2B.awayTeam = missingTeams[3]._id;
-        m2B.status = 'scheduled';
-        m2B.winner = null;
-        m2B.homeScore = null; m2B.awayScore = null;
-        await m2B.save();
+    // Hàm thực hiện Nhét 2 người vào 1 nhánh R2
+    async function processBranch(m2Data, missingA, missingB, branchName) {
+        const m2 = await Match.findById(m2Data._id);
+        const children = await Match.find({ nextMatch: m2._id, round: 1 }).sort({ _id: 1 });
 
-        // Clean up Branch B upwards!
-        let currentMatchId = m2B.nextMatch;
+        // BYE Vòng 1024 cho người A
+        children[0].homeTeam = missingA._id;
+        children[0].awayTeam = null;
+        children[0].status = 'bye';
+        children[0].winner = missingA._id;
+        children[0].homeScore = 0; children[0].awayScore = 0;
+        await children[0].save();
+
+        // BYE Vòng 1024 cho người B
+        children[1].homeTeam = missingB._id;
+        children[1].awayTeam = null;
+        children[1].status = 'bye';
+        children[1].winner = missingB._id;
+        children[1].homeScore = 0; children[1].awayScore = 0;
+        await children[1].save();
+
+        // Vòng 512 sẽ là đụng độ A vs B
+        let oldWinnerToScrub = m2.winner;
+        m2.homeTeam = missingA._id;
+        m2.awayTeam = missingB._id;
+        m2.status = 'scheduled';
+        m2.winner = null;
+        m2.homeScore = null; m2.awayScore = null;
+        await m2.save();
+
+        // Dọn dẹp leo tháp
+        let currentMatchId = m2.nextMatch;
         while (currentMatchId) {
             const m = await Match.findById(currentMatchId);
             if (!m) break;
-            log(`Cleaning Branch B Round ${m.round} Match ${m._id}...`);
+            log(`[${branchName}] Dọn dẹp cờ ma ảo ở Vòng ${m.round} Trận ${m._id}...`);
             let previousWinner = m.winner;
             
             m.status = 'scheduled';
@@ -127,10 +133,14 @@ async function injectVong512() {
                 break;
             }
         }
-        log("Branch B successfully shifted to Vong 512 and cleaned upward!");
+        log(`==> [${branchName}] Tiêm thành công vào Vòng 512!`);
     }
 
-    fs.writeFileSync("vong512_log.txt", out);
+    await processBranch(deadR2Matches[0], missingTeams[0], missingTeams[1], "NHÁNH A");
+    await processBranch(deadR2Matches[1], missingTeams[2], missingTeams[3], "NHÁNH B");
+
+    log("CHÚC MỪNG: Chèn và khôi phục nhịp Bracket Server thành công 100%!");
+    fs.writeFileSync("vong512_dynamic_log.txt", out);
     process.exit(0);
 }
-injectVong512();
+injectVong512Dynamic();
