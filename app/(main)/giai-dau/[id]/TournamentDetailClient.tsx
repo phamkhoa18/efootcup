@@ -57,9 +57,9 @@ const platformLabels: Record<string, string> = {
 
 const tabs = [
     { key: "overview", label: "Tổng quan", icon: FileText },
+    { key: "schedule", label: "Lịch thi đấu", icon: Calendar },
     { key: "bracket", label: "Sơ đồ thi đấu", icon: Swords },
     { key: "players", label: "Danh sách VĐV", icon: Users },
-    { key: "schedule", label: "Lịch thi đấu", icon: Calendar },
 ];
 
 const UNIT_HEIGHT = 110;
