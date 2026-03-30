@@ -468,7 +468,7 @@ export default function ManagerGiaiDauPage() {
                                         </Badge>
                                         {t.efvTier && (
                                             <Badge variant="outline" className="text-[9px] font-bold bg-purple-50 text-purple-600 border-purple-100 rounded px-1.5 py-0">
-                                                {t.efvTier === "efv_250" ? "EFV 250" : t.efvTier === "efv_500" ? "EFV 500" : "EFV 1000"}
+                                                {t.efvTier.toUpperCase().replace('_', ' ')}
                                             </Badge>
                                         )}
                                         {t.mode && (

@@ -10,7 +10,7 @@ interface RouteParams {
     params: Promise<{ id: string }>;
 }
 
-// GET /api/tournaments/[id]/matches — Get all matches
+// GET /api/tournaments/[id]/matches — Get matches with pagination and search
 export async function GET(req: NextRequest, { params }: RouteParams) {
     try {
         await dbConnect();
@@ -25,22 +25,120 @@ export async function GET(req: NextRequest, { params }: RouteParams) {
         const { searchParams } = new URL(req.url);
         const round = searchParams.get("round");
         const group = searchParams.get("group");
-        const status = searchParams.get("status");
+        const statusParam = searchParams.get("status");
+        const search = searchParams.get("search");
+        const page = parseInt(searchParams.get("page") || "1");
+        const limit = parseInt(searchParams.get("limit") || "0"); // 0 = no limit
 
-        const query: any = { tournament: id };
+        const query: any = { tournament: id, status: { $nin: ['walkover', 'bye'] } };
+
         if (round) query.round = parseInt(round);
         if (group) query.group = group;
-        if (status) query.status = status;
 
-        const matches = await Match.find(query)
-            .populate("homeTeam", "name shortName logo")
-            .populate("awayTeam", "name shortName logo")
+        if (statusParam && statusParam !== 'all') {
+            if (statusParam === "upcoming") {
+                query.status = { $nin: ["completed", "live", "walkover", "bye"] };
+            } else {
+                query.status = statusParam;
+            }
+        }
+
+        // Full text Search logic
+        if (search && search.trim() !== "") {
+            const q = search.trim();
+            const isNum = !isNaN(Number(q));
+
+            const teamQuery: any = {
+                tournament: id,
+                $or: [
+                    { name: { $regex: q, $options: "i" } },
+                    { shortName: { $regex: q, $options: "i" } }
+                ]
+            };
+            const matchingTeams = await Team.find(teamQuery).select('_id').lean();
+            const teamIdsByName = matchingTeams.map((t: any) => t._id.toString());
+
+            const Registration = (await import('@/models/Registration')).default;
+            const User = (await import('@/models/User')).default;
+
+            const userQuery: any = { $or: [{ name: { $regex: q, $options: "i" } }, { nickname: { $regex: q, $options: "i" } }] };
+            if (isNum) userQuery.$or.push({ efvId: Number(q) });
+            const matchingUsers = await User.find(userQuery).select('_id').lean();
+            const userIds = matchingUsers.map((u: any) => u._id);
+
+            const matchingRegs = await Registration.find({
+                tournament: id,
+                status: 'approved',
+                $or: [
+                    { playerName: { $regex: q, $options: "i" } },
+                    { nickname: { $regex: q, $options: "i" } },
+                    { user: { $in: userIds } }
+                ]
+            }).select('team').lean();
+            const teamIdsByReg = matchingRegs.filter((r: any) => r.team).map((r: any) => r.team.toString());
+
+            const allTeamIds = [...new Set([...teamIdsByName, ...teamIdsByReg])];
+
+            const matchOr: any[] = [
+                { homeTeam: { $in: allTeamIds } },
+                { awayTeam: { $in: allTeamIds } }
+            ];
+            if (isNum) matchOr.push({ matchNumber: Number(q) });
+
+            query.$or = matchOr;
+        }
+
+        const [total, completedCount, liveCount, totalCount] = await Promise.all([
+            Match.countDocuments(query),
+            Match.countDocuments({ tournament: id, status: 'completed' }),
+            Match.countDocuments({ tournament: id, status: 'live' }),
+            Match.countDocuments({ tournament: id, status: { $nin: ['walkover', 'bye'] } })
+        ]);
+
+        let dbQuery = Match.find(query)
+            .populate("homeTeam", "name shortName logo stars seed")
+            .populate("awayTeam", "name shortName logo stars seed")
             .populate("winner", "name shortName")
             .populate("referee", "name")
-            .sort({ round: 1, matchNumber: 1, scheduledAt: 1 })
-            .lean();
+            .sort({ round: 1, matchNumber: 1, scheduledAt: 1 });
 
-        return apiResponse({ matches, total: matches.length });
+        if (limit > 0) {
+            dbQuery = dbQuery.skip((page - 1) * limit).limit(limit);
+        }
+
+        let matches = await dbQuery.lean();
+
+        // Enrich result with player/user info from Registration
+        const Registration = (await import('@/models/Registration')).default;
+        const registrations = await Registration.find({ tournament: id, status: 'approved' })
+            .select('user team playerName personalPhoto gamerId nickname')
+            .populate('user', 'efvId avatar personalPhoto')
+            .lean();
+            
+        const teamMap = new Map();
+        registrations.forEach(r => { if (r.team) teamMap.set(r.team.toString(), r); });
+
+        matches = matches.map((match: any) => {
+            [match.homeTeam, match.awayTeam].forEach(t => {
+                if (t && t._id) {
+                    const reg = teamMap.get(t._id.toString());
+                    if (reg) {
+                        t.player1 = reg.playerName;
+                        t.player2 = t.name;
+                        t.efvId = reg.user?.efvId;
+                        t.avatar = reg.user?.avatar || '';
+                        t.personalPhoto = reg.personalPhoto || reg.user?.personalPhoto || '';
+                    }
+                }
+            });
+            return match;
+        });
+
+        return apiResponse({
+            matches,
+            pagination: { page, limit, total, totalPages: limit > 0 ? Math.ceil(total / limit) : 1 },
+            stats: { completedCount, liveCount, totalCount }
+        });
     } catch (error) {
         console.error("Get matches error:", error);
         return apiError("Có lỗi xảy ra", 500);

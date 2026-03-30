@@ -21,7 +21,7 @@ import {
     Gamepad2, Award, FileText, UserPlus, Clock, Shield, Swords, Camera, MapPinned, Facebook,
     Loader2, Globe, CheckCircle2, Eye, Ban, DollarSign, Phone, Mail, MessageCircle,
     LogIn, AlertCircle, Info, X, Watch, CreditCard, Upload, ExternalLink, Wallet, Image as ImageIcon, User,
-    Zap, Target, ArrowRight, Search, Maximize2, Minimize2
+    Zap, Target, ArrowRight, Search, Maximize2, Minimize2, ChevronDown
 } from "lucide-react";
 import { tournamentAPI, tournamentPaymentAPI, paymentConfigAPI } from "@/lib/api";
 import { useAuth } from "@/contexts/AuthContext";
@@ -58,8 +58,8 @@ const platformLabels: Record<string, string> = {
 const tabs = [
     { key: "overview", label: "Tổng quan", icon: FileText },
     { key: "schedule", label: "Lịch thi đấu", icon: Calendar },
-    { key: "bracket", label: "Sơ đồ thi đấu", icon: Swords },
     { key: "players", label: "Danh sách VĐV", icon: Users },
+    { key: "bracket", label: "Sơ đồ thi đấu", icon: Swords },
 ];
 
 const UNIT_HEIGHT = 110;
@@ -211,11 +211,7 @@ const MatchCard = ({ match, onClick }: { match: any; onClick: () => void }) => {
     );
 };
 
-const MatchDetailViewModal = ({ match, tournament, onClose, user, myRegistration, homeFb, awayFb }: { match: any; tournament: any; onClose: () => void; user?: any; myRegistration?: any; homeFb?: string; awayFb?: string }) => {
-    const homeScore = match.homeScore ?? "";
-    const awayScore = match.awayScore ?? "";
-
-    // Check if user is part of this match
+const MatchDetailViewModal = ({ match, tournament, onClose, user, myRegistration }: { match: any; tournament: any; onClose: () => void; user?: any; myRegistration?: any }) => {
     const userTeamId = (myRegistration?.team?._id || myRegistration?.team)?.toString?.();
     const isUserInMatch = userTeamId && (
         (match.homeTeam?._id || match.homeTeam)?.toString?.() === userTeamId ||
@@ -224,413 +220,361 @@ const MatchDetailViewModal = ({ match, tournament, onClose, user, myRegistration
     const isLiveMatch = match.status === "live" || match.status === "scheduled";
     const bothTeamsDetermined = !!(match.homeTeam && match.awayTeam);
     const canSubmitResult = user && isUserInMatch && match.status !== "completed" && bothTeamsDetermined;
-
-    // Auto-open submit form when match is live/scheduled and user is a participant
     const [showSubmitForm, setShowSubmitForm] = useState(!!user && !!isUserInMatch && isLiveMatch);
-
-    // Check if user already submitted
     const mySubmission = match.resultSubmissions?.find(
         (s: any) => s.user?.toString?.() === user?._id?.toString?.() || s.user?._id?.toString?.() === user?._id?.toString?.()
     );
 
-    const formatNameStr = (team: any, pFallback: any) => {
-        const p1 = team?.player1 || pFallback?.name || "Tự do";
-        const p2 = team?.player2 && team.player2 !== "TBD" ? ` / ${team.player2}` : "";
-        return `${p1}${p2}`;
+    const isCompleted = match.status === 'completed';
+    const isLive = match.status === 'live';
+    const isDark = isCompleted || isLive;
+
+    // Player info helper
+    const getPlayerInfo = (team: any, fallback: any) => ({
+        name: team?.player1 || fallback?.name || "Chờ xác định",
+        teamName: team?.name || team?.shortName || "",
+        efvId: team?.efvId,
+        userId: team?.userId || team?.user,
+        avatar: team?.personalPhoto || team?.avatar || '',
+    });
+
+    const home = getPlayerInfo(match.homeTeam, match.p1);
+    const away = getPlayerInfo(match.awayTeam, match.p2);
+    const homeWin = isCompleted && ((match.homeScore ?? 0) > (match.awayScore ?? 0));
+    const awayWin = isCompleted && ((match.awayScore ?? 0) > (match.homeScore ?? 0));
+
+    // Image error handler — hide broken img, show sibling fallback
+    const handleImgError = (e: React.SyntheticEvent<HTMLImageElement>) => {
+        const img = e.currentTarget;
+        img.style.display = 'none';
+        const next = img.nextElementSibling as HTMLElement | null;
+        if (next) next.style.display = 'flex';
     };
 
-    const hName = formatNameStr(match.homeTeam, match.p1);
-    const aName = formatNameStr(match.awayTeam, match.p2);
-
+    // Avatar renderer for score area
+    const renderScoreAvatar = (info: typeof home) => {
+        const hasAvatar = !!info.avatar;
+        return (
+            <div className="flex-shrink-0">
+                {hasAvatar && <img src={info.avatar} alt={info.name} className="w-11 h-11 rounded-full object-cover border-2 border-white/20 shadow-md" onError={handleImgError} />}
+                <div className={`w-11 h-11 rounded-full bg-gradient-to-br from-blue-500/20 to-indigo-500/20 items-center justify-center border-2 border-white/10 ${hasAvatar ? 'hidden' : 'flex'}`}>
+                    <User className="w-5 h-5 text-white/60" />
+                </div>
+            </div>
+        );
+    };
 
     return (
         <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm"
+            className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/50 backdrop-blur-sm"
+            onClick={onClose}
         >
             <motion.div
-                initial={{ scale: 0.9, y: 20 }}
-                animate={{ scale: 1, y: 0 }}
-                exit={{ scale: 0.9, y: 20 }}
-                className="w-full max-w-4xl p-0 overflow-hidden border-0 rounded-[12px] shadow-2xl bg-white flex flex-col max-h-[90vh]"
+                initial={{ y: 40, opacity: 0 }}
+                animate={{ y: 0, opacity: 1 }}
+                exit={{ y: 40, opacity: 0 }}
+                transition={{ type: "spring", bounce: 0.15, duration: 0.4 }}
+                className="w-full max-w-lg sm:max-w-2xl bg-white rounded-t-2xl sm:rounded-2xl shadow-2xl flex flex-col max-h-[92vh] sm:max-h-[85vh] overflow-hidden"
+                onClick={e => e.stopPropagation()}
             >
-                <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 flex-shrink-0">
-                    <h2 className="text-xl font-bold text-gray-900">Chi tiết trận đấu</h2>
-                    <button onClick={onClose} className="text-gray-400 hover:text-gray-600">
-                        <X className="w-5 h-5" />
+                {/* ─── Header ─── */}
+                <div className="flex items-center justify-between px-5 py-3.5 border-b border-gray-100 flex-shrink-0 bg-white">
+                    <div className="flex items-center gap-2">
+                        <div className="w-7 h-7 rounded-lg bg-efb-blue/10 flex items-center justify-center">
+                            <Swords className="w-3.5 h-3.5 text-efb-blue" />
+                        </div>
+                        <div>
+                            <h2 className="text-sm font-bold text-gray-900">Chi tiết trận đấu</h2>
+                            <p className="text-[10px] text-gray-400">{match.roundName || `Vòng ${match.round}`} • #{match.matchNumber}</p>
+                        </div>
+                    </div>
+                    <button onClick={onClose} className="w-8 h-8 rounded-full bg-gray-100 hover:bg-gray-200 flex items-center justify-center transition-colors">
+                        <X className="w-4 h-4 text-gray-500" />
                     </button>
                 </div>
-                <div className="p-6 pb-2 overflow-y-auto custom-scrollbar flex-1">
-                    <div className="bg-[#F0F7FF] rounded-lg p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-y-2 mb-6">
-                        <div>
-                            <div className="font-bold text-gray-900 text-sm mb-1">{tournament?.title || "Giải đấu"}</div>
-                            <div className="text-gray-500 text-xs flex flex-wrap items-center gap-4 sm:gap-6">
-                                <span>Hình thức: <span className="text-gray-900 font-semibold">{tournament?.format === 'round_robin' ? 'Vòng tròn' : "Loại trực tiếp"}</span></span>
-                                <span>Vòng đấu: <span className="text-gray-900 font-semibold">{match.roundName || `Vòng ${match.round}`}</span></span>
-                            </div>
-                        </div>
-                        {match.status === "completed" && (
-                            <div className="bg-emerald-100 text-emerald-700 px-3 py-1 rounded-full text-xs font-bold flex items-center gap-1.5 border border-emerald-200">
-                                <CheckCircle2 className="w-3.5 h-3.5" /> Đã kết thúc
-                            </div>
-                        )}
-                        {match.status === "live" && (
-                            <div className="bg-red-500 text-white px-3 py-1 rounded-full text-xs font-bold flex items-center gap-1.5 shadow-sm">
-                                <span className="w-1.5 h-1.5 bg-white rounded-full animate-pulse" /> Đang diễn ra
-                            </div>
-                        )}
-                        {match.status === "scheduled" && (
-                            <div className="bg-amber-100 text-amber-700 px-3 py-1 rounded-full text-xs font-bold flex items-center gap-1.5 border border-amber-200">
-                                <Clock className="w-3.5 h-3.5" /> Chờ thi đấu
-                            </div>
-                        )}
-                    </div>
-                    <div className="rounded-xl overflow-hidden border border-gray-100 shadow-sm">
-                        {/* Score display - centered */}
-                        <div className={`p-5 sm:p-6 text-center ${match.status === 'completed' ? 'bg-gradient-to-b from-gray-900 to-gray-800' : match.status === 'live' ? 'bg-gradient-to-b from-red-600 to-red-700' : 'bg-gradient-to-b from-gray-50 to-gray-100'}`}>
-                            <div className="flex items-center justify-center gap-4 sm:gap-8">
-                                {/* Home */}
-                                <div className="flex-1 text-right min-w-0">
-                                    <div className="flex items-center justify-end gap-1.5 mb-1">
-                                        {match.homeTeam?.efvId != null && (
-                                            <span className="text-[9px] font-bold text-amber-300 bg-amber-900/40 border border-amber-700/30 px-1.5 py-px rounded flex-shrink-0">#{match.homeTeam.efvId}</span>
-                                        )}
-                                        <span className={`text-sm sm:text-base font-bold truncate ${match.status === 'completed' || match.status === 'live' ? (match.homeScore > match.awayScore ? 'text-white' : 'text-white/50') : 'text-gray-800'}`}>
-                                            {match.homeTeam?.player1 || match.p1?.name || "Chờ..."}
-                                        </span>
-                                    </div>
-                                    <p className={`text-[10px] sm:text-xs truncate ${match.status === 'completed' || match.status === 'live' ? 'text-white/40' : 'text-gray-400'}`}>
-                                        {match.homeTeam?.name || match.homeTeam?.shortName || ""}
-                                    </p>
-                                </div>
 
-                                {/* Score */}
-                                <div className="flex-shrink-0">
-                                    <div className={`text-2xl sm:text-3xl font-black tabular-nums tracking-wider ${match.status === 'completed' || match.status === 'live' ? 'text-white' : 'text-gray-300'}`}>
-                                        {match.status === 'completed' || match.status === 'live'
-                                            ? `${match.homeScore ?? 0} - ${match.awayScore ?? 0}`
-                                            : 'VS'}
-                                    </div>
-                                </div>
-
-                                {/* Away */}
-                                <div className="flex-1 text-left min-w-0">
-                                    <div className="flex items-center gap-1.5 mb-1">
-                                        <span className={`text-sm sm:text-base font-bold truncate ${match.status === 'completed' || match.status === 'live' ? (match.awayScore > match.homeScore ? 'text-white' : 'text-white/50') : 'text-gray-800'}`}>
-                                            {match.awayTeam?.player1 || match.p2?.name || "Chờ..."}
-                                        </span>
-                                        {match.awayTeam?.efvId != null && (
-                                            <span className="text-[9px] font-bold text-amber-300 bg-amber-900/40 border border-amber-700/30 px-1.5 py-px rounded flex-shrink-0">#{match.awayTeam.efvId}</span>
-                                        )}
-                                    </div>
-                                    <p className={`text-[10px] sm:text-xs truncate ${match.status === 'completed' || match.status === 'live' ? 'text-white/40' : 'text-gray-400'}`}>
-                                        {match.awayTeam?.name || match.awayTeam?.shortName || ""}
-                                    </p>
-                                </div>
+                {/* ─── Content ─── */}
+                <div className="flex-1 overflow-y-auto">
+                    {/* Score Card */}
+                    <div className={`px-5 py-6 ${isCompleted ? 'bg-gradient-to-br from-slate-800 via-slate-900 to-gray-900' : isLive ? 'bg-gradient-to-br from-red-600 to-red-700' : 'bg-gradient-to-br from-blue-50 to-indigo-50'}`}>
+                        {/* Tournament info chip */}
+                        <div className="flex items-center justify-center mb-4">
+                            <div className={`text-[10px] font-semibold px-3 py-1 rounded-full ${isDark ? 'bg-white/10 text-white/60' : 'bg-white text-gray-500 border border-gray-200 shadow-sm'}`}>
+                                {tournament?.title || "Giải đấu"}
                             </div>
                         </div>
 
-                        {/* Player details row */}
-                        <div className="grid grid-cols-2 divide-x divide-gray-100 bg-white">
-                            <div className={`p-3 sm:p-4 ${match.homeScore > match.awayScore ? 'bg-blue-50/50' : ''}`}>
-                                <p className="text-[10px] text-gray-400 font-semibold uppercase tracking-wider mb-1">Đội nhà</p>
-                                <div className="text-sm font-bold text-gray-900 flex items-center gap-1.5 min-w-0">
-                                    <span className="truncate">{match.homeTeam?.player1 || match.p1?.name || "—"}</span>
-                                    {homeFb && <a href={homeFb} target="_blank" title="Facebook" className="text-blue-500 hover:text-blue-700 flex-shrink-0"><Facebook className="w-4 h-4" /></a>}
+                        {/* Players + Score */}
+                        <div className="flex items-center justify-center gap-3 sm:gap-5">
+                            {/* Home Player */}
+                            <div className="flex-1 flex flex-col items-center text-center min-w-0">
+                                {renderScoreAvatar(home)}
+                                <div className="mt-2 w-full">
+                                    {home.efvId != null && <span className={`inline-block text-[8px] font-bold px-1.5 py-px rounded mb-0.5 ${isDark ? 'text-amber-300 bg-amber-900/40 border border-amber-700/30' : 'text-amber-600 bg-amber-50 border border-amber-200'}`}>#{home.efvId}</span>}
+                                    <p className={`text-[13px] sm:text-sm font-bold leading-tight ${isDark ? (homeWin ? 'text-white' : 'text-white/50') : 'text-gray-900'}`} style={{ wordBreak: 'break-word' }}>
+                                        {home.name}
+                                    </p>
+                                    {home.teamName && <p className={`text-[10px] mt-0.5 ${isDark ? 'text-white/30' : 'text-gray-400'}`}>{home.teamName}</p>}
                                 </div>
-                                {match.homeTeam?.player2 && match.homeTeam.player2 !== "TBD" && (
-                                    <p className="text-xs text-gray-500 mt-0.5">ID: {match.homeTeam.player2}</p>
-                                )}
-                                {match.homeTeam?.name && <p className="text-[10px] text-gray-400 mt-1">{match.homeTeam.name}</p>}
                             </div>
-                            <div className={`p-3 sm:p-4 ${match.awayScore > match.homeScore ? 'bg-blue-50/50' : ''}`}>
-                                <p className="text-[10px] text-gray-400 font-semibold uppercase tracking-wider mb-1">Đội khách</p>
-                                <div className="text-sm font-bold text-gray-900 flex items-center gap-1.5 min-w-0">
-                                    <span className="truncate">{match.awayTeam?.player1 || match.p2?.name || "—"}</span>
-                                    {awayFb && <a href={awayFb} target="_blank" title="Facebook" className="text-blue-500 hover:text-blue-700 flex-shrink-0"><Facebook className="w-4 h-4" /></a>}
-                                </div>
-                                {match.awayTeam?.player2 && match.awayTeam.player2 !== "TBD" && (
-                                    <p className="text-xs text-gray-500 mt-0.5">ID: {match.awayTeam.player2}</p>
+
+                            {/* Score */}
+                            <div className="flex-shrink-0 text-center">
+                                {isCompleted || isLive ? (
+                                    <div className="flex items-center gap-1.5">
+                                        <span className={`text-3xl sm:text-4xl font-black tabular-nums ${isDark ? (homeWin ? 'text-white' : 'text-white/40') : 'text-gray-900'}`}>{match.homeScore ?? 0}</span>
+                                        <span className={`text-lg font-light ${isDark ? 'text-white/20' : 'text-gray-300'}`}>-</span>
+                                        <span className={`text-3xl sm:text-4xl font-black tabular-nums ${isDark ? (awayWin ? 'text-white' : 'text-white/40') : 'text-gray-900'}`}>{match.awayScore ?? 0}</span>
+                                    </div>
+                                ) : (
+                                    <div className="px-3 py-1.5 rounded-lg bg-white/80 border border-gray-200 shadow-sm">
+                                        <span className="text-xs font-bold text-gray-400">VS</span>
+                                    </div>
                                 )}
-                                {match.awayTeam?.name && <p className="text-[10px] text-gray-400 mt-1">{match.awayTeam.name}</p>}
+                                <div className={`mt-1 text-[10px] font-semibold ${isDark ? '' : ''}`}>
+                                    {isCompleted && <span className="text-emerald-400 flex items-center justify-center gap-1"><CheckCircle2 className="w-3 h-3" />Kết thúc</span>}
+                                    {isLive && <span className="text-white flex items-center justify-center gap-1"><span className="w-1.5 h-1.5 bg-white rounded-full animate-pulse" />LIVE</span>}
+                                    {!isCompleted && !isLive && <span className="text-blue-400 flex items-center justify-center gap-1"><Clock className="w-3 h-3" />Chờ đấu</span>}
+                                </div>
+                            </div>
+
+                            {/* Away Player */}
+                            <div className="flex-1 flex flex-col items-center text-center min-w-0">
+                                {renderScoreAvatar(away)}
+                                <div className="mt-2 w-full">
+                                    {away.efvId != null && <span className={`inline-block text-[8px] font-bold px-1.5 py-px rounded mb-0.5 ${isDark ? 'text-amber-300 bg-amber-900/40 border border-amber-700/30' : 'text-amber-600 bg-amber-50 border border-amber-200'}`}>#{away.efvId}</span>}
+                                    <p className={`text-[13px] sm:text-sm font-bold leading-tight ${isDark ? (awayWin ? 'text-white' : 'text-white/50') : 'text-gray-900'}`} style={{ wordBreak: 'break-word' }}>
+                                        {away.name}
+                                    </p>
+                                    {away.teamName && <p className={`text-[10px] mt-0.5 ${isDark ? 'text-white/30' : 'text-gray-400'}`}>{away.teamName}</p>}
+                                </div>
                             </div>
                         </div>
                     </div>
 
-                    {/* Existing Result Submissions */}
-                    {match.resultSubmissions && match.resultSubmissions.length > 0 && (
-                        <div className="mt-5">
-                            <div className="flex items-center gap-2 mb-4">
-                                <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-orange-400 to-amber-500 flex items-center justify-center shadow-sm">
-                                    <FileText className="w-4 h-4 text-white" />
-                                </div>
-                                <div>
-                                    <h4 className="text-sm font-bold text-gray-900 flex items-center gap-2">
-                                        Kết quả VĐV đã gửi
-                                        <span className="bg-orange-100 text-orange-600 text-[10px] font-bold px-2 py-0.5 rounded-full">
-                                            {match.resultSubmissions.length}
-                                        </span>
-                                    </h4>
-                                    <p className="text-[10px] text-gray-400">Kết quả do VĐV tự gửi lên để xác nhận</p>
-                                </div>
-                            </div>
-                            <div className="space-y-4">
-                                {match.resultSubmissions.map((sub: any, idx: number) => {
-                                    const isFromHome = sub.team?.toString?.() === (match.homeTeam?._id || match.homeTeam)?.toString?.();
-                                    const submitterTeam = isFromHome ? match.homeTeam : match.awayTeam;
-                                    const submitterTeamName = submitterTeam?.name || submitterTeam?.shortName || "";
-                                    const isMe = sub.user === user?._id || sub.user?._id === user?._id;
-
-                                    // Use enriched userData from API, fallback to team data
-                                    const userData = sub.userData || {};
-                                    const displayName = userData.name || submitterTeam?.player1 || (isFromHome ? match.p1?.name : match.p2?.name) || "VĐV";
-                                    const displayEfvId = userData.efvId ?? submitterTeam?.efvId ?? null;
-                                    const displayAvatar = userData.personalPhoto || userData.avatar || '';
-                                    const displayGameId = userData.gamerId || '';
-                                    const displayNickname = userData.nickname || '';
-
-                                    return (
-                                        <div key={idx} className="rounded-xl border border-gray-200 overflow-hidden bg-white shadow-sm">
-                                            {/* Submission Header — Full Player Info */}
-                                            <div className={`px-4 py-3 ${isFromHome ? 'bg-gradient-to-r from-blue-50 to-indigo-50 border-b border-blue-100' : 'bg-gradient-to-r from-rose-50 to-pink-50 border-b border-rose-100'}`}>
-                                                <div className="flex items-start gap-3">
-                                                    {/* Avatar */}
-                                                    <div className="flex-shrink-0">
-                                                        {displayAvatar ? (
-                                                            <img
-                                                                src={displayAvatar}
-                                                                alt={displayName}
-                                                                className="w-11 h-11 rounded-full object-cover border-2 border-white shadow-sm cursor-pointer hover:opacity-80 transition-opacity"
-                                                                onClick={() => window.open(displayAvatar, "_blank")}
-                                                            />
-                                                        ) : (
-                                                            <div className={`w-11 h-11 rounded-full flex items-center justify-center text-sm font-bold ${isFromHome ? 'bg-blue-100 text-blue-700 border-2 border-blue-200' : 'bg-rose-100 text-rose-700 border-2 border-rose-200'}`}>
-                                                                <User className="w-5 h-5" />
-                                                            </div>
-                                                        )}
-                                                    </div>
-                                                    {/* Info */}
-                                                    <div className="flex-1 min-w-0">
-                                                        <div className="flex items-center gap-1.5 flex-wrap mb-0.5">
-                                                            {isMe && (
-                                                                <span className="text-[8px] font-bold text-white bg-blue-500 px-1.5 py-px rounded-full flex-shrink-0">BẠN</span>
-                                                            )}
-                                                            {displayEfvId != null && (
-                                                                <span className="text-[9px] font-bold text-amber-600 bg-amber-50 border border-amber-200 px-1.5 py-px rounded flex-shrink-0">
-                                                                    #{displayEfvId}
-                                                                </span>
-                                                            )}
-                                                            <span className="text-sm font-bold text-gray-900 truncate">{displayName}</span>
-                                                        </div>
-                                                        <div className="flex items-center gap-2 flex-wrap text-[10px] text-gray-500">
-                                                            {displayGameId && (
-                                                                <span className="flex items-center gap-1">
-                                                                    🎮 <span className="font-semibold text-gray-600">{displayGameId}</span>
-                                                                </span>
-                                                            )}
-                                                            {displayNickname && displayNickname !== displayGameId && (
-                                                                <span className="flex items-center gap-1">
-                                                                    · {displayNickname}
-                                                                </span>
-                                                            )}
-                                                            {submitterTeamName && (
-                                                                <span className="flex items-center gap-1">
-                                                                    · {submitterTeamName}
-                                                                </span>
-                                                            )}
-                                                        </div>
-                                                    </div>
-                                                    {/* Timestamp */}
-                                                    <div className="flex items-center gap-1 text-[10px] text-gray-400 flex-shrink-0 mt-0.5">
-                                                        <Clock className="w-3 h-3" />
-                                                        <span>{sub.submittedAt ? new Date(sub.submittedAt).toLocaleString("vi-VN") : ""}</span>
-                                                    </div>
-                                                </div>
+                    {/* Player Detail Cards — Profile Links */}
+                    <div className="grid grid-cols-2 divide-x divide-gray-100 bg-white border-b border-gray-100">
+                        {[
+                            { info: home, label: "Đội nhà", isWin: homeWin },
+                            { info: away, label: "Đội khách", isWin: awayWin },
+                        ].map(({ info, label, isWin }, idx) => (
+                            <div key={idx} className={`px-4 py-3 ${isWin ? 'bg-emerald-50/40' : ''}`}>
+                                <p className="text-[9px] text-gray-400 font-semibold uppercase tracking-wider mb-2">{label}</p>
+                                {info.efvId != null ? (
+                                    <Link href={`/profile/${info.efvId}`} onClick={e => e.stopPropagation()} className="flex items-center gap-2.5 group cursor-pointer rounded-lg p-1.5 -m-1.5 hover:bg-blue-50/50 transition-colors">
+                                        <div className="flex-shrink-0 relative">
+                                            {info.avatar ? (
+                                                <img src={info.avatar} alt={info.name} className="w-10 h-10 rounded-full object-cover border-2 border-blue-200 shadow-sm" onError={handleImgError} />
+                                            ) : null}
+                                            <div className={`w-10 h-10 rounded-full bg-gradient-to-br from-blue-100 to-indigo-100 items-center justify-center border-2 border-blue-200 ${info.avatar ? 'hidden' : 'flex'}`}>
+                                                <User className="w-4.5 h-4.5 text-blue-500" />
                                             </div>
-
-                                            {/* Score Display */}
-                                            <div className="px-4 py-4">
-                                                <div className="flex items-center justify-center gap-3 sm:gap-5">
-                                                    <div className="text-center flex-1">
-                                                        <div className="mb-1.5">
-                                                            <div className="flex items-center justify-center gap-1 flex-wrap">
-                                                                {match.homeTeam?.efvId != null && <span className="text-[8px] font-bold text-amber-600 bg-amber-50 border border-amber-200 px-1 py-px rounded">#{match.homeTeam.efvId}</span>}
-                                                                <span className="text-[10px] font-bold text-gray-600 truncate">{match.homeTeam?.player1 || match.p1?.name || "Đội nhà"}</span>
-                                                            </div>
-                                                            {match.homeTeam?.shortName && <p className="text-[9px] text-gray-400">{match.homeTeam.shortName}</p>}
-                                                        </div>
-                                                        <span className={`text-2xl sm:text-3xl font-black inline-block min-w-[48px] py-1.5 px-3 rounded-xl ${
-                                                            sub.homeScore > sub.awayScore
-                                                                ? 'text-emerald-600 bg-emerald-50 border border-emerald-200'
-                                                                : 'text-gray-600 bg-gray-50 border border-gray-200'
-                                                        }`}>
-                                                            {sub.homeScore}
-                                                        </span>
-                                                    </div>
-                                                    <span className="text-xl text-gray-200 font-light mt-4">—</span>
-                                                    <div className="text-center flex-1">
-                                                        <div className="mb-1.5">
-                                                            <div className="flex items-center justify-center gap-1 flex-wrap">
-                                                                {match.awayTeam?.efvId != null && <span className="text-[8px] font-bold text-amber-600 bg-amber-50 border border-amber-200 px-1 py-px rounded">#{match.awayTeam.efvId}</span>}
-                                                                <span className="text-[10px] font-bold text-gray-600 truncate">{match.awayTeam?.player1 || match.p2?.name || "Đội khách"}</span>
-                                                            </div>
-                                                            {match.awayTeam?.shortName && <p className="text-[9px] text-gray-400">{match.awayTeam.shortName}</p>}
-                                                        </div>
-                                                        <span className={`text-2xl sm:text-3xl font-black inline-block min-w-[48px] py-1.5 px-3 rounded-xl ${
-                                                            sub.awayScore > sub.homeScore
-                                                                ? 'text-emerald-600 bg-emerald-50 border border-emerald-200'
-                                                                : 'text-gray-600 bg-gray-50 border border-gray-200'
-                                                        }`}>
-                                                            {sub.awayScore}
-                                                        </span>
-                                                    </div>
-                                                </div>
-
-                                                {/* Notes */}
-                                                {sub.notes && (
-                                                    <div className="mt-4 flex items-start gap-2 bg-gray-50 rounded-lg px-3 py-2.5 border border-gray-100">
-                                                        <MessageCircle className="w-3.5 h-3.5 text-gray-400 mt-0.5 flex-shrink-0" />
-                                                        <p className="text-xs text-gray-600 italic leading-relaxed">"{sub.notes}"</p>
-                                                    </div>
-                                                )}
-
-                                                {/* Screenshots */}
-                                                {sub.screenshots && sub.screenshots.length > 0 && (
-                                                    <div className="mt-4">
-                                                        <p className="text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-2 flex items-center gap-1.5">
-                                                            <ImageIcon className="w-3 h-3" />
-                                                            Hình ảnh minh chứng ({sub.screenshots.length})
-                                                        </p>
-                                                        <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-                                                            {sub.screenshots.map((s: string, si: number) => (
-                                                                <div
-                                                                    key={si}
-                                                                    className="relative group cursor-pointer rounded-xl overflow-hidden border-2 border-gray-100 hover:border-blue-300 transition-all aspect-square"
-                                                                    onClick={() => window.open(s, "_blank")}
-                                                                >
-                                                                    <img
-                                                                        src={s}
-                                                                        alt={`Minh chứng ${si + 1}`}
-                                                                        className="w-full h-full object-cover"
-                                                                    />
-                                                                    <div className="absolute inset-0 bg-black/0 group-hover:bg-black/30 transition-all flex items-center justify-center">
-                                                                        <Eye className="w-5 h-5 text-white opacity-0 group-hover:opacity-100 transition-opacity drop-shadow-lg" />
-                                                                    </div>
-                                                                </div>
-                                                            ))}
-                                                        </div>
-                                                    </div>
-                                                )}
+                                            <div className="absolute -bottom-0.5 -right-0.5 w-[18px] h-[18px] rounded-full bg-efb-blue flex items-center justify-center shadow-md border-2 border-white">
+                                                <Eye className="w-2.5 h-2.5 text-white" />
                                             </div>
                                         </div>
-                                    );
-                                })}
-                            </div>
-                        </div>
-                    )}
-
-                    {/* Submit Result Section */}
-                    {canSubmitResult && (
-                        <div className="mt-5 space-y-4">
-                            {/* Show existing submission if already sent */}
-                            {mySubmission && !showSubmitForm && (
-                                <div className="rounded-xl border border-emerald-200 overflow-hidden bg-white">
-                                    <div className="px-4 py-3 bg-gradient-to-r from-emerald-50 to-teal-50 border-b border-emerald-100">
-                                        <div className="flex items-center justify-between">
-                                            <p className="text-xs font-bold text-emerald-700 flex items-center gap-1.5">
-                                                <CheckCircle2 className="w-4 h-4" /> Bạn đã gửi kết quả — chờ quản lý duyệt
-                                            </p>
-                                            <span className="text-[10px] text-gray-400 flex items-center gap-1">
-                                                <Clock className="w-3 h-3" />
-                                                {mySubmission.submittedAt ? new Date(mySubmission.submittedAt).toLocaleString("vi-VN") : ""}
+                                        <div className="min-w-0 flex-1">
+                                            <div className="flex items-center gap-1 flex-wrap">
+                                                <span className="text-[8px] font-bold text-amber-600 bg-amber-50 border border-amber-200 px-1 py-px rounded flex-shrink-0">#{info.efvId}</span>
+                                                <span className="text-[12px] font-bold text-gray-900 group-hover:text-efb-blue transition-colors" style={{ wordBreak: 'break-word' }}>{info.name}</span>
+                                            </div>
+                                            {info.teamName && <p className="text-[9px] text-gray-400 mt-0.5" style={{ wordBreak: 'break-word' }}>{info.teamName}</p>}
+                                            <span className="text-[9px] text-efb-blue font-semibold flex items-center gap-0.5 mt-1">
+                                                <Eye className="w-3 h-3" /> Xem hồ sơ
                                             </span>
                                         </div>
-                                    </div>
-                                    <div className="px-4 py-4">
-                                        {/* Score */}
-                                        <div className="flex items-center justify-center gap-4 mb-3">
-                                            <div className="text-center">
-                                                <p className="text-[10px] font-semibold text-gray-500 mb-1">{match.homeTeam?.player1 || match.homeTeam?.shortName || "Đội nhà"}</p>
-                                                <span className={`text-2xl font-black inline-block min-w-[40px] py-1 px-2.5 rounded-lg ${
-                                                    mySubmission.homeScore > mySubmission.awayScore
-                                                        ? 'text-emerald-600 bg-emerald-50 border border-emerald-200'
-                                                        : 'text-gray-500 bg-gray-50 border border-gray-200'
-                                                }`}>{mySubmission.homeScore}</span>
-                                            </div>
-                                            <span className="text-lg text-gray-200 font-light mt-4">—</span>
-                                            <div className="text-center">
-                                                <p className="text-[10px] font-semibold text-gray-500 mb-1">{match.awayTeam?.player1 || match.awayTeam?.shortName || "Đội khách"}</p>
-                                                <span className={`text-2xl font-black inline-block min-w-[40px] py-1 px-2.5 rounded-lg ${
-                                                    mySubmission.awayScore > mySubmission.homeScore
-                                                        ? 'text-emerald-600 bg-emerald-50 border border-emerald-200'
-                                                        : 'text-gray-500 bg-gray-50 border border-gray-200'
-                                                }`}>{mySubmission.awayScore}</span>
+                                    </Link>
+                                ) : (
+                                    <div className="flex items-center gap-2.5">
+                                        <div className="flex-shrink-0">
+                                            <div className="w-10 h-10 rounded-full bg-gray-100 flex items-center justify-center border-2 border-gray-50">
+                                                <User className="w-4.5 h-4.5 text-gray-400" />
                                             </div>
                                         </div>
-                                        {/* Notes */}
-                                        {mySubmission.notes && (
-                                            <div className="flex items-start gap-2 bg-gray-50 rounded-lg px-3 py-2 border border-gray-100 mb-3">
-                                                <MessageCircle className="w-3.5 h-3.5 text-gray-400 mt-0.5 flex-shrink-0" />
-                                                <p className="text-xs text-gray-600 italic">"{mySubmission.notes}"</p>
-                                            </div>
-                                        )}
-                                        {/* Screenshots */}
-                                        {mySubmission.screenshots?.length > 0 && (
-                                            <div className="flex gap-2 flex-wrap mb-3">
-                                                {mySubmission.screenshots.map((s: string, si: number) => (
-                                                    <img key={si} src={s} alt={`Minh chứng ${si + 1}`} className="w-16 h-16 rounded-xl object-cover border-2 border-emerald-200 cursor-pointer hover:opacity-80 hover:shadow-md transition-all" onClick={() => window.open(s, "_blank")} />
-                                                ))}
-                                            </div>
-                                        )}
-                                        {/* Update button */}
-                                        <button
-                                            onClick={() => setShowSubmitForm(true)}
-                                            className="w-full py-2.5 rounded-xl bg-amber-50 hover:bg-amber-100 border border-amber-200 text-amber-700 font-bold text-sm transition-all flex items-center justify-center gap-2"
-                                        >
-                                            <Upload className="w-4 h-4" /> Cập nhật kết quả
-                                        </button>
+                                        <div className="min-w-0 flex-1">
+                                            <span className="text-[12px] font-bold text-gray-900" style={{ wordBreak: 'break-word' }}>{info.name}</span>
+                                            {info.teamName && <p className="text-[9px] text-gray-400 mt-0.5" style={{ wordBreak: 'break-word' }}>{info.teamName}</p>}
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+                        ))}
+                    </div>
+
+                    {/* Content area — padding */}
+                    <div className="px-5 py-4 space-y-4">
+                        {/* Existing Result Submissions */}
+                        {match.resultSubmissions && match.resultSubmissions.length > 0 && (
+                            <div>
+                                <div className="flex items-center gap-2 mb-3">
+                                    <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-orange-400 to-amber-500 flex items-center justify-center shadow-sm">
+                                        <FileText className="w-3.5 h-3.5 text-white" />
+                                    </div>
+                                    <div>
+                                        <h4 className="text-xs font-bold text-gray-900 flex items-center gap-1.5">
+                                            Kết quả VĐV đã gửi
+                                            <span className="bg-orange-100 text-orange-600 text-[9px] font-bold px-1.5 py-px rounded-full">{match.resultSubmissions.length}</span>
+                                        </h4>
                                     </div>
                                 </div>
-                            )}
+                                <div className="space-y-3">
+                                    {match.resultSubmissions.map((sub: any, idx: number) => {
+                                        const isFromHome = sub.team?.toString?.() === (match.homeTeam?._id || match.homeTeam)?.toString?.();
+                                        const submitterTeam = isFromHome ? match.homeTeam : match.awayTeam;
+                                        const submitterTeamName = submitterTeam?.name || submitterTeam?.shortName || "";
+                                        const isMe = sub.user === user?._id || sub.user?._id === user?._id;
+                                        const userData = sub.userData || {};
+                                        const displayName = userData.name || submitterTeam?.player1 || (isFromHome ? match.p1?.name : match.p2?.name) || "VĐV";
+                                        const displayEfvId = userData.efvId ?? submitterTeam?.efvId ?? null;
+                                        const displayAvatar = userData.personalPhoto || userData.avatar || '';
 
-                            {/* Submit form or initial button */}
-                            {!mySubmission && !showSubmitForm && (
-                                <button
-                                    onClick={() => setShowSubmitForm(true)}
-                                    className="w-full py-3 rounded-xl bg-gradient-to-r from-efb-blue to-indigo-600 text-white font-bold text-sm shadow-lg shadow-blue-500/20 hover:shadow-xl hover:shadow-blue-500/30 transition-all flex items-center justify-center gap-2"
-                                >
-                                    <Upload className="w-4 h-4" /> Gửi kết quả trận đấu
-                                </button>
-                            )}
-
-                            {showSubmitForm && (
-                                <div className="p-5 rounded-xl border-2 border-efb-blue/30 bg-blue-50/30">
-                                    <SubmitResultForm
-                                        match={match}
-                                        tournamentId={tournament?._id || tournament?.slug}
-                                        homeName={match.homeTeam?.player1 || match.homeTeam?.shortName || match.homeTeam?.name || "Đội nhà"}
-                                        awayName={match.awayTeam?.player1 || match.awayTeam?.shortName || match.awayTeam?.name || "Đội khách"}
-                                        homeAvatar={match.homeTeam?.avatar || match.homeTeam?.personalPhoto || ''}
-                                        awayAvatar={match.awayTeam?.avatar || match.awayTeam?.personalPhoto || ''}
-                                        homeEfvId={match.homeTeam?.efvId}
-                                        awayEfvId={match.awayTeam?.efvId}
-                                        directScoreMode={true}
-                                        initialHomeScore={mySubmission ? String(mySubmission.homeScore) : ""}
-                                        initialAwayScore={mySubmission ? String(mySubmission.awayScore) : ""}
-                                        initialNotes={mySubmission?.notes || ""}
-                                        initialScreenshots={mySubmission?.screenshots || []}
-                                        onClose={() => setShowSubmitForm(false)}
-                                        onSubmitted={onClose}
-                                    />
+                                        return (
+                                            <div key={idx} className="rounded-xl border border-gray-200 overflow-hidden bg-white shadow-sm">
+                                                <div className={`px-3.5 py-2.5 ${isFromHome ? 'bg-gradient-to-r from-blue-50 to-indigo-50 border-b border-blue-100' : 'bg-gradient-to-r from-rose-50 to-pink-50 border-b border-rose-100'}`}>
+                                                    <div className="flex items-center gap-2.5">
+                                                        <div className="flex-shrink-0">
+                                                            {displayAvatar ? (
+                                                                <img src={displayAvatar} alt={displayName} className="w-8 h-8 rounded-full object-cover border-2 border-white shadow-sm" onError={handleImgError} />
+                                                            ) : null}
+                                                            <div className={`w-8 h-8 rounded-full items-center justify-center text-sm font-bold ${isFromHome ? 'bg-blue-100 text-blue-700 border-2 border-blue-200' : 'bg-rose-100 text-rose-700 border-2 border-rose-200'} ${displayAvatar ? 'hidden' : 'flex'}`}>
+                                                                <User className="w-4 h-4" />
+                                                            </div>
+                                                        </div>
+                                                        <div className="flex-1 min-w-0">
+                                                            <div className="flex items-center gap-1 flex-wrap">
+                                                                {isMe && <span className="text-[8px] font-bold text-white bg-blue-500 px-1.5 py-px rounded-full flex-shrink-0">BẠN</span>}
+                                                                {displayEfvId != null && <span className="text-[8px] font-bold text-amber-600 bg-amber-50 border border-amber-200 px-1 py-px rounded flex-shrink-0">#{displayEfvId}</span>}
+                                                                <span className="text-xs font-bold text-gray-900" style={{ wordBreak: 'break-word' }}>{displayName}</span>
+                                                            </div>
+                                                            <div className="flex items-center gap-2 text-[9px] text-gray-400 mt-0.5">
+                                                                {submitterTeamName && <span>{submitterTeamName}</span>}
+                                                                {sub.submittedAt && <span className="flex items-center gap-0.5"><Clock className="w-2.5 h-2.5" />{new Date(sub.submittedAt).toLocaleString("vi-VN")}</span>}
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                                <div className="px-3.5 py-3">
+                                                    <div className="flex items-center justify-center gap-4">
+                                                        <div className="text-center">
+                                                            <p className="text-[9px] text-gray-400 font-medium mb-1">{match.homeTeam?.player1 || "Đội nhà"}</p>
+                                                            <span className={`text-xl font-black inline-block min-w-[40px] py-1 px-2 rounded-lg ${sub.homeScore > sub.awayScore ? 'text-emerald-600 bg-emerald-50 border border-emerald-200' : 'text-gray-500 bg-gray-50 border border-gray-200'}`}>{sub.homeScore}</span>
+                                                        </div>
+                                                        <span className="text-gray-200 font-light mt-3">—</span>
+                                                        <div className="text-center">
+                                                            <p className="text-[9px] text-gray-400 font-medium mb-1">{match.awayTeam?.player1 || "Đội khách"}</p>
+                                                            <span className={`text-xl font-black inline-block min-w-[40px] py-1 px-2 rounded-lg ${sub.awayScore > sub.homeScore ? 'text-emerald-600 bg-emerald-50 border border-emerald-200' : 'text-gray-500 bg-gray-50 border border-gray-200'}`}>{sub.awayScore}</span>
+                                                        </div>
+                                                    </div>
+                                                    {sub.notes && (
+                                                        <div className="mt-3 flex items-start gap-1.5 bg-gray-50 rounded-lg px-2.5 py-2 border border-gray-100">
+                                                            <MessageCircle className="w-3 h-3 text-gray-400 mt-0.5 flex-shrink-0" />
+                                                            <p className="text-[11px] text-gray-600 italic leading-relaxed">"{sub.notes}"</p>
+                                                        </div>
+                                                    )}
+                                                    {sub.screenshots && sub.screenshots.length > 0 && (
+                                                        <div className="mt-3">
+                                                            <p className="text-[9px] font-bold text-gray-400 uppercase tracking-wider mb-1.5 flex items-center gap-1"><ImageIcon className="w-3 h-3" />Minh chứng ({sub.screenshots.length})</p>
+                                                            <div className="grid grid-cols-3 gap-1.5">
+                                                                {sub.screenshots.map((s: string, si: number) => (
+                                                                    <div key={si} className="relative group cursor-pointer rounded-lg overflow-hidden border border-gray-100 hover:border-blue-300 transition-all aspect-square" onClick={() => window.open(s, "_blank")}>
+                                                                        <img src={s} alt={`Minh chứng ${si + 1}`} className="w-full h-full object-cover" />
+                                                                        <div className="absolute inset-0 bg-black/0 group-hover:bg-black/30 transition-all flex items-center justify-center">
+                                                                            <Eye className="w-4 h-4 text-white opacity-0 group-hover:opacity-100 transition-opacity drop-shadow-lg" />
+                                                                        </div>
+                                                                    </div>
+                                                                ))}
+                                                            </div>
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            </div>
+                                        );
+                                    })}
                                 </div>
-                            )}
-                        </div>
-                    )}
+                            </div>
+                        )}
+
+                        {/* Submit Result Section */}
+                        {canSubmitResult && (
+                            <div className="space-y-3">
+                                {mySubmission && !showSubmitForm && (
+                                    <div className="rounded-xl border border-emerald-200 overflow-hidden bg-white">
+                                        <div className="px-4 py-2.5 bg-gradient-to-r from-emerald-50 to-teal-50 border-b border-emerald-100">
+                                            <div className="flex items-center justify-between">
+                                                <p className="text-xs font-bold text-emerald-700 flex items-center gap-1.5">
+                                                    <CheckCircle2 className="w-3.5 h-3.5" /> Đã gửi — chờ duyệt
+                                                </p>
+                                                <span className="text-[10px] text-gray-400">{mySubmission.submittedAt ? new Date(mySubmission.submittedAt).toLocaleString("vi-VN") : ""}</span>
+                                            </div>
+                                        </div>
+                                        <div className="px-4 py-3">
+                                            <div className="flex items-center justify-center gap-4 mb-3">
+                                                <div className="text-center">
+                                                    <p className="text-[9px] font-semibold text-gray-500 mb-1">{match.homeTeam?.player1 || "Đội nhà"}</p>
+                                                    <span className={`text-xl font-black inline-block min-w-[36px] py-0.5 px-2 rounded-lg ${mySubmission.homeScore > mySubmission.awayScore ? 'text-emerald-600 bg-emerald-50 border border-emerald-200' : 'text-gray-500 bg-gray-50 border border-gray-200'}`}>{mySubmission.homeScore}</span>
+                                                </div>
+                                                <span className="text-gray-200 font-light mt-3">—</span>
+                                                <div className="text-center">
+                                                    <p className="text-[9px] font-semibold text-gray-500 mb-1">{match.awayTeam?.player1 || "Đội khách"}</p>
+                                                    <span className={`text-xl font-black inline-block min-w-[36px] py-0.5 px-2 rounded-lg ${mySubmission.awayScore > mySubmission.homeScore ? 'text-emerald-600 bg-emerald-50 border border-emerald-200' : 'text-gray-500 bg-gray-50 border border-gray-200'}`}>{mySubmission.awayScore}</span>
+                                                </div>
+                                            </div>
+                                            {mySubmission.notes && (
+                                                <div className="flex items-start gap-1.5 bg-gray-50 rounded-lg px-2.5 py-2 border border-gray-100 mb-3">
+                                                    <MessageCircle className="w-3 h-3 text-gray-400 mt-0.5 flex-shrink-0" />
+                                                    <p className="text-[11px] text-gray-600 italic">"{mySubmission.notes}"</p>
+                                                </div>
+                                            )}
+                                            {mySubmission.screenshots?.length > 0 && (
+                                                <div className="flex gap-1.5 flex-wrap mb-3">
+                                                    {mySubmission.screenshots.map((s: string, si: number) => (
+                                                        <img key={si} src={s} alt={`Minh chứng ${si + 1}`} className="w-14 h-14 rounded-lg object-cover border-2 border-emerald-200 cursor-pointer hover:opacity-80 transition-all" onClick={() => window.open(s, "_blank")} />
+                                                    ))}
+                                                </div>
+                                            )}
+                                            <button onClick={() => setShowSubmitForm(true)} className="w-full py-2 rounded-lg bg-amber-50 hover:bg-amber-100 border border-amber-200 text-amber-700 font-bold text-xs transition-all flex items-center justify-center gap-1.5">
+                                                <Upload className="w-3.5 h-3.5" /> Cập nhật kết quả
+                                            </button>
+                                        </div>
+                                    </div>
+                                )}
+                                {!mySubmission && !showSubmitForm && (
+                                    <button onClick={() => setShowSubmitForm(true)} className="w-full py-2.5 rounded-xl bg-gradient-to-r from-efb-blue to-indigo-600 text-white font-bold text-sm shadow-lg shadow-blue-500/20 hover:shadow-xl transition-all flex items-center justify-center gap-2">
+                                        <Upload className="w-4 h-4" /> Gửi kết quả trận đấu
+                                    </button>
+                                )}
+                                {showSubmitForm && (
+                                    <div className="p-4 rounded-xl border-2 border-efb-blue/30 bg-blue-50/30">
+                                        <SubmitResultForm
+                                            match={match}
+                                            tournamentId={tournament?._id || tournament?.slug}
+                                            homeName={match.homeTeam?.player1 || match.homeTeam?.shortName || match.homeTeam?.name || "Đội nhà"}
+                                            awayName={match.awayTeam?.player1 || match.awayTeam?.shortName || match.awayTeam?.name || "Đội khách"}
+                                            homeAvatar={match.homeTeam?.avatar || match.homeTeam?.personalPhoto || ''}
+                                            awayAvatar={match.awayTeam?.avatar || match.awayTeam?.personalPhoto || ''}
+                                            homeEfvId={match.homeTeam?.efvId}
+                                            awayEfvId={match.awayTeam?.efvId}
+                                            directScoreMode={true}
+                                            initialHomeScore={mySubmission ? String(mySubmission.homeScore) : ""}
+                                            initialAwayScore={mySubmission ? String(mySubmission.awayScore) : ""}
+                                            initialNotes={mySubmission?.notes || ""}
+                                            initialScreenshots={mySubmission?.screenshots || []}
+                                            onClose={() => setShowSubmitForm(false)}
+                                            onSubmitted={onClose}
+                                        />
+                                    </div>
+                                )}
+                            </div>
+                        )}
+                    </div>
                 </div>
-                <div className="border-t border-gray-100 p-4 bg-gray-50/80 flex justify-end flex-shrink-0">
-                    <button onClick={onClose} className="bg-white px-8 h-10 rounded-lg border border-gray-200 text-gray-700 font-bold hover:bg-gray-50 shadow-sm transition-colors">Đóng</button>
+
+                {/* ─── Footer ─── */}
+                <div className="border-t border-gray-100 px-5 py-3 bg-gray-50/80 flex justify-end flex-shrink-0">
+                    <button onClick={onClose} className="bg-white px-6 h-9 rounded-lg border border-gray-200 text-gray-700 font-semibold text-sm hover:bg-gray-50 shadow-sm transition-colors">Đóng</button>
                 </div>
             </motion.div>
         </motion.div>
@@ -714,6 +658,75 @@ export default function TournamentDetailClient({ initialData, id }: { initialDat
     const [scheduleFilter, setScheduleFilter] = useState<'all' | 'live' | 'completed' | 'upcoming'>('all');
     const [selectedPlayer, setSelectedPlayer] = useState<any>(null);
     const [lineupViewTeam, setLineupViewTeam] = useState<any>(null);
+    const [schedulePage, setSchedulePage] = useState(1);
+    const [scheduleMatches, setScheduleMatches] = useState<any[]>([]);
+    const [scheduleLoading, setScheduleLoading] = useState(false);
+    const [scheduleHasMore, setScheduleHasMore] = useState(true);
+    const [scheduleStats, setScheduleStats] = useState({ completedCount: 0, liveCount: 0, totalCount: 0 });
+    const scheduleSearchTimer = useRef<NodeJS.Timeout | null>(null);
+    const scheduleObserverTarget = useRef<HTMLDivElement>(null);
+
+    
+    const fetchScheduleMatches = useCallback(async (page: number, filters: { search: string, status: string }, append = false) => {
+        setScheduleLoading(true);
+        try {
+            const params = new URLSearchParams({ page: String(page), limit: "30" });
+            if (filters.search.trim()) params.set("search", filters.search.trim());
+            if (filters.status) params.set("status", filters.status);
+            
+            const res = await fetch(`/api/tournaments/${id}/matches?${params}`);
+            const json = await res.json();
+            if (json.success) {
+                if (append) {
+                    setScheduleMatches(prev => [...prev, ...json.data.matches]);
+                } else {
+                    setScheduleMatches(json.data.matches);
+                }
+                setScheduleStats(json.data.stats || { completedCount: 0, liveCount: 0, totalCount: 0 });
+                setScheduleHasMore(json.data.pagination.page < json.data.pagination.totalPages);
+            }
+        } catch (e) {
+            console.error("Failed to fetch matches:", e);
+        } finally {
+            setScheduleLoading(false);
+        }
+    }, [id]);
+
+    useEffect(() => {
+        if (activeTab === "schedule") {
+            setSchedulePage(1);
+            fetchScheduleMatches(1, { search: bracketSearch, status: scheduleFilter }, false);
+        }
+    }, [activeTab]);
+
+    useEffect(() => {
+        if (activeTab === "schedule") {
+            if (scheduleSearchTimer.current) clearTimeout(scheduleSearchTimer.current);
+            scheduleSearchTimer.current = setTimeout(() => {
+                setSchedulePage(1);
+                fetchScheduleMatches(1, { search: bracketSearch, status: scheduleFilter }, false);
+            }, 300);
+        }
+    }, [bracketSearch, scheduleFilter]);
+
+    useEffect(() => {
+        const observer = new IntersectionObserver(
+            entries => {
+                if (entries[0].isIntersecting && scheduleHasMore && !scheduleLoading) {
+                    const nextPage = schedulePage + 1;
+                    setSchedulePage(nextPage);
+                    fetchScheduleMatches(nextPage, { search: bracketSearch, status: scheduleFilter }, true);
+                }
+            },
+            { threshold: 0.1 }
+        );
+
+        if (scheduleObserverTarget.current) {
+            observer.observe(scheduleObserverTarget.current);
+        }
+
+        return () => observer.disconnect();
+    }, [scheduleHasMore, scheduleLoading, schedulePage, bracketSearch, scheduleFilter, fetchScheduleMatches, activeTab]);
 
     // Fetch paginated teams from server
     const fetchPlayerTeams = useCallback(async (page: number, search: string) => {
@@ -855,7 +868,7 @@ export default function TournamentDetailClient({ initialData, id }: { initialDat
     };
 
     useEffect(() => {
-        if ((activeTab === "bracket" || activeTab === "schedule") && !brackets) loadBrackets();
+        if (activeTab === "bracket" && !brackets) loadBrackets();
     }, [activeTab]);
 
     // Load payment methods and auto-show dialog when needed
@@ -1368,15 +1381,53 @@ export default function TournamentDetailClient({ initialData, id }: { initialDat
 
             <section className="pt-4 pb-16 bg-white">
                 <div className="max-w-[1200px] mx-auto px-6">
-                    <div className="sticky top-16 z-30 bg-white border-b overflow-x-auto flex gap-1 no-scrollbar">
+                    {/* Mobile Tab Bar — fixed grid, always shows all 4 tabs */}
+                    <div className="sticky top-16 z-30 bg-white border-b border-gray-200 sm:hidden">
+                        <div className="grid grid-cols-4 gap-0">
+                            {tabs.map((tab) => {
+                                const isActive = activeTab === tab.key;
+                                const shortLabel = tab.key === "players" ? "VĐV" : tab.key === "schedule" ? "Lịch đấu" : tab.key === "bracket" ? "Sơ đồ" : "Tổng quan";
+                                return (
+                                    <button
+                                        key={tab.key}
+                                        onClick={() => setActiveTab(tab.key)}
+                                        className={`relative flex flex-col items-center justify-center py-2.5 px-1 transition-all duration-200 ${isActive ? "text-efb-blue" : "text-gray-400 active:text-gray-600"}`}
+                                    >
+                                        <div className={`flex items-center justify-center w-8 h-8 rounded-xl mb-0.5 transition-all duration-200 ${isActive ? "bg-blue-50 shadow-sm shadow-blue-100" : ""}`}>
+                                            <tab.icon className={`w-[18px] h-[18px] transition-all duration-200 ${isActive ? "text-efb-blue" : ""}`} />
+                                        </div>
+                                        <span className={`text-[10px] leading-tight text-center transition-all duration-200 ${isActive ? "font-bold text-efb-blue" : "font-medium"}`}>
+                                            {shortLabel}
+                                        </span>
+                                        {isActive && (
+                                            <motion.div
+                                                layoutId="mobile-tab-indicator"
+                                                className="absolute bottom-0 left-2 right-2 h-[3px] bg-efb-blue rounded-t-full"
+                                                transition={{ type: "spring", bounce: 0.2, duration: 0.4 }}
+                                            />
+                                        )}
+                                    </button>
+                                );
+                            })}
+                        </div>
+                    </div>
+                    {/* Desktop Tab Bar — horizontal layout */}
+                    <div className="sticky top-16 z-30 bg-white border-b border-gray-200 hidden sm:flex gap-1 overflow-x-auto no-scrollbar">
                         {tabs.map((tab) => (
                             <button
                                 key={tab.key}
                                 onClick={() => setActiveTab(tab.key)}
-                                className={`px-4 py-3 text-[13px] font-medium border-b-2 transition-all whitespace-nowrap flex-shrink-0 flex items-center gap-1.5 ${activeTab === tab.key ? "border-efb-blue text-efb-blue" : "border-transparent text-gray-400 hover:text-gray-600"}`}
+                                className={`relative px-4 py-3 text-[13px] font-medium transition-all whitespace-nowrap flex-shrink-0 flex items-center gap-1.5 ${activeTab === tab.key ? "text-efb-blue" : "text-gray-400 hover:text-gray-600"}`}
                             >
                                 <tab.icon className="w-3.5 h-3.5" />
                                 {tab.label}
+                                {activeTab === tab.key && (
+                                    <motion.div
+                                        layoutId="desktop-tab-indicator"
+                                        className="absolute bottom-0 left-1 right-1 h-[2.5px] bg-efb-blue rounded-t-full"
+                                        transition={{ type: "spring", bounce: 0.2, duration: 0.4 }}
+                                    />
+                                )}
                             </button>
                         ))}
                     </div>
@@ -1823,7 +1874,7 @@ export default function TournamentDetailClient({ initialData, id }: { initialDat
                                                 t.efvTier === 'efv_500' ? 'bg-purple-100 text-purple-700 border border-purple-200' :
                                                     'bg-blue-100 text-blue-700 border border-blue-200'
                                                 }`}>
-                                                {t.efvTier === 'efv_250' ? 'EFV 250' : t.efvTier === 'efv_500' ? 'EFV 500' : 'EFV 1000'}
+                                                {t.efvTier.toUpperCase().replace('_', ' ')}
                                             </span>
                                         )}
                                     </div>
@@ -2045,35 +2096,18 @@ export default function TournamentDetailClient({ initialData, id }: { initialDat
                         )}
 
                         {activeTab === "schedule" && (() => {
-                            const scheduleMatches = brackets?.matches || matches;
-                            const fbLinks = (data?.registrations || []).reduce((acc: any, r: any) => {
-                                if (r.team && r.facebookLink) acc[r.team.toString()] = r.facebookLink;
-                                return acc;
-                            }, {});
                             const roundMap: Record<string, any[]> = {};
-                            scheduleMatches.filter((m: any) => m.status !== 'walkover' && m.status !== 'bye').forEach((m: any) => {
+                            scheduleMatches.forEach((m: any) => {
                                 const rn = m.roundName || `Vòng ${m.round}`;
                                 if (!roundMap[rn]) roundMap[rn] = [];
                                 roundMap[rn].push(m);
                             });
                             const roundEntries = Object.entries(roundMap).sort(([, a], [, b]) => (a[0]?.round ?? 0) - (b[0]?.round ?? 0));
-
-                            const allSchedMatches = roundEntries.flatMap(([, rm]) => rm);
-                            const completedCount = allSchedMatches.filter((m: any) => m.status === 'completed').length;
-                            const liveCount = allSchedMatches.filter((m: any) => m.status === 'live').length;
-                            const totalCount = allSchedMatches.length;
-
-                            const matchesFilter = (m: any) => {
-                                if (bracketSearch.trim()) {
-                                    const q = bracketSearch.toLowerCase();
-                                    const fields = [m.homeTeam?.name, m.homeTeam?.shortName, m.homeTeam?.player1, m.homeTeam?.player2, m.awayTeam?.name, m.awayTeam?.shortName, m.awayTeam?.player1, m.awayTeam?.player2, m.homeTeam?.efvId != null ? String(m.homeTeam.efvId) : null, m.awayTeam?.efvId != null ? String(m.awayTeam.efvId) : null, m.matchNumber != null ? String(m.matchNumber) : null];
-                                    if (!fields.some(v => v && v.toLowerCase().includes(q))) return false;
-                                }
-                                if (scheduleFilter === 'live') return m.status === 'live';
-                                if (scheduleFilter === 'completed') return m.status === 'completed';
-                                if (scheduleFilter === 'upcoming') return m.status !== 'completed' && m.status !== 'live';
-                                return true;
-                            };
+                            
+                            const completedCount = scheduleStats.completedCount || 0;
+                            const liveCount = scheduleStats.liveCount || 0;
+                            const totalCount = scheduleStats.totalCount || 0;
+                            const totalFiltered = scheduleMatches.length;
 
                             return (
                                 <div className="space-y-0">
@@ -2090,8 +2124,8 @@ export default function TournamentDetailClient({ initialData, id }: { initialDat
                                         </div>
                                         <div className="relative">
                                             <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-                                            <Input placeholder="Tìm VĐV, team, EFV ID..." value={bracketSearch} onChange={(e) => setBracketSearch(e.target.value)} className="pl-9 h-9 text-sm rounded-lg border-gray-200 w-[220px] focus:border-efb-blue" />
-                                            {bracketSearch && <button onClick={() => setBracketSearch("")} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-300 hover:text-gray-500"><X className="w-3.5 h-3.5" /></button>}
+                                            <Input placeholder="Tìm VĐV, team, EFV ID..." value={bracketSearch} onChange={(e) => { setBracketSearch(e.target.value); /* reset handled by effect */ }} className="pl-9 h-9 text-sm rounded-lg border-gray-200 w-[220px] focus:border-efb-blue" />
+                                            {bracketSearch && <button onClick={() => { setBracketSearch(""); /* reset handled by effect */ }} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-300 hover:text-gray-500"><X className="w-3.5 h-3.5" /></button>}
                                         </div>
                                     </div>
 
@@ -2103,7 +2137,7 @@ export default function TournamentDetailClient({ initialData, id }: { initialDat
                                             { key: 'completed' as const, label: 'Kết thúc', count: completedCount },
                                             { key: 'upcoming' as const, label: 'Chưa đấu', count: totalCount - completedCount - liveCount },
                                         ]).map(f => (
-                                            <button key={f.key} onClick={() => setScheduleFilter(f.key)} className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${scheduleFilter === f.key ? (f.key === 'live' ? 'bg-red-500 text-white shadow-sm' : 'bg-efb-blue text-white shadow-sm') : 'bg-gray-50 text-gray-500 hover:bg-gray-100 border border-gray-100'}`}>
+                                            <button key={f.key} onClick={() => { setScheduleFilter(f.key); /* reset handled by effect */ }} className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${scheduleFilter === f.key ? (f.key === 'live' ? 'bg-red-500 text-white shadow-sm' : 'bg-efb-blue text-white shadow-sm') : 'bg-gray-50 text-gray-500 hover:bg-gray-100 border border-gray-100'}`}>
                                                 {f.label} <span className="opacity-70 ml-0.5">({f.count})</span>
                                             </button>
                                         ))}
@@ -2136,8 +2170,7 @@ export default function TournamentDetailClient({ initialData, id }: { initialDat
                                         ) : (<>
                                             {/* Desktop */}
                                             <div className="hidden sm:block overflow-x-auto">
-                                                {roundEntries.map(([roundName, roundMatches]) => {
-                                                    const filtered = roundMatches.filter(matchesFilter);
+                                                {roundEntries.map(([roundName, filtered]) => {
                                                     if (filtered.length === 0) return null;
                                                     return (
                                                         <div key={roundName}>
@@ -2183,19 +2216,11 @@ export default function TournamentDetailClient({ initialData, id }: { initialDat
                                                                             <div className="col-span-4 flex flex-col gap-1.5 text-[13px] font-medium min-w-0">
                                                                                 <div className={`truncate flex items-center gap-1.5 ${isCompleted ? (isHomeWin ? "font-bold text-gray-900" : "text-gray-400 line-through") : isLive ? "text-gray-800" : "text-purple-600"}`}>
                                                                                     <span className="truncate">{p1Name}{p1Sub}</span>
-                                                                                    {m.homeTeam && fbLinks[m.homeTeam._id || m.homeTeam.id] && (
-                                                                                        <a href={fbLinks[m.homeTeam._id || m.homeTeam.id]} target="_blank" onClick={e => e.stopPropagation()} className="inline-flex flex-shrink-0 items-center text-blue-500 hover:text-blue-700 transition-colors" title="Facebook">
-                                                                                            <Facebook className="w-3.5 h-3.5" />
-                                                                                        </a>
-                                                                                    )}
+
                                                                                 </div>
                                                                                 <div className={`truncate flex items-center gap-1.5 ${isCompleted ? (isAwayWin ? "font-bold text-gray-900" : "text-gray-400 line-through") : isLive ? "text-gray-800" : "text-purple-600"}`}>
                                                                                     <span className="truncate">{p2Name}{p2Sub}</span>
-                                                                                    {m.awayTeam && fbLinks[m.awayTeam._id || m.awayTeam.id] && (
-                                                                                        <a href={fbLinks[m.awayTeam._id || m.awayTeam.id]} target="_blank" onClick={e => e.stopPropagation()} className="inline-flex flex-shrink-0 items-center text-blue-500 hover:text-blue-700 transition-colors" title="Facebook">
-                                                                                            <Facebook className="w-3.5 h-3.5" />
-                                                                                        </a>
-                                                                                    )}
+
                                                                                 </div>
                                                                             </div>
                                                                             <div className="col-span-2 flex justify-center">
@@ -2219,83 +2244,91 @@ export default function TournamentDetailClient({ initialData, id }: { initialDat
                                                     );
                                                 })}
                                             </div>
-                                            {/* Mobile */}
-                                            <div className="sm:hidden">
-                                                {roundEntries.map(([roundName, roundMatches]) => {
-                                                    const filtered = roundMatches.filter(matchesFilter);
-                                                    if (filtered.length === 0) return null;
-                                                    return (
-                                                        <div key={roundName}>
-                                                            <div className="bg-[#D9EAF7] flex items-center justify-center py-2 px-4 border-b border-white">
-                                                                <span className="text-red-500 font-bold text-xs">{roundName}</span>
-                                                                <span className="text-gray-600 font-semibold text-xs ml-1.5">| {t.title}</span>
-                                                            </div>
-                                                            <div className="divide-y divide-gray-50">
-                                                                {filtered.map((m: any) => {
-                                                                    const homePlayer = m.homeTeam?.player1 || "Chờ kết quả";
-                                                                    const awayPlayer = m.awayTeam?.player1 || "Chờ kết quả";
-                                                                    const homeCLB = m.homeTeam?.name || "";
-                                                                    const awayCLB = m.awayTeam?.name || "";
-                                                                    const homeEfvId = m.homeTeam?.efvId;
-                                                                    const awayEfvId = m.awayTeam?.efvId;
-                                                                    const isCompleted = m.status === 'completed';
-                                                                    const isLive = m.status === 'live';
-                                                                    const homeWin = isCompleted && (m.winner === (m.homeTeam?._id || m.homeTeam?.id) || (m.homeScore ?? 0) > (m.awayScore ?? 0));
-                                                                    const awayWin = isCompleted && (m.winner === (m.awayTeam?._id || m.awayTeam?.id) || (m.awayScore ?? 0) > (m.homeScore ?? 0));
-                                                                    return (
-                                                                        <div key={m._id} className={`px-4 py-3 cursor-pointer active:bg-gray-50 transition-colors ${isLive ? 'bg-red-50/30' : ''}`} onClick={() => setSelectedMatch(m)}>
-                                                                            <div className="flex items-center justify-between mb-2">
-                                                                                <div className="flex items-center gap-2">
-                                                                                    <span className="text-[10px] font-bold text-gray-300 bg-gray-50 px-1.5 py-0.5 rounded">#{m.matchNumber}</span>
-                                                                                    {m.scheduledAt && <span className="text-[10px] text-gray-400 flex items-center gap-1"><Clock className="w-3 h-3" />{new Date(m.scheduledAt).toLocaleString("vi-VN", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" })}</span>}
-                                                                                </div>
-                                                                                <div className={`px-2 py-0.5 rounded text-[10px] font-semibold ${isCompleted ? "bg-emerald-50 text-emerald-600" : isLive ? "bg-red-50 text-red-600 animate-pulse" : "bg-blue-50/50 text-blue-400"}`}>
-                                                                                    {isCompleted ? "Kết thúc" : isLive ? "🔴 LIVE" : "Chờ đấu"}
-                                                                                </div>
-                                                                            </div>
-                                                                            <div className="flex items-center gap-2">
-                                                                                <div className={`flex-1 min-w-0 text-right ${homeWin ? '' : isCompleted ? 'opacity-50' : ''}`}>
-                                                                                    <div className="flex items-center justify-end gap-1 mb-0.5">
-                                                                                        {m.homeTeam && fbLinks[m.homeTeam._id || m.homeTeam.id] && (
-                                                                                            <a href={fbLinks[m.homeTeam._id || m.homeTeam.id]} target="_blank" onClick={e => e.stopPropagation()} className="text-blue-500 hover:text-blue-700 flex-shrink-0">
-                                                                                                <Facebook className="w-3 h-3" />
-                                                                                            </a>
-                                                                                        )}
-                                                                                        {homeEfvId != null && <span className="text-[8px] font-bold text-amber-600 bg-amber-50 border border-amber-200 px-1 py-px rounded flex-shrink-0">#{homeEfvId}</span>}
-                                                                                        <span className={`text-xs font-bold truncate ${homeWin ? 'text-blue-700' : 'text-gray-800'}`}>{homePlayer}</span>
-                                                                                    </div>
-                                                                                    {homeCLB && <p className="text-[9px] text-gray-400 truncate">{homeCLB}</p>}
-                                                                                </div>
-                                                                                <div className={`flex-shrink-0 w-[60px] text-center py-1 rounded-lg ${isCompleted ? 'bg-gray-900 text-white' : isLive ? 'bg-red-500 text-white' : 'bg-gray-50 text-gray-300'}`}>
-                                                                                    <span className="text-sm font-black tabular-nums tracking-wider">{isCompleted || isLive ? `${m.homeScore ?? 0} - ${m.awayScore ?? 0}` : 'VS'}</span>
-                                                                                </div>
-                                                                                <div className={`flex-1 min-w-0 text-left ${awayWin ? '' : isCompleted ? 'opacity-50' : ''}`}>
-                                                                                    <div className="flex items-center gap-1 mb-0.5">
-                                                                                        <span className={`text-xs font-bold truncate ${awayWin ? 'text-blue-700' : 'text-gray-800'}`}>{awayPlayer}</span>
-                                                                                        {awayEfvId != null && <span className="text-[8px] font-bold text-amber-600 bg-amber-50 border border-amber-200 px-1 py-px rounded flex-shrink-0">#{awayEfvId}</span>}
-                                                                                        {m.awayTeam && fbLinks[m.awayTeam._id || m.awayTeam.id] && (
-                                                                                            <a href={fbLinks[m.awayTeam._id || m.awayTeam.id]} target="_blank" onClick={e => e.stopPropagation()} className="text-blue-500 hover:text-blue-700 flex-shrink-0">
-                                                                                                <Facebook className="w-3 h-3" />
-                                                                                            </a>
-                                                                                        )}
-                                                                                    </div>
-                                                                                    {awayCLB && <p className="text-[9px] text-gray-400 truncate">{awayCLB}</p>}
-                                                                                </div>
-                                                                            </div>
+                            {/* Mobile — Professional card layout with avatars */}
+                            <div className="sm:hidden">
+                                {roundEntries.map(([roundName, filtered]) => {
+                                    if (filtered.length === 0) return null;
+                                    return (
+                                        <div key={roundName}>
+                                            <div className="bg-gradient-to-r from-slate-800 to-slate-900 flex items-center justify-between py-2.5 px-4 border-b border-slate-700">
+                                                <span className="text-amber-400 font-bold text-xs">{roundName}</span>
+                                                <span className="text-white/40 text-[10px] font-medium">{filtered.length} trận</span>
+                                            </div>
+                                            <div className="divide-y divide-gray-100">
+                                                {filtered.map((m: any) => {
+                                                    const isCompleted = m.status === 'completed';
+                                                    const isLive = m.status === 'live';
+                                                    const homeWin = isCompleted && (m.winner === (m.homeTeam?._id || m.homeTeam?.id) || (m.homeScore ?? 0) > (m.awayScore ?? 0));
+                                                    const awayWin = isCompleted && (m.winner === (m.awayTeam?._id || m.awayTeam?.id) || (m.awayScore ?? 0) > (m.homeScore ?? 0));
+                                                    const renderPlayer = (team: any, fallback: any, isWin: boolean, align: 'left' | 'right') => {
+                                                        const avatar = team?.personalPhoto || team?.avatar || '';
+                                                        const name = team?.player1 || fallback?.name || "Chờ kết quả";
+                                                        const clb = team?.name || team?.shortName || "";
+                                                        const efvId = team?.efvId;
+                                                        const isRight = align === 'right';
+                                                        return (
+                                                            <div className={`flex items-center gap-2 min-w-0 flex-1 ${isRight ? 'flex-row-reverse text-right' : ''} ${isWin ? '' : isCompleted ? 'opacity-50' : ''}`}>
+                                                                <div className="flex-shrink-0">
+                                                                    {avatar ? (
+                                                                        <img src={avatar} alt={name} className="w-9 h-9 rounded-full object-cover border-2 border-gray-100 shadow-sm" />
+                                                                    ) : (
+                                                                        <div className="w-9 h-9 rounded-full bg-gradient-to-br from-gray-100 to-gray-200 flex items-center justify-center">
+                                                                            <User className="w-4 h-4 text-gray-400" />
                                                                         </div>
-                                                                    );
-                                                                })}
+                                                                    )}
+                                                                </div>
+                                                                <div className="min-w-0 flex-1">
+                                                                    <div className={`flex items-center gap-1 flex-wrap ${isRight ? 'justify-end' : ''}`}>
+                                                                        {efvId != null && <span className="text-[8px] font-bold text-amber-600 bg-amber-50 border border-amber-200 px-1 py-px rounded flex-shrink-0">#{efvId}</span>}
+                                                                        <span className={`text-[12px] font-bold ${isWin ? 'text-blue-700' : 'text-gray-800'}`} style={{ wordBreak: 'break-word' }}>{name}</span>
+                                                                    </div>
+                                                                    {clb && <p className={`text-[9px] text-gray-400 ${isRight ? 'text-right' : ''}`} style={{ wordBreak: 'break-word' }}>{clb}</p>}
+                                                                </div>
+                                                            </div>
+                                                        );
+                                                    };
+                                                    return (
+                                                        <div key={m._id} className={`px-3 py-3 cursor-pointer active:bg-gray-50 transition-colors ${isLive ? 'bg-red-50/30' : ''}`} onClick={() => setSelectedMatch(m)}>
+                                                            <div className="flex items-center justify-between mb-2">
+                                                                <div className="flex items-center gap-2">
+                                                                    <span className="text-[10px] font-bold text-gray-300 bg-gray-50 px-1.5 py-0.5 rounded">#{m.matchNumber}</span>
+                                                                    {m.scheduledAt && <span className="text-[10px] text-gray-400 flex items-center gap-1"><Clock className="w-3 h-3" />{new Date(m.scheduledAt).toLocaleString("vi-VN", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" })}</span>}
+                                                                </div>
+                                                                <div className={`px-2 py-0.5 rounded text-[10px] font-semibold ${isCompleted ? "bg-emerald-50 text-emerald-600" : isLive ? "bg-red-50 text-red-600 animate-pulse" : "bg-blue-50/50 text-blue-400"}`}>
+                                                                    {isCompleted ? "Kết thúc" : isLive ? "🔴 LIVE" : "Chờ đấu"}
+                                                                </div>
+                                                            </div>
+                                                            <div className="flex items-center gap-2">
+                                                                {renderPlayer(m.homeTeam, m.p1, homeWin, 'right')}
+                                                                <div className={`flex-shrink-0 min-w-[52px] text-center py-1.5 rounded-lg ${isCompleted ? 'bg-gray-900 text-white' : isLive ? 'bg-red-500 text-white' : 'bg-gray-50 text-gray-300'}`}>
+                                                                    <span className="text-sm font-black tabular-nums tracking-wider">{isCompleted || isLive ? `${m.homeScore ?? 0} - ${m.awayScore ?? 0}` : 'VS'}</span>
+                                                                </div>
+                                                                {renderPlayer(m.awayTeam, m.p2, awayWin, 'left')}
                                                             </div>
                                                         </div>
                                                     );
                                                 })}
                                             </div>
+                                        </div>
+                                    );
+                                })}
+                            </div>
+
+                            
+                            {/* Infinite Scroll Trigger */}
+                            {scheduleHasMore && (
+                                <div ref={scheduleObserverTarget} className="mt-6 flex flex-col items-center justify-center pb-6 gap-2">
+                                    <Loader2 className="w-6 h-6 text-efb-blue animate-spin" />
+                                    <p className="text-sm text-gray-400">Đang tải thêm trận đấu...</p>
+                                </div>
+                            )}
+
                                             {/* No results */}
-                                            {roundEntries.every(([, rm]) => rm.filter(matchesFilter).length === 0) && (
+                                            {totalFiltered === 0 && (
                                                 <div className="text-center py-12">
                                                     <Search className="w-8 h-8 text-gray-200 mx-auto mb-2" />
                                                     <p className="text-sm text-gray-400">Không tìm thấy trận đấu phù hợp</p>
-                                                    {bracketSearch && <button onClick={() => setBracketSearch("")} className="text-xs text-efb-blue hover:underline mt-1">Xóa tìm kiếm</button>}
+                                                    {bracketSearch && <button onClick={() => { setBracketSearch(""); /* reset handled by effect */ }} className="text-xs text-efb-blue hover:underline mt-1">Xóa tìm kiếm</button>}
                                                 </div>
                                             )}
                                         </>)}
@@ -2742,18 +2775,12 @@ export default function TournamentDetailClient({ initialData, id }: { initialDat
             </Dialog>
 
             {selectedMatch && (() => {
-                const fbMap = (data?.registrations || []).reduce((acc: any, r: any) => {
-                    if (r.team && r.facebookLink) acc[r.team.toString()] = r.facebookLink;
-                    return acc;
-                }, {});
                 return <MatchDetailViewModal 
                     match={selectedMatch} 
                     tournament={t} 
                     onClose={() => setSelectedMatch(null)} 
                     user={user} 
                     myRegistration={myRegistration}
-                    homeFb={selectedMatch.homeTeam ? fbMap[selectedMatch.homeTeam._id || selectedMatch.homeTeam.id] : undefined}
-                    awayFb={selectedMatch.awayTeam ? fbMap[selectedMatch.awayTeam._id || selectedMatch.awayTeam.id] : undefined}
                 />;
             })()}
 
