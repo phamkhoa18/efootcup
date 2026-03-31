@@ -19,7 +19,7 @@ import {
     Phone, Mail, Facebook, ExternalLink, MapPin, Calendar as CalendarIcon, Gamepad2, User,
     FileSpreadsheet, Hash, Shield, Sparkles, Trophy,
     Trash2, Edit3, MoreVertical, RotateCcw, ChevronDown, ChevronRight, ChevronLeft, Camera, ChevronsUpDown, MapPinned,
-    ArrowDownToLine, Wallet, Receipt, LinkIcon, BadgeCheck, CircleDollarSign, ShieldCheck
+    ArrowDownToLine, Wallet, Receipt, LinkIcon, BadgeCheck, CircleDollarSign, ShieldCheck, ListChecks
 } from "lucide-react";
 import { tournamentAPI, tournamentPaymentAPI } from "@/lib/api";
 import * as XLSX from "xlsx";
@@ -61,8 +61,10 @@ export default function DangKyPage() {
     const [addMode, setAddMode] = useState<"manual" | "excel">("manual");
     const [isAutoFormat, setIsAutoFormat] = useState(true);
     const [manualRows, setManualRows] = useState([
-        { teamName: "", teamShortName: "", playerName: "", gamerId: "", phone: "", email: "", nickname: "" }
+        { efvId: "", teamName: "", teamShortName: "", playerName: "", gamerId: "", phone: "", email: "", nickname: "", dateOfBirth: "", province: "", facebookName: "", facebookLink: "", player2EfvId: "", player2Name: "", player2GamerId: "", player2Nickname: "" }
     ]);
+    const [importResults, setImportResults] = useState<any[] | null>(null);
+    const teamSize = tournament?.teamSize || 1;
 
     // Payment proof viewer
     const [paymentProofView, setPaymentProofView] = useState<string | null>(null);
@@ -212,6 +214,7 @@ export default function DangKyPage() {
         if (!file) return;
 
         setIsUploading(true);
+        setImportResults(null);
         try {
             const xlsx = await import("xlsx");
             const reader = new FileReader();
@@ -235,16 +238,25 @@ export default function DangKyPage() {
                             if (row['Tên Đội Trưởng']) row['Tên Đội Trưởng'] = autoFormatName(row['Tên Đội Trưởng']);
                             if (row['Tên VĐV 1']) row['Tên VĐV 1'] = autoFormatName(row['Tên VĐV 1']);
                             if (row['VĐV 1']) row['VĐV 1'] = autoFormatName(row['VĐV 1']);
+                            if (row['Tên VĐV']) row['Tên VĐV'] = autoFormatName(row['Tên VĐV']);
                             if (row['playerName']) row['playerName'] = autoFormatName(row['playerName']);
+                            // Player 2
+                            if (row['Tên VĐV 2']) row['Tên VĐV 2'] = autoFormatName(row['Tên VĐV 2']);
+                            if (row['VĐV 2']) row['VĐV 2'] = autoFormatName(row['VĐV 2']);
+                            if (row['player2Name']) row['player2Name'] = autoFormatName(row['player2Name']);
                         }
                         return row;
                     });
 
                     const res = await tournamentAPI.importRegistrations(id, formattedData);
                     if (res.success) {
+                        const d = res.data;
                         toast.success(res.message || `Đã import thành công`);
+                        if (d?.results) setImportResults(d.results);
                         loadRegistrations();
-                        setIsAddModalOpen(false);
+                        if (!d?.skippedCount || d.skippedCount === 0) {
+                            setIsAddModalOpen(false);
+                        }
                     } else {
                         toast.error(res.message || "Import thất bại");
                     }
@@ -270,7 +282,7 @@ export default function DangKyPage() {
     };
 
     const handleAddManualRows = (count: number) => {
-        const newRows = Array(count).fill(null).map(() => ({ teamName: "", teamShortName: "", playerName: "", gamerId: "", phone: "", email: "", nickname: "" }));
+        const newRows = Array(count).fill(null).map(() => ({ efvId: "", teamName: "", teamShortName: "", playerName: "", gamerId: "", phone: "", email: "", nickname: "", dateOfBirth: "", province: "", facebookName: "", facebookLink: "", player2EfvId: "", player2Name: "", player2GamerId: "", player2Nickname: "" }));
         setManualRows([...manualRows, ...newRows]);
     };
 
@@ -281,23 +293,43 @@ export default function DangKyPage() {
         }
 
         setIsUploading(true);
-        const data = validRows.map(r => ({
-            teamName: r.teamName.trim() || r.playerName.trim(),
-            teamShortName: r.teamShortName.trim() || (r.teamName.trim() || r.playerName.trim()).substring(0, 3).toUpperCase(),
-            playerName: isAutoFormat ? autoFormatName(r.playerName.trim()) : r.playerName.trim(),
-            gamerId: r.gamerId.trim() || "TBD",
-            phone: r.phone.trim() || "000",
-            email: r.email.trim() || "noemail@vntournament.com",
-            nickname: r.nickname.trim() || "",
-        }));
+        setImportResults(null);
+        const data = validRows.map(r => {
+            const row: any = {
+                efvId: r.efvId.trim() || undefined,
+                teamName: r.teamName.trim() || r.playerName.trim(),
+                teamShortName: r.teamShortName.trim() || (r.teamName.trim() || r.playerName.trim()).substring(0, 3).toUpperCase(),
+                playerName: isAutoFormat ? autoFormatName(r.playerName.trim()) : r.playerName.trim(),
+                gamerId: r.gamerId.trim() || "TBD",
+                phone: r.phone.trim() || "000",
+                email: r.email.trim() || "",
+                nickname: r.nickname.trim() || "",
+                dateOfBirth: r.dateOfBirth?.trim() || "",
+                province: r.province?.trim() || "",
+                facebookName: r.facebookName?.trim() || "",
+                facebookLink: r.facebookLink?.trim() || "",
+            };
+            // Player 2 for 2v2+
+            if (teamSize >= 2 && r.player2Name?.trim()) {
+                row.player2EfvId = r.player2EfvId?.trim() || undefined;
+                row.player2Name = isAutoFormat ? autoFormatName(r.player2Name.trim()) : r.player2Name.trim();
+                row.player2GamerId = r.player2GamerId?.trim() || "TBD";
+                row.player2Nickname = r.player2Nickname?.trim() || "";
+            }
+            return row;
+        });
 
         try {
             const res = await tournamentAPI.importRegistrations(id, data);
             if (res.success) {
+                const d = res.data;
                 toast.success(res.message || "Đã thêm thành công");
+                if (d?.results) setImportResults(d.results);
                 loadRegistrations();
-                setIsAddModalOpen(false);
-                setManualRows([{ teamName: "", teamShortName: "", playerName: "", gamerId: "", phone: "", email: "", nickname: "" }]);
+                if (!d?.skippedCount || d.skippedCount === 0) {
+                    setIsAddModalOpen(false);
+                    setManualRows([{ efvId: "", teamName: "", teamShortName: "", playerName: "", gamerId: "", phone: "", email: "", nickname: "", dateOfBirth: "", province: "", facebookName: "", facebookLink: "", player2EfvId: "", player2Name: "", player2GamerId: "", player2Nickname: "" }]);
+                }
             } else {
                 toast.error(res.message || "Thêm thất bại");
             }
@@ -484,6 +516,10 @@ export default function DangKyPage() {
             notes: reg.notes || "",
             personalPhoto: reg.personalPhoto || "",
             teamLineupPhoto: reg.teamLineupPhoto || "",
+            player2Name: reg.player2Name || "",
+            player2GamerId: reg.player2GamerId || "",
+            player2Nickname: reg.player2Nickname || "",
+            player2Phone: reg.player2Phone || "",
         });
         setEditUploadingPersonal(false);
         setEditUploadingLineup(false);
@@ -552,6 +588,19 @@ export default function DangKyPage() {
                 "Viết tắt": r.teamShortName || "",
                 "Số điện thoại": r.phone || "",
                 "Email": r.email || "",
+            };
+
+            // Player 2 columns for 2v2+
+            if (teamSize >= 2) {
+                row["EFV-ID 2"] = r.player2User?.efvId != null ? r.player2User.efvId : "";
+                row["Tên VĐV 2"] = r.player2Name || "";
+                row["ID Game 2"] = r.player2GamerId || "";
+                row["Nickname 2"] = r.player2Nickname || "";
+                row["SĐT VĐV 2"] = r.player2Phone || "";
+            }
+
+            // Continue with other columns
+            Object.assign(row, {
                 "Ngày sinh": r.dateOfBirth ? new Date(r.dateOfBirth).toLocaleDateString('vi-VN') : "",
                 "Tỉnh/TP": r.province || "",
                 "Facebook": r.facebookName || "",
@@ -583,7 +632,7 @@ export default function DangKyPage() {
                 "Duyệt lúc": r.approvedAt ? new Date(r.approvedAt).toLocaleString('vi-VN') : "",
                 "Lý do từ chối": r.rejectionReason || "",
                 "Ngày đăng ký": r.createdAt ? new Date(r.createdAt).toLocaleString('vi-VN') : "",
-            };
+            });
             return row;
         });
 
@@ -1095,6 +1144,9 @@ export default function DangKyPage() {
                                     <th className="text-left px-4 py-4 text-[10px] font-bold text-amber-500 uppercase tracking-widest">EFV ID</th>
                                     <th className="text-left px-4 py-4 text-[10px] font-bold text-gray-400 uppercase tracking-widest">Nhân sự / CLB</th>
                                     <th className="text-left px-4 py-4 text-[10px] font-bold text-gray-400 uppercase tracking-widest hidden md:table-cell">In-game ID</th>
+                                    {teamSize >= 2 && (
+                                        <th className="text-left px-4 py-4 text-[10px] font-bold text-emerald-500 uppercase tracking-widest hidden md:table-cell">VĐV 2</th>
+                                    )}
                                     <th className="text-left px-4 py-4 text-[10px] font-bold text-gray-400 uppercase tracking-widest hidden lg:table-cell">Ngày ĐK</th>
                                     {hasFee && (
                                         <th className="text-center px-4 py-4 text-[10px] font-bold text-gray-400 uppercase tracking-widest">
@@ -1152,6 +1204,25 @@ export default function DangKyPage() {
                                                 </div>
                                             </td>
                                             <td className="px-4 py-4 text-sm text-gray-600 hidden md:table-cell font-medium">{r.gamerId || r.ingameId || "—"}</td>
+                                            {teamSize >= 2 && (
+                                                <td className="px-4 py-4 hidden md:table-cell">
+                                                    {r.player2Name ? (
+                                                        <div>
+                                                            <div className="flex items-center gap-1.5">
+                                                                <span className="text-sm font-semibold text-gray-800">{r.player2Name}</span>
+                                                                {r.player2User?.efvId != null && (
+                                                                    <span className="inline-flex items-center text-[10px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 px-1.5 py-0.5 rounded tabular-nums">#{r.player2User.efvId}</span>
+                                                                )}
+                                                            </div>
+                                                            {r.player2GamerId && r.player2GamerId !== 'TBD' && (
+                                                                <div className="text-[11px] text-gray-400 mt-0.5">{r.player2GamerId}</div>
+                                                            )}
+                                                        </div>
+                                                    ) : (
+                                                        <span className="text-[11px] text-gray-300">— Chưa có</span>
+                                                    )}
+                                                </td>
+                                            )}
                                             <td className="px-4 py-4 text-sm text-gray-400 hidden lg:table-cell">
                                                 {r.createdAt ? new Date(r.createdAt).toLocaleDateString("vi-VN") : "—"}
                                             </td>
@@ -1690,6 +1761,42 @@ export default function DangKyPage() {
                                 )}
                             </div>
 
+                            {/* Player 2 Info (2v2+ only) */}
+                            {teamSize >= 2 && playerDetailView.player2Name && (
+                                <div className="px-6 py-4 border-t border-emerald-100/80 bg-emerald-50/20">
+                                    <p className="text-[11px] text-emerald-500 font-bold uppercase tracking-wider mb-3">VĐV 2</p>
+                                    <div className="space-y-0">
+                                        <div className="flex items-center justify-between py-2 border-b border-emerald-50">
+                                            <span className="text-[13px] text-gray-400 font-light">Họ tên</span>
+                                            <div className="flex items-center gap-2">
+                                                <span className="text-[13px] text-gray-900 font-semibold">{playerDetailView.player2Name}</span>
+                                                {playerDetailView.player2User?.efvId != null && (
+                                                    <span className="text-[10px] font-mono font-bold text-emerald-600 bg-emerald-50 border border-emerald-200 px-1.5 py-0.5 rounded">#{playerDetailView.player2User.efvId}</span>
+                                                )}
+                                            </div>
+                                        </div>
+                                        {playerDetailView.player2GamerId && playerDetailView.player2GamerId !== 'TBD' && (
+                                            <div className="flex items-center justify-between py-2 border-b border-emerald-50">
+                                                <span className="text-[13px] text-gray-400 font-light">ID Game</span>
+                                                <span className="text-[13px] text-gray-900 font-normal">{playerDetailView.player2GamerId}</span>
+                                            </div>
+                                        )}
+                                        {playerDetailView.player2Nickname && (
+                                            <div className="flex items-center justify-between py-2 border-b border-emerald-50">
+                                                <span className="text-[13px] text-gray-400 font-light">Nickname</span>
+                                                <span className="text-[13px] text-gray-900 font-normal">{playerDetailView.player2Nickname}</span>
+                                            </div>
+                                        )}
+                                        {playerDetailView.player2Phone && (
+                                            <div className="flex items-center justify-between py-2">
+                                                <span className="text-[13px] text-gray-400 font-light">SĐT</span>
+                                                <a href={`tel:${playerDetailView.player2Phone}`} className="text-[13px] text-efb-blue font-normal">{playerDetailView.player2Phone}</a>
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
+                            )}
+
                             {/* Photos section */}
                             {(playerDetailView.teamLineupPhoto || playerDetailView.personalPhoto) && (
                                 <div className="px-6 py-4 border-t border-gray-100/80">
@@ -1856,8 +1963,8 @@ export default function DangKyPage() {
             </Dialog>
 
             {/* Modal Thêm VĐV */}
-            <Dialog open={isAddModalOpen} onOpenChange={setIsAddModalOpen}>
-                <DialogContent className="max-w-[95vw] sm:max-w-4xl w-full bg-white border-0 shadow-2xl p-0 gap-0 rounded-2xl overflow-hidden">
+            <Dialog open={isAddModalOpen} onOpenChange={(open) => { setIsAddModalOpen(open); if (!open) setImportResults(null); }}>
+                <DialogContent className="max-w-[95vw] sm:max-w-6xl w-full bg-white border-0 shadow-2xl p-0 gap-0 rounded-2xl overflow-hidden">
                     {/* Modal Header with gradient */}
                     <div className="p-5 px-6 flex items-center gap-3 border-b border-gray-100 bg-gradient-to-r from-slate-50 via-blue-50/30 to-indigo-50/50">
                         <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center shadow-md shadow-blue-500/20">
@@ -1893,17 +2000,20 @@ export default function DangKyPage() {
                             <TabsContent value="manual" className="mt-0">
                                 <div className="space-y-4">
                                     <div className="overflow-x-auto custom-scrollbar">
-                                        <div className="min-w-[800px]">
+                                        <div className="min-w-[1100px]">
                                             {/* Table Header */}
-                                            <div className="grid grid-cols-[40px_minmax(100px,1fr)_60px_minmax(120px,1.2fr)_minmax(100px,1fr)_minmax(90px,1fr)_minmax(120px,1fr)_minmax(90px,1fr)] gap-2 items-center mb-3 px-2">
+                                            <div className="grid grid-cols-[36px_70px_minmax(90px,1fr)_50px_minmax(110px,1.2fr)_minmax(80px,0.9fr)_minmax(80px,0.8fr)_minmax(100px,1fr)_minmax(80px,0.8fr)_minmax(80px,0.8fr)_minmax(80px,0.8fr)_36px] gap-1.5 items-center mb-3 px-2">
                                                 <Label className="text-center text-[10px] font-bold text-gray-400 uppercase tracking-widest justify-center">
                                                     <Hash className="w-3 h-3" />
+                                                </Label>
+                                                <Label className="text-[10px] font-bold text-amber-500 uppercase tracking-widest">
+                                                    EFV-ID
                                                 </Label>
                                                 <Label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">
                                                     <Shield className="w-3 h-3 mr-1" /> Tên đội
                                                 </Label>
                                                 <Label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">
-                                                    Viết tắt
+                                                    VT
                                                 </Label>
                                                 <Label className="text-[10px] font-bold text-blue-500 uppercase tracking-widest">
                                                     <User className="w-3 h-3 mr-1" /> Tên VĐV *
@@ -1920,6 +2030,13 @@ export default function DangKyPage() {
                                                 <Label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">
                                                     Nickname
                                                 </Label>
+                                                <Label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">
+                                                    <Facebook className="w-3 h-3 mr-1" /> FB
+                                                </Label>
+                                                <Label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">
+                                                    <MapPin className="w-3 h-3 mr-1" /> Tỉnh
+                                                </Label>
+                                                <div />
                                             </div>
 
                                             <Separator className="mb-3" />
@@ -1933,52 +2050,116 @@ export default function DangKyPage() {
                                                             initial={{ opacity: 0, y: 8 }}
                                                             animate={{ opacity: 1, y: 0 }}
                                                             transition={{ delay: index * 0.03 }}
-                                                            className="grid grid-cols-[40px_minmax(100px,1fr)_60px_minmax(120px,1.2fr)_minmax(100px,1fr)_minmax(90px,1fr)_minmax(120px,1fr)_minmax(90px,1fr)] gap-2 items-center group/row"
+                                                            className="grid grid-cols-[36px_70px_minmax(90px,1fr)_50px_minmax(110px,1.2fr)_minmax(80px,0.9fr)_minmax(80px,0.8fr)_minmax(100px,1fr)_minmax(80px,0.8fr)_minmax(80px,0.8fr)_minmax(80px,0.8fr)_36px] gap-1.5 items-center group/row"
                                                         >
                                                             <div className="text-xs font-bold text-gray-300 text-center tabular-nums group-hover/row:text-blue-400 transition-colors">{index + 1}</div>
+                                                            <Input
+                                                                value={row.efvId}
+                                                                placeholder="#ID"
+                                                                onChange={(e) => { const newRows = [...manualRows]; newRows[index].efvId = e.target.value.replace(/[^0-9]/g, ''); setManualRows(newRows); }}
+                                                                className="h-9 rounded-lg text-xs border-amber-200 bg-amber-50/30 focus-visible:ring-amber-500/30 focus-visible:border-amber-400 transition-all placeholder:text-amber-300 text-center font-mono font-bold text-amber-700"
+                                                            />
                                                             <Input
                                                                 value={row.teamName}
                                                                 placeholder="Tên đội"
                                                                 onChange={(e) => { const newRows = [...manualRows]; newRows[index].teamName = e.target.value; setManualRows(newRows); }}
-                                                                className="h-10 rounded-xl text-sm border-gray-200 focus-visible:ring-blue-500/30 focus-visible:border-blue-400 transition-all placeholder:text-gray-300"
+                                                                className="h-9 rounded-lg text-xs border-gray-200 focus-visible:ring-blue-500/30 focus-visible:border-blue-400 transition-all placeholder:text-gray-300"
                                                             />
                                                             <Input
                                                                 value={row.teamShortName}
                                                                 placeholder="VT"
                                                                 maxLength={4}
                                                                 onChange={(e) => { const newRows = [...manualRows]; newRows[index].teamShortName = e.target.value.toUpperCase(); setManualRows(newRows); }}
-                                                                className="h-10 rounded-xl text-sm border-gray-200 focus-visible:ring-blue-500/30 focus-visible:border-blue-400 transition-all text-center uppercase placeholder:text-gray-300"
+                                                                className="h-9 rounded-lg text-xs border-gray-200 focus-visible:ring-blue-500/30 focus-visible:border-blue-400 transition-all text-center uppercase placeholder:text-gray-300"
                                                             />
                                                             <Input
                                                                 value={row.playerName}
                                                                 placeholder="Họ tên VĐV *"
                                                                 onChange={(e) => { const newRows = [...manualRows]; newRows[index].playerName = e.target.value; setManualRows(newRows); }}
-                                                                className="h-10 rounded-xl text-sm border-blue-200 bg-blue-50/30 focus-visible:ring-blue-500/30 focus-visible:border-blue-400 transition-all placeholder:text-blue-300 font-medium"
+                                                                className="h-9 rounded-lg text-xs border-blue-200 bg-blue-50/30 focus-visible:ring-blue-500/30 focus-visible:border-blue-400 transition-all placeholder:text-blue-300 font-medium"
                                                             />
                                                             <Input
                                                                 value={row.gamerId}
-                                                                placeholder="In-game ID"
+                                                                placeholder="ID Game"
                                                                 onChange={(e) => { const newRows = [...manualRows]; newRows[index].gamerId = e.target.value; setManualRows(newRows); }}
-                                                                className="h-10 rounded-xl text-sm border-gray-200 focus-visible:ring-blue-500/30 focus-visible:border-blue-400 transition-all placeholder:text-gray-300"
+                                                                className="h-9 rounded-lg text-xs border-gray-200 focus-visible:ring-blue-500/30 focus-visible:border-blue-400 transition-all placeholder:text-gray-300"
                                                             />
                                                             <Input
                                                                 value={row.phone}
                                                                 placeholder="0912..."
                                                                 onChange={(e) => { const newRows = [...manualRows]; newRows[index].phone = e.target.value; setManualRows(newRows); }}
-                                                                className="h-10 rounded-xl text-sm border-gray-200 focus-visible:ring-blue-500/30 focus-visible:border-blue-400 transition-all placeholder:text-gray-300"
+                                                                className="h-9 rounded-lg text-xs border-gray-200 focus-visible:ring-blue-500/30 focus-visible:border-blue-400 transition-all placeholder:text-gray-300"
                                                             />
                                                             <Input
                                                                 value={row.email}
                                                                 placeholder="email@..."
                                                                 onChange={(e) => { const newRows = [...manualRows]; newRows[index].email = e.target.value; setManualRows(newRows); }}
-                                                                className="h-10 rounded-xl text-sm border-gray-200 focus-visible:ring-blue-500/30 focus-visible:border-blue-400 transition-all placeholder:text-gray-300"
+                                                                className="h-9 rounded-lg text-xs border-gray-200 focus-visible:ring-blue-500/30 focus-visible:border-blue-400 transition-all placeholder:text-gray-300"
                                                             />
                                                             <Input
                                                                 value={row.nickname}
                                                                 placeholder="Nickname"
                                                                 onChange={(e) => { const newRows = [...manualRows]; newRows[index].nickname = e.target.value; setManualRows(newRows); }}
-                                                                className="h-10 rounded-xl text-sm border-gray-200 focus-visible:ring-blue-500/30 focus-visible:border-blue-400 transition-all placeholder:text-gray-300"
+                                                                className="h-9 rounded-lg text-xs border-gray-200 focus-visible:ring-blue-500/30 focus-visible:border-blue-400 transition-all placeholder:text-gray-300"
                                                             />
+                                                            <Input
+                                                                value={row.facebookName}
+                                                                placeholder="Tên FB"
+                                                                onChange={(e) => { const newRows = [...manualRows]; newRows[index].facebookName = e.target.value; setManualRows(newRows); }}
+                                                                className="h-9 rounded-lg text-xs border-gray-200 focus-visible:ring-blue-500/30 focus-visible:border-blue-400 transition-all placeholder:text-gray-300"
+                                                            />
+                                                            <Input
+                                                                value={row.province}
+                                                                placeholder="Tỉnh/TP"
+                                                                onChange={(e) => { const newRows = [...manualRows]; newRows[index].province = e.target.value; setManualRows(newRows); }}
+                                                                className="h-9 rounded-lg text-xs border-gray-200 focus-visible:ring-blue-500/30 focus-visible:border-blue-400 transition-all placeholder:text-gray-300"
+                                                            />
+                                                            <button
+                                                                onClick={() => {
+                                                                    if (manualRows.length > 1) {
+                                                                        setManualRows(manualRows.filter((_, i) => i !== index));
+                                                                    }
+                                                                }}
+                                                                className="w-7 h-7 rounded-lg flex items-center justify-center text-gray-300 hover:text-red-500 hover:bg-red-50 transition-all opacity-0 group-hover/row:opacity-100"
+                                                                title="Xóa dòng"
+                                                            >
+                                                                <Trash2 className="w-3.5 h-3.5" />
+                                                            </button>
+
+                                                            {/* Player 2 sub-row for 2v2+ */}
+                                                            {teamSize >= 2 && (
+                                                                <div className="col-span-full grid grid-cols-[36px_70px_minmax(90px,1fr)_50px_minmax(110px,1.2fr)_minmax(80px,0.9fr)_minmax(80px,0.8fr)_minmax(100px,1fr)_minmax(80px,0.8fr)_minmax(80px,0.8fr)_minmax(80px,0.8fr)_36px] gap-1.5 items-center pl-1 border-l-2 border-emerald-300 ml-4 mb-1">
+                                                                    <div className="text-[10px] font-bold text-emerald-400 text-center">P2</div>
+                                                                    <Input
+                                                                        value={row.player2EfvId}
+                                                                        placeholder="#ID2"
+                                                                        onChange={(e) => { const newRows = [...manualRows]; newRows[index].player2EfvId = e.target.value.replace(/[^0-9]/g, ''); setManualRows(newRows); }}
+                                                                        className="h-8 rounded-lg text-xs border-emerald-200 bg-emerald-50/30 focus-visible:ring-emerald-500/30 focus-visible:border-emerald-400 transition-all placeholder:text-emerald-300 text-center font-mono font-bold text-emerald-700"
+                                                                    />
+                                                                    <div className="col-span-2" />
+                                                                    <Input
+                                                                        value={row.player2Name}
+                                                                        placeholder="Tên VĐV 2 *"
+                                                                        onChange={(e) => { const newRows = [...manualRows]; newRows[index].player2Name = e.target.value; setManualRows(newRows); }}
+                                                                        className="h-8 rounded-lg text-xs border-emerald-200 bg-emerald-50/30 focus-visible:ring-emerald-500/30 focus-visible:border-emerald-400 transition-all placeholder:text-emerald-300 font-medium"
+                                                                    />
+                                                                    <Input
+                                                                        value={row.player2GamerId}
+                                                                        placeholder="ID Game 2"
+                                                                        onChange={(e) => { const newRows = [...manualRows]; newRows[index].player2GamerId = e.target.value; setManualRows(newRows); }}
+                                                                        className="h-8 rounded-lg text-xs border-gray-200 focus-visible:ring-emerald-500/30 focus-visible:border-emerald-400 transition-all placeholder:text-gray-300"
+                                                                    />
+                                                                    <div />
+                                                                    <div />
+                                                                    <Input
+                                                                        value={row.player2Nickname}
+                                                                        placeholder="Nickname 2"
+                                                                        onChange={(e) => { const newRows = [...manualRows]; newRows[index].player2Nickname = e.target.value; setManualRows(newRows); }}
+                                                                        className="h-8 rounded-lg text-xs border-gray-200 focus-visible:ring-emerald-500/30 focus-visible:border-emerald-400 transition-all placeholder:text-gray-300"
+                                                                    />
+                                                                    <div className="col-span-3" />
+                                                                </div>
+                                                            )}
                                                         </motion.div>
                                                     ))}
                                                 </div>
@@ -1993,17 +2174,26 @@ export default function DangKyPage() {
                                         <Button
                                             onClick={() => handleAddManualRows(1)}
                                             variant="outline"
-                                            className="h-10 px-5 rounded-xl text-sm border-gray-200 hover:bg-blue-50 hover:border-blue-200 hover:text-blue-600 text-gray-600 font-medium transition-all duration-200"
+                                            className="h-9 px-4 rounded-xl text-xs border-gray-200 hover:bg-blue-50 hover:border-blue-200 hover:text-blue-600 text-gray-600 font-medium transition-all duration-200"
                                         >
-                                            <Plus className="w-4 h-4 mr-2" /> Thêm 1 VĐV
+                                            <Plus className="w-3.5 h-3.5 mr-1.5" /> Thêm 1 VĐV
+                                        </Button>
+                                        <Button
+                                            onClick={() => handleAddManualRows(5)}
+                                            variant="outline"
+                                            className="h-9 px-4 rounded-xl text-xs border-gray-200 hover:bg-blue-50 hover:border-blue-200 hover:text-blue-600 text-gray-600 font-medium transition-all duration-200"
+                                        >
+                                            <Plus className="w-3.5 h-3.5 mr-1.5" /> +5
                                         </Button>
                                         <Button
                                             onClick={() => handleAddManualRows(10)}
                                             variant="outline"
-                                            className="h-10 px-5 rounded-xl text-sm border-gray-200 hover:bg-indigo-50 hover:border-indigo-200 hover:text-indigo-600 text-gray-600 font-medium transition-all duration-200"
+                                            className="h-9 px-4 rounded-xl text-xs border-gray-200 hover:bg-indigo-50 hover:border-indigo-200 hover:text-indigo-600 text-gray-600 font-medium transition-all duration-200"
                                         >
-                                            <Users className="w-4 h-4 mr-2" /> Tạo nhanh 10 đội
+                                            <Users className="w-3.5 h-3.5 mr-1.5" /> +10
                                         </Button>
+                                        <div className="flex-1" />
+                                        <span className="text-[11px] text-gray-400">{manualRows.length} dòng</span>
                                     </div>
 
                                     {/* Info Notes */}
@@ -2012,10 +2202,16 @@ export default function DangKyPage() {
                                             <AlertCircle className="w-4 h-4 text-blue-400 mt-0.5 flex-shrink-0" />
                                             <div className="text-xs text-blue-600/80 space-y-0.5">
                                                 <p><span className="font-bold">Tên VĐV</span> là bắt buộc (tối thiểu 2 ký tự). Các trường khác để trống sẽ sử dụng giá trị mặc định.</p>
-                                                <p>Tên đội trống → auto lấy tên VĐV. Viết tắt trống → auto lấy 3 ký tự đầu.</p>
+                                                <p><span className="font-bold text-amber-600">EFV-ID</span> nếu nhập sẽ liên kết với tài khoản hiện có, để trống sẽ tạo tài khoản mới (auto-ID).</p>
+                                                <p>Tên đội trống → auto &quot;Tự do&quot;. Viết tắt trống → auto lấy 3 ký tự đầu.</p>
+                                                {teamSize >= 2 && (
+                                                    <p className="text-emerald-600"><span className="font-bold">Giải {teamSize}v{teamSize}:</span> Dòng <span className="font-bold text-emerald-700">P2</span> (viền xanh) để nhập VĐV thứ 2. Mỗi VĐV có EFV-ID riêng.</p>
+                                                )}
                                             </div>
                                         </div>
                                     </div>
+
+                                    {/* Import Results - Moved to standalone modal */}
                                 </div>
                             </TabsContent>
 
@@ -2062,10 +2258,11 @@ export default function DangKyPage() {
                                             </div>
                                         </div>
                                         <a
-                                            href="https://vntournament.com/assets/excel/example.xlsx"
+                                            href={teamSize >= 2 ? "/assets/mau_import_2v2.xlsx" : "/assets/mau_import_1v1.xlsx"}
+                                            download={teamSize >= 2 ? "mau_import_2v2.xlsx" : "mau_import_1v1.xlsx"}
                                             className="inline-flex items-center gap-1.5 text-sm font-semibold text-blue-500 hover:text-blue-600 transition-colors px-4 py-2 rounded-xl hover:bg-blue-50 border border-blue-100"
                                         >
-                                            <Download className="w-4 h-4" /> Tải file mẫu
+                                            <Download className="w-4 h-4" /> Tải file mẫu {teamSize >= 2 ? `(${teamSize}v${teamSize})` : '(1v1)'}
                                         </a>
                                     </div>
 
@@ -2078,12 +2275,12 @@ export default function DangKyPage() {
                                             </div>
                                             <ul className="space-y-2 text-sm text-gray-600">
                                                 {[
-                                                    <>Tối đa <span className="font-bold text-red-500">128</span> đội cho nội dung này</>,
-                                                    <>Số hạt giống tối đa = <span className="font-bold">1/4</span> tổng số đội</>,
-                                                    <>Cột &quot;VĐV 1&quot; <span className="text-red-500 font-medium">tối thiểu 2 ký tự</span></>,
+                                                    <>Cột <span className="font-bold text-amber-600">{teamSize >= 2 ? '"EFV-ID" và "EFV-ID 2"' : '"EFV-ID"'}</span> nếu có sẽ liên kết VĐV với tài khoản. Để trống sẽ <span className="font-bold">tạo tài khoản mới tự động</span>.</>,
+                                                    <>Cột &quot;VĐV 1&quot; hoặc &quot;Tên VĐV&quot; <span className="text-red-500 font-medium">tối thiểu 2 ký tự</span></>,
+                                                    <>Hỗ trợ cột: <span className="font-medium">EFV-ID, Tên đội, Tên VĐV, ID Game, SĐT, Email, Nickname, Facebook, Tỉnh/TP{teamSize >= 2 ? ', Tên VĐV 2, EFV-ID 2, SĐT 2, ID Game 2, Nickname 2' : ''}</span></>,
                                                     <>SĐT chỉ gồm số (0-9), không gồm ký tự đặc biệt</>,
-                                                    <>Cột &quot;Hạt giống&quot; phải là số nguyên dương</>,
-                                                    <>Dòng <Badge variant="outline" className="bg-red-50 text-red-600 border-red-100 text-[10px] mx-0.5">màu đỏ</Badge> = dữ liệu không hợp lệ</>,
+                                                    <>Tối đa <span className="font-bold text-red-500">{tournament?.maxTeams || 128}</span> đội cho giải này</>,
+                                                    <>Mỗi VĐV import sẽ được <Badge variant="outline" className="bg-emerald-50 text-emerald-600 border-emerald-100 text-[10px] mx-0.5">tự động duyệt</Badge> và gán EFV-ID</>,
                                                 ].map((note, i) => (
                                                     <li key={i} className="flex items-start gap-2">
                                                         <div className="w-1.5 h-1.5 rounded-full bg-amber-400 mt-1.5 flex-shrink-0" />
@@ -2093,6 +2290,8 @@ export default function DangKyPage() {
                                             </ul>
                                         </CardContent>
                                     </Card>
+
+                                    {/* Import Results for Excel - Moved to standalone modal */}
                                 </div>
                             </TabsContent>
                         </Tabs>
@@ -2516,6 +2715,61 @@ export default function DangKyPage() {
                                 />
                             </div>
 
+                            {/* Player 2 (2v2+ only) */}
+                            {teamSize >= 2 && (
+                                <div className="space-y-3 p-4 rounded-xl bg-emerald-50/50 border border-emerald-200/50">
+                                    <Label className="text-xs font-bold text-emerald-600 uppercase tracking-wider flex items-center gap-1.5">
+                                        <Users className="w-3.5 h-3.5" /> VĐV 2
+                                    </Label>
+                                    <div className="grid grid-cols-2 gap-3">
+                                        <div className="space-y-1.5">
+                                            <Label className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Tên VĐV 2</Label>
+                                            <Input
+                                                value={editInfoData.player2Name}
+                                                onChange={(e) => setEditInfoData({ ...editInfoData, player2Name: e.target.value })}
+                                                placeholder="Họ và tên VĐV 2"
+                                                className="h-10 rounded-xl text-sm border-emerald-200 focus-visible:ring-emerald-500/30 focus-visible:border-emerald-400"
+                                            />
+                                        </div>
+                                        <div className="space-y-1.5">
+                                            <Label className="text-xs font-semibold text-gray-500 uppercase tracking-wider">ID Game 2</Label>
+                                            <Input
+                                                value={editInfoData.player2GamerId}
+                                                onChange={(e) => setEditInfoData({ ...editInfoData, player2GamerId: e.target.value })}
+                                                placeholder="In-game ID"
+                                                className="h-10 rounded-xl text-sm border-emerald-200 focus-visible:ring-emerald-500/30 focus-visible:border-emerald-400"
+                                            />
+                                        </div>
+                                        <div className="space-y-1.5">
+                                            <Label className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Nickname 2</Label>
+                                            <Input
+                                                value={editInfoData.player2Nickname}
+                                                onChange={(e) => setEditInfoData({ ...editInfoData, player2Nickname: e.target.value })}
+                                                placeholder="Nickname"
+                                                className="h-10 rounded-xl text-sm"
+                                            />
+                                        </div>
+                                        <div className="space-y-1.5">
+                                            <Label className="text-xs font-semibold text-gray-500 uppercase tracking-wider flex items-center gap-1">
+                                                <Phone className="w-3 h-3" /> SĐT VĐV 2
+                                            </Label>
+                                            <Input
+                                                value={editInfoData.player2Phone}
+                                                onChange={(e) => setEditInfoData({ ...editInfoData, player2Phone: e.target.value })}
+                                                placeholder="0912..."
+                                                className="h-10 rounded-xl text-sm"
+                                            />
+                                        </div>
+                                    </div>
+                                    {editInfoReg.player2User?.efvId != null && (
+                                        <div className="flex items-center gap-2 text-xs text-emerald-600">
+                                            <span className="font-medium">EFV-ID:</span>
+                                            <span className="font-bold font-mono bg-emerald-100 px-1.5 py-0.5 rounded">#{editInfoReg.player2User.efvId}</span>
+                                        </div>
+                                    )}
+                                </div>
+                            )}
+
                             {/* Approved warning */}
                             {editInfoReg.status === "approved" && (
                                 <div className="p-3 rounded-xl bg-blue-50 border border-blue-200 text-xs text-blue-700 flex items-start gap-2">
@@ -2920,6 +3174,75 @@ export default function DangKyPage() {
                     )}
                 </DialogContent>
             </Dialog>
-        </div >
+            {/* Import Results Modal */}
+            <Dialog open={!!(importResults && importResults.length > 0)} onOpenChange={(open) => !open && setImportResults(null)}>
+                <DialogContent className="max-w-xl bg-white rounded-2xl border-0 shadow-2xl p-0 overflow-hidden">
+                    <div className="p-5 border-b border-gray-100 bg-gradient-to-br from-indigo-50/50 to-white">
+                        <DialogTitle className="text-base font-bold text-gray-900 flex items-center justify-between">
+                            <div className="flex items-center gap-2">
+                                <ListChecks className="w-5 h-5 text-indigo-600" />
+                                <span>Kết quả Thêm VĐV</span>
+                            </div>
+                            <span className="px-2 py-0.5 bg-indigo-100 text-indigo-700 text-[11px] rounded-full font-medium">
+                                Tổng: {importResults?.length || 0}
+                            </span>
+                        </DialogTitle>
+                        <p className="text-xs text-gray-500 mt-1">
+                            {importResults?.filter((r: any) => r.status === 'success').length || 0} thành công
+                            {importResults?.filter((r: any) => r.status !== 'success').length ? `, ${importResults?.filter((r: any) => r.status !== 'success').length} bị lỗi/bỏ qua` : ''}
+                        </p>
+                    </div>
+
+                    <div className="bg-gray-50/50 p-2 border-b border-gray-100">
+                        <div className="flex items-center gap-3 text-[11px] font-medium text-gray-500 px-3">
+                            <span className="flex items-center gap-1"><CheckCircle2 className="w-3.5 h-3.5 text-emerald-500" /> Thành công</span>
+                            <span className="flex items-center gap-1"><AlertCircle className="w-3.5 h-3.5 text-amber-500" /> Cảnh báo (Trùng lặp)</span>
+                            <span className="flex items-center gap-1"><XCircle className="w-3.5 h-3.5 text-red-500" /> Lỗi nhập liệu</span>
+                        </div>
+                    </div>
+
+                    <ScrollArea className="max-h-[50vh] min-h-[150px]">
+                        <div className="divide-y divide-gray-50 p-2">
+                            {importResults?.map((r: any, i: number) => (
+                                <div key={i} className={`p-3 rounded-lg flex flex-col gap-1 text-sm transition-colors ${r.status === 'success' ? 'hover:bg-emerald-50/50' : r.status === 'skipped' ? 'hover:bg-amber-50/50' : 'hover:bg-red-50/50'}`}>
+                                    <div className="flex items-start gap-2.5">
+                                        {r.status === 'success' ? <CheckCircle2 className="w-4 h-4 text-emerald-500 flex-shrink-0 mt-0.5" /> : r.status === 'skipped' ? <AlertCircle className="w-4 h-4 text-amber-500 flex-shrink-0 mt-0.5" /> : <XCircle className="w-4 h-4 text-red-500 flex-shrink-0 mt-0.5" />}
+                                        <div className="flex-1 min-w-0">
+                                            <div className="flex flex-wrap items-center gap-1.5 leading-tight">
+                                                <span className="font-semibold text-gray-900">{r.playerName || 'Trống'}</span>
+                                                {r.efvId && <span className="inline-flex items-center text-[10px] font-mono font-bold text-gray-600 bg-white border border-gray-200 px-1.5 py-0.5 rounded shadow-sm">#{r.efvId}</span>}
+                                                
+                                                {teamSize >= 2 && r.player2Name && (
+                                                    <>
+                                                        <span className="text-gray-400 font-medium opacity-50 px-0.5">&amp;</span>
+                                                        <span className="font-semibold text-emerald-700">{r.player2Name}</span>
+                                                        {r.player2EfvId && <span className="inline-flex items-center text-[10px] font-mono font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 px-1.5 py-0.5 rounded shadow-sm">#{r.player2EfvId}</span>}
+                                                    </>
+                                                )}
+                                            </div>
+                                            
+                                            {(r.reason || r.teamName) && (
+                                                <div className="text-[12px] mt-1 space-x-2">
+                                                    {r.teamName && <span className="font-medium text-gray-600 bg-gray-100 px-1.5 py-0.5 rounded">{r.teamName}</span>}
+                                                    {r.reason && <span className={r.status === 'success' ? 'text-emerald-600 font-medium' : 'text-red-500 font-medium'}>{r.status !== 'success' && 'Lỗi: '} {r.reason}</span>}
+                                                </div>
+                                            )}
+                                        </div>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    </ScrollArea>
+                    <div className="p-4 border-t border-gray-100 bg-gray-50 flex justify-end">
+                        <Button 
+                            onClick={() => setImportResults(null)}
+                            className="bg-gray-900 hover:bg-gray-800 text-white rounded-xl h-10 px-6 font-medium"
+                        >
+                            Đóng
+                        </Button>
+                    </div>
+                </DialogContent>
+            </Dialog>
+        </div>
     );
 }

@@ -51,6 +51,9 @@ export async function GET(req: NextRequest, { params }: RouteParams) {
                     { facebookName: searchRegex },
                     { province: searchRegex },
                     { ingameId: searchRegex },
+                    { player2Name: searchRegex },
+                    { player2GamerId: searchRegex },
+                    { player2Nickname: searchRegex },
                 ];
 
                 // Support EFV-ID search (numeric or starts with #)
@@ -72,6 +75,7 @@ export async function GET(req: NextRequest, { params }: RouteParams) {
 
             const registrations = await Registration.find(query)
                 .populate("user", "name email avatar gamerId efvId")
+                .populate("player2User", "name email avatar gamerId efvId")
                 .populate("approvedBy", "name")
                 .sort({ createdAt: -1 })
                 .skip(skip)
@@ -104,6 +108,7 @@ export async function GET(req: NextRequest, { params }: RouteParams) {
         // Non-paginated (legacy): return all
         const registrations = await Registration.find(query)
             .populate("user", "name email avatar gamerId efvId")
+            .populate("player2User", "name email avatar gamerId efvId")
             .populate("approvedBy", "name")
             .sort({ createdAt: -1 })
             .lean();
@@ -421,7 +426,8 @@ export async function PUT(req: NextRequest, { params }: RouteParams) {
                 "playerName", "teamName", "teamShortName", "gamerId",
                 "phone", "email", "nickname", "facebookName", "facebookLink",
                 "province", "dateOfBirth", "notes",
-                "personalPhoto", "teamLineupPhoto"
+                "personalPhoto", "teamLineupPhoto",
+                "player2Name", "player2GamerId", "player2Nickname", "player2Phone",
             ];
 
             const updates: any = {};

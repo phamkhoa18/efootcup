@@ -20,6 +20,12 @@ export interface IRegistration extends Document {
     province?: string; // Tỉnh thành hoặc Đất nước
     personalPhoto?: string; // Hình ảnh cá nhân (rõ mặt)
     teamLineupPhoto?: string; // Hình ảnh đội hình thẻ thi đấu
+    // Player 2 (for 2v2+ tournaments)
+    player2User?: mongoose.Types.ObjectId;
+    player2Name?: string;
+    player2GamerId?: string;
+    player2Nickname?: string;
+    player2Phone?: string;
     status: "pending" | "approved" | "rejected" | "cancelled";
     rejectionReason?: string;
     // Payment fields
@@ -93,6 +99,12 @@ const RegistrationSchema = new Schema<IRegistration>(
         province: { type: String, default: "" },
         personalPhoto: { type: String, default: "" },
         teamLineupPhoto: { type: String, default: "" },
+        // Player 2 (for 2v2+ tournaments)
+        player2User: { type: Schema.Types.ObjectId, ref: "User" },
+        player2Name: { type: String, default: "" },
+        player2GamerId: { type: String, default: "" },
+        player2Nickname: { type: String, default: "" },
+        player2Phone: { type: String, default: "" },
         status: {
             type: String,
             enum: ["pending", "approved", "rejected", "cancelled"],
@@ -124,6 +136,11 @@ const RegistrationSchema = new Schema<IRegistration>(
 // Prevent duplicate registration
 RegistrationSchema.index({ tournament: 1, user: 1 }, { unique: true });
 RegistrationSchema.index({ tournament: 1, status: 1 });
+
+// Force re-register model to pick up schema changes in dev hot reload
+if (process.env.NODE_ENV !== "production" && mongoose.models.Registration) {
+    delete mongoose.models.Registration;
+}
 
 const Registration: Model<IRegistration> =
     mongoose.models.Registration ||
