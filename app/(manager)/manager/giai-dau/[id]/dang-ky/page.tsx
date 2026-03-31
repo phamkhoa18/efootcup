@@ -19,7 +19,7 @@ import {
     Phone, Mail, Facebook, ExternalLink, MapPin, Calendar as CalendarIcon, Gamepad2, User,
     FileSpreadsheet, Hash, Shield, Sparkles, Trophy,
     Trash2, Edit3, MoreVertical, RotateCcw, ChevronDown, ChevronRight, ChevronLeft, Camera, ChevronsUpDown, MapPinned,
-    ArrowDownToLine, Wallet, Receipt, LinkIcon, BadgeCheck, CircleDollarSign, ShieldCheck, ListChecks
+    ArrowDownToLine, Wallet, Receipt, LinkIcon, BadgeCheck, CircleDollarSign, ShieldCheck, ListChecks, Info
 } from "lucide-react";
 import { tournamentAPI, tournamentPaymentAPI } from "@/lib/api";
 import * as XLSX from "xlsx";
@@ -60,9 +60,12 @@ export default function DangKyPage() {
     const [isAddModalOpen, setIsAddModalOpen] = useState(false);
     const [addMode, setAddMode] = useState<"manual" | "excel">("manual");
     const [isAutoFormat, setIsAutoFormat] = useState(true);
+    // State type for each manual row including EFV verification status
+    type ManualRowStatus = 'idle' | 'loading' | 'verified' | 'not_found';
     const [manualRows, setManualRows] = useState([
-        { efvId: "", teamName: "", teamShortName: "", playerName: "", gamerId: "", phone: "", email: "", nickname: "", dateOfBirth: "", province: "", facebookName: "", facebookLink: "", player2EfvId: "", player2Name: "", player2GamerId: "", player2Nickname: "" }
+        { efvId: "", teamName: "", teamShortName: "", playerName: "", gamerId: "", phone: "", email: "", nickname: "", dateOfBirth: "", province: "", facebookName: "", facebookLink: "", player2EfvId: "", player2Name: "", player2GamerId: "", player2Nickname: "", player2FacebookName: "", player2FacebookLink: "" }
     ]);
+    const [efvStatuses, setEfvStatuses] = useState<Record<string, ManualRowStatus>>({}); // key: `${rowIndex}_p1` or `${rowIndex}_p2`
     const [importResults, setImportResults] = useState<any[] | null>(null);
     const teamSize = tournament?.teamSize || 1;
 
@@ -282,7 +285,7 @@ export default function DangKyPage() {
     };
 
     const handleAddManualRows = (count: number) => {
-        const newRows = Array(count).fill(null).map(() => ({ efvId: "", teamName: "", teamShortName: "", playerName: "", gamerId: "", phone: "", email: "", nickname: "", dateOfBirth: "", province: "", facebookName: "", facebookLink: "", player2EfvId: "", player2Name: "", player2GamerId: "", player2Nickname: "" }));
+        const newRows = Array(count).fill(null).map(() => ({ efvId: "", teamName: "", teamShortName: "", playerName: "", gamerId: "", phone: "", email: "", nickname: "", dateOfBirth: "", province: "", facebookName: "", facebookLink: "", player2EfvId: "", player2Name: "", player2GamerId: "", player2Nickname: "", player2FacebookName: "", player2FacebookLink: "" }));
         setManualRows([...manualRows, ...newRows]);
     };
 
@@ -290,6 +293,19 @@ export default function DangKyPage() {
         const validRows = manualRows.filter(r => r.playerName.trim().length >= 2);
         if (validRows.length === 0) {
             return toast.error("Vui lòng nhập tên VĐV hợp lệ (tối thiểu 2 ký tự)");
+        }
+
+        // Block if any row has an EFV ID entered but not verified or found
+        const invalidEfv = manualRows.some((r, i) => {
+            const p1st = efvStatuses[i + '_p1'];
+            const p2st = efvStatuses[i + '_p2'];
+            // If EFV entered but status is still idle (never blurred to verify) or explicitly not_found
+            if (r.efvId.trim() && (p1st === 'not_found' || p1st === 'idle')) return true;
+            if (r.player2EfvId?.trim() && (p2st === 'not_found' || p2st === 'idle')) return true;
+            return false;
+        });
+        if (invalidEfv) {
+            return toast.error('Có EFV-ID chưa được xác thực. Hãy click vào ô EFV-ID rồi click ra ngoài để kiểm tra, hoặc xóa ô EFV-ID để thêm VĐV không có tài khoản.', { duration: 6000 });
         }
 
         setIsUploading(true);
@@ -328,7 +344,7 @@ export default function DangKyPage() {
                 loadRegistrations();
                 if (!d?.skippedCount || d.skippedCount === 0) {
                     setIsAddModalOpen(false);
-                    setManualRows([{ efvId: "", teamName: "", teamShortName: "", playerName: "", gamerId: "", phone: "", email: "", nickname: "", dateOfBirth: "", province: "", facebookName: "", facebookLink: "", player2EfvId: "", player2Name: "", player2GamerId: "", player2Nickname: "" }]);
+                    setManualRows([{ efvId: "", teamName: "", teamShortName: "", playerName: "", gamerId: "", phone: "", email: "", nickname: "", dateOfBirth: "", province: "", facebookName: "", facebookLink: "", player2EfvId: "", player2Name: "", player2GamerId: "", player2Nickname: "", player2FacebookName: "", player2FacebookLink: "" }]);
                 }
             } else {
                 toast.error(res.message || "Thêm thất bại");
@@ -338,6 +354,76 @@ export default function DangKyPage() {
             toast.error("Có lỗi xảy ra");
         } finally {
             setIsUploading(false);
+        }
+    };
+
+    // Helper to validate and auto-fill data from EFV ID
+    const handleEfvBlur = async (index: number, efvIdValue: string, isPlayer2: boolean) => {
+        const key = `${index}_${isPlayer2 ? 'p2' : 'p1'}`;
+
+        if (!efvIdValue.trim()) {
+            // No EFV ID = ghost player mode, that's fine — clear any previous error
+            setEfvStatuses(prev => ({ ...prev, [key]: 'idle' }));
+            return;
+        }
+
+        setEfvStatuses(prev => ({ ...prev, [key]: 'loading' }));
+
+        try {
+            const res = await fetch(`/api/users/search?q=${efvIdValue}`);
+            const dt = await res.json();
+
+            // Find exact match by EFV ID
+            const user = dt.success && dt.data
+                ? dt.data.find((u: any) => String(u.efvId) === efvIdValue.trim())
+                : null;
+
+            if (user) {
+                // Found — auto-fill fields
+                const newRows = [...manualRows];
+                if (isPlayer2) {
+                    newRows[index] = {
+                        ...newRows[index],
+                        player2Name: user.name || "",
+                        player2GamerId: user.gamerId || "",
+                        player2Nickname: user.nickname || "",
+                        player2FacebookName: user.facebookName || "",
+                        player2FacebookLink: user.facebookLink || "",
+                    };
+                } else {
+                    newRows[index] = {
+                        ...newRows[index],
+                        playerName: user.name || "",
+                        gamerId: user.gamerId || "",
+                        nickname: user.nickname || "",
+                        facebookName: user.facebookName || "",
+                        facebookLink: user.facebookLink || "",
+                        phone: user.phone || "",
+                    };
+                    if (!newRows[index].teamName) {
+                        newRows[index].teamName = user.name;
+                        newRows[index].teamShortName = user.name.substring(0, 3).toUpperCase();
+                    }
+                }
+                setManualRows(newRows);
+                setEfvStatuses(prev => ({ ...prev, [key]: 'verified' }));
+                toast.success(`Đã liên kết EFV #${efvIdValue} — ${user.name}`);
+            } else {
+                // NOT FOUND — block and show error
+                setEfvStatuses(prev => ({ ...prev, [key]: 'not_found' }));
+                toast.error(`EFV #${efvIdValue} không tồn tại trong hệ thống. Bỏ trống ô EFV-ID nếu muốn thêm VĐV không có tài khoản.`, { duration: 5000 });
+                // Clear only the efvId field (force user to retype or clear)
+                const newRows = [...manualRows];
+                if (isPlayer2) {
+                    newRows[index] = { ...newRows[index], player2EfvId: "", player2Name: "", player2GamerId: "", player2Nickname: "" };
+                } else {
+                    newRows[index] = { ...newRows[index], efvId: "", playerName: "", gamerId: "", nickname: "", phone: "" };
+                }
+                setManualRows(newRows);
+            }
+        } catch (e) {
+            console.error(e);
+            setEfvStatuses(prev => ({ ...prev, [key]: 'idle' }));
         }
     };
 
@@ -1999,6 +2085,15 @@ export default function DangKyPage() {
                             {/* Manual Tab */}
                             <TabsContent value="manual" className="mt-0">
                                 <div className="space-y-4">
+                                                                        {/* EFV Mode Info Banner */}
+                                    <div className="flex gap-2.5 p-3 rounded-xl bg-amber-50 border border-amber-200 mb-1">
+                                        <Info className="w-4 h-4 text-amber-600 flex-shrink-0 mt-0.5" />
+                                        <div className="text-[11px] text-amber-800 leading-relaxed">
+                                            <p className="font-bold text-amber-900 mb-0.5">Có 2 cách thêm VĐV:</p>
+                                            <p>✅ <strong>Nhập EFV-ID</strong> → Liên kết tài khoản có sẵn. EFV-ID không tồn tại sẽ báo lỗi (không tự tạo).</p>
+                                            <p>👤 <strong>Bỏ trống EFV-ID</strong> → VĐV ảo chỉ trong giải này, không cần tài khoản.</p>
+                                        </div>
+                                    </div>
                                     <div className="overflow-x-auto custom-scrollbar">
                                         <div className="min-w-[1100px]">
                                             {/* Table Header */}
@@ -2053,12 +2148,28 @@ export default function DangKyPage() {
                                                             className="grid grid-cols-[36px_70px_minmax(90px,1fr)_50px_minmax(110px,1.2fr)_minmax(80px,0.9fr)_minmax(80px,0.8fr)_minmax(100px,1fr)_minmax(80px,0.8fr)_minmax(80px,0.8fr)_minmax(80px,0.8fr)_36px] gap-1.5 items-center group/row"
                                                         >
                                                             <div className="text-xs font-bold text-gray-300 text-center tabular-nums group-hover/row:text-blue-400 transition-colors">{index + 1}</div>
-                                                            <Input
-                                                                value={row.efvId}
-                                                                placeholder="#ID"
-                                                                onChange={(e) => { const newRows = [...manualRows]; newRows[index].efvId = e.target.value.replace(/[^0-9]/g, ''); setManualRows(newRows); }}
-                                                                className="h-9 rounded-lg text-xs border-amber-200 bg-amber-50/30 focus-visible:ring-amber-500/30 focus-visible:border-amber-400 transition-all placeholder:text-amber-300 text-center font-mono font-bold text-amber-700"
-                                                            />
+                                                            {/* EFV ID smart-verify */}
+                                                            {(() => {
+                                                                const key = String(index) + '_p1';
+                                                                const st = efvStatuses[key] || 'idle';
+                                                                const colorCls = st === 'verified' ? 'border-emerald-400 bg-emerald-50/40 text-emerald-700' : st === 'not_found' ? 'border-red-400 bg-red-50/40 text-red-600' : 'border-amber-200 bg-amber-50/30 text-amber-700';
+                                                                return (
+                                                                    <div className="relative">
+                                                                        <Input
+                                                                            value={row.efvId}
+                                                                            placeholder="#ID"
+                                                                            onChange={(e) => { const newRows = [...manualRows]; newRows[index].efvId = e.target.value.replace(/[^0-9]/g, ''); setManualRows(newRows); setEfvStatuses(prev => ({ ...prev, [key]: 'idle' })); }}
+                                                                            onBlur={() => handleEfvBlur(index, row.efvId, false)}
+                                                                            className={`h-9 rounded-lg text-xs ${colorCls} focus-visible:ring-amber-500/30 transition-all placeholder:text-amber-300 text-center font-mono font-bold pr-6`}
+                                                                        />
+                                                                        <div className="absolute right-1.5 top-1/2 -translate-y-1/2 pointer-events-none">
+                                                                            {st === 'loading' && <Loader2 className="w-3 h-3 text-amber-400 animate-spin" />}
+                                                                            {st === 'verified' && <CheckCircle2 className="w-3 h-3 text-emerald-500" />}
+                                                                            {st === 'not_found' && <AlertCircle className="w-3 h-3 text-red-500" />}
+                                                                        </div>
+                                                                    </div>
+                                                                );
+                                                            })()}
                                                             <Input
                                                                 value={row.teamName}
                                                                 placeholder="Tên đội"
@@ -2134,6 +2245,7 @@ export default function DangKyPage() {
                                                                         value={row.player2EfvId}
                                                                         placeholder="#ID2"
                                                                         onChange={(e) => { const newRows = [...manualRows]; newRows[index].player2EfvId = e.target.value.replace(/[^0-9]/g, ''); setManualRows(newRows); }}
+                                                                        onBlur={() => handleEfvBlur(index, row.player2EfvId, true)}
                                                                         className="h-8 rounded-lg text-xs border-emerald-200 bg-emerald-50/30 focus-visible:ring-emerald-500/30 focus-visible:border-emerald-400 transition-all placeholder:text-emerald-300 text-center font-mono font-bold text-emerald-700"
                                                                     />
                                                                     <div className="col-span-2" />

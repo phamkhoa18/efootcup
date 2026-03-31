@@ -29,7 +29,7 @@ export async function PUT(req: NextRequest, { params }: RouteParams) {
         const isCollaborator = (tournament.collaborators || []).some(
             (c: any) => c.userId.toString() === authResult.user._id
         );
-        if (!isOwner && !isCollaborator)
+        if (!isOwner && !isCollaborator && authResult?.user?.role !== "admin")
             return apiError("Không có quyền", 403);
 
         const t1 = new mongoose.Types.ObjectId(team1Id);

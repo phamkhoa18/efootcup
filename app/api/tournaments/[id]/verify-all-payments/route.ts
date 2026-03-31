@@ -142,8 +142,8 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
                             name: teamName,
                             shortName: teamShortName,
                             tournament: tournament._id,
-                            captain: reg.user,
-                            members: [{ user: reg.user, role: "captain", joinedAt: new Date() }],
+                            captain: reg.user || undefined,
+                            members: reg.user ? [{ user: reg.user, role: "captain", joinedAt: new Date() }] : [],
                         });
 
                         reg.status = "approved";
@@ -155,13 +155,15 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
                             $inc: { currentTeams: 1 },
                         });
 
-                        await Notification.create({
-                            recipient: reg.user,
-                            type: "system",
-                            title: "🎉 Đăng ký thành công!",
-                            message: `Thanh toán đã được xác nhận. Bạn đã chính thức tham gia giải "${tournament.title}"!`,
-                            link: `/giai-dau/${tournament._id}`,
-                        });
+                        if (reg.user) {
+                            await Notification.create({
+                                recipient: reg.user,
+                                type: "system",
+                                title: "🎉 Đăng ký thành công!",
+                                message: `Thanh toán đã được xác nhận. Bạn đã chính thức tham gia giải "${tournament.title}"!`,
+                                link: `/giai-dau/${tournament._id}`,
+                            });
+                        }
                     }
 
                     results.verified++;

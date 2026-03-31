@@ -3,7 +3,7 @@ import mongoose, { Schema, Document, Model } from "mongoose";
 export interface IRegistration extends Document {
     _id: mongoose.Types.ObjectId;
     tournament: mongoose.Types.ObjectId;
-    user: mongoose.Types.ObjectId;
+    user?: mongoose.Types.ObjectId; // Optional — null if ghost player (no EFV ID linked)
     team?: mongoose.Types.ObjectId; // Assigned team after approval
     teamName: string;
     teamShortName: string;
@@ -26,6 +26,8 @@ export interface IRegistration extends Document {
     player2GamerId?: string;
     player2Nickname?: string;
     player2Phone?: string;
+    player2FacebookName?: string;
+    player2FacebookLink?: string;
     status: "pending" | "approved" | "rejected" | "cancelled";
     rejectionReason?: string;
     // Payment fields
@@ -54,7 +56,8 @@ const RegistrationSchema = new Schema<IRegistration>(
         user: {
             type: Schema.Types.ObjectId,
             ref: "User",
-            required: true,
+            required: false,
+            default: null,
         },
         team: {
             type: Schema.Types.ObjectId,
@@ -105,6 +108,8 @@ const RegistrationSchema = new Schema<IRegistration>(
         player2GamerId: { type: String, default: "" },
         player2Nickname: { type: String, default: "" },
         player2Phone: { type: String, default: "" },
+        player2FacebookName: { type: String, default: "" },
+        player2FacebookLink: { type: String, default: "" },
         status: {
             type: String,
             enum: ["pending", "approved", "rejected", "cancelled"],
@@ -133,8 +138,11 @@ const RegistrationSchema = new Schema<IRegistration>(
     }
 );
 
-// Prevent duplicate registration
-RegistrationSchema.index({ tournament: 1, user: 1 }, { unique: true });
+// Prevent duplicate registration for linked users (skips null/undefined entirely via partialFilterExpression)
+RegistrationSchema.index(
+    { tournament: 1, user: 1 },
+    { unique: true, partialFilterExpression: { user: { $type: "objectId" } } }
+);
 RegistrationSchema.index({ tournament: 1, status: 1 });
 
 // Force re-register model to pick up schema changes in dev hot reload

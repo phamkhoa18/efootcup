@@ -111,8 +111,9 @@ export async function GET(req: NextRequest, { params }: RouteParams) {
         // Enrich result with player/user info from Registration
         const Registration = (await import('@/models/Registration')).default;
         const registrations = await Registration.find({ tournament: id, status: 'approved' })
-            .select('user team playerName personalPhoto gamerId nickname')
+            .select('user team playerName personalPhoto teamLineupPhoto gamerId nickname facebookName facebookLink player2User player2Name player2FacebookName player2FacebookLink')
             .populate('user', 'efvId avatar personalPhoto')
+            .populate('player2User', 'efvId avatar personalPhoto')
             .lean();
             
         const teamMap = new Map();
@@ -124,10 +125,16 @@ export async function GET(req: NextRequest, { params }: RouteParams) {
                     const reg = teamMap.get(t._id.toString());
                     if (reg) {
                         t.player1 = reg.playerName;
-                        t.player2 = t.name;
+                        t.facebookName = reg.facebookName;
+                        t.facebookLink = reg.facebookLink;
+                        t.player2 = reg.player2Name;
+                        t.player2FacebookName = reg.player2FacebookName;
+                        t.player2FacebookLink = reg.player2FacebookLink;
+                        t.player2EfvId = reg.player2User?.efvId;
                         t.efvId = reg.user?.efvId;
                         t.avatar = reg.user?.avatar || '';
                         t.personalPhoto = reg.personalPhoto || reg.user?.personalPhoto || '';
+                        t.teamLineupPhoto = reg.teamLineupPhoto || '';
                     }
                 }
             });
@@ -164,7 +171,7 @@ export async function PUT(req: NextRequest, { params }: RouteParams) {
         const isCollaborator = (tournament.collaborators || []).some(
             (c: any) => c.userId.toString() === authResult.user._id
         );
-        if (!isOwner && !isCollaborator)
+        if (!isOwner && !isCollaborator && authResult?.user?.role !== "admin")
             return apiError("Không có quyền", 403);
 
         const body = await req.json();

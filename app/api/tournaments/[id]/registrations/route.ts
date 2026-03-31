@@ -150,29 +150,75 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
             return apiError("Giải đấu đã đủ đội", 400);
         }
 
-        // Check duplicate - allow re-registration in certain cases
-        const existing = await Registration.findOne({
-            tournament: id,
-            user: authResult.user._id,
-        });
-        if (existing) {
-            // Already approved → can never re-register
-            if (existing.status === "approved") {
-                return apiError("Bạn đã được duyệt vào giải đấu này rồi", 409);
-            }
-            // Pending but already paid → can't re-register (wait for approval)
-            if (existing.status === "pending" && existing.paymentStatus === "paid") {
-                return apiError("Đăng ký của bạn đang chờ duyệt và đã thanh toán. Vui lòng chờ Manager xét duyệt.", 409);
-            }
-            // Pending with pending_verification → can't re-register (payment being verified)
-            if (existing.status === "pending" && existing.paymentStatus === "pending_verification") {
-                return apiError("Đăng ký của bạn đang chờ xác nhận thanh toán. Vui lòng chờ.", 409);
-            }
-            // Rejected, cancelled, or pending+unpaid → allow re-registration by removing old record
-            await Registration.deleteOne({ _id: existing._id });
+        const body = await req.json();
+
+        // -------------------------------------------------------------
+        // HOTFIX: Ensure the registering user has an EFV ID (if legacy/seeded user)
+        // -------------------------------------------------------------
+        const currentUser = await User.findById(authResult.user._id);
+        if (currentUser && !currentUser.efvId) {
+            const Counter = (await import('@/models/Counter')).default;
+            currentUser.efvId = await Counter.getNextSequence("efvId");
+            await currentUser.save();
         }
 
-        const body = await req.json();
+        // Duplicate Check 1/3: Keep DB clean for this user's direct registrations
+        const existingSelf = await Registration.find({
+            tournament: id,
+            user: authResult.user._id
+        });
+
+        let activeExisting = null;
+        for (const ex of existingSelf) {
+            if (ex.status === "approved" || (ex.status === "pending" && ["paid", "pending_verification"].includes(ex.paymentStatus))) {
+                activeExisting = ex;
+            } else {
+                // Remove rejected/cancelled or unpaid pending to allow retry
+                await Registration.deleteOne({ _id: ex._id });
+            }
+        }
+
+        if (activeExisting) {
+            if (activeExisting.status === "approved") return apiError("Bạn đã được duyệt vào giải đấu này rồi", 409);
+            return apiError("Đăng ký của bạn đang chờ duyệt hoặc chờ xác nhận thanh toán. Vui lòng kiên nhẫn.", 409);
+        }
+
+        // Duplicate Check 2/3: Ensure Player 1 is not ALREADY Player 2 somewhere else
+        const p1AsP2 = await Registration.findOne({
+            tournament: id,
+            player2User: authResult.user._id,
+            status: { $in: ["approved", "pending"] }
+        });
+        if (p1AsP2) {
+            return apiError("Bạn hiện đã có tên trong một đội đăng ký khác (vai trò VĐV 2). Không thể đăng ký thêm.", 409);
+        }
+
+        // Identify Player 2
+        let player2UserId = undefined;
+        if (body.player2EfvId) {
+            const p2User: any = await User.findOne({ efvId: Number(body.player2EfvId) }).select('_id').lean();
+            if (p2User) {
+                player2UserId = p2User._id;
+                if (player2UserId.toString() === authResult.user._id.toString()) {
+                    return apiError("VĐV 1 và VĐV 2 không được là cùng một người", 400);
+                }
+            } else {
+                return apiError("Không tìm thấy VĐV 2 với EFV ID đã nhập. Vui lòng kiểm tra lại.", 404);
+            }
+        }
+
+        // Duplicate Check 3/3: Ensure Player 2 (if any) is not ALREADY participating anywhere
+        if (player2UserId) {
+            const p2Existing = await Registration.findOne({
+                tournament: id,
+                $or: [{ user: player2UserId }, { player2User: player2UserId }],
+                status: { $in: ["approved", "pending"] }
+            });
+
+            if (p2Existing) {
+                return apiError(`VĐV 2 (EFV ID #${body.player2EfvId}) đã tham gia một đội khác trong giải này. Vui lòng liên kết với VĐV khác.`, 409);
+            }
+        }
 
         const registration = await Registration.create({
             tournament: id,
@@ -193,6 +239,11 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
             personalPhoto: body.personalPhoto || "",
             teamLineupPhoto: body.teamLineupPhoto || "",
             paymentStatus: tournament.entryFee > 0 ? "unpaid" : "paid",
+            // Player 2 Info
+            player2User: player2UserId,
+            player2Name: body.player2Name || "",
+            player2FacebookName: body.player2FacebookName || "",
+            player2FacebookLink: body.player2FacebookLink || "",
         });
 
         // Notify the tournament manager
@@ -233,7 +284,7 @@ export async function PUT(req: NextRequest, { params }: RouteParams) {
         const tournament = await Tournament.findOne(query);
         if (!tournament) return apiError("Không tìm thấy giải đấu", 404);
         const id = tournament._id;
-        if (tournament.createdBy.toString() !== authResult.user._id)
+        if (tournament.createdBy.toString() !== authResult.user._id && authResult?.user?.role !== "admin")
             return apiError("Không có quyền", 403);
 
         const body = await req.json();
@@ -262,14 +313,14 @@ export async function PUT(req: NextRequest, { params }: RouteParams) {
                 name: teamName,
                 shortName: teamShort,
                 tournament: id,
-                captain: registration.user,
-                members: [
+                captain: registration.user || undefined,
+                members: registration.user ? [
                     {
                         user: registration.user,
                         role: "captain",
                         joinedAt: new Date(),
                     },
-                ],
+                ] : [],
             });
 
             registration.status = "approved";
@@ -353,8 +404,8 @@ export async function PUT(req: NextRequest, { params }: RouteParams) {
                     name: teamName,
                     shortName: teamShort,
                     tournament: id,
-                    captain: registration.user,
-                    members: [{ user: registration.user, role: "captain", joinedAt: new Date() }],
+                    captain: registration.user || undefined,
+                    members: registration.user ? [{ user: registration.user, role: "captain", joinedAt: new Date() }] : [],
                 });
                 registration.team = team._id;
                 registration.approvedBy = authResult.user._id as any;
@@ -427,7 +478,7 @@ export async function PUT(req: NextRequest, { params }: RouteParams) {
                 "phone", "email", "nickname", "facebookName", "facebookLink",
                 "province", "dateOfBirth", "notes",
                 "personalPhoto", "teamLineupPhoto",
-                "player2Name", "player2GamerId", "player2Nickname", "player2Phone",
+                "player2Name", "player2GamerId", "player2Nickname", "player2Phone", "player2FacebookName", "player2FacebookLink",
             ];
 
             const updates: any = {};

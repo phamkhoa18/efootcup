@@ -36,7 +36,7 @@ export async function GET(req: NextRequest, { params }: RouteParams) {
         if (!tournament) return apiError("Không tìm thấy giải đấu", 404);
 
         // Only owner can see full collaborator list & invite code
-        if (tournament.createdBy.toString() !== authResult.user._id) {
+        if (tournament.createdBy.toString() !== authResult.user._id && authResult?.user?.role !== "admin") {
             return apiError("Không có quyền", 403);
         }
 
@@ -83,7 +83,7 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
             const tournament = await Tournament.findById(id);
             if (!tournament) return apiError("Không tìm thấy giải đấu", 404);
 
-            if (tournament.createdBy.toString() !== authResult.user._id) {
+            if (tournament.createdBy.toString() !== authResult.user._id && authResult?.user?.role !== "admin") {
                 return apiError("Chỉ chủ giải mới có thể tạo mã mời", 403);
             }
 
@@ -173,7 +173,7 @@ export async function PUT(req: NextRequest, { params }: RouteParams) {
         const tournament = await Tournament.findById(id);
         if (!tournament) return apiError("Không tìm thấy giải đấu", 404);
 
-        if (tournament.createdBy.toString() !== authResult.user._id) {
+        if (tournament.createdBy.toString() !== authResult.user._id && authResult?.user?.role !== "admin") {
             return apiError("Không có quyền", 403);
         }
 
@@ -215,7 +215,7 @@ export async function DELETE(req: NextRequest, { params }: RouteParams) {
         const isOwner = tournament.createdBy.toString() === authResult.user._id;
         const isSelf = targetUserId === authResult.user._id;
 
-        if (!isOwner && !isSelf) {
+        if (!isOwner && !isSelf && authResult?.user?.role !== "admin") {
             return apiError("Không có quyền xóa cộng tác viên này", 403);
         }
 

@@ -206,7 +206,19 @@ export default function LichThiDauPage() {
         try {
             const res = await tournamentAPI.getById(id);
             if (res.success) {
-                const teams = res.data?.teams || [];
+                const rawTeams = res.data?.teams || [];
+                const regs = res.data?.registrations || [];
+                const teamMap = new Map();
+                regs.forEach((r: any) => { if (r.team) teamMap.set(r.team.toString(), r); });
+
+                const teams = rawTeams.map((team: any) => {
+                    const r = teamMap.get((team._id || team.id).toString());
+                    if (r) {
+                        return { ...team, player1Name: r.playerName, player2Name: r.player2Name, player2EfvId: r.player2User?.efvId };
+                    }
+                    return team;
+                });
+
                 setAllTeams(teams);
                 const map: Record<string, number | null> = {};
                 teams.forEach((team: any) => { map[team._id || team.id] = team.seed ?? null; });
@@ -907,7 +919,13 @@ export default function LichThiDauPage() {
                                                                         {team.captain?.efvId != null && (
                                                                             <span className="text-[9px] font-bold text-amber-600 bg-amber-50 border border-amber-200 px-1.5 py-px rounded flex-shrink-0">#{team.captain.efvId}</span>
                                                                         )}
-                                                                        <span className="text-sm font-semibold text-gray-900 truncate">{team.captain?.name || team.name || '—'}</span>
+                                                                        <span className="text-sm font-semibold text-gray-900 truncate">
+                                                                            {team.player1Name || team.captain?.name || team.name || '—'}
+                                                                            {team.player2Name && <span className="text-gray-500 font-medium"> / {team.player2Name}</span>}
+                                                                            {team.player2EfvId != null && (
+                                                                                <span className="ml-1.5 text-[9px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 px-1.5 py-px rounded flex-shrink-0 tabular-nums">#{team.player2EfvId}</span>
+                                                                            )}
+                                                                        </span>
                                                                     </div>
                                                                     <div className="text-[11px] text-gray-400 truncate mt-0.5">
                                                                         {team.name}{team.shortName ? ` (${team.shortName})` : ''}

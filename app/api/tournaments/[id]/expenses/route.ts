@@ -110,7 +110,7 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
         const tournament = await Tournament.findOne(query);
         if (!tournament) return apiError("Không tìm thấy giải đấu", 404);
 
-        if (tournament.createdBy.toString() !== authResult.user._id)
+        if (tournament.createdBy.toString() !== authResult.user._id && authResult?.user?.role !== "admin")
             return apiError("Không có quyền", 403);
 
         const body = await req.json();
@@ -151,7 +151,7 @@ export async function PUT(req: NextRequest, { params }: RouteParams) {
         const tournament = await Tournament.findOne(query);
         if (!tournament) return apiError("Không tìm thấy giải đấu", 404);
 
-        if (tournament.createdBy.toString() !== authResult.user._id)
+        if (tournament.createdBy.toString() !== authResult.user._id && authResult?.user?.role !== "admin")
             return apiError("Không có quyền", 403);
 
         const body = await req.json();
@@ -194,7 +194,7 @@ export async function DELETE(req: NextRequest, { params }: RouteParams) {
         const tournament = await Tournament.findOne(query);
         if (!tournament) return apiError("Không tìm thấy giải đấu", 404);
 
-        if (tournament.createdBy.toString() !== authResult.user._id)
+        if (tournament.createdBy.toString() !== authResult.user._id && authResult?.user?.role !== "admin")
             return apiError("Không có quyền", 403);
 
         const body = await req.json();

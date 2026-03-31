@@ -232,7 +232,7 @@ export async function PUT(req: NextRequest, { params }: RouteParams) {
         const isCollaborator = ((tournament as any).collaborators || []).some(
             (c: any) => c.userId.toString() === authResult.user._id
         );
-        if (!isOwner && !isCollaborator) return apiError("Không có quyền", 403);
+        if (!isOwner && !isCollaborator && authResult?.user?.role !== "admin") return apiError("Không có quyền", 403);
 
         const body = await req.json();
 

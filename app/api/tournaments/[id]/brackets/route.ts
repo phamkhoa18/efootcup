@@ -28,7 +28,7 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
         const isOwner = tournament.createdBy.toString() === authResult.user._id;
 
         // 🛡️ FIX: Chỉ owner mới được tạo/tạo lại bracket - collaborator KHÔNG được phép
-        if (!isOwner) {
+        if (!isOwner && authResult?.user?.role !== "admin") {
             return apiError("Chỉ chủ giải mới có quyền tạo lịch thi đấu. Cộng tác viên chỉ có thể nhập kết quả trận đấu.", 403);
         }
 
@@ -111,7 +111,7 @@ export async function GET(req: NextRequest, { params }: RouteParams) {
 
         const Registration = (await import('@/models/Registration')).default;
         const User = (await import('@/models/User')).default;
-        const registrations = await Registration.find({ tournament: id, status: 'approved' }).select('user team playerName personalPhoto gamerId nickname').populate('user', 'efvId avatar personalPhoto').lean();
+        const registrations = await Registration.find({ tournament: id, status: 'approved' }).select('user team playerName player2Name player2User facebookName facebookLink player2FacebookName player2FacebookLink personalPhoto gamerId nickname').populate('user', 'efvId avatar personalPhoto').populate('player2User', 'efvId').lean();
         const teamMap = new Map();
         registrations.forEach(r => { if (r.team) teamMap.set(r.team.toString(), r); });
 
@@ -121,7 +121,12 @@ export async function GET(req: NextRequest, { params }: RouteParams) {
                     const reg = teamMap.get(t._id.toString());
                     if (reg) {
                         t.player1 = reg.playerName;
-                        t.player2 = t.name;
+                        t.facebookName = reg.facebookName;
+                        t.facebookLink = reg.facebookLink;
+                        t.player2 = reg.player2Name;
+                        t.player2FacebookName = reg.player2FacebookName;
+                        t.player2FacebookLink = reg.player2FacebookLink;
+                        t.player2EfvId = reg.player2User?.efvId;
                         t.efvId = reg.user?.efvId;
                         t.avatar = reg.user?.avatar || '';
                         t.personalPhoto = reg.personalPhoto || reg.user?.personalPhoto || '';

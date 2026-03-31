@@ -86,7 +86,7 @@ export async function PUT(req: NextRequest, { params }: RouteParams) {
 
         const id = tournament._id;
 
-        if (tournament.createdBy.toString() !== authResult.user._id) {
+        if (tournament.createdBy.toString() !== authResult.user._id && authResult?.user?.role !== "admin") {
             return apiError("Bạn không có quyền chỉnh sửa giải đấu này", 403);
         }
 
@@ -174,7 +174,7 @@ export async function DELETE(req: NextRequest, { params }: RouteParams) {
 
         const id = tournament._id;
 
-        if (tournament.createdBy.toString() !== authResult.user._id) {
+        if (tournament.createdBy.toString() !== authResult.user._id && authResult?.user?.role !== "admin") {
             return apiError("Bạn không có quyền xóa giải đấu này", 403);
         }
 

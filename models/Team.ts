@@ -60,11 +60,10 @@ const TeamSchema = new Schema<ITeam>(
         captain: {
             type: Schema.Types.ObjectId,
             ref: "User",
-            required: true,
         },
         members: [
             {
-                user: { type: Schema.Types.ObjectId, ref: "User", required: true },
+                user: { type: Schema.Types.ObjectId, ref: "User" },
                 role: {
                     type: String,
                     enum: ["captain", "player", "substitute"],
@@ -106,6 +105,11 @@ TeamSchema.index({ tournament: 1 });
 TeamSchema.index({ captain: 1 });
 TeamSchema.index({ "members.user": 1 });
 TeamSchema.index({ tournament: 1, group: 1 });
+
+// Force re-register model to pick up schema changes in dev hot reload
+if (process.env.NODE_ENV !== "production" && mongoose.models.Team) {
+    delete mongoose.models.Team;
+}
 
 const Team: Model<ITeam> =
     mongoose.models.Team || mongoose.model<ITeam>("Team", TeamSchema);

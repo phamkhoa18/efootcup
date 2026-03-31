@@ -220,7 +220,7 @@ function TournamentListContent() {
                                             <div className="p-5">
                                                 <h3 className="font-bold mb-3 group-hover:text-efb-blue transition-colors">{t.title}</h3>
                                                 <div className="space-y-2 text-sm text-gray-500">
-                                                    <div className="flex justify-between"><span>Thể thức</span><span className="font-medium text-gray-700">{formatLabels[t.format] || t.format}</span></div>
+                                                    <div className="flex justify-between"><span>Thể thức</span><span className="font-medium text-gray-700">{t.teamSize >= 2 ? '2vs2' : '1vs1'} - {formatLabels[t.format] || t.format}</span></div>
                                                     <div className="flex justify-between"><span>Đội</span><span className="font-medium text-gray-700">{t.currentTeams || 0}/{t.maxTeams}</span></div>
                                                     <div className="flex justify-between"><span>Giải thưởng</span><span className="font-bold text-gradient">{t.prize?.total || "0 VNĐ"}</span></div>
                                                     <div className="flex justify-between items-center border-t border-dashed border-gray-100 pt-2 mt-1">

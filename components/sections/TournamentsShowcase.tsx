@@ -165,7 +165,7 @@ export function TournamentsShowcase() {
 
                                                 <div className="space-y-2.5">
                                                     {[
-                                                        { icon: Gamepad2, label: "Thể thức", value: formatLabels[t.format] || t.format },
+                                                        { icon: Gamepad2, label: "Thể thức", value: `${t.teamSize >= 2 ? '2vs2' : '1vs1'} - ${formatLabels[t.format] || t.format}` },
                                                         { icon: Calendar, label: "Thời gian", value: `${formatDate(t.schedule?.tournamentStart)} - ${formatDate(t.schedule?.tournamentEnd)}` },
                                                         { icon: MapPin, label: "Hình thức", value: t.isOnline ? "Online" : (t.location || "Offline") },
                                                     ].map((item) => (

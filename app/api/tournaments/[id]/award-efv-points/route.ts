@@ -162,7 +162,7 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
         }
         // Also from registrations (for users who registered but team captain)
         for (const reg of registrations) {
-            if (reg.team) {
+            if (reg.team && reg.user) {
                 // Registration linked to a team - use the user from registration
                 teamToUser.set(reg.team.toString(), reg.user.toString());
             }

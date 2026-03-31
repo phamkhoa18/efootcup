@@ -97,13 +97,8 @@ const MatchCard = ({ match, onClick, isSwapMode, selectedTeamId, swappedTeamIds,
                     </span>
                     <div className="flex flex-col items-center">
                         <span className={`truncate text-[11px] text-gray-800 font-bold ${!match.homeTeam && !match.p1 ? "text-gray-400 italic font-medium" : ""}`}>
-                            {p1Name || (!match.homeTeam ? "Tự do" : "...")}
+                            {p1Name || (!match.homeTeam ? "Tự do" : "...")}{p2Name ? ` / ${p2Name}` : ""}
                         </span>
-                        {p2Name && (
-                            <span className="truncate text-[10px] text-gray-700 font-bold mt-0.5">
-                                {p2Name}
-                            </span>
-                        )}
                     </div>
                 </motion.div>
             </div>
@@ -148,13 +143,8 @@ const MatchCard = ({ match, onClick, isSwapMode, selectedTeamId, swappedTeamIds,
                     <div className="flex justify-between items-center px-1">
                         <div className="flex flex-col min-w-0 pr-1 leading-[1.1]">
                             <span className={`truncate text-[11px] ${homeWin ? "text-blue-700 font-bold" : "text-gray-800 font-medium"} ${!match.homeTeam && !match.p1 ? "text-gray-400 italic" : ""}`}>
-                                {match.homeTeam?.player1 || match.p1?.name || "Chờ kết quả"}
+                                {match.homeTeam?.player1 || match.p1?.name || "Chờ kết quả"}{match.homeTeam?.player2 && match.homeTeam.player2 !== "TBD" ? ` / ${match.homeTeam.player2}` : ""}
                             </span>
-                            {match.homeTeam?.player2 && match.homeTeam.player2 !== "TBD" && (
-                                <span className={`truncate text-[11px] mt-0.5 ${homeWin ? "text-blue-700 font-bold" : "text-gray-800 font-medium"}`}>
-                                    {match.homeTeam.player2}
-                                </span>
-                            )}
                         </div>
                         <span className={`text-[12px] tabular-nums ml-1 ${homeWin ? "text-blue-600 font-bold" : "text-gray-400 font-semibold"}`}>{homeScore}</span>
                     </div>
@@ -178,13 +168,8 @@ const MatchCard = ({ match, onClick, isSwapMode, selectedTeamId, swappedTeamIds,
                     <div className="flex justify-between items-center px-1">
                         <div className="flex flex-col min-w-0 pr-1 leading-[1.1]">
                             <span className={`truncate text-[11px] ${awayWin ? "text-blue-700 font-bold" : "text-gray-800 font-medium"} ${!match.awayTeam && !match.p2 ? "text-gray-400 italic" : ""}`}>
-                                {match.awayTeam?.player1 || match.p2?.name || "Chờ kết quả"}
+                                {match.awayTeam?.player1 || match.p2?.name || "Chờ kết quả"}{match.awayTeam?.player2 && match.awayTeam.player2 !== "TBD" ? ` / ${match.awayTeam.player2}` : ""}
                             </span>
-                            {match.awayTeam?.player2 && match.awayTeam.player2 !== "TBD" && (
-                                <span className={`truncate text-[11px] mt-0.5 ${awayWin ? "text-blue-700 font-bold" : "text-gray-800 font-medium"}`}>
-                                    {match.awayTeam.player2}
-                                </span>
-                            )}
                         </div>
                         <span className={`text-[12px] tabular-nums ml-1 ${awayWin ? "text-blue-600 font-bold" : "text-gray-400 font-semibold"}`}>{awayScore}</span>
                     </div>
@@ -402,7 +387,7 @@ const MatchDetailModal = ({ match, tournament, onClose, onSaved }: { match: any;
                                             <div className="min-w-0">
                                                 <div className="flex items-center gap-1 flex-wrap">
                                                     {match.homeTeam?.efvId != null && <span className="text-[9px] font-bold text-amber-600 bg-amber-50 border border-amber-200 px-1 py-px rounded">#{match.homeTeam.efvId}</span>}
-                                                    <span className="text-[13px] font-semibold text-gray-900 truncate inline-block max-w-[90px] sm:max-w-none align-bottom leading-tight">{match.homeTeam?.player1 || match.p1?.name || "Tự do"}</span>
+                                                    <span className="text-[13px] font-semibold text-gray-900 truncate inline-block max-w-[90px] sm:max-w-none align-bottom leading-tight">{match.homeTeam?.player1 || match.p1?.name || "Tự do"}{match.homeTeam?.player2 && match.homeTeam.player2 !== "TBD" ? ` / ${match.homeTeam.player2}` : ""}</span>
                                                 </div>
                                                 {match.homeTeam?.shortName && <div className="text-[10px] text-gray-400 mt-0.5 truncate">{match.homeTeam.shortName}</div>}
                                             </div>
@@ -459,7 +444,7 @@ const MatchDetailModal = ({ match, tournament, onClose, onSaved }: { match: any;
                                             <div className="min-w-0">
                                                 <div className="flex items-center gap-1 flex-wrap">
                                                     {match.awayTeam?.efvId != null && <span className="text-[9px] font-bold text-amber-600 bg-amber-50 border border-amber-200 px-1 py-px rounded">#{match.awayTeam.efvId}</span>}
-                                                    <span className="text-[13px] font-semibold text-gray-900 truncate inline-block max-w-[90px] sm:max-w-none align-bottom leading-tight">{match.awayTeam?.player1 || match.p2?.name || "Tự do"}</span>
+                                                    <span className="text-[13px] font-semibold text-gray-900 truncate inline-block max-w-[90px] sm:max-w-none align-bottom leading-tight">{match.awayTeam?.player1 || match.p2?.name || "Tự do"}{match.awayTeam?.player2 && match.awayTeam.player2 !== "TBD" ? ` / ${match.awayTeam.player2}` : ""}</span>
                                                 </div>
                                                 {match.awayTeam?.shortName && <div className="text-[10px] text-gray-400 mt-0.5 truncate">{match.awayTeam.shortName}</div>}
                                             </div>
@@ -508,7 +493,7 @@ const MatchDetailModal = ({ match, tournament, onClose, onSaved }: { match: any;
                                 >
                                     <div className="flex items-center gap-1.5">
                                         {match.homeTeam?.efvId != null && <span className="text-[8px] font-bold text-amber-600 bg-amber-50 border border-amber-200 px-1 py-px rounded">#{match.homeTeam.efvId}</span>}
-                                        <span>{match.homeTeam?.player1 || match.p1?.name || "Tự do"}</span>
+                                        <span>{match.homeTeam?.player1 || match.p1?.name || "Tự do"}{match.homeTeam?.player2 && match.homeTeam.player2 !== "TBD" ? ` / ${match.homeTeam.player2}` : ""}</span>
                                     </div>
                                     {match.homeTeam?.shortName && <span className="text-[10px] text-gray-400">{match.homeTeam.shortName}</span>}
                                 </button>
@@ -518,7 +503,7 @@ const MatchDetailModal = ({ match, tournament, onClose, onSaved }: { match: any;
                                 >
                                     <div className="flex items-center gap-1.5">
                                         {match.awayTeam?.efvId != null && <span className="text-[8px] font-bold text-amber-600 bg-amber-50 border border-amber-200 px-1 py-px rounded">#{match.awayTeam.efvId}</span>}
-                                        <span>{match.awayTeam?.player1 || match.p2?.name || "Tự do"}</span>
+                                        <span>{match.awayTeam?.player1 || match.p2?.name || "Tự do"}{match.awayTeam?.player2 && match.awayTeam.player2 !== "TBD" ? ` / ${match.awayTeam.player2}` : ""}</span>
                                     </div>
                                     {match.awayTeam?.shortName && <span className="text-[10px] text-gray-400">{match.awayTeam.shortName}</span>}
                                 </button>
@@ -884,7 +869,19 @@ const BracketCreator = ({ tournamentId, tournament, onCreated }: { tournamentId:
         try {
             const res = await tournamentAPI.getById(tournamentId);
             if (res.success) {
-                const t = res.data?.teams || [];
+                const rawTeams = res.data?.teams || [];
+                const regs = res.data?.registrations || [];
+                const teamMap = new Map();
+                regs.forEach((r: any) => { if (r.team) teamMap.set(r.team.toString(), r); });
+
+                const t = rawTeams.map((team: any) => {
+                    const r = teamMap.get(team._id.toString());
+                    if (r) {
+                        return { ...team, player1Name: r.playerName, player2Name: r.player2Name, player2EfvId: r.player2User?.efvId };
+                    }
+                    return team;
+                });
+                
                 setTeams(t);
                 const map: Record<string, number | null> = {};
                 t.forEach((team: any) => { map[team._id] = team.seed ?? null; });
@@ -1134,7 +1131,13 @@ const BracketCreator = ({ tournamentId, tournament, onCreated }: { tournamentId:
                                                                 {team.captain?.efvId != null && (
                                                                     <span className="text-[9px] font-bold text-amber-600 bg-amber-50 border border-amber-200 px-1.5 py-px rounded flex-shrink-0">#{team.captain.efvId}</span>
                                                                 )}
-                                                                <span className="text-sm font-semibold text-gray-900 truncate">{team.captain?.name || team.name || '—'}</span>
+                                                                <span className="text-sm font-semibold text-gray-900 truncate">
+                                                                    {team.player1Name || team.captain?.name || team.name || '—'}
+                                                                    {team.player2Name && <span className="text-gray-500 font-medium"> / {team.player2Name}</span>}
+                                                                    {team.player2EfvId != null && (
+                                                                        <span className="ml-1.5 text-[9px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 px-1.5 py-px rounded flex-shrink-0 tabular-nums">#{team.player2EfvId}</span>
+                                                                    )}
+                                                                </span>
                                                             </div>
                                                             <div className="text-[11px] text-gray-400 truncate mt-0.5">
                                                                 {team.name}{team.shortName ? ` (${team.shortName})` : ''}
