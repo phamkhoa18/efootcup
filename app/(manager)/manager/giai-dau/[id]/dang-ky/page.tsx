@@ -69,6 +69,28 @@ export default function DangKyPage() {
     const [importResults, setImportResults] = useState<any[] | null>(null);
     const teamSize = tournament?.teamSize || 1;
 
+    // Excel preview state: parsed rows with resolved EFV data
+    type ExcelPreviewRow = {
+        raw: any; // original Excel row data
+        efvId: string;
+        playerName: string;
+        efvResolved: boolean; // true if name was auto-loaded from EFV
+        efvError: string; // error message if EFV not found
+        gamerId: string;
+        phone: string;
+        teamName: string;
+        nickname: string;
+        // Player 2
+        player2EfvId: string;
+        player2Name: string;
+        player2Resolved: boolean;
+        player2Error: string;
+        player2GamerId: string;
+        player2Nickname: string;
+    };
+    const [excelPreviewRows, setExcelPreviewRows] = useState<ExcelPreviewRow[] | null>(null);
+    const [isResolvingEfv, setIsResolvingEfv] = useState(false);
+
     // Payment proof viewer
     const [paymentProofView, setPaymentProofView] = useState<string | null>(null);
     const [paymentDetailView, setPaymentDetailView] = useState<any>(null);
@@ -212,12 +234,30 @@ export default function DangKyPage() {
         }
     };
 
+    // Batch-lookup an EFV ID from the search API
+    const lookupEfvUser = async (efvIdStr: string): Promise<{ name: string; gamerId: string; nickname: string; phone: string; facebookName: string; facebookLink: string } | null> => {
+        if (!efvIdStr.trim()) return null;
+        try {
+            const headers: Record<string, string> = {};
+            const token = localStorage.getItem('efootcup_token');
+            if (token) headers.Authorization = `Bearer ${token}`;
+            const res = await fetch(`/api/users/search?q=${efvIdStr.trim()}`, { headers });
+            const dt = await res.json();
+            if (dt.success && dt.data) {
+                const user = dt.data.find((u: any) => String(u.efvId) === efvIdStr.trim());
+                if (user) return { name: user.name || '', gamerId: user.gamerId || '', nickname: user.nickname || '', phone: user.phone || '', facebookName: user.facebookName || '', facebookLink: user.facebookLink || '' };
+            }
+        } catch (e) { console.error('EFV lookup error:', e); }
+        return null;
+    };
+
     const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
         if (!file) return;
 
-        setIsUploading(true);
+        setIsResolvingEfv(true);
         setImportResults(null);
+        setExcelPreviewRows(null);
         try {
             const xlsx = await import("xlsx");
             const reader = new FileReader();
@@ -232,42 +272,99 @@ export default function DangKyPage() {
 
                     if (data.length === 0) {
                         toast.error("File excel trống");
-                        setIsUploading(false);
+                        setIsResolvingEfv(false);
                         return;
                     }
 
-                    const formattedData = data.map((row: any) => {
-                        if (isAutoFormat) {
-                            if (row['Tên Đội Trưởng']) row['Tên Đội Trưởng'] = autoFormatName(row['Tên Đội Trưởng']);
-                            if (row['Tên VĐV 1']) row['Tên VĐV 1'] = autoFormatName(row['Tên VĐV 1']);
-                            if (row['VĐV 1']) row['VĐV 1'] = autoFormatName(row['VĐV 1']);
-                            if (row['Tên VĐV']) row['Tên VĐV'] = autoFormatName(row['Tên VĐV']);
-                            if (row['playerName']) row['playerName'] = autoFormatName(row['playerName']);
-                            // Player 2
-                            if (row['Tên VĐV 2']) row['Tên VĐV 2'] = autoFormatName(row['Tên VĐV 2']);
-                            if (row['VĐV 2']) row['VĐV 2'] = autoFormatName(row['VĐV 2']);
-                            if (row['player2Name']) row['player2Name'] = autoFormatName(row['player2Name']);
-                        }
-                        return row;
-                    });
+                    // Parse rows + resolve EFV IDs
+                    const previewRows: ExcelPreviewRow[] = [];
 
-                    const res = await tournamentAPI.importRegistrations(id, formattedData);
-                    if (res.success) {
-                        const d = res.data;
-                        toast.success(res.message || `Đã import thành công`);
-                        if (d?.results) setImportResults(d.results);
-                        loadRegistrations();
-                        if (!d?.skippedCount || d.skippedCount === 0) {
-                            setIsAddModalOpen(false);
+                    for (const rawRow of data as any[]) {
+                        // Extract fields from raw Excel
+                        const rawEfvId = String(rawRow.efvId || rawRow['EFV-ID'] || rawRow['EFVID'] || rawRow['efv_id'] || rawRow['EFV-ID 1'] || '').replace(/[^0-9]/g, '');
+                        let playerName = String(rawRow.playerName || rawRow['Tên Đội Trưởng'] || rawRow['VĐV 1'] || rawRow['Tên VĐV 1'] || rawRow['Tên VĐV'] || '').trim();
+                        if (isAutoFormat && playerName) playerName = autoFormatName(playerName);
+                        const gamerId = String(rawRow.gamerId || rawRow.ingameId || rawRow['In-game ID'] || rawRow['ID Game'] || rawRow['ID Game 1'] || '').trim();
+                        const phone = String(rawRow.phone || rawRow['Số điện thoại'] || rawRow['SĐT'] || rawRow['SĐT 1'] || '').trim();
+                        const teamName = String(rawRow.teamName || rawRow.name || rawRow['Tên đội'] || rawRow['Tên Đội'] || '').trim();
+                        const nickname = String(rawRow.nickname || rawRow['Nickname'] || rawRow['Nickname 1'] || '').trim();
+
+                        // Player 2
+                        const rawP2EfvId = String(rawRow.player2EfvId || rawRow['EFV-ID 2'] || rawRow['EFVID 2'] || '').replace(/[^0-9]/g, '');
+                        let player2Name = String(rawRow.player2Name || rawRow['VĐV 2'] || rawRow['Tên VĐV 2'] || '').trim();
+                        if (isAutoFormat && player2Name) player2Name = autoFormatName(player2Name);
+                        const player2GamerId = String(rawRow.player2GamerId || rawRow['ID Game 2'] || '').trim();
+                        const player2Nickname = String(rawRow.player2Nickname || rawRow['Nickname 2'] || '').trim();
+
+                        // Bỏ qua các dòng trống (do format excel thừa rác)
+                        if (!rawEfvId && !playerName && !gamerId && !phone && !teamName && !rawP2EfvId && !player2Name && !player2GamerId) {
+                            continue;
                         }
-                    } else {
-                        toast.error(res.message || "Import thất bại");
+
+                        const row: ExcelPreviewRow = {
+                            raw: rawRow,
+                            efvId: rawEfvId,
+                            playerName,
+                            efvResolved: false,
+                            efvError: '',
+                            gamerId,
+                            phone,
+                            teamName,
+                            nickname,
+                            player2EfvId: rawP2EfvId,
+                            player2Name,
+                            player2Resolved: false,
+                            player2Error: '',
+                            player2GamerId,
+                            player2Nickname,
+                        };
+
+                        // Resolve Player 1 EFV
+                        if (rawEfvId) {
+                            const user = await lookupEfvUser(rawEfvId);
+                            if (user) {
+                                row.playerName = user.name;
+                                row.gamerId = user.gamerId || row.gamerId;
+                                row.nickname = user.nickname || row.nickname;
+                                row.phone = user.phone || row.phone;
+                                row.efvResolved = true;
+                            } else {
+                                row.efvError = `EFV #${rawEfvId} không tồn tại`;
+                            }
+                        }
+
+                        // Resolve Player 2 EFV
+                        if (teamSize >= 2 && rawP2EfvId) {
+                            const user2 = await lookupEfvUser(rawP2EfvId);
+                            if (user2) {
+                                row.player2Name = user2.name;
+                                row.player2GamerId = user2.gamerId || row.player2GamerId;
+                                row.player2Nickname = user2.nickname || row.player2Nickname;
+                                row.player2Resolved = true;
+                            } else {
+                                row.player2Error = `EFV #${rawP2EfvId} không tồn tại`;
+                            }
+                        }
+
+                        previewRows.push(row);
                     }
+
+                    setExcelPreviewRows(previewRows);
+                    const errCount = previewRows.filter(r => r.efvError || r.player2Error).length;
+                    const resolvedCount = previewRows.filter(r => r.efvResolved).length;
+                    if (errCount > 0) {
+                        toast.warning(`⚠️ ${errCount} dòng có EFV-ID không hợp lệ. Kiểm tra và sửa trước khi import.`, { duration: 5000 });
+                    } else if (resolvedCount > 0) {
+                        toast.success(`✅ Đã tự động load tên ${resolvedCount} VĐV từ EFV-ID`);
+                    } else {
+                        toast.success(`Đã đọc ${previewRows.length} dòng từ Excel`);
+                    }
+
                 } catch (err) {
                     console.error(err);
                     toast.error("Lỗi khi đọc file");
                 } finally {
-                    setIsUploading(false);
+                    setIsResolvingEfv(false);
                     e.target.value = "";
                 }
             };
@@ -275,6 +372,65 @@ export default function DangKyPage() {
         } catch (error) {
             console.error(error);
             toast.error("Lỗi khi import file");
+            setIsResolvingEfv(false);
+        }
+    };
+
+    // Confirm and submit Excel preview rows to the API
+    const handleConfirmExcelImport = async () => {
+        if (!excelPreviewRows || excelPreviewRows.length === 0) return;
+
+        // Block if any row has EFV errors
+        const hasErrors = excelPreviewRows.some(r => r.efvError || r.player2Error);
+        if (hasErrors) {
+            return toast.error('Còn dòng có EFV-ID lỗi. Hãy xóa hoặc sửa EFV-ID không hợp lệ trước khi import.');
+        }
+
+        // Block rows without name and without EFV
+        const nameless = excelPreviewRows.some(r => !r.efvResolved && r.playerName.trim().length < 2);
+        if (nameless) {
+            return toast.error('Có dòng thiếu tên VĐV. Nếu không có EFV-ID, tên VĐV là bắt buộc (tối thiểu 2 ký tự).');
+        }
+
+        setIsUploading(true);
+        try {
+            // Re-map preview rows back into the format the API expects
+            const formattedData = excelPreviewRows.map(r => {
+                const row: any = { ...r.raw };
+                // Override with resolved data
+                if (r.efvId) row['EFV-ID'] = r.efvId;
+                row.playerName = r.playerName;
+                if (r.gamerId) row.gamerId = r.gamerId;
+                if (r.phone) row.phone = r.phone;
+                if (r.nickname) row.nickname = r.nickname;
+                if (r.teamName) row.teamName = r.teamName;
+                // Player 2
+                if (teamSize >= 2) {
+                    if (r.player2EfvId) row['EFV-ID 2'] = r.player2EfvId;
+                    if (r.player2Name) row.player2Name = r.player2Name;
+                    if (r.player2GamerId) row.player2GamerId = r.player2GamerId;
+                    if (r.player2Nickname) row.player2Nickname = r.player2Nickname;
+                }
+                return row;
+            });
+
+            const res = await tournamentAPI.importRegistrations(id, formattedData);
+            if (res.success) {
+                const d = res.data;
+                toast.success(res.message || `Đã import thành công`);
+                if (d?.results) setImportResults(d.results);
+                loadRegistrations();
+                setExcelPreviewRows(null);
+                if (!d?.skippedCount || d.skippedCount === 0) {
+                    setIsAddModalOpen(false);
+                }
+            } else {
+                toast.error(res.message || "Import thất bại");
+            }
+        } catch (err) {
+            console.error(err);
+            toast.error("Có lỗi xảy ra khi import");
+        } finally {
             setIsUploading(false);
         }
     };
@@ -290,9 +446,13 @@ export default function DangKyPage() {
     };
 
     const handleSaveManual = async () => {
-        const validRows = manualRows.filter(r => r.playerName.trim().length >= 2);
+        // A row is valid if: (1) it has a verified EFV-ID (name auto-filled), OR (2) playerName >= 2 chars
+        const validRows = manualRows.filter((r, i) => {
+            const isP1Verified = efvStatuses[i + '_p1'] === 'verified';
+            return isP1Verified || r.playerName.trim().length >= 2;
+        });
         if (validRows.length === 0) {
-            return toast.error("Vui lòng nhập tên VĐV hợp lệ (tối thiểu 2 ký tự)");
+            return toast.error("Vui lòng nhập tên VĐV hợp lệ (tối thiểu 2 ký tự) hoặc nhập EFV-ID hợp lệ");
         }
 
         // Block if any row has an EFV ID entered but not verified or found
@@ -2050,7 +2210,7 @@ export default function DangKyPage() {
 
             {/* Modal Thêm VĐV */}
             <Dialog open={isAddModalOpen} onOpenChange={(open) => { setIsAddModalOpen(open); if (!open) setImportResults(null); }}>
-                <DialogContent className="max-w-[95vw] sm:max-w-6xl w-full bg-white border-0 shadow-2xl p-0 gap-0 rounded-2xl overflow-hidden">
+                <DialogContent className="max-w-[95vw] sm:max-w-6xl w-full max-h-[96vh] flex flex-col bg-white border-0 shadow-2xl p-0 gap-0 rounded-2xl overflow-hidden">
                     {/* Modal Header with gradient */}
                     <div className="p-5 px-6 flex items-center gap-3 border-b border-gray-100 bg-gradient-to-r from-slate-50 via-blue-50/30 to-indigo-50/50">
                         <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center shadow-md shadow-blue-500/20">
@@ -2062,7 +2222,7 @@ export default function DangKyPage() {
                         </div>
                     </div>
 
-                    <div className="px-6 py-5 pb-2">
+                    <div className="px-6 py-5 pb-2 flex-1 overflow-y-auto custom-scrollbar">
                         {/* Tabs using shadcn */}
                         <Tabs value={addMode} onValueChange={(v) => setAddMode(v as "manual" | "excel")} className="w-full">
                             <TabsList className="w-full h-11 rounded-xl bg-gray-100/70 p-1 mb-6">
@@ -2183,12 +2343,20 @@ export default function DangKyPage() {
                                                                 onChange={(e) => { const newRows = [...manualRows]; newRows[index].teamShortName = e.target.value.toUpperCase(); setManualRows(newRows); }}
                                                                 className="h-9 rounded-lg text-xs border-gray-200 focus-visible:ring-blue-500/30 focus-visible:border-blue-400 transition-all text-center uppercase placeholder:text-gray-300"
                                                             />
-                                                            <Input
-                                                                value={row.playerName}
-                                                                placeholder="Họ tên VĐV *"
-                                                                onChange={(e) => { const newRows = [...manualRows]; newRows[index].playerName = e.target.value; setManualRows(newRows); }}
-                                                                className="h-9 rounded-lg text-xs border-blue-200 bg-blue-50/30 focus-visible:ring-blue-500/30 focus-visible:border-blue-400 transition-all placeholder:text-blue-300 font-medium"
-                                                            />
+                                                            <div className="relative">
+                                                                <Input
+                                                                    value={row.playerName}
+                                                                    placeholder={efvStatuses[index + '_p1'] === 'verified' ? "Tự động từ EFV" : "Họ tên VĐV *"}
+                                                                    readOnly={efvStatuses[index + '_p1'] === 'verified'}
+                                                                    onChange={(e) => { if (efvStatuses[index + '_p1'] !== 'verified') { const newRows = [...manualRows]; newRows[index].playerName = e.target.value; setManualRows(newRows); } }}
+                                                                    className={`h-9 rounded-lg text-xs font-medium transition-all ${efvStatuses[index + '_p1'] === 'verified' ? 'border-emerald-300 bg-emerald-50/50 text-emerald-800 cursor-default focus-visible:ring-emerald-500/30 pr-7' : 'border-blue-200 bg-blue-50/30 focus-visible:ring-blue-500/30 focus-visible:border-blue-400 placeholder:text-blue-300'}`}
+                                                                />
+                                                                {efvStatuses[index + '_p1'] === 'verified' && (
+                                                                    <div className="absolute right-1.5 top-1/2 -translate-y-1/2 pointer-events-none">
+                                                                        <BadgeCheck className="w-3.5 h-3.5 text-emerald-500" />
+                                                                    </div>
+                                                                )}
+                                                            </div>
                                                             <Input
                                                                 value={row.gamerId}
                                                                 placeholder="ID Game"
@@ -2249,12 +2417,20 @@ export default function DangKyPage() {
                                                                         className="h-8 rounded-lg text-xs border-emerald-200 bg-emerald-50/30 focus-visible:ring-emerald-500/30 focus-visible:border-emerald-400 transition-all placeholder:text-emerald-300 text-center font-mono font-bold text-emerald-700"
                                                                     />
                                                                     <div className="col-span-2" />
-                                                                    <Input
-                                                                        value={row.player2Name}
-                                                                        placeholder="Tên VĐV 2 *"
-                                                                        onChange={(e) => { const newRows = [...manualRows]; newRows[index].player2Name = e.target.value; setManualRows(newRows); }}
-                                                                        className="h-8 rounded-lg text-xs border-emerald-200 bg-emerald-50/30 focus-visible:ring-emerald-500/30 focus-visible:border-emerald-400 transition-all placeholder:text-emerald-300 font-medium"
-                                                                    />
+                                                                    <div className="relative">
+                                                                        <Input
+                                                                            value={row.player2Name}
+                                                                            placeholder={efvStatuses[index + '_p2'] === 'verified' ? "Tự động từ EFV" : "Tên VĐV 2 *"}
+                                                                            readOnly={efvStatuses[index + '_p2'] === 'verified'}
+                                                                            onChange={(e) => { if (efvStatuses[index + '_p2'] !== 'verified') { const newRows = [...manualRows]; newRows[index].player2Name = e.target.value; setManualRows(newRows); } }}
+                                                                            className={`h-8 rounded-lg text-xs font-medium transition-all ${efvStatuses[index + '_p2'] === 'verified' ? 'border-emerald-300 bg-emerald-50/50 text-emerald-800 cursor-default focus-visible:ring-emerald-500/30 pr-7' : 'border-emerald-200 bg-emerald-50/30 focus-visible:ring-emerald-500/30 focus-visible:border-emerald-400 placeholder:text-emerald-300'}`}
+                                                                        />
+                                                                        {efvStatuses[index + '_p2'] === 'verified' && (
+                                                                            <div className="absolute right-1.5 top-1/2 -translate-y-1/2 pointer-events-none">
+                                                                                <BadgeCheck className="w-3.5 h-3.5 text-emerald-500" />
+                                                                            </div>
+                                                                        )}
+                                                                    </div>
                                                                     <Input
                                                                         value={row.player2GamerId}
                                                                         placeholder="ID Game 2"
@@ -2313,8 +2489,8 @@ export default function DangKyPage() {
                                         <div className="flex items-start gap-2 p-3 rounded-xl bg-blue-50/50 border border-blue-100/50">
                                             <AlertCircle className="w-4 h-4 text-blue-400 mt-0.5 flex-shrink-0" />
                                             <div className="text-xs text-blue-600/80 space-y-0.5">
-                                                <p><span className="font-bold">Tên VĐV</span> là bắt buộc (tối thiểu 2 ký tự). Các trường khác để trống sẽ sử dụng giá trị mặc định.</p>
-                                                <p><span className="font-bold text-amber-600">EFV-ID</span> nếu nhập sẽ liên kết với tài khoản hiện có, để trống sẽ tạo tài khoản mới (auto-ID).</p>
+                                                <p><span className="font-bold">Tên VĐV</span> bắt buộc nếu không có EFV-ID. Có EFV-ID → tên tự động load từ hệ thống.</p>
+                                                <p><span className="font-bold text-amber-600">EFV-ID</span> nếu nhập → hệ thống tự load tên + thông tin VĐV. Để trống → nhập tên thủ công.</p>
                                                 <p>Tên đội trống → auto &quot;Tự do&quot;. Viết tắt trống → auto lấy 3 ký tự đầu.</p>
                                                 {teamSize >= 2 && (
                                                     <p className="text-emerald-600"><span className="font-bold">Giải {teamSize}v{teamSize}:</span> Dòng <span className="font-bold text-emerald-700">P2</span> (viền xanh) để nhập VĐV thứ 2. Mỗi VĐV có EFV-ID riêng.</p>
@@ -2339,16 +2515,26 @@ export default function DangKyPage() {
                                     />
 
                                     {/* Upload Zone */}
-                                    <div
-                                        className="border-2 border-dashed border-blue-200 bg-gradient-to-br from-blue-50/50 to-indigo-50/30 rounded-2xl p-10 text-center cursor-pointer hover:bg-blue-50 hover:border-blue-300 transition-all duration-300 group"
-                                        onClick={() => document.getElementById("excelUploadModal")?.click()}
-                                    >
-                                        <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center mx-auto mb-4 shadow-lg shadow-blue-500/20 group-hover:scale-105 transition-transform duration-300">
-                                            <Upload className="w-6 h-6 text-white" />
+                                    {isResolvingEfv ? (
+                                        <div className="border-2 border-dashed border-amber-300 bg-gradient-to-br from-amber-50/50 to-orange-50/30 rounded-2xl p-10 text-center">
+                                            <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-amber-400 to-orange-500 flex items-center justify-center mx-auto mb-4 shadow-lg shadow-amber-500/20 animate-pulse">
+                                                <Loader2 className="w-6 h-6 text-white animate-spin" />
+                                            </div>
+                                            <p className="text-sm font-semibold text-amber-700">Đang đọc file và tra cứu EFV-ID...</p>
+                                            <p className="text-xs text-amber-500 mt-1">Hệ thống đang tự động load tên VĐV từ EFV-ID</p>
                                         </div>
-                                        <p className="text-sm font-semibold text-gray-700">Kéo và thả file Excel vào đây</p>
-                                        <p className="text-xs text-gray-400 mt-1">hoặc <span className="text-blue-500 font-medium">nhấp để chọn file</span> (.xlsx, .xls)</p>
-                                    </div>
+                                    ) : (
+                                        <div
+                                            className="border-2 border-dashed border-blue-200 bg-gradient-to-br from-blue-50/50 to-indigo-50/30 rounded-2xl p-10 text-center cursor-pointer hover:bg-blue-50 hover:border-blue-300 transition-all duration-300 group"
+                                            onClick={() => document.getElementById("excelUploadModal")?.click()}
+                                        >
+                                            <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center mx-auto mb-4 shadow-lg shadow-blue-500/20 group-hover:scale-105 transition-transform duration-300">
+                                                <Upload className="w-6 h-6 text-white" />
+                                            </div>
+                                            <p className="text-sm font-semibold text-gray-700">{excelPreviewRows ? 'Tải file mới (thay thế preview)' : 'Kéo và thả file Excel vào đây'}</p>
+                                            <p className="text-xs text-gray-400 mt-1">hoặc <span className="text-blue-500 font-medium">nhấp để chọn file</span> (.xlsx, .xls)</p>
+                                        </div>
+                                    )}
 
                                     <Separator />
 
@@ -2387,12 +2573,12 @@ export default function DangKyPage() {
                                             </div>
                                             <ul className="space-y-2 text-sm text-gray-600">
                                                 {[
-                                                    <>Cột <span className="font-bold text-amber-600">{teamSize >= 2 ? '"EFV-ID" và "EFV-ID 2"' : '"EFV-ID"'}</span> nếu có sẽ liên kết VĐV với tài khoản. Để trống sẽ <span className="font-bold">tạo tài khoản mới tự động</span>.</>,
+                                                    <>Cột <span className="font-bold text-amber-600">{teamSize >= 2 ? '"EFV-ID" và "EFV-ID 2"' : '"EFV-ID"'}</span> nếu có → hệ thống <span className="font-bold text-emerald-600">tự động load tên VĐV</span>. Để trống EFV-ID → cần nhập Tên VĐV bằng tay.</>,
                                                     <>Cột &quot;VĐV 1&quot; hoặc &quot;Tên VĐV&quot; <span className="text-red-500 font-medium">tối thiểu 2 ký tự</span></>,
                                                     <>Hỗ trợ cột: <span className="font-medium">EFV-ID, Tên đội, Tên VĐV, ID Game, SĐT, Email, Nickname, Facebook, Tỉnh/TP{teamSize >= 2 ? ', Tên VĐV 2, EFV-ID 2, SĐT 2, ID Game 2, Nickname 2' : ''}</span></>,
                                                     <>SĐT chỉ gồm số (0-9), không gồm ký tự đặc biệt</>,
                                                     <>Tối đa <span className="font-bold text-red-500">{tournament?.maxTeams || 128}</span> đội cho giải này</>,
-                                                    <>Mỗi VĐV import sẽ được <Badge variant="outline" className="bg-emerald-50 text-emerald-600 border-emerald-100 text-[10px] mx-0.5">tự động duyệt</Badge> và gán EFV-ID</>,
+                                                    <>Mỗi VĐV import sẽ được <Badge variant="outline" className="bg-emerald-50 text-emerald-600 border-emerald-100 text-[10px] mx-0.5">tự động duyệt</Badge>. EFV-ID có sẵn → tên auto-load, không cần nhập tay</>,
                                                 ].map((note, i) => (
                                                     <li key={i} className="flex items-start gap-2">
                                                         <div className="w-1.5 h-1.5 rounded-full bg-amber-400 mt-1.5 flex-shrink-0" />
@@ -2402,6 +2588,155 @@ export default function DangKyPage() {
                                             </ul>
                                         </CardContent>
                                     </Card>
+
+                                    {/* === EXCEL PREVIEW TABLE === */}
+                                    {excelPreviewRows && excelPreviewRows.length > 0 && (
+                                        <div className="space-y-3">
+                                            <div className="flex items-center justify-between">
+                                                <div className="flex items-center gap-2">
+                                                    <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center shadow-md shadow-emerald-500/20">
+                                                        <ListChecks className="w-4 h-4 text-white" />
+                                                    </div>
+                                                    <div>
+                                                        <p className="text-sm font-bold text-gray-800">Xem trước dữ liệu ({excelPreviewRows.length} dòng)</p>
+                                                        <p className="text-[10px] text-gray-400">Kiểm tra tên VĐV đã đúng trước khi import</p>
+                                                    </div>
+                                                </div>
+                                                <div className="flex items-center gap-2">
+                                                    {excelPreviewRows.filter(r => r.efvResolved || r.player2Resolved).length > 0 && (
+                                                        <Badge variant="outline" className="bg-emerald-50 text-emerald-600 border-emerald-200 text-[10px]">
+                                                            <BadgeCheck className="w-3 h-3 mr-1" />
+                                                            {excelPreviewRows.filter(r => r.efvResolved).length} EFV đã load
+                                                        </Badge>
+                                                    )}
+                                                    {excelPreviewRows.filter(r => r.efvError || r.player2Error).length > 0 && (
+                                                        <Badge variant="outline" className="bg-red-50 text-red-600 border-red-200 text-[10px]">
+                                                            <AlertCircle className="w-3 h-3 mr-1" />
+                                                            {excelPreviewRows.filter(r => r.efvError || r.player2Error).length} lỗi
+                                                        </Badge>
+                                                    )}
+                                                    <Button
+                                                        variant="outline"
+                                                        size="sm"
+                                                        onClick={() => setExcelPreviewRows(null)}
+                                                        className="h-7 text-[10px] px-2 rounded-lg border-gray-200 text-gray-500 hover:text-red-500 hover:bg-red-50 hover:border-red-200"
+                                                    >
+                                                        <X className="w-3 h-3 mr-1" /> Xóa preview
+                                                    </Button>
+                                                </div>
+                                            </div>
+
+                                            <div className="overflow-x-auto custom-scrollbar border border-gray-200 rounded-xl">
+                                                <ScrollArea className="max-h-[35vh]">
+                                                    <table className="w-full text-xs">
+                                                        <thead className="bg-gray-50 sticky top-0 z-10">
+                                                            <tr>
+                                                                <th className="px-2 py-2 text-left font-bold text-gray-500 w-8">#</th>
+                                                                <th className="px-2 py-2 text-left font-bold text-amber-500 w-16">EFV-ID</th>
+                                                                <th className="px-2 py-2 text-left font-bold text-blue-600 min-w-[120px]">Tên VĐV</th>
+                                                                <th className="px-2 py-2 text-left font-bold text-gray-500 min-w-[80px]">ID Game</th>
+                                                                <th className="px-2 py-2 text-left font-bold text-gray-500 min-w-[80px]">SĐT</th>
+                                                                <th className="px-2 py-2 text-left font-bold text-gray-500 min-w-[80px]">Tên đội</th>
+                                                                <th className="px-2 py-2 text-left font-bold text-gray-500 min-w-[60px]">Nickname</th>
+                                                                {teamSize >= 2 && (
+                                                                    <>
+                                                                        <th className="px-2 py-2 text-left font-bold text-emerald-500 w-16">EFV 2</th>
+                                                                        <th className="px-2 py-2 text-left font-bold text-emerald-600 min-w-[120px]">VĐV 2</th>
+                                                                        <th className="px-2 py-2 text-left font-bold text-gray-500 min-w-[80px]">ID Game 2</th>
+                                                                    </>
+                                                                )}
+                                                                <th className="px-2 py-2 text-center font-bold text-gray-500 w-16">Trạng thái</th>
+                                                            </tr>
+                                                        </thead>
+                                                        <tbody className="divide-y divide-gray-100">
+                                                            {excelPreviewRows.map((row, idx) => (
+                                                                <tr key={idx} className={`hover:bg-blue-50/30 transition-colors ${row.efvError || row.player2Error ? 'bg-red-50/50' : ''}`}>
+                                                                    <td className="px-2 py-2 text-gray-400 font-mono">{idx + 1}</td>
+                                                                    <td className="px-2 py-2">
+                                                                        {row.efvId ? (
+                                                                            <span className={`font-mono font-bold text-[11px] px-1.5 py-0.5 rounded ${row.efvResolved ? 'bg-emerald-100 text-emerald-700' : row.efvError ? 'bg-red-100 text-red-600' : 'bg-gray-100 text-gray-600'}`}>
+                                                                                #{row.efvId}
+                                                                            </span>
+                                                                        ) : (
+                                                                            <span className="text-gray-300">—</span>
+                                                                        )}
+                                                                    </td>
+                                                                    <td className="px-2 py-2">
+                                                                        {row.efvError ? (
+                                                                            <div className="flex items-center gap-1">
+                                                                                <AlertCircle className="w-3 h-3 text-red-500 flex-shrink-0" />
+                                                                                <span className="text-red-500 font-medium text-[10px]">{row.efvError}</span>
+                                                                            </div>
+                                                                        ) : (
+                                                                            <div className="flex items-center gap-1">
+                                                                                <span className={`font-medium ${row.efvResolved ? 'text-emerald-700' : 'text-gray-800'}`}>
+                                                                                    {row.playerName || <span className="text-red-400 italic">Thiếu tên</span>}
+                                                                                </span>
+                                                                                {row.efvResolved && <BadgeCheck className="w-3 h-3 text-emerald-500 flex-shrink-0" />}
+                                                                            </div>
+                                                                        )}
+                                                                    </td>
+                                                                    <td className="px-2 py-2 text-gray-600">{row.gamerId || '—'}</td>
+                                                                    <td className="px-2 py-2 text-gray-600">{row.phone || '—'}</td>
+                                                                    <td className="px-2 py-2 text-gray-600">{row.teamName || '—'}</td>
+                                                                    <td className="px-2 py-2 text-gray-600">{row.nickname || '—'}</td>
+                                                                    {teamSize >= 2 && (
+                                                                        <>
+                                                                            <td className="px-2 py-2">
+                                                                                {row.player2EfvId ? (
+                                                                                    <span className={`font-mono font-bold text-[11px] px-1.5 py-0.5 rounded ${row.player2Resolved ? 'bg-emerald-100 text-emerald-700' : row.player2Error ? 'bg-red-100 text-red-600' : 'bg-gray-100 text-gray-600'}`}>
+                                                                                        #{row.player2EfvId}
+                                                                                    </span>
+                                                                                ) : (
+                                                                                    <span className="text-gray-300">—</span>
+                                                                                )}
+                                                                            </td>
+                                                                            <td className="px-2 py-2">
+                                                                                {row.player2Error ? (
+                                                                                    <div className="flex items-center gap-1">
+                                                                                        <AlertCircle className="w-3 h-3 text-red-500 flex-shrink-0" />
+                                                                                        <span className="text-red-500 font-medium text-[10px]">{row.player2Error}</span>
+                                                                                    </div>
+                                                                                ) : (
+                                                                                    <div className="flex items-center gap-1">
+                                                                                        <span className={`font-medium ${row.player2Resolved ? 'text-emerald-700' : 'text-gray-800'}`}>
+                                                                                            {row.player2Name || <span className="text-gray-300">—</span>}
+                                                                                        </span>
+                                                                                        {row.player2Resolved && <BadgeCheck className="w-3 h-3 text-emerald-500 flex-shrink-0" />}
+                                                                                    </div>
+                                                                                )}
+                                                                            </td>
+                                                                            <td className="px-2 py-2 text-gray-600">{row.player2GamerId || '—'}</td>
+                                                                        </>
+                                                                    )}
+                                                                    <td className="px-2 py-2 text-center">
+                                                                        {row.efvError || row.player2Error ? (
+                                                                            <XCircle className="w-4 h-4 text-red-400 mx-auto" />
+                                                                        ) : row.efvResolved || row.player2Resolved ? (
+                                                                            <CheckCircle2 className="w-4 h-4 text-emerald-500 mx-auto" />
+                                                                        ) : (
+                                                                            <Check className="w-4 h-4 text-gray-400 mx-auto" />
+                                                                        )}
+                                                                    </td>
+                                                                </tr>
+                                                            ))}
+                                                        </tbody>
+                                                    </table>
+                                                </ScrollArea>
+                                            </div>
+
+                                            {/* Preview action info */}
+                                            <div className="flex items-center gap-2 p-3 rounded-xl bg-blue-50 border border-blue-100">
+                                                <Info className="w-4 h-4 text-blue-500 flex-shrink-0" />
+                                                <p className="text-[11px] text-blue-700">
+                                                    {excelPreviewRows.some(r => r.efvError || r.player2Error) 
+                                                        ? <><span className="font-bold text-red-600">⚠️ Có EFV-ID không hợp lệ.</span> Hãy sửa file Excel hoặc xóa preview rồi tải lại.</>
+                                                        : <>Kiểm tra dữ liệu đúng rồi nhấn <span className="font-bold">"Xác nhận Import"</span> bên dưới.</>
+                                                    }
+                                                </p>
+                                            </div>
+                                        </div>
+                                    )}
 
                                     {/* Import Results for Excel - Moved to standalone modal */}
                                 </div>
@@ -2419,12 +2754,12 @@ export default function DangKyPage() {
                             Hủy
                         </Button>
                         <Button
-                            onClick={addMode === "manual" ? handleSaveManual : () => document.getElementById("excelUploadModal")?.click()}
-                            disabled={isUploading}
-                            className="h-10 px-8 rounded-xl font-semibold bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700 text-white shadow-md shadow-blue-500/20 transition-all duration-300 hover:shadow-lg"
+                            onClick={addMode === "manual" ? handleSaveManual : (excelPreviewRows && excelPreviewRows.length > 0 ? handleConfirmExcelImport : () => document.getElementById("excelUploadModal")?.click())}
+                            disabled={isUploading || isResolvingEfv || (addMode === 'excel' && excelPreviewRows !== null && excelPreviewRows.some(r => r.efvError || r.player2Error))}
+                            className={`h-10 px-8 rounded-xl font-semibold text-white shadow-md transition-all duration-300 hover:shadow-lg ${addMode === 'excel' && excelPreviewRows && excelPreviewRows.length > 0 ? 'bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 shadow-emerald-500/20' : 'bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700 shadow-blue-500/20'}`}
                         >
-                            {isUploading ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Check className="w-4 h-4 mr-2" />}
-                            {addMode === "manual" ? "Lưu danh sách" : "Tải lên"}
+                            {isUploading || isResolvingEfv ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Check className="w-4 h-4 mr-2" />}
+                            {addMode === "manual" ? "Lưu danh sách" : (excelPreviewRows && excelPreviewRows.length > 0 ? `Xác nhận Import (${excelPreviewRows.length})` : "Tải lên")}
                         </Button>
                     </div>
                 </DialogContent>
