@@ -1222,20 +1222,24 @@ export default function TournamentDetailClient({ initialData, id }: { initialDat
         if (!isAuthenticated) return;
 
         const isMobile = t.platform === 'mobile';
-        if (isMobile) {
-            // Mobile: personalPhoto is required, teamLineupPhoto is optional
-            if (!regForm.personalPhoto) {
-                toast.error('Vui lòng tải lên hình cá nhân (bắt buộc)');
-                return;
-            }
-        } else {
-            // Non-mobile: warn about missing photos but don't block submission
-            if (!regForm.personalPhoto || !regForm.teamLineupPhoto) {
-                const missing = [
-                    !regForm.personalPhoto && 'hình cá nhân',
-                    !regForm.teamLineupPhoto && 'hình đội hình',
-                ].filter(Boolean).join(' và ');
-                toast.warning(`Thiếu ${missing} — đăng ký vẫn được gửi, admin sẽ liên hệ bổ sung sau.`);
+        const isTeamSize2v2 = t.teamSize >= 2;
+
+        if (!isTeamSize2v2) {
+            if (isMobile) {
+                // Mobile: personalPhoto is required, teamLineupPhoto is optional
+                if (!regForm.personalPhoto) {
+                    toast.error('Vui lòng tải lên hình cá nhân (bắt buộc)');
+                    return;
+                }
+            } else {
+                // Non-mobile: warn about missing photos but don't block submission
+                if (!regForm.personalPhoto || !regForm.teamLineupPhoto) {
+                    const missing = [
+                        !regForm.personalPhoto && 'hình cá nhân',
+                        !regForm.teamLineupPhoto && 'hình đội hình',
+                    ].filter(Boolean).join(' và ');
+                    toast.warning(`Thiếu ${missing} — đăng ký vẫn được gửi, admin sẽ liên hệ bổ sung sau.`);
+                }
             }
         }
 

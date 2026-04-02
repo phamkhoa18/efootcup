@@ -763,9 +763,8 @@ export default function DangKyPage() {
             personalPhoto: reg.personalPhoto || "",
             teamLineupPhoto: reg.teamLineupPhoto || "",
             player2Name: reg.player2Name || "",
-            player2GamerId: reg.player2GamerId || "",
-            player2Nickname: reg.player2Nickname || "",
-            player2Phone: reg.player2Phone || "",
+            player2FacebookName: reg.player2FacebookName || "",
+            player2FacebookLink: reg.player2FacebookLink || "",
         });
         setEditUploadingPersonal(false);
         setEditUploadingLineup(false);
@@ -840,9 +839,8 @@ export default function DangKyPage() {
             if (teamSize >= 2) {
                 row["EFV-ID 2"] = r.player2User?.efvId != null ? r.player2User.efvId : "";
                 row["Tên VĐV 2"] = r.player2Name || "";
-                row["ID Game 2"] = r.player2GamerId || "";
-                row["Nickname 2"] = r.player2Nickname || "";
-                row["SĐT VĐV 2"] = r.player2Phone || "";
+                row["Tên Facebook VĐV 2"] = r.player2FacebookName || "";
+                row["Link Facebook VĐV 2"] = r.player2FacebookLink || "";
             }
 
             // Continue with other columns
@@ -1460,8 +1458,8 @@ export default function DangKyPage() {
                                                                     <span className="inline-flex items-center text-[10px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 px-1.5 py-0.5 rounded tabular-nums">#{r.player2User.efvId}</span>
                                                                 )}
                                                             </div>
-                                                            {r.player2GamerId && r.player2GamerId !== 'TBD' && (
-                                                                <div className="text-[11px] text-gray-400 mt-0.5">{r.player2GamerId}</div>
+                                                            {r.player2FacebookName && (
+                                                                <div className="text-[11px] text-gray-400 mt-0.5">{r.player2FacebookName}</div>
                                                             )}
                                                         </div>
                                                     ) : (
@@ -3078,49 +3076,51 @@ export default function DangKyPage() {
                             {/* Photos */}
                             <div className="space-y-3">
                                 <Label className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Hình ảnh</Label>
-                                <div className="grid grid-cols-2 gap-3">
-                                    {/* Personal Photo */}
-                                    <div className="space-y-1.5">
-                                        <span className="text-[11px] text-gray-400 font-medium">Ảnh cá nhân (rõ mặt)</span>
-                                        {editInfoData.personalPhoto ? (
-                                            <div className="relative group">
-                                                <img
-                                                    src={editInfoData.personalPhoto}
-                                                    alt="Ảnh cá nhân"
-                                                    className="w-full aspect-square object-cover rounded-xl border-2 border-emerald-300 cursor-pointer hover:opacity-90 transition-opacity"
-                                                    onClick={() => window.open(editInfoData.personalPhoto, '_blank')}
-                                                />
-                                                <div className="absolute top-1.5 right-1.5 flex gap-1">
-                                                    <label className="w-6 h-6 rounded-full bg-blue-500 text-white flex items-center justify-center shadow-lg hover:bg-blue-600 transition-colors cursor-pointer">
-                                                        <Camera className="w-3 h-3" />
-                                                        <input type="file" accept="image/*" className="hidden" disabled={editUploadingPersonal}
-                                                            onChange={(e) => { const f = e.target.files?.[0]; if (f) handleUploadEditImage(f, 'personalPhoto'); e.target.value = ''; }} />
-                                                    </label>
-                                                    <button type="button" onClick={() => setEditInfoData({ ...editInfoData, personalPhoto: '' })}
-                                                        className="w-6 h-6 rounded-full bg-red-500 text-white flex items-center justify-center shadow-lg hover:bg-red-600 transition-colors">
-                                                        <X className="w-3 h-3" />
-                                                    </button>
+                                <div className={`grid ${teamSize >= 2 ? 'grid-cols-1' : 'grid-cols-2'} gap-3`}>
+                                    {/* Personal Photo (1v1 only) */}
+                                    {teamSize < 2 && (
+                                        <div className="space-y-1.5">
+                                            <span className="text-[11px] text-gray-400 font-medium">Ảnh cá nhân (rõ mặt)</span>
+                                            {editInfoData.personalPhoto ? (
+                                                <div className="relative group">
+                                                    <img
+                                                        src={editInfoData.personalPhoto}
+                                                        alt="Ảnh cá nhân"
+                                                        className="w-full aspect-square object-cover rounded-xl border-2 border-emerald-300 cursor-pointer hover:opacity-90 transition-opacity"
+                                                        onClick={() => window.open(editInfoData.personalPhoto, '_blank')}
+                                                    />
+                                                    <div className="absolute top-1.5 right-1.5 flex gap-1">
+                                                        <label className="w-6 h-6 rounded-full bg-blue-500 text-white flex items-center justify-center shadow-lg hover:bg-blue-600 transition-colors cursor-pointer">
+                                                            <Camera className="w-3 h-3" />
+                                                            <input type="file" accept="image/*" className="hidden" disabled={editUploadingPersonal}
+                                                                onChange={(e) => { const f = e.target.files?.[0]; if (f) handleUploadEditImage(f, 'personalPhoto'); e.target.value = ''; }} />
+                                                        </label>
+                                                        <button type="button" onClick={() => setEditInfoData({ ...editInfoData, personalPhoto: '' })}
+                                                            className="w-6 h-6 rounded-full bg-red-500 text-white flex items-center justify-center shadow-lg hover:bg-red-600 transition-colors">
+                                                            <X className="w-3 h-3" />
+                                                        </button>
+                                                    </div>
                                                 </div>
-                                            </div>
-                                        ) : (
-                                            <label className="cursor-pointer block">
-                                                <div className="flex flex-col items-center justify-center gap-2 p-4 rounded-xl border-2 border-dashed border-gray-200 hover:border-emerald-400 hover:bg-emerald-50/30 transition-all aspect-square">
-                                                    {editUploadingPersonal ? <Loader2 className="w-5 h-5 animate-spin text-emerald-500" /> : <Camera className="w-6 h-6 text-gray-300" />}
-                                                    <span className="text-[10px] text-gray-400 text-center">Tải ảnh cá nhân</span>
-                                                </div>
-                                                <input type="file" accept="image/*" className="hidden" disabled={editUploadingPersonal}
-                                                    onChange={(e) => { const f = e.target.files?.[0]; if (f) handleUploadEditImage(f, 'personalPhoto'); e.target.value = ''; }} />
-                                            </label>
-                                        )}
-                                    </div>
+                                            ) : (
+                                                <label className="cursor-pointer block">
+                                                    <div className="flex flex-col items-center justify-center gap-2 p-4 rounded-xl border-2 border-dashed border-gray-200 hover:border-emerald-400 hover:bg-emerald-50/30 transition-all aspect-square">
+                                                        {editUploadingPersonal ? <Loader2 className="w-5 h-5 animate-spin text-emerald-500" /> : <Camera className="w-6 h-6 text-gray-300" />}
+                                                        <span className="text-[10px] text-gray-400 text-center">Tải ảnh cá nhân</span>
+                                                    </div>
+                                                    <input type="file" accept="image/*" className="hidden" disabled={editUploadingPersonal}
+                                                        onChange={(e) => { const f = e.target.files?.[0]; if (f) handleUploadEditImage(f, 'personalPhoto'); e.target.value = ''; }} />
+                                                </label>
+                                            )}
+                                        </div>
+                                    )}
                                     {/* Team Lineup Photo */}
                                     <div className="space-y-1.5">
-                                        <span className="text-[11px] text-gray-400 font-medium">Đội hình thẻ thi đấu</span>
+                                        <span className="text-[11px] text-gray-400 font-medium">{teamSize >= 2 ? "Hình ảnh Logo Team" : "Đội hình thẻ thi đấu"}</span>
                                         {editInfoData.teamLineupPhoto ? (
                                             <div className="relative group">
                                                 <img
                                                     src={editInfoData.teamLineupPhoto}
-                                                    alt="Đội hình"
+                                                    alt="Đội hình/Logo"
                                                     className="w-full aspect-square object-cover rounded-xl border-2 border-emerald-300 cursor-pointer hover:opacity-90 transition-opacity"
                                                     onClick={() => window.open(editInfoData.teamLineupPhoto, '_blank')}
                                                 />
@@ -3140,7 +3140,7 @@ export default function DangKyPage() {
                                             <label className="cursor-pointer block">
                                                 <div className="flex flex-col items-center justify-center gap-2 p-4 rounded-xl border-2 border-dashed border-gray-200 hover:border-emerald-400 hover:bg-emerald-50/30 transition-all aspect-square">
                                                     {editUploadingLineup ? <Loader2 className="w-5 h-5 animate-spin text-emerald-500" /> : <ImageIcon className="w-6 h-6 text-gray-300" />}
-                                                    <span className="text-[10px] text-gray-400 text-center">Tải ảnh đội hình</span>
+                                                    <span className="text-[10px] text-gray-400 text-center">{teamSize >= 2 ? "Tải ảnh logo team" : "Tải ảnh đội hình"}</span>
                                                 </div>
                                                 <input type="file" accept="image/*" className="hidden" disabled={editUploadingLineup}
                                                     onChange={(e) => { const f = e.target.files?.[0]; if (f) handleUploadEditImage(f, 'teamLineupPhoto'); e.target.value = ''; }} />
@@ -3179,32 +3179,25 @@ export default function DangKyPage() {
                                             />
                                         </div>
                                         <div className="space-y-1.5">
-                                            <Label className="text-xs font-semibold text-gray-500 uppercase tracking-wider">ID Game 2</Label>
+                                            <Label className="text-xs font-semibold text-gray-500 uppercase tracking-wider flex items-center gap-1">
+                                                <Facebook className="w-3 h-3" /> Tên Facebook VĐV 2
+                                            </Label>
                                             <Input
-                                                value={editInfoData.player2GamerId}
-                                                onChange={(e) => setEditInfoData({ ...editInfoData, player2GamerId: e.target.value })}
-                                                placeholder="In-game ID"
+                                                value={editInfoData.player2FacebookName}
+                                                onChange={(e) => setEditInfoData({ ...editInfoData, player2FacebookName: e.target.value })}
+                                                placeholder="Tên Facebook"
                                                 className="h-10 rounded-xl text-sm border-emerald-200 focus-visible:ring-emerald-500/30 focus-visible:border-emerald-400"
                                             />
                                         </div>
                                         <div className="space-y-1.5">
-                                            <Label className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Nickname 2</Label>
-                                            <Input
-                                                value={editInfoData.player2Nickname}
-                                                onChange={(e) => setEditInfoData({ ...editInfoData, player2Nickname: e.target.value })}
-                                                placeholder="Nickname"
-                                                className="h-10 rounded-xl text-sm"
-                                            />
-                                        </div>
-                                        <div className="space-y-1.5">
                                             <Label className="text-xs font-semibold text-gray-500 uppercase tracking-wider flex items-center gap-1">
-                                                <Phone className="w-3 h-3" /> SĐT VĐV 2
+                                                <ExternalLink className="w-3 h-3" /> Link Facebook VĐV 2
                                             </Label>
                                             <Input
-                                                value={editInfoData.player2Phone}
-                                                onChange={(e) => setEditInfoData({ ...editInfoData, player2Phone: e.target.value })}
-                                                placeholder="0912..."
-                                                className="h-10 rounded-xl text-sm"
+                                                value={editInfoData.player2FacebookLink}
+                                                onChange={(e) => setEditInfoData({ ...editInfoData, player2FacebookLink: e.target.value })}
+                                                placeholder="https://facebook.com/..."
+                                                className="h-10 rounded-xl text-sm border-emerald-200 focus-visible:ring-emerald-500/30 focus-visible:border-emerald-400"
                                             />
                                         </div>
                                     </div>
