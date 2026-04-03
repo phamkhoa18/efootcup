@@ -425,6 +425,15 @@ export async function PUT(req: NextRequest, { params }: RouteParams) {
                 const nextMatch = await Match.findById(match.nextMatch);
                 if (nextMatch) {
                     nextMatch[slot] = winnerId;
+
+                    // If the next match was walkover/bye and now has both teams, reset to scheduled
+                    if ((nextMatch.status === 'walkover' || nextMatch.status === 'bye') && nextMatch.homeTeam && nextMatch.awayTeam) {
+                        nextMatch.status = 'scheduled';
+                        nextMatch.winner = null;
+                        nextMatch.homeScore = null;
+                        nextMatch.awayScore = null;
+                    }
+
                     await nextMatch.save();
                 }
             }

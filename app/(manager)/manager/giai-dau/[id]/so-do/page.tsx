@@ -27,8 +27,6 @@ const MatchCard = ({ match, onClick, isSwapMode, selectedTeamId, swappedTeamIds,
 }) => {
     const homeTeamId = match.homeTeam?._id || match.homeTeam?.id || '';
     const awayTeamId = match.awayTeam?._id || match.awayTeam?.id || '';
-    // DEBUG - remove after fixing
-    if (isSwapMode) console.log('[SWAP DEBUG] MatchCard render:', { isSwapMode, homeTeamId, awayTeamId, status: match.status, hasOnTeamSelect: !!onTeamSelect });
     const isWalkover = match.status === "walkover";
     const isBye = match.status === "bye";
     const bracketNumber = match.bracketPosition?.y !== undefined ? match.bracketPosition.y + 1 : (match.matchNumber || 0);
@@ -46,20 +44,35 @@ const MatchCard = ({ match, onClick, isSwapMode, selectedTeamId, swappedTeamIds,
 
     // BYE match - compact single-team card with BYE badge
     if (isBye) {
-        const p1Name = match.homeTeam?.player1 || match.p1?.name || "Tự do";
-        const p2Name = match.homeTeam?.player2 && match.homeTeam.player2 !== "TBD" ? match.homeTeam.player2 : "";
-        const teamName = match.homeTeam?.name || match.homeTeam?.shortName || "";
+        const remainingTeam = match.homeTeam || match.awayTeam;
+        const remainingId = remainingTeam?._id || remainingTeam?.id || '';
+        const p1Name = remainingTeam?.player1 || match.p1?.name || "Tự do";
+        const p2Name = remainingTeam?.player2 && remainingTeam.player2 !== "TBD" ? remainingTeam.player2 : "";
+        const teamName = remainingTeam?.name || remainingTeam?.shortName || "";
+        const isByeSelected = isSwapMode && remainingId === selectedTeamId;
+        const isByeSwapped = isSwapMode && swappedTeamIds?.has(remainingId) && remainingId !== selectedTeamId;
 
         return (
             <div className="flex items-center relative z-20 w-[200px]">
                 <div className="absolute -left-2 top-1/2 -translate-y-1/2 w-4 h-4 bg-[#F8FAFC] border border-[#CBD5E1] rounded-full flex items-center justify-center text-[7px] font-bold text-gray-500 z-30">
                     {bracketNumber}
                 </div>
-                <div className="w-full bg-gradient-to-r from-gray-50 to-white rounded-[6px] border border-dashed border-gray-200 flex flex-col justify-center overflow-hidden z-20 relative px-2.5 py-1.5 h-[88px] opacity-70">
+                <div
+                    className={`w-full bg-gradient-to-r from-gray-50 to-white rounded-[6px] border flex flex-col justify-center overflow-hidden z-20 relative px-2.5 py-1.5 h-[88px] ${
+                        isSwapMode && remainingId
+                            ? `border-dashed border-blue-300 ring-1 ring-blue-100 cursor-pointer transition-all hover:bg-blue-50/50 active:scale-[0.97] ${isByeSelected ? '!bg-blue-100/80 ring-2 ring-blue-500' : ''} ${isByeSwapped ? '!bg-amber-50/60' : ''}`
+                            : 'border-dashed border-gray-200 opacity-70'
+                    }`}
+                    onClick={(e: any) => {
+                        if (!isSwapMode || !remainingId) return;
+                        e.stopPropagation();
+                        onTeamSelect?.(remainingId, p1Name);
+                    }}
+                >
                     {/* Top row: player info */}
                     <div className="flex items-center justify-between mb-0.5">
                         <div className="flex items-center gap-1 min-w-0 flex-1">
-                            {match.homeTeam?.efvId != null && <span className="text-[8px] font-bold text-amber-600 bg-amber-50 border border-amber-200 px-1 py-px rounded flex-shrink-0">#{match.homeTeam.efvId}</span>}
+                            {remainingTeam?.efvId != null && <span className="text-[8px] font-bold text-amber-600 bg-amber-50 border border-amber-200 px-1 py-px rounded flex-shrink-0">#{remainingTeam.efvId}</span>}
                             <span className="truncate text-[11px] text-gray-700 font-semibold">{p1Name}</span>
                         </div>
                         <span className="text-[8px] font-bold text-emerald-600 bg-emerald-50 border border-emerald-200 px-1.5 py-px rounded-full ml-1 flex-shrink-0">BYE</span>
@@ -76,9 +89,14 @@ const MatchCard = ({ match, onClick, isSwapMode, selectedTeamId, swappedTeamIds,
     }
 
     if (isWalkover) {
-        const hName = match.homeTeam?.name || match.homeTeam?.shortName || match.p1?.ingame || "Tự do";
-        const p1Name = match.homeTeam?.player1 || match.p1?.name || "";
-        const p2Name = match.homeTeam?.player2 && match.homeTeam.player2 !== "TBD" ? match.homeTeam.player2 : "";
+        // After a swap the remaining team may be in either homeTeam or awayTeam
+        const remainingTeam = match.homeTeam || match.awayTeam;
+        const remainingId = remainingTeam?._id || remainingTeam?.id || '';
+        const woName = remainingTeam?.name || remainingTeam?.shortName || match.p1?.ingame || "Tự do";
+        const woP1 = remainingTeam?.player1 || match.p1?.name || "";
+        const woP2 = remainingTeam?.player2 && remainingTeam.player2 !== "TBD" ? remainingTeam.player2 : "";
+        const isWoSelected = isSwapMode && remainingId === selectedTeamId;
+        const isWoSwapped = isSwapMode && swappedTeamIds?.has(remainingId) && remainingId !== selectedTeamId;
 
         return (
             <div className="flex items-center relative z-20 w-[200px]">
@@ -88,17 +106,43 @@ const MatchCard = ({ match, onClick, isSwapMode, selectedTeamId, swappedTeamIds,
 
                 <motion.div
                     whileHover={!isSwapMode ? { y: -2, scale: 1.02 } : undefined}
-                    onClick={() => { if (!isSwapMode) onClick(); }}
-                    className={`w-full bg-white rounded-[6px] border border-[#E2E8F0] shadow-sm flex flex-col cursor-pointer overflow-hidden z-20 relative px-2 py-1.5 h-[44px] ${isSwapMode ? 'opacity-40 pointer-events-none' : ''}`}
+                    onClick={(e: any) => {
+                        if (isSwapMode) { e.stopPropagation(); return; }
+                        onClick();
+                    }}
+                    className={`w-full bg-white rounded-[6px] border shadow-sm flex flex-col overflow-hidden z-20 group relative ${isSwapMode ? 'border-dashed border-blue-300 ring-1 ring-blue-100' : 'border-[#E2E8F0] cursor-pointer'}`}
                 >
-                    <span className="text-[8px] text-gray-400 font-bold text-center mb-0.5">
-                        {match.homeTeam?.efvId != null && <span className="text-[8px] font-bold text-amber-600 bg-amber-50 border border-amber-200 px-1 py-px rounded mr-1">#{match.homeTeam.efvId}</span>}
-                        {hName}
-                    </span>
-                    <div className="flex flex-col items-center">
-                        <span className={`truncate text-[11px] text-gray-800 font-bold ${!match.homeTeam && !match.p1 ? "text-gray-400 italic font-medium" : ""}`}>
-                            {p1Name || (!match.homeTeam ? "Tự do" : "...")}{p2Name ? ` / ${p2Name}` : ""}
+                    {/* Remaining team row */}
+                    <div
+                        className={`p-1.5 flex flex-col ${isSwapMode && remainingId ? 'cursor-pointer transition-all hover:bg-blue-50/50 active:scale-[0.97]' : ''} ${isWoSelected ? '!bg-blue-100/80 ring-2 ring-inset ring-blue-500 rounded-t-[5px]' : ''} ${isWoSwapped ? '!bg-amber-50/60' : ''}`}
+                        onClick={(e: any) => {
+                            if (!isSwapMode || !remainingId) return;
+                            e.stopPropagation();
+                            onTeamSelect?.(remainingId, woP1 || woName);
+                        }}
+                    >
+                        <span className="text-[8px] text-gray-400 font-bold text-center mb-0.5">
+                            {remainingTeam?.efvId != null && <span className="text-[8px] font-bold text-amber-600 bg-amber-50 border border-amber-200 px-1 py-px rounded mr-1">#{remainingTeam.efvId}</span>}
+                            {remainingTeam?.seed != null && remainingTeam.seed > 0 && <span className="text-[8px] font-bold text-blue-600 bg-blue-50 border border-blue-200 px-1 py-px rounded mr-1" title={`Hạt giống số ${remainingTeam.seed}`}>Seed {remainingTeam.seed}</span>}
+                            {woName}
                         </span>
+                        <div className="flex justify-between items-center px-1">
+                            <div className="flex flex-col min-w-0 pr-1 leading-[1.1]">
+                                <span className="truncate text-[11px] text-gray-800 font-bold">
+                                    {woP1 || "..."}{woP2 ? ` / ${woP2}` : ""}
+                                </span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div className="h-px bg-[#E2E8F0] w-full" />
+
+                    {/* Empty opponent row */}
+                    <div className="p-1.5 flex flex-col opacity-40">
+                        <span className="text-[8px] text-gray-300 font-bold text-center mb-0.5 italic">— Không có đối thủ —</span>
+                        <div className="flex justify-between items-center px-1">
+                            <span className="text-[11px] text-gray-300 italic font-medium">Tự do</span>
+                        </div>
                     </div>
                 </motion.div>
             </div>
@@ -114,7 +158,6 @@ const MatchCard = ({ match, onClick, isSwapMode, selectedTeamId, swappedTeamIds,
             <motion.div
                 whileHover={!isSwapMode ? { y: -2, scale: 1.02 } : undefined}
                 onClick={(e: any) => {
-                    console.log('[SWAP DEBUG] motion.div clicked, isSwapMode=', isSwapMode);
                     if (isSwapMode) { e.stopPropagation(); return; }
                     onClick();
                 }}
@@ -129,7 +172,6 @@ const MatchCard = ({ match, onClick, isSwapMode, selectedTeamId, swappedTeamIds,
                 <div
                     className={`p-1.5 flex flex-col ${homeWin ? "bg-blue-50/20" : ""} ${isLive ? 'mt-[10px]' : ''} ${isSwapMode && homeTeamId ? 'cursor-pointer transition-all hover:bg-blue-50/50 active:scale-[0.97]' : ''} ${isSwapMode && homeTeamId === selectedTeamId ? '!bg-blue-100/80 ring-2 ring-inset ring-blue-500 rounded-t-[5px]' : ''} ${isSwapMode && swappedTeamIds?.has(homeTeamId) && homeTeamId !== selectedTeamId ? '!bg-amber-50/60' : ''}`}
                     onClick={(e: any) => {
-                        console.log('[SWAP DEBUG] home team clicked, isSwapMode=', isSwapMode, 'homeTeamId=', homeTeamId);
                         if (!isSwapMode || !homeTeamId) return;
                         e.stopPropagation();
                         onTeamSelect?.(homeTeamId, match.homeTeam?.player1 || homeName);
@@ -1505,7 +1547,7 @@ export default function SoDoThiDauPage() {
                                                         <MatchCard
                                                             match={match}
                                                             onClick={() => { if (!swap.isSwapMode) setSelectedMatch(match); }}
-                                                            isSwapMode={swap.isSwapMode && match.status !== 'completed' && match.status !== 'walkover' && match.status !== 'bye'}
+                                                            isSwapMode={swap.isSwapMode && match.status !== 'completed'}
                                                             selectedTeamId={swap.selectedTeamId}
                                                             swappedTeamIds={swap.swappedTeamIds}
                                                             onTeamSelect={swap.handleTeamSelect}

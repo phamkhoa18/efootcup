@@ -54,6 +54,8 @@ export function useBracketSwap(
     const applySwapLocally = useCallback((team1Id: string, team2Id: string) => {
         setLocalRounds(prev => {
             const next = JSON.parse(JSON.stringify(prev));
+
+            // Step 1: Find and swap the two teams across ALL rounds
             let t1Match: any = null, t1Side = '';
             let t2Match: any = null, t2Side = '';
 
@@ -74,6 +76,44 @@ export function useBracketSwap(
                 if (t1Side === 'home') t1Match.homeTeam = t2Data; else t1Match.awayTeam = t2Data;
                 if (t2Side === 'home') t2Match.homeTeam = t1Data; else t2Match.awayTeam = t1Data;
             }
+
+            // Step 2: Re-evaluate all matches per round
+            next.forEach((round: any, roundIndex: number) => {
+                for (const m of round.matches) {
+                    if (m.status === 'completed') continue;
+
+                    const hasHome = !!(m.homeTeam);
+                    const hasAway = !!(m.awayTeam);
+
+                    if (roundIndex === 0) {
+                        // Round 1: can be walkover
+                        if (hasHome && hasAway) {
+                            if (m.status === 'walkover' || m.status === 'bye') {
+                                m.status = 'scheduled';
+                                m.winner = null;
+                            }
+                        } else if (hasHome || hasAway) {
+                            // Normalize: remaining team always in homeTeam
+                            if (!hasHome && hasAway) {
+                                m.homeTeam = m.awayTeam;
+                                m.awayTeam = null;
+                            }
+                            m.status = 'walkover';
+                            m.winner = m.homeTeam?._id || m.homeTeam?.id;
+                        } else {
+                            m.status = 'bye';
+                            m.winner = null;
+                        }
+                    } else {
+                        // Round 2+: NEVER walkover from swap — keep as scheduled
+                        if (m.status === 'walkover' || m.status === 'bye') {
+                            m.status = 'scheduled';
+                            m.winner = null;
+                        }
+                    }
+                }
+            });
+
             return next;
         });
     }, []);

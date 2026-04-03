@@ -46,18 +46,72 @@ export async function PUT(req: NextRequest, { params }: RouteParams) {
         await Match.updateMany({ tournament: id, awayTeam: t2 }, { $set: { awayTeam: t1 } });
         await Match.updateMany({ tournament: id, awayTeam: temp }, { $set: { awayTeam: t2 } });
 
-        // Update walkovers
-        const affectedMatches = await Match.find({ tournament: id, $or: [{ homeTeam: t1 }, { homeTeam: t2 }, { awayTeam: t1 }, { awayTeam: t2 }] });
+        // =======================================================
+        // Re-evaluate ALL matches after swap (sorted by round ASC)
+        // Only round 1 can have genuine walkovers.
+        // Round 2+ should be 'scheduled' waiting for results.
+        // =======================================================
+        const allMatches = await Match.find({ tournament: id })
+            .sort({ round: 1, 'bracketPosition.y': 1, matchNumber: 1 });
 
-        for (const m of affectedMatches) {
-            if (!m.homeTeam || !m.awayTeam) {
-                m.status = "walkover";
-                m.winner = m.homeTeam || m.awayTeam;
-            } else if (m.status === "walkover") {
-                m.status = "scheduled";
-                m.winner = null as any;
+        for (const m of allMatches) {
+            // Don't touch completed matches
+            if (m.status === 'completed') continue;
+
+            if (m.round === 1) {
+                // --- Round 1: evaluate walkover/bye/scheduled ---
+                if (m.homeTeam && m.awayTeam) {
+                    // Both teams present → scheduled
+                    if (m.status === 'walkover' || m.status === 'bye') {
+                        m.status = 'scheduled';
+                        m.winner = null;
+                        m.homeScore = null as any;
+                        m.awayScore = null as any;
+                    }
+                    await m.save();
+                } else if (m.homeTeam || m.awayTeam) {
+                    // One team → walkover
+                    const walkoverWinner = m.homeTeam || m.awayTeam;
+                    m.status = 'walkover';
+                    m.winner = walkoverWinner;
+                    m.homeScore = null as any;
+                    m.awayScore = null as any;
+                    // Normalize: always put remaining team in homeTeam
+                    if (!m.homeTeam && m.awayTeam) {
+                        m.homeTeam = m.awayTeam;
+                        m.awayTeam = null as any;
+                    }
+                    await m.save();
+
+                    // Advance walkover winner to next round match
+                    if (m.nextMatch && walkoverWinner) {
+                        const siblings = await Match.find({
+                            tournament: id,
+                            round: m.round,
+                            nextMatch: m.nextMatch,
+                        }).sort({ 'bracketPosition.y': 1, matchNumber: 1 });
+                        const idx = siblings.findIndex(s => s._id.toString() === m._id.toString());
+                        const slot = idx === 0 ? 'homeTeam' : 'awayTeam';
+                        await Match.findByIdAndUpdate(m.nextMatch, { [slot]: walkoverWinner });
+                    }
+                } else {
+                    // No teams → bye
+                    m.status = 'bye';
+                    m.winner = null;
+                    await m.save();
+                }
+            } else {
+                // --- Round 2+: NEVER set to walkover from swap ---
+                // These matches are waiting for results from previous rounds.
+                // Reset if incorrectly marked as walkover/bye.
+                if (m.status === 'walkover' || m.status === 'bye') {
+                    m.status = 'scheduled';
+                    m.winner = null;
+                    m.homeScore = null as any;
+                    m.awayScore = null as any;
+                    await m.save();
+                }
             }
-            await m.save();
         }
 
         return apiResponse({}, 200, "Đổi vị trí thành công");
