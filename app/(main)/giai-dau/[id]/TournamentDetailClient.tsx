@@ -82,9 +82,10 @@ const MatchCard = ({ match, onClick }: { match: any; onClick: () => void }) => {
 
     // BYE match - compact single-team card with BYE badge
     if (isBye) {
-        const p1Name = match.homeTeam?.player1 || match.p1?.name || "Tự do";
-        const p2Name = match.homeTeam?.player2 && match.homeTeam.player2 !== "TBD" ? match.homeTeam.player2 : "";
-        const teamName = match.homeTeam?.name || match.homeTeam?.shortName || "";
+        const remainingTeam = match.homeTeam || match.awayTeam;
+        const p1Name = remainingTeam?.player1 || match.p1?.name || "Tự do";
+        const p2Name = remainingTeam?.player2 && remainingTeam.player2 !== "TBD" ? remainingTeam.player2 : "";
+        const teamName = remainingTeam?.name || remainingTeam?.shortName || "";
 
         return (
             <div className="flex items-center relative z-20 w-[200px]">
@@ -95,7 +96,7 @@ const MatchCard = ({ match, onClick }: { match: any; onClick: () => void }) => {
                     {/* Top row: player info */}
                     <div className="flex items-center justify-between mb-0.5">
                         <div className="flex items-center gap-1 min-w-0 flex-1">
-                            {match.homeTeam?.efvId != null && <span className="text-[8px] font-bold text-amber-600 bg-amber-50 border border-amber-200 px-1 py-px rounded flex-shrink-0">#{match.homeTeam.efvId}</span>}
+                            {remainingTeam?.efvId != null && <span className="text-[8px] font-bold text-amber-600 bg-amber-50 border border-amber-200 px-1 py-px rounded flex-shrink-0">#{remainingTeam.efvId}</span>}
                             <span className="truncate text-[11px] text-gray-700 font-semibold">{p1Name}</span>
                         </div>
                         <span className="text-[8px] font-bold text-emerald-600 bg-emerald-50 border border-emerald-200 px-1.5 py-px rounded-full ml-1 flex-shrink-0">BYE</span>
@@ -112,9 +113,11 @@ const MatchCard = ({ match, onClick }: { match: any; onClick: () => void }) => {
     }
 
     if (isWalkover) {
-        const hName = match.homeTeam?.name || match.homeTeam?.shortName || match.p1?.ingame || "Tự do";
-        const p1Name = match.homeTeam?.player1 || match.p1?.name || "";
-        const p2Name = match.homeTeam?.player2 && match.homeTeam.player2 !== "TBD" ? match.homeTeam.player2 : "";
+        // After a swap the remaining team may be in either homeTeam or awayTeam
+        const remainingTeam = match.homeTeam || match.awayTeam;
+        const woName = remainingTeam?.name || remainingTeam?.shortName || match.p1?.ingame || "Tự do";
+        const woP1 = remainingTeam?.player1 || match.p1?.name || "";
+        const woP2 = remainingTeam?.player2 && remainingTeam.player2 !== "TBD" ? remainingTeam.player2 : "";
 
         return (
             <div className="flex items-center relative z-20 w-[200px]">
@@ -125,22 +128,31 @@ const MatchCard = ({ match, onClick }: { match: any; onClick: () => void }) => {
                 <motion.div
                     whileHover={{ y: -2, scale: 1.02 }}
                     onClick={onClick}
-                    className="w-full bg-white rounded-[6px] border border-[#E2E8F0] shadow-sm flex flex-col justify-center cursor-pointer overflow-hidden z-20 relative px-2 py-1.5 h-[44px]"
+                    className="w-full bg-white rounded-[6px] border border-[#E2E8F0] shadow-sm flex flex-col overflow-hidden z-20 group relative cursor-pointer"
                 >
-                    <span className="text-[8px] text-gray-400 font-bold text-center mb-0.5" title={hName}>
-                        {match.homeTeam?.efvId != null && <span className="text-[8px] font-bold text-amber-600 bg-amber-50 border border-amber-200 px-1 py-px rounded mr-1">#{match.homeTeam.efvId}</span>}
-                        {hName}
-                    </span>
-                    <div className="flex flex-col items-center">
-                        <div className={`flex items-center gap-0.5 w-full justify-center max-w-full overflow-hidden ${!match.homeTeam && !match.p1 ? "text-gray-400 italic font-medium" : ""}`}>
-                            <span className="truncate text-[11px] text-gray-800 font-bold">{p1Name || (!match.homeTeam ? "Tự do" : "...")}</span>
-                            {p2Name && (
-                                <>
-                                    <span className="text-[10px] text-gray-500 font-bold flex-shrink-0">/</span>
-                                    <span className="truncate text-[10px] text-gray-500 font-bold">{p2Name}</span>
-                                    {match.homeTeam?.player2EfvId != null && <span className="text-[8px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 px-1 py-[0.5px] rounded ml-0.5 flex-shrink-0 tabular-nums">#{match.homeTeam.player2EfvId}</span>}
-                                </>
-                            )}
+                    {/* Remaining team row */}
+                    <div className="p-1.5 flex flex-col">
+                        <span className="text-[8px] text-gray-400 font-bold text-center mb-0.5">
+                            {remainingTeam?.efvId != null && <span className="text-[8px] font-bold text-amber-600 bg-amber-50 border border-amber-200 px-1 py-px rounded mr-1">#{remainingTeam.efvId}</span>}
+                            {remainingTeam?.seed != null && remainingTeam.seed > 0 && <span className="text-[8px] font-bold text-blue-600 bg-blue-50 border border-blue-200 px-1 py-px rounded mr-1" title={`Hạt giống số ${remainingTeam.seed}`}>Seed {remainingTeam.seed}</span>}
+                            {woName}
+                        </span>
+                        <div className="flex justify-between items-center px-1">
+                            <div className="flex flex-col min-w-0 pr-1 leading-[1.1]">
+                                <span className="truncate text-[11px] text-gray-800 font-bold">
+                                    {woP1 || "..."}{woP2 ? ` / ${woP2}` : ""}
+                                </span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div className="h-px bg-[#E2E8F0] w-full" />
+
+                    {/* Empty opponent row */}
+                    <div className="p-1.5 flex flex-col opacity-40">
+                        <span className="text-[8px] text-gray-300 font-bold text-center mb-0.5 italic">— Không có đối thủ —</span>
+                        <div className="flex justify-between items-center px-1">
+                            <span className="text-[11px] text-gray-300 italic font-medium">Tự do</span>
                         </div>
                     </div>
                 </motion.div>
