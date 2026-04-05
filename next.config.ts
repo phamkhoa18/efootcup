@@ -2,8 +2,6 @@ import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
     // Enable standalone output for production deployments
-    output: "standalone",
-
     // Whitelist image quality values used by <Image> components
     images: {
         qualities: [75, 85, 90],
