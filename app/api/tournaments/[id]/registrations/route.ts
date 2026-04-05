@@ -488,6 +488,26 @@ export async function PUT(req: NextRequest, { params }: RouteParams) {
                 }
             }
 
+            // Handle player2EfvId → look up User and link player2User
+            if (body.player2EfvId !== undefined) {
+                const p2EfvId = String(body.player2EfvId).trim();
+                if (p2EfvId) {
+                    const p2User = await User.findOne({ efvId: Number(p2EfvId) }).select('_id').lean() as any;
+                    if (p2User) {
+                        // Ensure player2 is not the same as player1
+                        if (registration.user && p2User._id.toString() === registration.user.toString()) {
+                            return apiError("VĐV 1 và VĐV 2 không được là cùng một người", 400);
+                        }
+                        updates.player2User = p2User._id;
+                    } else {
+                        return apiError(`EFV-ID #${p2EfvId} không tồn tại trong hệ thống`, 404);
+                    }
+                } else {
+                    // Clear player2User link if EFV ID is empty
+                    updates.player2User = null;
+                }
+            }
+
             if (Object.keys(updates).length === 0) {
                 return apiError("Không có thông tin nào để cập nhật", 400);
             }

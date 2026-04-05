@@ -110,6 +110,12 @@ export default function DangKyPage() {
     const [editUploadingLineup, setEditUploadingLineup] = useState(false);
     const [editProvinceOpen, setEditProvinceOpen] = useState(false);
     const [vnProvinces, setVnProvinces] = useState<{ name: string; code: number }[]>([]);
+    const [editP2EfvStatus, setEditP2EfvStatus] = useState<'idle' | 'loading' | 'verified' | 'not_found'>('idle');
+    const [editP2SearchQuery, setEditP2SearchQuery] = useState('');
+    const [editP2SearchResults, setEditP2SearchResults] = useState<any[]>([]);
+    const [editP2DropdownOpen, setEditP2DropdownOpen] = useState(false);
+    const editP2SearchRef = useRef<HTMLDivElement>(null);
+    const editP2DebounceRef = useRef<NodeJS.Timeout | null>(null);
 
     // SePay transactions
     const [isSepayDialogOpen, setIsSepayDialogOpen] = useState(false);
@@ -762,14 +768,90 @@ export default function DangKyPage() {
             notes: reg.notes || "",
             personalPhoto: reg.personalPhoto || "",
             teamLineupPhoto: reg.teamLineupPhoto || "",
+            player2EfvId: reg.player2User?.efvId != null ? String(reg.player2User.efvId) : "",
             player2Name: reg.player2Name || "",
+            player2GamerId: reg.player2GamerId || "",
+            player2Nickname: reg.player2Nickname || "",
             player2FacebookName: reg.player2FacebookName || "",
             player2FacebookLink: reg.player2FacebookLink || "",
         });
         setEditUploadingPersonal(false);
         setEditUploadingLineup(false);
+        setEditP2EfvStatus(reg.player2User?.efvId != null ? 'verified' : 'idle');
         setEditInfoReg(reg);
     };
+
+    // Live-search VĐV 2 by EFV-ID or name
+    const handleEditP2Search = (query: string) => {
+        setEditP2SearchQuery(query);
+        setEditP2DropdownOpen(true);
+        if (editP2DebounceRef.current) clearTimeout(editP2DebounceRef.current);
+        if (!query.trim()) {
+            setEditP2SearchResults([]);
+            return;
+        }
+        editP2DebounceRef.current = setTimeout(async () => {
+            try {
+                const headers: Record<string, string> = {};
+                const token = localStorage.getItem('efootcup_token');
+                if (token) headers.Authorization = `Bearer ${token}`;
+                const res = await fetch(`/api/users/search?q=${encodeURIComponent(query.trim())}`, { headers });
+                const dt = await res.json();
+                if (dt.success && dt.data) {
+                    setEditP2SearchResults(dt.data.slice(0, 8));
+                } else {
+                    setEditP2SearchResults([]);
+                }
+            } catch (e) {
+                console.error('P2 search error:', e);
+                setEditP2SearchResults([]);
+            }
+        }, 300);
+    };
+
+    // Select a user from the search results for VĐV 2
+    const handleSelectP2User = (user: any) => {
+        setEditInfoData((prev: any) => ({
+            ...prev,
+            player2EfvId: String(user.efvId || ''),
+            player2Name: user.name || prev.player2Name,
+            player2GamerId: user.gamerId || '',
+            player2Nickname: user.nickname || '',
+            player2FacebookName: user.facebookName || prev.player2FacebookName,
+            player2FacebookLink: user.facebookLink || prev.player2FacebookLink,
+        }));
+        setEditP2EfvStatus('verified');
+        setEditP2SearchQuery('');
+        setEditP2SearchResults([]);
+        setEditP2DropdownOpen(false);
+        toast.success(`Đã liên kết VĐV 2 — ${user.name} (EFV #${user.efvId})`);
+    };
+
+    // Unlink VĐV 2
+    const handleClearP2User = () => {
+        setEditInfoData((prev: any) => ({
+            ...prev,
+            player2EfvId: '',
+            player2Name: '',
+            player2GamerId: '',
+            player2Nickname: '',
+            player2FacebookName: '',
+            player2FacebookLink: '',
+        }));
+        setEditP2EfvStatus('idle');
+        setEditP2SearchQuery('');
+    };
+
+    // Close dropdown when clicking outside
+    useEffect(() => {
+        const handleClickOutside = (e: MouseEvent) => {
+            if (editP2SearchRef.current && !editP2SearchRef.current.contains(e.target as Node)) {
+                setEditP2DropdownOpen(false);
+            }
+        };
+        document.addEventListener('mousedown', handleClickOutside);
+        return () => document.removeEventListener('mousedown', handleClickOutside);
+    }, []);
 
     // Manager: Save edited info
     const handleSaveEditInfo = async () => {
@@ -3168,6 +3250,81 @@ export default function DangKyPage() {
                                     <Label className="text-xs font-bold text-emerald-600 uppercase tracking-wider flex items-center gap-1.5">
                                         <Users className="w-3.5 h-3.5" /> VĐV 2
                                     </Label>
+
+                                    {/* Selected VĐV 2 Card — shown when linked */}
+                                    {editP2EfvStatus === 'verified' && editInfoData.player2EfvId && (
+                                        <div className="flex items-center gap-3 p-3 rounded-xl bg-white border border-emerald-200 shadow-sm">
+                                            <div className="w-10 h-10 rounded-full bg-gradient-to-br from-emerald-400 to-emerald-600 flex items-center justify-center text-white font-bold text-sm shadow-md">
+                                                {(editInfoData.player2Name || '?')[0]?.toUpperCase()}
+                                            </div>
+                                            <div className="flex-1 min-w-0">
+                                                <div className="flex items-center gap-1.5">
+                                                    <span className="font-semibold text-sm text-gray-900 truncate">{editInfoData.player2Name || 'Chưa có tên'}</span>
+                                                    <BadgeCheck className="w-3.5 h-3.5 text-emerald-500 flex-shrink-0" />
+                                                </div>
+                                                <div className="flex items-center gap-2 mt-0.5">
+                                                    <span className="text-[10px] font-mono font-bold text-emerald-600 bg-emerald-100 px-1.5 py-0.5 rounded">EFV #{editInfoData.player2EfvId}</span>
+                                                    {editInfoData.player2GamerId && <span className="text-[10px] text-gray-400">ID: {editInfoData.player2GamerId}</span>}
+                                                </div>
+                                            </div>
+                                            <button
+                                                type="button"
+                                                onClick={handleClearP2User}
+                                                className="w-7 h-7 rounded-full bg-red-50 hover:bg-red-100 text-red-400 hover:text-red-600 flex items-center justify-center transition-all"
+                                                title="Gỡ liên kết VĐV 2"
+                                            >
+                                                <X className="w-3.5 h-3.5" />
+                                            </button>
+                                        </div>
+                                    )}
+
+                                    {/* Search input — shown when NOT linked */}
+                                    {editP2EfvStatus !== 'verified' && (
+                                        <div ref={editP2SearchRef} className="relative">
+                                            <div className="relative">
+                                                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                                                <Input
+                                                    value={editP2SearchQuery}
+                                                    onChange={(e) => handleEditP2Search(e.target.value)}
+                                                    onFocus={() => { if (editP2SearchQuery.trim()) setEditP2DropdownOpen(true); }}
+                                                    placeholder="Tìm VĐV 2 bằng EFV-ID hoặc tên..."
+                                                    className="h-10 rounded-xl text-sm pl-9 border-emerald-200 focus-visible:ring-emerald-500/30 focus-visible:border-emerald-400"
+                                                />
+                                            </div>
+                                            {/* Dropdown results */}
+                                            {editP2DropdownOpen && editP2SearchResults.length > 0 && (
+                                                <div className="absolute z-50 mt-1 w-full bg-white rounded-xl border border-gray-200 shadow-xl overflow-hidden max-h-[240px] overflow-y-auto">
+                                                    {editP2SearchResults.map((u: any, idx: number) => (
+                                                        <button
+                                                            key={u._id || idx}
+                                                            type="button"
+                                                            onClick={() => handleSelectP2User(u)}
+                                                            className="w-full flex items-center gap-3 px-3 py-2.5 hover:bg-emerald-50 transition-colors text-left border-b border-gray-50 last:border-0"
+                                                        >
+                                                            <div className="w-8 h-8 rounded-full bg-gradient-to-br from-emerald-400 to-teal-500 flex items-center justify-center text-white font-bold text-xs shadow-sm flex-shrink-0">
+                                                                {(u.name || '?')[0]?.toUpperCase()}
+                                                            </div>
+                                                            <div className="flex-1 min-w-0">
+                                                                <div className="text-sm font-medium text-gray-900 truncate">{u.name}</div>
+                                                                <div className="flex items-center gap-2 mt-0.5">
+                                                                    {u.efvId && <span className="text-[10px] font-mono font-bold text-emerald-600 bg-emerald-50 px-1 py-0.5 rounded">EFV #{u.efvId}</span>}
+                                                                    {u.gamerId && <span className="text-[10px] text-gray-400 truncate">ID: {u.gamerId}</span>}
+                                                                </div>
+                                                            </div>
+                                                            <ChevronRight className="w-4 h-4 text-gray-300 flex-shrink-0" />
+                                                        </button>
+                                                    ))}
+                                                </div>
+                                            )}
+                                            {editP2DropdownOpen && editP2SearchQuery.trim().length >= 1 && editP2SearchResults.length === 0 && (
+                                                <div className="absolute z-50 mt-1 w-full bg-white rounded-xl border border-gray-200 shadow-xl px-4 py-3">
+                                                    <p className="text-xs text-gray-400 text-center">Không tìm thấy VĐV nào</p>
+                                                </div>
+                                            )}
+                                        </div>
+                                    )}
+
+                                    {/* Manual name input — always available as fallback */}
                                     <div className="grid grid-cols-2 gap-3">
                                         <div className="space-y-1.5">
                                             <Label className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Tên VĐV 2</Label>
@@ -3189,7 +3346,7 @@ export default function DangKyPage() {
                                                 className="h-10 rounded-xl text-sm border-emerald-200 focus-visible:ring-emerald-500/30 focus-visible:border-emerald-400"
                                             />
                                         </div>
-                                        <div className="space-y-1.5">
+                                        <div className="col-span-2 space-y-1.5">
                                             <Label className="text-xs font-semibold text-gray-500 uppercase tracking-wider flex items-center gap-1">
                                                 <ExternalLink className="w-3 h-3" /> Link Facebook VĐV 2
                                             </Label>
@@ -3201,12 +3358,6 @@ export default function DangKyPage() {
                                             />
                                         </div>
                                     </div>
-                                    {editInfoReg.player2User?.efvId != null && (
-                                        <div className="flex items-center gap-2 text-xs text-emerald-600">
-                                            <span className="font-medium">EFV-ID:</span>
-                                            <span className="font-bold font-mono bg-emerald-100 px-1.5 py-0.5 rounded">#{editInfoReg.player2User.efvId}</span>
-                                        </div>
-                                    )}
                                 </div>
                             )}
 
