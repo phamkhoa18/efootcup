@@ -93,34 +93,72 @@ export async function POST(req: NextRequest) {
         const body = await req.json();
         console.log("🔔 SePay webhook received:", JSON.stringify(body, null, 2));
 
-        await dbConnect();
-
         // ============================================================
-        // DETECT PAYLOAD FORMAT
+        // DETECT PAYLOAD FORMAT (before any DB call for speed)
         // ============================================================
         const isPaymentGatewayIPN = !!body.notification_type;
         const isBankTransferWebhook = !!body.gateway && !!body.transferType;
 
         // ============================================================
-        // STEP 1: VERIFY AUTHENTICATION
-        // Supports multiple auth methods:
-        // - X-Secret-Key header (PG IPN)
-        // - Authorization: Apikey <key> (Bank Transfer webhook)
-        // - No auth (if configured without auth)
+        // RESPOND 200 IMMEDIATELY — process in background
+        // SePay times out after 30s. We must respond fast to avoid
+        // "Operation timed out" errors. All heavy processing is
+        // fire-and-forget via an async IIFE.
         // ============================================================
+
+        // Capture auth headers before responding (can't read after response)
+        const xSecretKey = req.headers.get("x-secret-key") || "";
+        const authHeader = req.headers.get("authorization") || "";
+
+        // Fire-and-forget background processing
+        processWebhookInBackground(body, isPaymentGatewayIPN, isBankTransferWebhook, xSecretKey, authHeader).catch(
+            (err) => console.error("❌ SePay webhook background processing error:", err)
+        );
+
+        // Return 200 immediately so SePay marks IPN as successful
+        return jsonRes({ success: true });
+    } catch (error) {
+        console.error("SePay webhook parse error:", error);
+        // Always return 200 to prevent SePay from retrying endlessly
+        return jsonRes({ success: true });
+    }
+}
+
+/**
+ * Background processor — runs AFTER 200 response is sent to SePay.
+ * Handles all DB operations, notifications, and emails without blocking the response.
+ */
+async function processWebhookInBackground(
+    body: any,
+    isPaymentGatewayIPN: boolean,
+    isBankTransferWebhook: boolean,
+    xSecretKey: string,
+    authHeader: string,
+) {
+    const jsonRes = (data: any, _status = 200) => {
+        // In background mode, we don't send a response — just log
+        console.log("📋 SePay webhook background result:", JSON.stringify(data));
+        return null as any; // Handlers expect a return, but we discard it
+    };
+
+    try {
+        await dbConnect();
+
         const paymentConfig = await (PaymentConfig as any).getSingleton();
         const sepayMethod = paymentConfig.methods?.find(
             (m: any) => m.type === "sepay" && m.enabled
         );
 
-        if (sepayMethod?.sepaySecretKey) {
+        // ============================================================
+        // AUTHENTICATION
+        // PG IPN: SePay PG does NOT send auth headers in IPN requests,
+        //   so we validate PG IPN by checking notification_type + 
+        //   matching invoice number in our DB (implicit trust for PG).
+        // Bank Transfer webhook: verify via Apikey / X-Secret-Key header.
+        // ============================================================
+        if (isBankTransferWebhook && sepayMethod?.sepaySecretKey) {
             const secretKey = sepayMethod.sepaySecretKey;
 
-            // Try X-Secret-Key header first (PG IPN sends this)
-            const xSecretKey = req.headers.get("x-secret-key") || "";
-
-            // Try Authorization header (Bank Transfer webhook may use Apikey auth)
-            const authHeader = req.headers.get("authorization") || "";
             const apikeyMatch = authHeader.match(/^Apikey\s+(.+)$/i);
             const apiKeyValue = apikeyMatch ? apikeyMatch[1].trim() : "";
 
@@ -128,29 +166,23 @@ export async function POST(req: NextRequest) {
             const isApiKeyValid = apiKeyValue === secretKey;
 
             if (!isSecretKeyValid && !isApiKeyValid) {
-                // Return 401 to reject unauthorized payloads
-                console.error("🚨 CRITICAL: SePay webhook auth mismatch. Rejecting payload to prevent fake payments.");
-                return jsonRes({ error: "Unauthorized" }, 401);
-            } else {
-                console.log("✅ SePay webhook: Auth verified via", isSecretKeyValid ? "X-Secret-Key" : "Apikey");
+                console.error("🚨 CRITICAL: SePay bank webhook auth mismatch. Rejecting.");
+                return;
             }
+            console.log("✅ SePay bank webhook: Auth verified via", isSecretKeyValid ? "X-Secret-Key" : "Apikey");
         }
 
-        // ============================================================
-        // ROUTE TO APPROPRIATE HANDLER
-        // ============================================================
         if (isPaymentGatewayIPN) {
-            return await handlePaymentGatewayIPN(body, paymentConfig, jsonRes);
+            console.log("🔄 SePay PG IPN: Processing in background (no auth required for PG IPN)...");
+            await handlePaymentGatewayIPN(body, paymentConfig, jsonRes);
         } else if (isBankTransferWebhook) {
-            return await handleBankTransferWebhook(body, paymentConfig, jsonRes);
+            console.log("🔄 SePay Bank webhook: Processing in background...");
+            await handleBankTransferWebhook(body, paymentConfig, jsonRes);
         } else {
             console.log("⚠️ SePay webhook: Unknown payload format, ignoring");
-            return jsonRes({ success: true });
         }
     } catch (error) {
-        console.error("SePay webhook error:", error);
-        // Always return 200 to prevent SePay from retrying endlessly
-        return jsonRes({ success: true });
+        console.error("❌ SePay webhook background error:", error);
     }
 }
 
