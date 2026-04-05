@@ -93,72 +93,34 @@ export async function POST(req: NextRequest) {
         const body = await req.json();
         console.log("🔔 SePay webhook received:", JSON.stringify(body, null, 2));
 
+        await dbConnect();
+
         // ============================================================
-        // DETECT PAYLOAD FORMAT (before any DB call for speed)
+        // DETECT PAYLOAD FORMAT
         // ============================================================
         const isPaymentGatewayIPN = !!body.notification_type;
         const isBankTransferWebhook = !!body.gateway && !!body.transferType;
 
         // ============================================================
-        // RESPOND 200 IMMEDIATELY — process in background
-        // SePay times out after 30s. We must respond fast to avoid
-        // "Operation timed out" errors. All heavy processing is
-        // fire-and-forget via an async IIFE.
+        // STEP 1: VERIFY AUTHENTICATION
+        // Supports multiple auth methods:
+        // - X-Secret-Key header (PG IPN)
+        // - Authorization: Apikey <key> (Bank Transfer webhook)
+        // - No auth (if configured without auth)
         // ============================================================
-
-        // Capture auth headers before responding (can't read after response)
-        const xSecretKey = req.headers.get("x-secret-key") || "";
-        const authHeader = req.headers.get("authorization") || "";
-
-        // Fire-and-forget background processing
-        processWebhookInBackground(body, isPaymentGatewayIPN, isBankTransferWebhook, xSecretKey, authHeader).catch(
-            (err) => console.error("❌ SePay webhook background processing error:", err)
-        );
-
-        // Return 200 immediately so SePay marks IPN as successful
-        return jsonRes({ success: true });
-    } catch (error) {
-        console.error("SePay webhook parse error:", error);
-        // Always return 200 to prevent SePay from retrying endlessly
-        return jsonRes({ success: true });
-    }
-}
-
-/**
- * Background processor — runs AFTER 200 response is sent to SePay.
- * Handles all DB operations, notifications, and emails without blocking the response.
- */
-async function processWebhookInBackground(
-    body: any,
-    isPaymentGatewayIPN: boolean,
-    isBankTransferWebhook: boolean,
-    xSecretKey: string,
-    authHeader: string,
-) {
-    const jsonRes = (data: any, _status = 200) => {
-        // In background mode, we don't send a response — just log
-        console.log("📋 SePay webhook background result:", JSON.stringify(data));
-        return null as any; // Handlers expect a return, but we discard it
-    };
-
-    try {
-        await dbConnect();
-
         const paymentConfig = await (PaymentConfig as any).getSingleton();
         const sepayMethod = paymentConfig.methods?.find(
             (m: any) => m.type === "sepay" && m.enabled
         );
 
-        // ============================================================
-        // AUTHENTICATION
-        // PG IPN: SePay PG does NOT send auth headers in IPN requests,
-        //   so we validate PG IPN by checking notification_type + 
-        //   matching invoice number in our DB (implicit trust for PG).
-        // Bank Transfer webhook: verify via Apikey / X-Secret-Key header.
-        // ============================================================
-        if (isBankTransferWebhook && sepayMethod?.sepaySecretKey) {
+        if (sepayMethod?.sepaySecretKey) {
             const secretKey = sepayMethod.sepaySecretKey;
 
+            // Try X-Secret-Key header first (PG IPN sends this)
+            const xSecretKey = req.headers.get("x-secret-key") || "";
+
+            // Try Authorization header (Bank Transfer webhook may use Apikey auth)
+            const authHeader = req.headers.get("authorization") || "";
             const apikeyMatch = authHeader.match(/^Apikey\s+(.+)$/i);
             const apiKeyValue = apikeyMatch ? apikeyMatch[1].trim() : "";
 
@@ -166,23 +128,29 @@ async function processWebhookInBackground(
             const isApiKeyValid = apiKeyValue === secretKey;
 
             if (!isSecretKeyValid && !isApiKeyValid) {
-                console.error("🚨 CRITICAL: SePay bank webhook auth mismatch. Rejecting.");
-                return;
+                // Return 401 to reject unauthorized payloads
+                console.error("🚨 CRITICAL: SePay webhook auth mismatch. Rejecting payload to prevent fake payments.");
+                return jsonRes({ error: "Unauthorized" }, 401);
+            } else {
+                console.log("✅ SePay webhook: Auth verified via", isSecretKeyValid ? "X-Secret-Key" : "Apikey");
             }
-            console.log("✅ SePay bank webhook: Auth verified via", isSecretKeyValid ? "X-Secret-Key" : "Apikey");
         }
 
+        // ============================================================
+        // ROUTE TO APPROPRIATE HANDLER
+        // ============================================================
         if (isPaymentGatewayIPN) {
-            console.log("🔄 SePay PG IPN: Processing in background (no auth required for PG IPN)...");
-            await handlePaymentGatewayIPN(body, paymentConfig, jsonRes);
+            return await handlePaymentGatewayIPN(body, paymentConfig, jsonRes);
         } else if (isBankTransferWebhook) {
-            console.log("🔄 SePay Bank webhook: Processing in background...");
-            await handleBankTransferWebhook(body, paymentConfig, jsonRes);
+            return await handleBankTransferWebhook(body, paymentConfig, jsonRes);
         } else {
             console.log("⚠️ SePay webhook: Unknown payload format, ignoring");
+            return jsonRes({ success: true });
         }
     } catch (error) {
-        console.error("❌ SePay webhook background error:", error);
+        console.error("SePay webhook error:", error);
+        // Always return 200 to prevent SePay from retrying endlessly
+        return jsonRes({ success: true });
     }
 }
 
@@ -292,7 +260,7 @@ async function handleBankTransferWebhook(body: any, paymentConfig: any, jsonRes:
         // This bridges the gap: PG IPN marks paid with EFCUP → bank webhook has PAY code
         if (code && /^PAY[A-F0-9]{10,}/i.test(code) && transferAmount > 0) {
             console.log(`🔗 SePay Bank webhook: Trying to link PAY code ${code} to recently paid registration...`);
-            
+
             const thirtyMinAgo = new Date(Date.now() - 30 * 60 * 1000);
             const recentlyPaid = await Registration.find({
                 paymentMethod: "sepay",
@@ -318,7 +286,7 @@ async function handleBankTransferWebhook(body: any, paymentConfig: any, jsonRes:
 
                     console.log(`✅ SePay Bank webhook: Linked PAY code ${code} to registration ${reg._id} (invoice: ${noteData.invoiceNumber})`);
                     return jsonRes({ success: true });
-                } catch {}
+                } catch { }
             }
         }
 
@@ -447,19 +415,22 @@ async function processPayment(registration: any, paymentInfo: {
     if (tournament && registration.status === "pending") {
         if (tournament.currentTeams < tournament.maxTeams) {
             const teamName = registration.teamName || registration.playerName || "Team";
-            const teamShortName = registration.teamShortName || teamName.substring(0, 3).toUpperCase();
+            const teamShortName = registration.teamShortName || teamName.substring(0, 4).toUpperCase();
+            
+            const members = [];
+            if (registration.user) {
+                members.push({ user: registration.user, role: "captain", joinedAt: new Date() });
+            }
+            if (registration.player2User) {
+                members.push({ user: registration.player2User, role: "player", joinedAt: new Date() });
+            }
+
             const team = await Team.create({
                 name: teamName,
                 shortName: teamShortName,
                 tournament: tournament._id,
-                captain: registration.user,
-                members: [
-                    {
-                        user: registration.user,
-                        role: "captain",
-                        joinedAt: new Date(),
-                    },
-                ],
+                captain: registration.user || undefined,
+                members: members,
             });
 
             registration.status = "approved";

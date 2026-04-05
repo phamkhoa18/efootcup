@@ -1407,9 +1407,11 @@ export default function TournamentDetailClient({ initialData, id }: { initialDat
                                     className={`h-full rounded-full ${(t.currentTeams / t.maxTeams) >= 0.8 ? "bg-gradient-to-r from-red-400 to-red-500" : "bg-gradient-to-r from-blue-400 to-indigo-500"}`}
                                 />
                             </div>
-                            {(t.currentTeams / t.maxTeams) >= 0.8 && t.status === "registration" && (
-                                <p className="text-[10px] text-red-500 font-medium mt-1 flex items-center gap-1"><Flame className="w-3 h-3" /> Sắp hết slot!</p>
-                            )}
+                            {t.currentTeams >= t.maxTeams ? (
+                                <p className="text-[10px] text-red-500 font-bold mt-1 flex items-center gap-1"><Ban className="w-3 h-3" /> Đã đủ slot!</p>
+                            ) : (t.currentTeams / t.maxTeams) >= 0.8 && t.status === "registration" ? (
+                                <p className="text-[10px] text-orange-500 font-medium mt-1 flex items-center gap-1"><Flame className="w-3 h-3" /> Sắp hết slot!</p>
+                            ) : null}
                         </div>
 
                         {/* Stats Row - light & compact */}
@@ -1474,7 +1476,7 @@ export default function TournamentDetailClient({ initialData, id }: { initialDat
                                             </Button>
                                         </>
                                     )
-                                ) : (
+                                ) : t.currentTeams >= t.maxTeams ? null : (
                                     <Button
                                         onClick={handleRegisterClick}
                                         className="bg-gradient-to-r from-efb-blue to-indigo-600 hover:from-efb-blue/90 hover:to-indigo-600/90 text-white rounded-lg h-9 px-5 text-xs font-semibold shadow-sm shadow-blue-500/15 hover:shadow-md transition-all"
