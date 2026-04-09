@@ -118,7 +118,7 @@ function createTransporterFromConfig(config: SmtpConfig) {
 // Tries DB config first, verifies connection, falls back to env config
 // ============================================================
 async function createVerifiedTransporter(): Promise<{
-    transporter: ReturnType<typeof nodemailer.createTransport>;
+    transporter: any;
     config: SmtpConfig;
     source: "db" | "env";
 } | null> {
