@@ -18,10 +18,9 @@ interface SmtpConfig {
 // ============================================================
 // Get SMTP config from DB (SiteSettings), fallback to env
 // ============================================================
-async function getSmtpConfig(): Promise<SmtpConfig> {
+async function getSmtpConfigFromDB(): Promise<SmtpConfig | null> {
     try {
         await dbConnect();
-        // Dynamic import to avoid circular dependency
         const SiteSettings = (await import("@/models/SiteSettings")).default;
         const settings = await (SiteSettings as any).getSingleton();
 
@@ -40,17 +39,36 @@ async function getSmtpConfig(): Promise<SmtpConfig> {
     } catch (err) {
         console.error("Failed to load SMTP config from DB:", err);
     }
+    return null;
+}
 
-    // Fallback to environment variables
+function getSmtpConfigFromEnv(): SmtpConfig | null {
+    if (process.env.SMTP_HOST && process.env.SMTP_USER) {
+        return {
+            smtpHost: process.env.SMTP_HOST,
+            smtpPort: parseInt(process.env.SMTP_PORT || "587"),
+            smtpSecure: process.env.SMTP_SECURE === "true",
+            smtpUser: process.env.SMTP_USER,
+            smtpPass: process.env.SMTP_PASS || "",
+            smtpFromName: "EFV CUP VN",
+            smtpFromEmail: process.env.SMTP_FROM || process.env.SMTP_USER || "",
+            emailEnabled: true,
+        };
+    }
+    return null;
+}
+
+// Legacy compat wrapper
+async function getSmtpConfig(): Promise<SmtpConfig> {
+    const dbConfig = await getSmtpConfigFromDB();
+    if (dbConfig) return dbConfig;
+    const envConfig = getSmtpConfigFromEnv();
+    if (envConfig) return envConfig;
     return {
-        smtpHost: process.env.SMTP_HOST || "",
-        smtpPort: parseInt(process.env.SMTP_PORT || "587"),
-        smtpSecure: process.env.SMTP_SECURE === "true",
-        smtpUser: process.env.SMTP_USER || "",
-        smtpPass: process.env.SMTP_PASS || "",
-        smtpFromName: "EFV CUP VN",
-        smtpFromEmail: process.env.SMTP_FROM || process.env.SMTP_USER || "",
-        emailEnabled: !!process.env.SMTP_HOST,
+        smtpHost: "", smtpPort: 587, smtpSecure: false,
+        smtpUser: "", smtpPass: "",
+        smtpFromName: "EFV CUP VN", smtpFromEmail: "",
+        emailEnabled: false,
     };
 }
 
@@ -58,53 +76,80 @@ async function getSmtpConfig(): Promise<SmtpConfig> {
 // Create transporter from config
 // ============================================================
 function createTransporterFromConfig(config: SmtpConfig) {
-    if (config.smtpHost && config.smtpUser) {
-        const host = config.smtpHost.toLowerCase();
-        
-        // Detect Outlook/Office365/Microsoft SMTP
-        const isOutlook = host.includes("outlook") || host.includes("office365") || host.includes("microsoft") || host.includes("hotmail") || host.includes("live.com");
-        
-        const transportConfig: any = {
-            host: config.smtpHost,
-            port: config.smtpPort || (isOutlook ? 587 : 587),
-            secure: config.smtpSecure, // false for port 587 (STARTTLS)
-            auth: {
-                user: config.smtpUser,
-                pass: config.smtpPass,
-            },
+    const host = config.smtpHost.toLowerCase();
+    
+    // Detect Outlook/Office365/Microsoft SMTP
+    const isOutlook = host.includes("outlook") || host.includes("office365") || host.includes("microsoft") || host.includes("hotmail") || host.includes("live.com");
+    
+    const transportConfig: any = {
+        host: config.smtpHost,
+        port: config.smtpPort || 587,
+        secure: config.smtpSecure,
+        auth: {
+            user: config.smtpUser,
+            pass: config.smtpPass,
+        },
+    };
+
+    // Outlook/Office365 requires specific TLS settings
+    if (isOutlook) {
+        transportConfig.secure = false;
+        transportConfig.port = 587;
+        transportConfig.tls = {
+            ciphers: "SSLv3",
+            rejectUnauthorized: false,
         };
-
-        // Outlook/Office365 requires specific TLS settings
-        if (isOutlook) {
-            transportConfig.secure = false; // Outlook uses STARTTLS, not direct SSL
-            transportConfig.port = 587;
-            transportConfig.tls = {
-                ciphers: "SSLv3",
-                rejectUnauthorized: false,
-            };
-            transportConfig.requireTLS = true;
-            console.log(`[SMTP] Detected Outlook/Microsoft host: ${host}, using STARTTLS on port 587`);
-        }
-
-        // For other hosts with port 587 and secure=false, enable STARTTLS
-        if (!transportConfig.secure && transportConfig.port === 587 && !transportConfig.tls) {
-            transportConfig.tls = {
-                rejectUnauthorized: false,
-            };
-        }
-
-        return nodemailer.createTransport(transportConfig);
+        transportConfig.requireTLS = true;
+        console.log(`[SMTP] Detected Outlook/Microsoft host: ${host}, using STARTTLS on port 587`);
     }
 
-    // Fallback: Ethereal for testing
-    return nodemailer.createTransport({
-        host: "smtp.ethereal.email",
-        port: 587,
-        auth: {
-            user: process.env.ETHEREAL_USER || "",
-            pass: process.env.ETHEREAL_PASS || "",
-        },
-    });
+    // For other hosts with port 587 and secure=false, enable STARTTLS
+    if (!transportConfig.secure && transportConfig.port === 587 && !transportConfig.tls) {
+        transportConfig.tls = {
+            rejectUnauthorized: false,
+        };
+    }
+
+    return nodemailer.createTransport(transportConfig);
+}
+
+// ============================================================
+// Create a verified transporter with fallback
+// Tries DB config first, verifies connection, falls back to env config
+// ============================================================
+async function createVerifiedTransporter(): Promise<{
+    transporter: ReturnType<typeof nodemailer.createTransport>;
+    config: SmtpConfig;
+    source: "db" | "env";
+} | null> {
+    // Try DB config first
+    const dbConfig = await getSmtpConfigFromDB();
+    if (dbConfig && dbConfig.smtpHost && dbConfig.smtpUser) {
+        try {
+            const transporter = createTransporterFromConfig(dbConfig);
+            await transporter.verify();
+            console.log(`[SMTP] ✅ DB config verified (${dbConfig.smtpHost})`);
+            return { transporter, config: dbConfig, source: "db" };
+        } catch (err: any) {
+            console.warn(`[SMTP] ⚠️ DB config failed verify (${dbConfig.smtpHost}): ${err.message}`);
+            console.warn(`[SMTP] Falling back to .env.local config...`);
+        }
+    }
+
+    // Fallback to env config
+    const envConfig = getSmtpConfigFromEnv();
+    if (envConfig && envConfig.smtpHost && envConfig.smtpUser) {
+        try {
+            const transporter = createTransporterFromConfig(envConfig);
+            await transporter.verify();
+            console.log(`[SMTP] ✅ ENV config verified (${envConfig.smtpHost})`);
+            return { transporter, config: envConfig, source: "env" };
+        } catch (err: any) {
+            console.error(`[SMTP] ❌ ENV config also failed verify (${envConfig.smtpHost}): ${err.message}`);
+        }
+    }
+
+    return null;
 }
 
 // ============================================================
@@ -123,17 +168,18 @@ export async function sendVerificationEmail(
     code: string
 ): Promise<{ success: boolean; previewUrl?: string; error?: string }> {
     try {
-        const config = await getSmtpConfig();
+        // Use verified transporter with automatic fallback (DB → ENV)
+        const verified = await createVerifiedTransporter();
 
-        console.log(`[SMTP DEBUG] Verification email — to: ${email}, host: ${config.smtpHost || "(empty)"}, user: ${config.smtpUser ? config.smtpUser.substring(0, 5) + "..." : "(empty)"}, emailEnabled: ${config.emailEnabled}`);
-
-        if (!config.smtpHost || !config.smtpUser) {
-            console.error("[SMTP] SMTP not configured! Configure in Admin > Cài đặt > Email or set SMTP_HOST, SMTP_USER, SMTP_PASS in .env.local");
-            return { success: false, error: "SMTP chưa được cấu hình. Hãy thiết lập trong Admin > Cài đặt > Email" };
+        if (!verified) {
+            console.error("[SMTP] No working SMTP config found! Configure in Admin > Cài đặt > Email or set SMTP_HOST, SMTP_USER, SMTP_PASS in .env.local");
+            return { success: false, error: "Không có cấu hình SMTP nào hoạt động. Hãy kiểm tra Admin > Cài đặt > Email hoặc .env.local" };
         }
 
-        const transporter = createTransporterFromConfig(config);
-        const fromAddress = `"${config.smtpFromName}" <${config.smtpFromEmail || "noreply@efootball.vn"}>`;
+        const { transporter, config, source } = verified;
+        console.log(`[SMTP DEBUG] Verification email — to: ${email}, using: ${source} (${config.smtpHost}), user: ${config.smtpUser.substring(0, 5)}...`);
+
+        const fromAddress = `"${config.smtpFromName}" <${config.smtpFromEmail || config.smtpUser}>`;
 
         const mailOptions = {
             from: fromAddress,
@@ -238,17 +284,16 @@ export async function sendResetPasswordEmail(
     code: string
 ): Promise<{ success: boolean; previewUrl?: string }> {
     try {
-        const config = await getSmtpConfig();
-        
-        console.log(`[SMTP DEBUG] Reset password email — to: ${email}, host: ${config.smtpHost || "(empty)"}, user: ${config.smtpUser ? config.smtpUser.substring(0, 5) + "..." : "(empty)"}`);
-
-        if (!config.smtpHost || !config.smtpUser) {
-            console.error("[SMTP] SMTP not configured! Configure in Admin > Cài đặt > Email or set SMTP_HOST, SMTP_USER, SMTP_PASS in .env.local");
+        const verified = await createVerifiedTransporter();
+        if (!verified) {
+            console.error("[SMTP] No working SMTP config for reset password email");
             return { success: false };
         }
 
-        const transporter = createTransporterFromConfig(config);
-        const fromAddress = `"${config.smtpFromName}" <${config.smtpFromEmail || "noreply@efootball.vn"}>`;
+        const { transporter, config, source } = verified;
+        console.log(`[SMTP DEBUG] Reset password email — to: ${email}, using: ${source} (${config.smtpHost})`);
+
+        const fromAddress = `"${config.smtpFromName}" <${config.smtpFromEmail || config.smtpUser}>`;
 
         const mailOptions = {
             from: fromAddress,
@@ -355,14 +400,14 @@ export async function sendNotificationEmail(
     link: string = "https://efootball.vn"
 ): Promise<{ success: boolean }> {
     try {
-        const config = await getSmtpConfig();
-        if (!config.smtpHost || !config.smtpUser) {
-            console.log("SMTP not configured, skipping notification email");
+        const verified = await createVerifiedTransporter();
+        if (!verified) {
+            console.log("[SMTP] No working SMTP config, skipping notification email");
             return { success: false };
         }
 
-        const transporter = createTransporterFromConfig(config);
-        const fromAddress = `"${config.smtpFromName}" <${config.smtpFromEmail || "noreply@efootball.vn"}>`;
+        const { transporter, config } = verified;
+        const fromAddress = `"${config.smtpFromName}" <${config.smtpFromEmail || config.smtpUser}>`;
 
         const mailOptions = {
             from: fromAddress,
@@ -442,14 +487,14 @@ export async function sendPaymentInvoiceEmail(
     data: InvoiceData
 ): Promise<{ success: boolean; previewUrl?: string }> {
     try {
-        const config = await getSmtpConfig();
-        if (!config.smtpHost || !config.smtpUser) {
-            console.log("SMTP not configured, skipping invoice email");
+        const verified = await createVerifiedTransporter();
+        if (!verified) {
+            console.log("[SMTP] No working SMTP config, skipping invoice email");
             return { success: false };
         }
 
-        const transporter = createTransporterFromConfig(config);
-        const fromAddress = `"${config.smtpFromName}" <${config.smtpFromEmail || "noreply@efootball.vn"}>`;
+        const { transporter, config } = verified;
+        const fromAddress = `"${config.smtpFromName}" <${config.smtpFromEmail || config.smtpUser}>`;
 
         const invoiceNumber = `INV-${String(data.orderCode).padStart(6, "0")}`;
         const formattedAmount = Number(data.amount).toLocaleString("vi-VN");
@@ -721,9 +766,13 @@ export async function sendTestEmail(
     toEmail: string
 ): Promise<{ success: boolean; error?: string; previewUrl?: string }> {
     try {
-        const config = await getSmtpConfig();
-        const transporter = createTransporterFromConfig(config);
-        const fromAddress = `"${config.smtpFromName}" <${config.smtpFromEmail || "noreply@efootball.vn"}>`;
+        const verified = await createVerifiedTransporter();
+        if (!verified) {
+            return { success: false, error: "Không có SMTP nào hoạt động" };
+        }
+
+        const { transporter, config } = verified;
+        const fromAddress = `"${config.smtpFromName}" <${config.smtpFromEmail || config.smtpUser}>`;
 
         const mailOptions = {
             from: fromAddress,
