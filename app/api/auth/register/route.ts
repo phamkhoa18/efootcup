@@ -58,10 +58,16 @@ export async function POST(req: NextRequest) {
                     console.log("📧 Verification email preview:", emailResult.previewUrl);
                 }
 
+                if (!emailResult.success) {
+                    console.error(`[Register] Failed to send verification email to ${email}:`, emailResult.error);
+                }
+
                 return apiResponse(
-                    { email: existingUser.email, requiresVerification: true },
+                    { email: existingUser.email, requiresVerification: true, emailSent: emailResult.success },
                     200,
-                    "Mã xác minh đã được gửi lại vào email của bạn"
+                    emailResult.success
+                        ? "Mã xác minh đã được gửi lại vào email của bạn"
+                        : "Tài khoản đã được cập nhật nhưng không gửi được email xác minh. Vui lòng thử gửi lại mã."
                 );
             }
 
@@ -97,13 +103,20 @@ export async function POST(req: NextRequest) {
             console.log("📧 Verification email preview:", emailResult.previewUrl);
         }
 
+        if (!emailResult.success) {
+            console.error(`[Register] Failed to send verification email to ${email}:`, emailResult.error);
+        }
+
         return apiResponse(
             {
                 email: user.email,
                 requiresVerification: true,
+                emailSent: emailResult.success,
             },
             201,
-            "Đăng ký thành công! Vui lòng kiểm tra email để xác minh tài khoản"
+            emailResult.success
+                ? "Đăng ký thành công! Vui lòng kiểm tra email để xác minh tài khoản"
+                : "Đăng ký thành công nhưng không gửi được email xác minh. Vui lòng thử gửi lại mã."
         );
     } catch (error: any) {
         console.error("Register error:", error);

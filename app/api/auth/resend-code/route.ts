@@ -52,6 +52,14 @@ export async function POST(req: NextRequest) {
             console.log("📧 Resend verification email preview:", emailResult.previewUrl);
         }
 
+        if (!emailResult.success) {
+            console.error(`[Resend] Failed to send verification email to ${email}:`, emailResult.error);
+            return apiError(
+                `Không gửi được email xác minh: ${emailResult.error || "Lỗi SMTP"}. Vui lòng liên hệ quản trị viên.`,
+                500
+            );
+        }
+
         return apiResponse(
             { email: user.email },
             200,

@@ -1,0 +1,1 @@
+{"indexes":[{"v":{"$numberInt":"2"},"key":{"_id":{"$numberInt":"1"}},"name":"_id_"},{"v":{"$numberInt":"2"},"key":{"tournament":{"$numberInt":"1"},"status":{"$numberInt":"1"}},"name":"tournament_1_status_1"}],"uuid":"94c12393904846caa25a517fc708d91f","collectionName":"registrations","type":"collection"}

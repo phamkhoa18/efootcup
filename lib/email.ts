@@ -121,9 +121,17 @@ export async function sendVerificationEmail(
     email: string,
     name: string,
     code: string
-): Promise<{ success: boolean; previewUrl?: string }> {
+): Promise<{ success: boolean; previewUrl?: string; error?: string }> {
     try {
         const config = await getSmtpConfig();
+
+        console.log(`[SMTP DEBUG] Verification email — to: ${email}, host: ${config.smtpHost || "(empty)"}, user: ${config.smtpUser ? config.smtpUser.substring(0, 5) + "..." : "(empty)"}, emailEnabled: ${config.emailEnabled}`);
+
+        if (!config.smtpHost || !config.smtpUser) {
+            console.error("[SMTP] SMTP not configured! Configure in Admin > Cài đặt > Email or set SMTP_HOST, SMTP_USER, SMTP_PASS in .env.local");
+            return { success: false, error: "SMTP chưa được cấu hình. Hãy thiết lập trong Admin > Cài đặt > Email" };
+        }
+
         const transporter = createTransporterFromConfig(config);
         const fromAddress = `"${config.smtpFromName}" <${config.smtpFromEmail || "noreply@efootball.vn"}>`;
 
@@ -215,9 +223,9 @@ export async function sendVerificationEmail(
         }
 
         return { success: true, previewUrl: previewUrl || undefined };
-    } catch (error) {
-        console.error("Send email error:", error);
-        return { success: false };
+    } catch (error: any) {
+        console.error("Send verification email error:", error);
+        return { success: false, error: error.message || "Lỗi gửi email" };
     }
 }
 

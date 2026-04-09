@@ -23,20 +23,43 @@ export async function GET(req: NextRequest) {
             return (b.points || 0) - (a.points || 0);
         });
 
-        // Look up User data (avatar, efvId, facebookLink) by efvId (stored as gamerId in BXH)
+        // Look up User profile data by efvId (stored as gamerId in BXH)
+        // Profile data (name, team, nickname, facebook) takes priority over BXH record
         const User = (await import("@/models/User")).default;
         const efvIds = bxhList.map(item => Number(item.gamerId)).filter(n => !isNaN(n));
         const users = efvIds.length > 0
-            ? await User.find({ efvId: { $in: efvIds } }).select("efvId avatar facebookLink facebookName").lean()
+            ? await User.find({ efvId: { $in: efvIds } }).select("efvId name avatar nickname teamName facebookLink facebookName").lean()
             : [];
-        const userMap = new Map<number, { avatar?: string; efvId: number; facebookLink?: string; facebookName?: string }>();
+        const userMap = new Map<number, {
+            efvId: number;
+            name?: string;
+            avatar?: string;
+            nickname?: string;
+            teamName?: string;
+            facebookLink?: string;
+            facebookName?: string;
+        }>();
         for (const u of users) {
-            userMap.set(u.efvId, { avatar: u.avatar || "", efvId: u.efvId, facebookLink: u.facebookLink || "", facebookName: u.facebookName || "" });
+            userMap.set(u.efvId, {
+                efvId: u.efvId,
+                name: u.name || "",
+                avatar: u.avatar || "",
+                nickname: u.nickname || "",
+                teamName: u.teamName || "",
+                facebookLink: u.facebookLink || "",
+                facebookName: u.facebookName || "",
+            });
         }
 
         const data = bxhList.map((item) => {
             const userInfo = userMap.get(Number(item.gamerId));
-            // Determine the best facebook link: prefer User.facebookLink, then check if BXH.facebook is a URL
+
+            // Priority: User profile > BXH record
+            const playerName = userInfo?.name || item.name;
+            const playerNickname = userInfo?.nickname || item.nickname;
+            const playerTeam = userInfo?.teamName || item.team;
+
+            // Determine facebook: prefer User profile, fallback to BXH
             const bxhFb = item.facebook || "";
             const isBxhFbUrl = bxhFb.startsWith("http") || bxhFb.startsWith("www.") || bxhFb.includes("facebook.com");
             const facebookLink = userInfo?.facebookLink || (isBxhFbUrl ? bxhFb : "");
@@ -45,11 +68,11 @@ export async function GET(req: NextRequest) {
             return {
                 id: item.gamerId,
                 _id: item._id,
-                name: item.name,
-                facebook: facebookLink, // Always a URL now
-                facebookName: facebookName, // Display name
-                team: item.team,
-                nickname: item.nickname,
+                name: playerName,
+                facebook: facebookLink,
+                facebookName: facebookName,
+                team: playerTeam,
+                nickname: playerNickname,
                 points: item.points,
                 // User profile
                 avatar: userInfo?.avatar || "",
