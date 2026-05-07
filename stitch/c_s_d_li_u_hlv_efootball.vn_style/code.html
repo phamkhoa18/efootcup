@@ -1,0 +1,322 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="vi"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>eFootball.vn - Manager Database</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;900&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        primary: "#0A3D91", // Custom color from design system
+                        secondary: "#10b981", // Emerald-500 equivalent for accents
+                        "surface-container-highest": "#334155",
+                        "on-surface": "#f8fafc",
+                        "on-surface-variant": "#94a3b8",
+                        background: "#020617", // slate-950
+                        surface: "#0f172a", // slate-900
+                    },
+                    borderRadius: {
+                        "DEFAULT": "8px",
+                        "lg": "12px",
+                        "xl": "16px",
+                        "full": "9999px"
+                    },
+                    fontFamily: {
+                        inter: ["Inter", "sans-serif"],
+                        body: ["Inter", "sans-serif"],
+                        headline: ["Inter", "sans-serif"],
+                        label: ["Inter", "sans-serif"]
+                    }
+                },
+            },
+        }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        .glass-panel {
+            background: rgba(15, 23, 42, 0.6);
+            backdrop-filter: blur(20px);
+        }
+    </style>
+</head>
+<body class="bg-slate-950 text-slate-200 font-inter selection:bg-emerald-500/30 selection:text-emerald-400">
+<!-- TopNavBar (Shared Component) -->
+<header class="bg-slate-950/80 backdrop-blur-md fixed top-0 w-full z-50 border-b border-white/10 shadow-2xl shadow-blue-900/20">
+<nav class="flex justify-between items-center h-16 px-6 max-w-screen-2xl mx-auto">
+<div class="text-2xl font-black tracking-tighter text-white italic">eFootball VN</div>
+<div class="hidden md:flex items-center gap-8">
+<a class="text-slate-300 font-medium hover:text-emerald-300 transition-all duration-300 tracking-tight" href="#">Trang chủ</a>
+<a class="text-slate-300 font-medium hover:text-emerald-300 transition-all duration-300 tracking-tight" href="#">Cầu thủ</a>
+<a class="text-emerald-400 font-bold border-b-2 border-emerald-500 pb-1 tracking-tight" href="#">HLV</a>
+<a class="text-slate-300 font-medium hover:text-emerald-300 transition-all duration-300 tracking-tight" href="#">Đội hình</a>
+<a class="text-slate-300 font-medium hover:text-emerald-300 transition-all duration-300 tracking-tight" href="#">Công cụ</a>
+</div>
+<div class="flex items-center gap-4">
+<div class="hidden lg:flex items-center bg-white/5 px-3 py-1.5 rounded-lg border border-white/10 focus-within:border-emerald-500 transition-all">
+<span class="material-symbols-outlined text-slate-400 text-sm">search</span>
+<input class="bg-transparent border-none focus:ring-0 text-sm w-48 placeholder:text-slate-500 text-white" placeholder="Tìm kiếm HLV..." type="text"/>
+</div>
+<div class="flex items-center gap-2">
+<button class="material-symbols-outlined text-slate-300 hover:text-emerald-300 p-2 hover:bg-white/5 rounded-full transition-all duration-300">notifications</button>
+<button class="material-symbols-outlined text-slate-300 hover:text-emerald-300 p-2 hover:bg-white/5 rounded-full transition-all duration-300">person</button>
+</div>
+<button class="bg-emerald-500 text-slate-950 font-bold text-xs px-5 py-2 rounded-lg hover:scale-95 active:scale-90 transition-transform duration-100">Tham gia</button>
+</div>
+</nav>
+</header>
+<main class="pt-16 min-h-screen max-w-screen-2xl mx-auto flex">
+<!-- SideNavBar (Shared Component) -->
+<aside class="hidden lg:flex flex-col h-[calc(100vh-64px)] w-64 fixed left-0 top-16 bg-slate-900/50 backdrop-blur-lg border-r border-white/5 py-8">
+<div class="px-6 mb-8">
+<div class="flex items-center gap-3">
+<div class="w-10 h-10 rounded-lg overflow-hidden bg-slate-800 flex items-center justify-center border border-white/10">
+<img alt="User Profile" class="w-full h-full object-cover" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBwJQe6kJL7BSCRjOmO2ns1Lo1voNo1Ewog8Mgn6VXI7xLghIIBBwI63j82ox2BCWcXrf8hyBMWURaF9le4hh8AStwEV9WhM-P8BgHihVJzohdR86Qw6o5uHv85PUkNxxPfTYyounHCI8Oi5PKbhfWuPEai8vOe6zJoZssObzkBI-QZdA3D-hoSYmpVaNRyONanLz2Md5wgyJ_DOLVA6j9vNKpmh_zZ2Gk4V_00EtMjFE8Ygoci1unjIjaenhwTk_RrjnQemqOoTAi0"/>
+</div>
+<div>
+<div class="text-sm font-bold text-white uppercase tracking-wider">Pro Dashboard</div>
+<div class="text-[10px] text-slate-500 font-semibold uppercase tracking-widest">Elite Stats</div>
+</div>
+</div>
+</div>
+<nav class="flex-1 space-y-1">
+<a class="flex items-center gap-4 text-slate-400 px-4 py-3 hover:bg-white/5 hover:text-white transition-colors font-inter text-sm font-semibold uppercase tracking-widest" href="#">
+<span class="material-symbols-outlined">leaderboard</span>
+<span>Thứ hạng</span>
+</a>
+<a class="flex items-center gap-4 text-slate-400 px-4 py-3 hover:bg-white/5 hover:text-white transition-colors font-inter text-sm font-semibold uppercase tracking-widest" href="#">
+<span class="material-symbols-outlined">swap_horiz</span>
+<span>Chuyển nhượng</span>
+</a>
+<a class="flex items-center gap-4 bg-gradient-to-r from-blue-900/40 to-transparent text-emerald-400 border-l-4 border-emerald-500 px-4 py-3 font-inter text-sm font-semibold uppercase tracking-widest" href="#">
+<span class="material-symbols-outlined">menu_book</span>
+<span>Cẩm nang</span>
+</a>
+<a class="flex items-center gap-4 text-slate-400 px-4 py-3 hover:bg-white/5 hover:text-white transition-colors font-inter text-sm font-semibold uppercase tracking-widest" href="#">
+<span class="material-symbols-outlined">emoji_events</span>
+<span>Giải đấu</span>
+</a>
+<a class="flex items-center gap-4 text-slate-400 px-4 py-3 hover:bg-white/5 hover:text-white transition-colors font-inter text-sm font-semibold uppercase tracking-widest" href="#">
+<span class="material-symbols-outlined">groups</span>
+<span>Cộng đồng</span>
+</a>
+</nav>
+<div class="px-4 mt-auto">
+<button class="w-full bg-blue-600 hover:bg-blue-500 text-white font-bold py-3 rounded-lg transition-colors flex items-center justify-center gap-2">
+<span class="material-symbols-outlined text-sm">add_circle</span>
+                Tạo Đội Hình
+            </button>
+</div>
+</aside>
+<!-- Main Content Area -->
+<section class="flex-1 lg:ml-64 p-6 md:p-10 bg-slate-950">
+<!-- Hero Title -->
+<div class="mb-12">
+<h1 class="text-5xl md:text-7xl font-black tracking-tighter text-white mb-4 italic">DANH SÁCH HLV</h1>
+<p class="text-slate-400 font-medium tracking-tight text-base max-w-3xl leading-relaxed">Khám phá cơ sở dữ liệu chiến thuật hàng đầu thế giới. Lọc theo đội hình ưa thích và phong cách chơi để tìm người dẫn dắt hoàn hảo cho đội bóng của bạn.</p>
+</div>
+<!-- Bento Filter Section -->
+<div class="grid grid-cols-1 lg:grid-cols-4 gap-6 mb-12">
+<div class="lg:col-span-2 bg-slate-900 border border-white/5 p-6 rounded-lg shadow-xl">
+<label class="block text-[11px] font-bold text-slate-500 uppercase tracking-widest mb-3">Tên HLV</label>
+<div class="relative group">
+<input class="w-full bg-slate-950 border border-white/10 focus:border-emerald-500 focus:ring-0 rounded-lg p-4 text-white placeholder:text-slate-600 transition-all" placeholder="Tìm kiếm HLV..." type="text"/>
+</div>
+</div>
+<div class="bg-slate-900 border border-white/5 p-6 rounded-lg shadow-xl">
+<label class="block text-[11px] font-bold text-slate-500 uppercase tracking-widest mb-3">Đội hình</label>
+<select class="w-full bg-slate-950 border border-white/10 focus:border-emerald-500 focus:ring-0 rounded-lg p-4 text-white appearance-none cursor-pointer">
+<option>Tất cả đội hình</option>
+<option>4-3-3</option>
+<option>4-2-3-1</option>
+<option>4-4-2</option>
+<option>3-2-2-3</option>
+</select>
+</div>
+<div class="bg-slate-900 border border-white/5 p-6 rounded-lg shadow-xl">
+<label class="block text-[11px] font-bold text-slate-500 uppercase tracking-widest mb-3">Phong cách</label>
+<select class="w-full bg-slate-950 border border-white/10 focus:border-emerald-500 focus:ring-0 rounded-lg p-4 text-white appearance-none cursor-pointer">
+<option>Mọi phong cách</option>
+<option>Quick Counter</option>
+<option>Possession Game</option>
+<option>Long Ball Counter</option>
+<option>Out Wide</option>
+</select>
+</div>
+</div>
+<!-- List Header -->
+<div class="flex items-center justify-between mb-8 px-4 border-l-4 border-emerald-500">
+<h2 class="text-sm font-black text-emerald-400 tracking-[0.2em] uppercase">Thông tin HLV</h2>
+<div class="flex items-center gap-4 text-[11px] font-bold text-slate-500 uppercase tracking-widest">
+<span class="hidden md:inline">Xếp hạng theo: Rating cao nhất</span>
+<span class="material-symbols-outlined text-sm cursor-pointer hover:text-emerald-400">sort</span>
+</div>
+</div>
+<!-- Tactical List View -->
+<div class="space-y-4">
+<!-- Manager Row 1 -->
+<div class="group bg-slate-900 hover:bg-slate-800 border border-white/5 transition-all duration-300 p-5 rounded-lg flex flex-col md:flex-row items-center gap-6 shadow-lg hover:shadow-emerald-500/5">
+<div class="relative">
+<div class="w-20 h-20 rounded-lg overflow-hidden bg-slate-950 border border-white/10">
+<img alt="G. ZEITZLER" class="w-full h-full object-cover grayscale group-hover:grayscale-0 transition-all duration-700" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCV6LWkEtFN5sNagvICJcNOVNos1wTyqfkEZbpuxfmVAN46bAX6nziqvDTXH0UQx5TPbkmmBpVsxUN8nwEEuTW-HbvOBvy6b0pkUffs_lP8umaRGxcIvEJl2X67i8o8GkWCKo06beU7sHB9bbQ_TEs7V7I3vEU7RTNPTIminqmOQ36ZO1KMAHPxJs3HDvIGCOn59DZuhLwn66xAJycaHAqu1343SHLPeSMLTrVXmv9LRxpY_cx9q28MVGD7jAD4VGx_oCbQ5Vd0KFb6"/>
+</div>
+<div class="absolute -top-2 -right-2 bg-emerald-500 text-slate-950 text-[9px] font-black px-2 py-0.5 rounded shadow-lg">LEGEND</div>
+</div>
+<div class="flex-1 min-w-0">
+<div class="flex items-center gap-3 mb-2">
+<h3 class="text-2xl font-black text-white italic truncate tracking-tight">G. ZEITZLER</h3>
+<span class="bg-slate-800 border border-white/10 px-2 py-0.5 rounded text-[10px] font-bold text-slate-400 uppercase">Liverpool R</span>
+</div>
+<div class="flex items-center gap-5">
+<div class="flex items-center gap-1.5 group/stat">
+<span class="material-symbols-outlined text-emerald-500 text-sm">grid_view</span>
+<span class="text-sm font-medium text-slate-300">4-3-3</span>
+</div>
+<div class="flex items-center gap-1.5 group/stat">
+<span class="material-symbols-outlined text-blue-400 text-sm">bolt</span>
+<span class="text-sm font-medium text-slate-300">Quick Counter: 87</span>
+</div>
+</div>
+</div>
+<!-- Attribute Bars -->
+<div class="flex gap-3 w-full md:w-auto overflow-x-auto pb-2 md:pb-0">
+<div class="bg-slate-950 p-3 rounded-lg min-w-[85px] text-center border-b-2 border-white/10">
+<div class="text-[9px] text-slate-500 font-bold uppercase tracking-wider mb-1">POS</div>
+<div class="text-lg font-black text-white">78</div>
+</div>
+<div class="bg-slate-950 p-3 rounded-lg min-w-[85px] text-center border-b-2 border-emerald-500">
+<div class="text-[9px] text-emerald-500 font-bold uppercase tracking-wider mb-1">QC</div>
+<div class="text-lg font-black text-emerald-400">87</div>
+</div>
+<div class="bg-slate-950 p-3 rounded-lg min-w-[85px] text-center border-b-2 border-white/10">
+<div class="text-[9px] text-slate-500 font-bold uppercase tracking-wider mb-1">LBC</div>
+<div class="text-lg font-black text-white">71</div>
+</div>
+<div class="bg-slate-950 p-3 rounded-lg min-w-[85px] text-center border-b-2 border-white/10">
+<div class="text-[9px] text-slate-500 font-bold uppercase tracking-wider mb-1">OW</div>
+<div class="text-lg font-black text-white">65</div>
+</div>
+</div>
+<button class="material-symbols-outlined text-slate-600 hover:text-emerald-400 transition-colors p-2">chevron_right</button>
+</div>
+<!-- Manager Row 2 -->
+<div class="group bg-slate-900 hover:bg-slate-800 border border-white/5 transition-all duration-300 p-5 rounded-lg flex flex-col md:flex-row items-center gap-6 shadow-lg">
+<div class="w-20 h-20 rounded-lg overflow-hidden bg-slate-950 border border-white/10">
+<img alt="L. ROMAN" class="w-full h-full object-cover grayscale group-hover:grayscale-0 transition-all duration-700" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCkIypQJ6uGWYGRp1N2iYOIn-uQqVLj4lXYYR_RjzVlI6JAcwrPcIX_Ir8Zu8MfFBJCeziGvCZ5unYOaz82rw2sUCuuCTZWvpxQEhTvIdxa5SIoBsQ3NY9uMn5UX729Qt1M5fkJvHkhRZDmAmfnfNOZv2-ws7BWutvv9XjhDSq2pwS6Y4NzKtxh7KWFkW6lUCKBUTrWdOfSSp1NoqjGdr3Jeyzg_aewbJJdyW6i3acN19BjexemzanHefJooiwVlvchuGtvqeqKwnE5"/>
+</div>
+<div class="flex-1 min-w-0">
+<div class="flex items-center gap-3 mb-2">
+<h3 class="text-2xl font-black text-white italic truncate tracking-tight">L. ROMAN</h3>
+<span class="bg-slate-800 border border-white/10 px-2 py-0.5 rounded text-[10px] font-bold text-slate-400 uppercase">Man Blue</span>
+</div>
+<div class="flex items-center gap-5">
+<div class="flex items-center gap-1.5">
+<span class="material-symbols-outlined text-emerald-500 text-sm">grid_view</span>
+<span class="text-sm font-medium text-slate-300">4-2-3-1</span>
+</div>
+<div class="flex items-center gap-1.5">
+<span class="material-symbols-outlined text-emerald-400 text-sm">change_history</span>
+<span class="text-sm font-medium text-slate-300">Possession: 88</span>
+</div>
+</div>
+</div>
+<div class="flex gap-3 w-full md:w-auto overflow-x-auto pb-2 md:pb-0">
+<div class="bg-slate-950 p-3 rounded-lg min-w-[85px] text-center border-b-2 border-emerald-500">
+<div class="text-[9px] text-emerald-500 font-bold uppercase tracking-wider mb-1">POS</div>
+<div class="text-lg font-black text-emerald-400">88</div>
+</div>
+<div class="bg-slate-950 p-3 rounded-lg min-w-[85px] text-center border-b-2 border-white/10">
+<div class="text-[9px] text-slate-500 font-bold uppercase tracking-wider mb-1">QC</div>
+<div class="text-lg font-black text-white">74</div>
+</div>
+<div class="bg-slate-950 p-3 rounded-lg min-w-[85px] text-center border-b-2 border-white/10">
+<div class="text-[9px] text-slate-500 font-bold uppercase tracking-wider mb-1">LBC</div>
+<div class="text-lg font-black text-white">68</div>
+</div>
+<div class="bg-slate-950 p-3 rounded-lg min-w-[85px] text-center border-b-2 border-white/10">
+<div class="text-[9px] text-slate-500 font-bold uppercase tracking-wider mb-1">OW</div>
+<div class="text-lg font-black text-white">80</div>
+</div>
+</div>
+<button class="material-symbols-outlined text-slate-600 hover:text-emerald-400 transition-colors p-2">chevron_right</button>
+</div>
+<!-- Manager Row 3 -->
+<div class="group bg-slate-900 hover:bg-slate-800 border border-white/5 transition-all duration-300 p-5 rounded-lg flex flex-col md:flex-row items-center gap-6 shadow-lg">
+<div class="w-20 h-20 rounded-lg overflow-hidden bg-slate-950 border border-white/10">
+<img alt="G. VALBUENA" class="w-full h-full object-cover grayscale group-hover:grayscale-0 transition-all duration-700" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCYC6UzC-znCEe8fMELpafczYbhXCY5JKsbyIxi2MP37v0ubT-ZH5w82kojecjSU2nebxjiCGgxoXaqSlXshW4WUxFQdnl5ReOu8RS4x1soRU48A-5gzhrr2irWoOt4uMZRvv77dEkgw7lKYEgShY4ArpOd-ClR6x6UG7XhKroDjdBHidKw8w1apzn_qVG6DozM5oVYqTzP41pYzIPIBURSLmSfEBH5FSjF9zzQeSFVWrII6xmuTAmH9jdFGDmdA8m_lXI6auAt45yC"/>
+</div>
+<div class="flex-1 min-w-0">
+<div class="flex items-center gap-3 mb-2">
+<h3 class="text-2xl font-black text-white italic truncate tracking-tight">G. VALBUENA</h3>
+<span class="bg-slate-800 border border-white/10 px-2 py-0.5 rounded text-[10px] font-bold text-slate-400 uppercase">Madrid Rosas RB</span>
+</div>
+<div class="flex items-center gap-5">
+<div class="flex items-center gap-1.5">
+<span class="material-symbols-outlined text-emerald-500 text-sm">grid_view</span>
+<span class="text-sm font-medium text-slate-300">4-4-2</span>
+</div>
+<div class="flex items-center gap-1.5">
+<span class="material-symbols-outlined text-orange-400 text-sm">shield</span>
+<span class="text-sm font-medium text-slate-300">L. Ball Counter: 85</span>
+</div>
+</div>
+</div>
+<div class="flex gap-3 w-full md:w-auto overflow-x-auto pb-2 md:pb-0">
+<div class="bg-slate-950 p-3 rounded-lg min-w-[85px] text-center border-b-2 border-white/10">
+<div class="text-[9px] text-slate-500 font-bold uppercase tracking-wider mb-1">POS</div>
+<div class="text-lg font-black text-white">66</div>
+</div>
+<div class="bg-slate-950 p-3 rounded-lg min-w-[85px] text-center border-b-2 border-white/10">
+<div class="text-[9px] text-slate-500 font-bold uppercase tracking-wider mb-1">QC</div>
+<div class="text-lg font-black text-white">70</div>
+</div>
+<div class="bg-slate-950 p-3 rounded-lg min-w-[85px] text-center border-b-2 border-emerald-500">
+<div class="text-[9px] text-emerald-500 font-bold uppercase tracking-wider mb-1">LBC</div>
+<div class="text-lg font-black text-emerald-400">85</div>
+</div>
+<div class="bg-slate-950 p-3 rounded-lg min-w-[85px] text-center border-b-2 border-white/10">
+<div class="text-[9px] text-slate-500 font-bold uppercase tracking-wider mb-1">OW</div>
+<div class="text-lg font-black text-white">62</div>
+</div>
+</div>
+<button class="material-symbols-outlined text-slate-600 hover:text-emerald-400 transition-colors p-2">chevron_right</button>
+</div>
+</div>
+<!-- Pagination -->
+<div class="mt-16 flex items-center justify-center gap-3">
+<button class="w-12 h-12 flex items-center justify-center rounded-lg bg-slate-900 border border-white/5 text-slate-500 hover:text-white hover:border-emerald-500 transition-all">
+<span class="material-symbols-outlined">chevron_left</span>
+</button>
+<button class="w-12 h-12 flex items-center justify-center rounded-lg bg-emerald-500 text-slate-950 font-black shadow-lg shadow-emerald-500/20">1</button>
+<button class="w-12 h-12 flex items-center justify-center rounded-lg bg-slate-900 border border-white/5 text-slate-400 hover:border-emerald-500 transition-all font-bold">2</button>
+<button class="w-12 h-12 flex items-center justify-center rounded-lg bg-slate-900 border border-white/5 text-slate-400 hover:border-emerald-500 transition-all font-bold">3</button>
+<span class="text-slate-600 font-bold px-2">...</span>
+<button class="w-12 h-12 flex items-center justify-center rounded-lg bg-slate-900 border border-white/5 text-slate-500 hover:text-white hover:border-emerald-500 transition-all">
+<span class="material-symbols-outlined">chevron_right</span>
+</button>
+</div>
+</section>
+</main>
+<!-- Footer (Shared Component) -->
+<footer class="bg-slate-950 w-full py-12 mt-auto border-t border-white/5">
+<div class="max-w-screen-2xl mx-auto px-6 flex flex-col md:flex-row justify-between items-center gap-6">
+<div class="text-center md:text-left">
+<div class="text-lg font-bold text-slate-200 mb-2 italic">eFootball VN</div>
+<p class="font-inter text-xs text-slate-500">© 2024 eFootball.vn. The Digital Arena.</p>
+</div>
+<div class="flex gap-8">
+<a class="font-inter text-xs text-slate-400 hover:text-white transition-colors opacity-80 hover:opacity-100" href="#">Chính sách</a>
+<a class="font-inter text-xs text-slate-400 hover:text-white transition-colors opacity-80 hover:opacity-100" href="#">Điều khoản</a>
+<a class="font-inter text-xs text-slate-400 hover:text-white transition-colors opacity-80 hover:opacity-100" href="#">Hợp tác</a>
+<a class="font-inter text-xs text-slate-400 hover:text-white transition-colors opacity-80 hover:opacity-100" href="#">Hỗ trợ</a>
+</div>
+</div>
+</footer>
+</body></html>

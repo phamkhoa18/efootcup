@@ -1236,6 +1236,12 @@ export default function TournamentDetailClient({ initialData, id }: { initialDat
         const isMobile = t.platform === 'mobile';
         const isTeamSize2v2 = t.teamSize >= 2;
 
+        // Safety check: 2v2 requires Player 2 to be linked via EFV ID
+        if (isTeamSize2v2 && !selectedP2EfvId) {
+            toast.error('VĐV 2 phải có tài khoản trên hệ thống EFV. Vui lòng quay lại bước 2 và chọn VĐV 2.');
+            return;
+        }
+
         if (!isTeamSize2v2) {
             if (isMobile) {
                 // Mobile: personalPhoto is required, teamLineupPhoto is optional
@@ -2735,30 +2741,38 @@ export default function TournamentDetailClient({ initialData, id }: { initialDat
                                                     <Users className="w-4 h-4 text-emerald-600" />
                                                     Thông tin VĐV 2
                                                 </Label>
-                                                {selectedP2EfvId && (
-                                                    <span className="text-[10px] font-bold text-emerald-600 bg-emerald-50 px-2 py-1 rounded-md border border-emerald-200 tracking-wider">EFV-ID Đã Liên Kết: #{selectedP2EfvId}</span>
+                                                {selectedP2EfvId ? (
+                                                    <span className="text-[10px] font-bold text-emerald-600 bg-emerald-50 px-2 py-1 rounded-md border border-emerald-200 tracking-wider flex items-center gap-1"><CheckCircle2 className="w-3 h-3" />EFV-ID Đã Liên Kết: #{selectedP2EfvId}</span>
+                                                ) : (
+                                                    <span className="text-[10px] font-bold text-amber-600 bg-amber-50 px-2 py-1 rounded-md border border-amber-200 tracking-wider flex items-center gap-1"><AlertCircle className="w-3 h-3" />Chưa liên kết</span>
                                                 )}
                                             </div>
                                             
                                             <div className="grid grid-cols-1 gap-4">
                                                 <div className="space-y-1.5 relative">
-                                                    <Label className="text-xs font-medium text-gray-500">Tìm & Nhập VĐV 2 <span className="text-[10px] font-normal text-gray-400">(Có thể tìm bằng Tên, Nickname hoặc EFV ID)</span> <span className="text-red-400">*</span></Label>
+                                                    <Label className="text-xs font-medium text-gray-500">Tìm VĐV 2 trong hệ thống <span className="text-[10px] font-normal text-amber-500">(VĐV 2 bắt buộc có tài khoản EFV)</span> <span className="text-red-400">*</span></Label>
                                                     <div className="relative">
                                                         <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
                                                         <Input 
-                                                            placeholder="Nhập tên VĐV 2..." 
+                                                            placeholder="Tìm bằng Tên, Nickname hoặc EFV ID..." 
                                                             value={showP2Dropdown ? p2SearchQuery : regForm.player2Name} 
-                                                            onFocus={() => { setShowP2Dropdown(true); setP2SearchQuery(regForm.player2Name); }}
+                                                            onFocus={() => { if (!selectedP2EfvId) { setShowP2Dropdown(true); setP2SearchQuery(regForm.player2Name); } }}
                                                             onChange={e => {
+                                                                if (selectedP2EfvId) return; // Block manual editing when linked
                                                                 if (!showP2Dropdown) setShowP2Dropdown(true);
                                                                 setP2SearchQuery(e.target.value);
                                                                 setRegForm({ ...regForm, player2Name: e.target.value });
-                                                                if (selectedP2EfvId) setSelectedP2EfvId(null); // Clear linked ID if they manually edit
                                                             }} 
+                                                            readOnly={!!selectedP2EfvId}
                                                             required 
-                                                            className={`h-11 pl-10 rounded-lg border-gray-200 focus:border-efb-blue focus:bg-white transition-all text-sm ${selectedP2EfvId && !showP2Dropdown ? 'bg-emerald-50/30' : 'bg-gray-50/50'}`} 
+                                                            className={`h-11 pl-10 rounded-lg border-gray-200 focus:border-efb-blue focus:bg-white transition-all text-sm ${selectedP2EfvId ? 'bg-emerald-50/40 border-emerald-300 cursor-default' : 'bg-gray-50/50'}`} 
                                                         />
                                                         {isP2Searching && <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-emerald-500 animate-spin" />}
+                                                        {selectedP2EfvId && (
+                                                            <button type="button" onClick={() => { setSelectedP2EfvId(null); setRegForm({ ...regForm, player2Name: '', player2FacebookName: '', player2FacebookLink: '' }); setP2SearchQuery(''); setShowP2Dropdown(true); }} className="absolute right-3 top-1/2 -translate-y-1/2 w-5 h-5 rounded-full bg-red-100 hover:bg-red-200 flex items-center justify-center transition-colors" title="Xóa liên kết VĐV 2">
+                                                                <X className="w-3 h-3 text-red-500" />
+                                                            </button>
+                                                        )}
                                                     </div>
                                                     
                                                     {/* Dropdown menu for search results */}
@@ -2795,11 +2809,13 @@ export default function TournamentDetailClient({ initialData, id }: { initialDat
                                                                     ))}
                                                                 </div>
                                                             ) : !isP2Searching && p2SearchQuery.trim() ? (
-                                                                <div className="p-4 text-center text-[12px] text-gray-500">
-                                                                    Không tìm thấy dữ liệu tự động. Nhập thủ công.
-                                                                    <div className="mt-2">
-                                                                        <button type="button" onClick={() => setShowP2Dropdown(false)} className="px-3 py-1.5 bg-gray-100 hover:bg-gray-200 rounded text-[11px] font-medium transition-colors">Đóng & Nhập Manual</button>
+                                                                <div className="p-4 text-center">
+                                                                    <div className="w-10 h-10 rounded-full bg-amber-100 flex items-center justify-center mx-auto mb-2">
+                                                                        <AlertCircle className="w-5 h-5 text-amber-500" />
                                                                     </div>
+                                                                    <p className="text-[12px] font-semibold text-gray-700">Không tìm thấy VĐV</p>
+                                                                    <p className="text-[11px] text-gray-400 mt-1">VĐV 2 phải có tài khoản trên hệ thống EFV.<br/>Vui lòng yêu cầu VĐV 2 đăng ký tài khoản tại <a href="/dang-ky" target="_blank" className="text-efb-blue underline font-medium">efootball.vn/dang-ky</a> trước.</p>
+                                                                    <button type="button" onClick={() => setShowP2Dropdown(false)} className="mt-3 px-4 py-1.5 bg-gray-100 hover:bg-gray-200 rounded-lg text-[11px] font-medium transition-colors">Đóng</button>
                                                                 </div>
                                                             ) : null}
                                                         </div>
@@ -2807,8 +2823,8 @@ export default function TournamentDetailClient({ initialData, id }: { initialDat
                                                 </div>
                                             </div>
                                             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                                                <div className="space-y-1.5"><Label className="text-xs font-medium text-gray-500">Tên Facebook VĐV 2 <span className="text-red-400">*</span></Label><div className="relative"><Facebook className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" /><Input placeholder="Tên Facebook" value={regForm.player2FacebookName} onChange={e => setRegForm({ ...regForm, player2FacebookName: e.target.value })} onFocus={() => setShowP2Dropdown(false)} required className={`h-11 pl-10 rounded-lg border-gray-200 focus:border-efb-blue focus:bg-white transition-all text-sm ${selectedP2EfvId ? 'bg-emerald-50/20' : 'bg-gray-50/50'}`} /></div></div>
-                                                <div className="space-y-1.5"><Label className="text-xs font-medium text-gray-500">Link Facebook VĐV 2 <span className="text-red-400">*</span></Label><div className="relative"><ExternalLink className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" /><Input placeholder="https://facebook.com/..." value={regForm.player2FacebookLink} onChange={e => setRegForm({ ...regForm, player2FacebookLink: e.target.value })} onFocus={() => setShowP2Dropdown(false)} required className={`h-11 pl-10 rounded-lg border-gray-200 focus:border-efb-blue focus:bg-white transition-all text-sm ${selectedP2EfvId ? 'bg-emerald-50/20' : 'bg-gray-50/50'}`} /></div></div>
+                                                <div className="space-y-1.5"><Label className="text-xs font-medium text-gray-500">Tên Facebook VĐV 2 <span className="text-red-400">*</span> {selectedP2EfvId && <span className="text-[10px] text-emerald-500 font-normal">(Tự động điền)</span>}</Label><div className="relative"><Facebook className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" /><Input placeholder="Tên Facebook" value={regForm.player2FacebookName} onChange={e => setRegForm({ ...regForm, player2FacebookName: e.target.value })} onFocus={() => setShowP2Dropdown(false)} required className={`h-11 pl-10 rounded-lg border-gray-200 focus:border-efb-blue focus:bg-white transition-all text-sm ${selectedP2EfvId ? 'bg-emerald-50/30' : 'bg-gray-50/50'}`} /></div></div>
+                                                <div className="space-y-1.5"><Label className="text-xs font-medium text-gray-500">Link Facebook VĐV 2 <span className="text-red-400">*</span> {selectedP2EfvId && <span className="text-[10px] text-emerald-500 font-normal">(Tự động điền)</span>}</Label><div className="relative"><ExternalLink className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" /><Input placeholder="https://facebook.com/..." value={regForm.player2FacebookLink} onChange={e => setRegForm({ ...regForm, player2FacebookLink: e.target.value })} onFocus={() => setShowP2Dropdown(false)} required className={`h-11 pl-10 rounded-lg border-gray-200 focus:border-efb-blue focus:bg-white transition-all text-sm ${selectedP2EfvId ? 'bg-emerald-50/30' : 'bg-gray-50/50'}`} /></div></div>
                                             </div>
                                         </div>
                                     )}
@@ -2827,8 +2843,12 @@ export default function TournamentDetailClient({ initialData, id }: { initialDat
                                                 toast.error('Vui lòng nhập Facebook VĐV 1');
                                                 return;
                                             }
+                                            if (t.teamSize >= 2 && !selectedP2EfvId) {
+                                                toast.error('VĐV 2 phải có tài khoản trên hệ thống. Vui lòng tìm và chọn VĐV 2 từ danh sách.'); 
+                                                return; 
+                                            }
                                             if (t.teamSize >= 2 && (!regForm.player2Name.trim() || !regForm.player2FacebookName.trim() || !regForm.player2FacebookLink.trim())) {
-                                                toast.error('Vui lòng nhập đầy đủ thông tin VĐV 2'); 
+                                                toast.error('Vui lòng nhập đầy đủ thông tin VĐV 2 (Tên Facebook & Link Facebook)'); 
                                                 return; 
                                             }
                                             setRegStep(3); 

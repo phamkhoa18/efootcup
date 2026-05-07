@@ -1,0 +1,378 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="vi"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>eFootball.vn - Player Database</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;900&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        primary: "#0A3D91", // Custom color from design system
+                        secondary: "#10b981", // Emerald-500 equivalent for accents
+                        background: "#020617", // slate-950
+                        surface: "#0f172a", // slate-900
+                        "surface-variant": "#1e293b", // slate-800
+                        outline: "#475569", // slate-600
+                        "on-surface": "#f8fafc", // slate-50
+                        "on-surface-variant": "#cbd5e1", // slate-300
+                    },
+                    borderRadius: {
+                        DEFAULT: "0.5rem", // ROUND_EIGHT
+                        lg: "0.5rem",
+                        xl: "0.75rem",
+                        full: "9999px"
+                    },
+                    fontFamily: {
+                        sans: ["Inter", "sans-serif"],
+                        body: ["Inter", "sans-serif"],
+                        headline: ["Inter", "sans-serif"]
+                    }
+                },
+            },
+        }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        .glass-panel {
+            background: rgba(15, 23, 42, 0.6);
+            backdrop-filter: blur(20px);
+        }
+        ::-webkit-scrollbar { width: 4px; }
+        ::-webkit-scrollbar-track { background: #020617; }
+        ::-webkit-scrollbar-thumb { background: #1e293b; border-radius: 10px; }
+    </style>
+</head>
+<body class="bg-background text-on-surface font-body selection:bg-secondary/30 selection:text-white">
+<!-- TopNavBar Component -->
+<nav class="fixed top-0 w-full z-50 bg-slate-950/80 backdrop-blur-md border-b border-white/10 shadow-2xl shadow-blue-900/20">
+<div class="flex justify-between items-center h-16 px-6 max-w-screen-2xl mx-auto font-inter tracking-tight">
+<div class="flex items-center gap-8">
+<span class="text-2xl font-black tracking-tighter text-white italic">eFootball.vn</span>
+<div class="hidden md:flex gap-6">
+<a class="text-slate-300 font-medium hover:text-emerald-300 transition-all duration-300" href="#">Trang chủ</a>
+<a class="text-emerald-400 font-bold border-b-2 border-emerald-500 pb-1 hover:text-emerald-300 transition-all duration-300" href="#">Cầu thủ</a>
+<a class="text-slate-300 font-medium hover:text-emerald-300 transition-all duration-300" href="#">HLV</a>
+<a class="text-slate-300 font-medium hover:text-emerald-300 transition-all duration-300" href="#">Đội hình</a>
+<a class="text-slate-300 font-medium hover:text-emerald-300 transition-all duration-300" href="#">Công cụ</a>
+</div>
+</div>
+<div class="flex items-center gap-4">
+<div class="flex items-center gap-2 text-slate-400">
+<span class="material-symbols-outlined hover:text-emerald-300 p-2 cursor-pointer transition-all">search</span>
+<span class="material-symbols-outlined hover:text-emerald-300 p-2 cursor-pointer transition-all">notifications</span>
+<span class="material-symbols-outlined hover:text-emerald-300 p-2 cursor-pointer transition-all">person</span>
+</div>
+<button class="bg-emerald-500 hover:bg-emerald-400 text-slate-950 px-5 py-2 rounded-lg font-bold text-sm tracking-wide transition-all scale-95 active:scale-90">Tham gia</button>
+</div>
+</div>
+</nav>
+<div class="flex pt-16 h-screen overflow-hidden">
+<!-- SideNavBar/Filter Sidebar -->
+<aside class="w-72 bg-slate-900/50 backdrop-blur-lg border-r border-white/5 flex-shrink-0 flex flex-col overflow-y-auto">
+<div class="p-6">
+<h2 class="font-inter text-sm font-semibold uppercase tracking-widest text-emerald-500 mb-6">Bộ lọc nâng cao</h2>
+<div class="space-y-6">
+<div>
+<label class="text-[10px] font-bold uppercase tracking-widest text-slate-500 mb-2 block">Tên cầu thủ</label>
+<input class="w-full bg-slate-950/40 border-white/10 rounded-lg focus:ring-emerald-500/50 focus:border-emerald-500 px-4 py-2 text-sm text-white placeholder:text-slate-600 transition-all" placeholder="Tìm tên..." type="text"/>
+</div>
+<div class="grid grid-cols-2 gap-3">
+<div>
+<label class="text-[10px] font-bold uppercase tracking-widest text-slate-500 mb-2 block">Quốc gia</label>
+<select class="w-full bg-slate-950/40 border-white/10 text-sm text-slate-300 p-2 rounded-lg focus:ring-emerald-500/50">
+<option>Tất cả</option>
+<option>Brazil</option>
+<option>Argentina</option>
+<option>France</option>
+</select>
+</div>
+<div>
+<label class="text-[10px] font-bold uppercase tracking-widest text-slate-500 mb-2 block">Giải đấu</label>
+<select class="w-full bg-slate-950/40 border-white/10 text-sm text-slate-300 p-2 rounded-lg focus:ring-emerald-500/50">
+<option>Tất cả</option>
+<option>Premier League</option>
+<option>La Liga</option>
+</select>
+</div>
+</div>
+<div>
+<label class="text-[10px] font-bold uppercase tracking-widest text-slate-500 mb-2 block">Vị trí</label>
+<div class="grid grid-cols-4 gap-1.5">
+<button class="bg-emerald-500/10 text-emerald-500 border border-emerald-500/20 p-1 text-[10px] font-black rounded hover:bg-emerald-500 hover:text-slate-950 transition-all">GK</button>
+<button class="bg-slate-800 text-slate-400 p-1 text-[10px] font-black rounded hover:bg-emerald-500/20 hover:text-emerald-400 transition-all">CB</button>
+<button class="bg-slate-800 text-slate-400 p-1 text-[10px] font-black rounded hover:bg-emerald-500/20 hover:text-emerald-400 transition-all">LB</button>
+<button class="bg-slate-800 text-slate-400 p-1 text-[10px] font-black rounded hover:bg-emerald-500/20 hover:text-emerald-400 transition-all">RB</button>
+<button class="bg-slate-800 text-slate-400 p-1 text-[10px] font-black rounded hover:bg-emerald-500/20 hover:text-emerald-400 transition-all">DMF</button>
+<button class="bg-emerald-500 text-slate-950 p-1 text-[10px] font-black rounded">CMF</button>
+<button class="bg-slate-800 text-slate-400 p-1 text-[10px] font-black rounded hover:bg-emerald-500/20 hover:text-emerald-400 transition-all">LMF</button>
+<button class="bg-slate-800 text-slate-400 p-1 text-[10px] font-black rounded hover:bg-emerald-500/20 hover:text-emerald-400 transition-all">RMF</button>
+</div>
+</div>
+<div>
+<label class="text-[10px] font-bold uppercase tracking-widest text-slate-500 mb-2 block">Chỉ số tổng (70 - 100)</label>
+<input class="w-full h-1.5 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-emerald-500" max="100" min="70" type="range"/>
+<div class="flex justify-between mt-2 text-[10px] font-bold text-slate-500">
+<span>70</span>
+<span class="text-emerald-400">92+</span>
+<span>100</span>
+</div>
+</div>
+<div>
+<label class="text-[10px] font-bold uppercase tracking-widest text-slate-500 mb-2 block">Phong cách chơi</label>
+<select class="w-full bg-slate-950/40 border-white/10 text-sm text-slate-300 p-2 rounded-lg">
+<option>Tất cả</option>
+<option>Goal Poacher</option>
+<option>Build Up</option>
+</select>
+</div>
+<button class="w-full py-3 bg-emerald-500 text-slate-950 font-bold uppercase text-xs tracking-wider rounded-lg hover:bg-emerald-400 transition-all shadow-lg shadow-emerald-500/10 active:scale-95">Áp dụng bộ lọc</button>
+</div>
+</div>
+</aside>
+<!-- Main Content Area -->
+<main class="flex-1 bg-slate-950 overflow-y-auto p-8">
+<header class="flex justify-between items-end mb-10">
+<div>
+<h1 class="font-inter text-4xl font-black text-white tracking-tighter uppercase italic">Kết quả tìm kiếm</h1>
+<p class="text-slate-500 text-sm font-medium mt-2">Tìm thấy 1,248 cầu thủ phù hợp</p>
+</div>
+<div class="flex gap-3">
+<button class="flex items-center gap-2 bg-slate-900 px-4 py-2.5 rounded-lg text-xs font-bold text-slate-300 border border-white/5 hover:bg-slate-800 transition-all">
+<span class="material-symbols-outlined text-lg">sort</span>
+                        Sắp xếp: Chỉ số
+                    </button>
+<button class="flex items-center justify-center bg-slate-900 w-10 h-10 rounded-lg text-slate-300 border border-white/5 hover:bg-slate-800 transition-all">
+<span class="material-symbols-outlined text-lg">grid_view</span>
+</button>
+</div>
+</header>
+<!-- Grid -->
+<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+<!-- Player Card 1 -->
+<div class="group relative bg-slate-900 p-4 rounded-xl border border-white/5 hover:border-emerald-500/50 transition-all duration-300 hover:shadow-2xl hover:shadow-emerald-500/5">
+<div class="absolute top-4 right-4 z-10 text-right">
+<div class="text-4xl font-black text-emerald-500 italic leading-none">98</div>
+<div class="text-[10px] font-bold text-slate-500 uppercase tracking-widest">OVR</div>
+</div>
+<div class="relative w-full aspect-[4/5] mb-4 bg-slate-800 rounded-lg overflow-hidden">
+<img alt="L. Messi" class="w-full h-full object-cover grayscale group-hover:grayscale-0 transition-all duration-700" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCb2911w-cTi8as8MLlA31slzp5CCYenTdXGN_s62omoNGcrcszcVJ_t1R9XnV7fn9vFfu93tllQsT0dzxlNkE1sCSuavmLwVUmWnaMW8VtloQpPNrVD4iUv-KO_gmcTA3LdyTohge1NZjepFzIEj5M16nRBk3T5nS7t9-sSxUOsj4HEW3k0Jt4MIE1cwm53iRbNPz4r8YkN4pv0AC7Xab5LRewUZljEg0e5T_fA232Xsgj6wZJnGuHA14K_6c0cFnXa_rwghPFeWwj"/>
+<div class="absolute bottom-0 left-0 p-3 w-full bg-gradient-to-t from-slate-900 to-transparent">
+<span class="bg-amber-500 text-slate-950 px-2 py-0.5 text-[10px] font-black rounded uppercase">Epic: Big Time</span>
+</div>
+</div>
+<div class="flex justify-between items-start">
+<div>
+<h3 class="font-bold text-lg text-white group-hover:text-emerald-400 transition-colors uppercase">L. MESSI</h3>
+<div class="flex items-center gap-2 mt-1">
+<span class="text-emerald-500 font-bold text-[10px] px-1.5 py-0.5 bg-emerald-500/10 rounded">RWF</span>
+<span class="text-slate-500 text-[10px] font-bold uppercase">Inter Miami</span>
+</div>
+</div>
+<span class="material-symbols-outlined text-slate-600 group-hover:text-amber-500 cursor-pointer transition-colors">star</span>
+</div>
+<div class="grid grid-cols-3 gap-2 mt-4 pt-4 border-t border-white/5">
+<div class="text-center">
+<div class="text-xs font-bold text-slate-200">92</div>
+<div class="text-[8px] font-bold text-slate-500 uppercase">SPD</div>
+</div>
+<div class="text-center border-x border-white/5">
+<div class="text-xs font-bold text-slate-200">99</div>
+<div class="text-[8px] font-bold text-slate-500 uppercase">DRI</div>
+</div>
+<div class="text-center">
+<div class="text-xs font-bold text-slate-200">95</div>
+<div class="text-[8px] font-bold text-slate-500 uppercase">PAS</div>
+</div>
+</div>
+</div>
+<!-- Player Card 2 -->
+<div class="group relative bg-slate-900 p-4 rounded-xl border border-white/5 hover:border-emerald-500/50 transition-all duration-300 hover:shadow-2xl hover:shadow-emerald-500/5">
+<div class="absolute top-4 right-4 z-10 text-right">
+<div class="text-4xl font-black text-white italic leading-none">96</div>
+<div class="text-[10px] font-bold text-slate-500 uppercase tracking-widest">OVR</div>
+</div>
+<div class="relative w-full aspect-[4/5] mb-4 bg-slate-800 rounded-lg overflow-hidden">
+<img alt="E. Haaland" class="w-full h-full object-cover grayscale group-hover:grayscale-0 transition-all duration-700" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBOAbRXS5w7SSd9zDmuemIU52AzNuQsrp4D0_-zu-Rp9NEBmpA0_n_VIyzoaVT0j_x70DEmiNdb1tZIyZzNZ6cDUgj3BOnhFKzkoHUQ8JGz3taON3JfS2hcEja2fOyiPBemZjuoU3zafJxSFLMVtN9Z8759eEZEP2oyPgqn3bz-bLzVY3Br7r83NTqBAt-NWdFz4drTZxcaUL1c4fiSuz6mKYGIqQnq4eFm5_yqLgzgYgfF6BnGEs76czxYenZQpbBLDN_UPU_tD-iN"/>
+<div class="absolute bottom-0 left-0 p-3 w-full bg-gradient-to-t from-slate-900 to-transparent">
+<span class="bg-emerald-500 text-slate-950 px-2 py-0.5 text-[10px] font-black rounded uppercase">Highlight</span>
+</div>
+</div>
+<div class="flex justify-between items-start">
+<div>
+<h3 class="font-bold text-lg text-white group-hover:text-emerald-400 transition-colors uppercase">E. HAALAND</h3>
+<div class="flex items-center gap-2 mt-1">
+<span class="text-amber-500 font-bold text-[10px] px-1.5 py-0.5 bg-amber-500/10 rounded">CF</span>
+<span class="text-slate-500 text-[10px] font-bold uppercase">Man City</span>
+</div>
+</div>
+<span class="material-symbols-outlined text-slate-600 group-hover:text-amber-500 cursor-pointer transition-colors">star</span>
+</div>
+<div class="grid grid-cols-3 gap-2 mt-4 pt-4 border-t border-white/5">
+<div class="text-center">
+<div class="text-xs font-bold text-slate-200">97</div>
+<div class="text-[8px] font-bold text-slate-500 uppercase">SHO</div>
+</div>
+<div class="text-center border-x border-white/5">
+<div class="text-xs font-bold text-slate-200">94</div>
+<div class="text-[8px] font-bold text-slate-500 uppercase">PHY</div>
+</div>
+<div class="text-center">
+<div class="text-xs font-bold text-slate-200">95</div>
+<div class="text-[8px] font-bold text-slate-500 uppercase">SPD</div>
+</div>
+</div>
+</div>
+<!-- Player Card 3 -->
+<div class="group relative bg-slate-900 p-4 rounded-xl border border-white/5 hover:border-emerald-500/50 transition-all duration-300 hover:shadow-2xl hover:shadow-emerald-500/5">
+<div class="absolute top-4 right-4 z-10 text-right">
+<div class="text-4xl font-black text-slate-400 italic leading-none">94</div>
+<div class="text-[10px] font-bold text-slate-500 uppercase tracking-widest">OVR</div>
+</div>
+<div class="relative w-full aspect-[4/5] mb-4 bg-slate-800 rounded-lg overflow-hidden">
+<img alt="K. De Bruyne" class="w-full h-full object-cover grayscale group-hover:grayscale-0 transition-all duration-700" src="https://lh3.googleusercontent.com/aida-public/AB6AXuC6JIpL3V4yy-XjcH2Kun9fZrmsdD5gxmElZLixGjmJsr3uivrq6bqQ1RUiCVz1MRmb8Bm00uzb2aHVy-MAjqxCrOqGHy6dtJ8w4odUzm2PPbDgzur8ugZ0GhuMLZR2BGvPSQawmC4mZVPSMJg2Vh6NaMnNosmRCeGSk37h6bP-AyCy7GuVSYX5xFgZaJeOqQRJa9nRbXApnkmzG7NjHGaBuQOlTGo5nJapIi7fScHCNVfR1ng3VNfTmOvZGN4yS-ldrZ3xrkXCXvrj"/>
+<div class="absolute bottom-0 left-0 p-3 w-full bg-gradient-to-t from-slate-900 to-transparent">
+<span class="bg-blue-600 text-white px-2 py-0.5 text-[10px] font-black rounded uppercase">Standard</span>
+</div>
+</div>
+<div class="flex justify-between items-start">
+<div>
+<h3 class="font-bold text-lg text-white group-hover:text-emerald-400 transition-colors uppercase">K. DE BRUYNE</h3>
+<div class="flex items-center gap-2 mt-1">
+<span class="text-blue-400 font-bold text-[10px] px-1.5 py-0.5 bg-blue-400/10 rounded">AMF</span>
+<span class="text-slate-500 text-[10px] font-bold uppercase">Man City</span>
+</div>
+</div>
+<span class="material-symbols-outlined text-slate-600 group-hover:text-amber-500 cursor-pointer transition-colors">star</span>
+</div>
+<div class="grid grid-cols-3 gap-2 mt-4 pt-4 border-t border-white/5">
+<div class="text-center">
+<div class="text-xs font-bold text-slate-200">98</div>
+<div class="text-[8px] font-bold text-slate-500 uppercase">PAS</div>
+</div>
+<div class="text-center border-x border-white/5">
+<div class="text-xs font-bold text-slate-200">88</div>
+<div class="text-[8px] font-bold text-slate-500 uppercase">SHO</div>
+</div>
+<div class="text-center">
+<div class="text-xs font-bold text-slate-200">91</div>
+<div class="text-[8px] font-bold text-slate-500 uppercase">DRI</div>
+</div>
+</div>
+</div>
+<!-- Player Card 4 -->
+<div class="group relative bg-slate-900 p-4 rounded-xl border border-white/5 hover:border-emerald-500/50 transition-all duration-300 hover:shadow-2xl hover:shadow-emerald-500/5">
+<div class="absolute top-4 right-4 z-10 text-right">
+<div class="text-4xl font-black text-emerald-500 italic leading-none">95</div>
+<div class="text-[10px] font-bold text-slate-500 uppercase tracking-widest">OVR</div>
+</div>
+<div class="relative w-full aspect-[4/5] mb-4 bg-slate-800 rounded-lg overflow-hidden">
+<img alt="K. Mbappe" class="w-full h-full object-cover grayscale group-hover:grayscale-0 transition-all duration-700" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDLgB-ixF61odousgdfDb4pplqM7TcR1VsAJ8RD6lrh5uOWoKG0m554DNkuYq0e8Jr5qtBGTfDuRHQrsyU3niTAvppjYEq7zhhzMu_XFHT53iUGwkheRa6SZUAZVei5cytZRtyWKEbrkMrglwxb_mdrBEykz8LrDA2ycLIdgo3EmOj4McH5yufr0CWqh5MN04ONRdbBImThan__dyAma-v9Ut3NBPqUFMp5-WHjNRZdCDcyHMLbQeNA7xiop0zXxfOVqdZOH8RM7-zH"/>
+<div class="absolute bottom-0 left-0 p-3 w-full bg-gradient-to-t from-slate-900 to-transparent">
+<span class="bg-emerald-500 text-slate-950 px-2 py-0.5 text-[10px] font-black rounded uppercase">Show Time</span>
+</div>
+</div>
+<div class="flex justify-between items-start">
+<div>
+<h3 class="font-bold text-lg text-white group-hover:text-emerald-400 transition-colors uppercase">K. MBAPPÉ</h3>
+<div class="flex items-center gap-2 mt-1">
+<span class="text-amber-500 font-bold text-[10px] px-1.5 py-0.5 bg-amber-500/10 rounded">CF</span>
+<span class="text-slate-500 text-[10px] font-bold uppercase">Real Madrid</span>
+</div>
+</div>
+<span class="material-symbols-outlined text-slate-600 group-hover:text-amber-500 cursor-pointer transition-colors">star</span>
+</div>
+<div class="grid grid-cols-3 gap-2 mt-4 pt-4 border-t border-white/5">
+<div class="text-center">
+<div class="text-xs font-bold text-slate-200">99</div>
+<div class="text-[8px] font-bold text-slate-500 uppercase">SPD</div>
+</div>
+<div class="text-center border-x border-white/5">
+<div class="text-xs font-bold text-slate-200">96</div>
+<div class="text-[8px] font-bold text-slate-500 uppercase">DRI</div>
+</div>
+<div class="text-center">
+<div class="text-xs font-bold text-slate-200">92</div>
+<div class="text-[8px] font-bold text-slate-500 uppercase">SHO</div>
+</div>
+</div>
+</div>
+</div>
+<!-- List View Preview -->
+<div class="mt-12 bg-slate-900 border border-white/5 p-6 rounded-xl">
+<div class="flex items-center justify-between mb-6">
+<h3 class="text-xs font-black uppercase tracking-widest text-slate-500">Dữ liệu cầu thủ khác</h3>
+<button class="text-emerald-500 text-[10px] font-bold hover:text-emerald-400 transition-colors uppercase tracking-widest">Xem tất cả</button>
+</div>
+<div class="space-y-2">
+<div class="flex items-center justify-between py-3 border-b border-white/5 hover:bg-white/5 transition-all px-3 rounded-lg cursor-pointer">
+<div class="flex items-center gap-4">
+<div class="w-12 h-12 bg-slate-800 rounded-lg overflow-hidden">
+<img alt="V. Van Dijk" class="w-full h-full object-cover" src="https://lh3.googleusercontent.com/aida-public/AB6AXuB3jDbgwSTwzHwYYFbGG6jQyHP5n0pLi-6N9QlVB83x6kJSdn3VDbV2iHRTwM_dKGb61dOarbF6SJXiuMUL7yPpFaYe_NqYGNpW24i5iiRx0QXYxGR0lusJcSWtgtwmTVRjGgUTNll1PQAr6DClRl0092TMoDsM8z4QqxzDdDgk7UyeXobpU176mBBDlBOIjtQt8h_kbvl-8x-yF5vdxjEYiFe7x09kDRu2wy8O0L9nRDMxOAhUoznJNEIBVMJYX1ivlcm6zXPr14c9"/>
+</div>
+<div>
+<div class="text-sm font-bold text-white uppercase">V. VAN DIJK</div>
+<div class="text-[10px] text-slate-500 font-bold uppercase tracking-tighter">CB | Liverpool</div>
+</div>
+</div>
+<div class="flex gap-8 items-center">
+<div class="text-center w-12">
+<div class="text-[8px] font-bold text-slate-500">DEF</div>
+<div class="text-sm font-black text-emerald-500">96</div>
+</div>
+<div class="text-center w-12">
+<div class="text-[8px] font-bold text-slate-500">PHY</div>
+<div class="text-sm font-black text-white">94</div>
+</div>
+<div class="text-2xl font-black text-emerald-500 w-12 text-right italic">93</div>
+</div>
+</div>
+<div class="flex items-center justify-between py-3 hover:bg-white/5 transition-all px-3 rounded-lg cursor-pointer">
+<div class="flex items-center gap-4">
+<div class="w-12 h-12 bg-slate-800 rounded-lg overflow-hidden">
+<img alt="R. Lewandowski" class="w-full h-full object-cover" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBhhtKUc6GB3d1yq0ud9ILyjFrnPPV3KQIRa89r7r8Z9mqBPaV38cVvD2vHRwP9_oAQbueyJkfkGCVaFmpOI6fPrjVz99yIg5HKDyLRwGSp18wBRsE4AzHMAf2S4tSqhUaLHarrcBszxOUO1inyUdaSStwBdsmS4MY4Bn6dQqhok1hXdjtK0EVdc8gL7ndtAKc3J3bqH3G42aQCzbgx60inG1NfYQOe1mbXUANZKyqoSHWUdnn7uvq7ZYX7UMhpxsPou-b62rTfFVsX"/>
+</div>
+<div>
+<div class="text-sm font-bold text-white uppercase">R. LEWANDOWSKI</div>
+<div class="text-[10px] text-slate-500 font-bold uppercase tracking-tighter">CF | FC Barcelona</div>
+</div>
+</div>
+<div class="flex gap-8 items-center">
+<div class="text-center w-12">
+<div class="text-[8px] font-bold text-slate-500">SHO</div>
+<div class="text-sm font-black text-emerald-500">95</div>
+</div>
+<div class="text-center w-12">
+<div class="text-[8px] font-bold text-slate-500">DRI</div>
+<div class="text-sm font-black text-white">86</div>
+</div>
+<div class="text-2xl font-black text-emerald-500 w-12 text-right italic">92</div>
+</div>
+</div>
+</div>
+</div>
+</main>
+</div>
+<!-- Footer Component -->
+<footer class="bg-slate-950 border-t border-white/5 w-full py-12 mt-auto">
+<div class="max-w-screen-2xl mx-auto px-6 flex flex-col md:flex-row justify-between items-center gap-6">
+<div class="flex flex-col items-center md:items-start">
+<span class="text-lg font-bold text-slate-200 font-inter">eFootball.vn</span>
+<span class="font-inter text-xs text-slate-500 mt-1">© 2024 eFootball.vn. The Digital Arena.</span>
+</div>
+<div class="flex gap-8">
+<a class="font-inter text-xs text-slate-400 hover:text-white transition-colors" href="#">Chính sách</a>
+<a class="font-inter text-xs text-slate-400 hover:text-white transition-colors" href="#">Điều khoản</a>
+<a class="font-inter text-xs text-slate-400 hover:text-white transition-colors" href="#">Hợp tác</a>
+<a class="font-inter text-xs text-slate-400 hover:text-white transition-colors" href="#">Hỗ trợ</a>
+</div>
+</div>
+</footer>
+</body></html>
