@@ -292,6 +292,11 @@ export const adminAPI = {
             method: "PUT",
             body: JSON.stringify({ userId, ...data }),
         }),
+    createUser: (data: any) =>
+        apiFetch(`/admin/users`, {
+            method: "POST",
+            body: JSON.stringify(data),
+        }),
     deleteUser: (userId: string) =>
         apiFetch(`/admin/users`, {
             method: "DELETE",

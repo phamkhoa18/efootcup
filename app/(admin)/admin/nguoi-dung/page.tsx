@@ -7,7 +7,7 @@ import {
     MoreVertical, Mail, Phone, Calendar, Loader2, ChevronDown,
     CheckCircle2, XCircle, Trash2, Edit, ArrowUpRight, Download, Hash, Key,
     User, Gamepad2, Trophy, Target, Swords, Save, MapPin, Facebook, MessageCircle,
-    Camera, ImagePlus, X
+    Camera, ImagePlus, X, UserPlus, Eye, EyeOff, Sparkles, BadgeCheck
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -57,6 +57,25 @@ export default function AdminUsersPage() {
     const [isUploadingAvatar, setIsUploadingAvatar] = useState(false);
     const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
     const avatarFileRef = useRef<HTMLInputElement>(null);
+
+    // Create User State
+    const [showCreateModal, setShowCreateModal] = useState(false);
+    const [isCreating, setIsCreating] = useState(false);
+    const [showPassword, setShowPassword] = useState(false);
+    const [createdEfvId, setCreatedEfvId] = useState<number | null>(null);
+    const [createForm, setCreateForm] = useState({
+        name: "",
+        email: "",
+        password: "",
+        phone: "",
+        gamerId: "",
+        nickname: "",
+        teamName: "",
+        facebookName: "",
+        facebookLink: "",
+        province: "",
+        role: "user" as "admin" | "manager" | "user",
+    });
 
     const { confirm } = useConfirmDialog();
 
@@ -189,6 +208,52 @@ export default function AdminUsersPage() {
 
     const roles = ["", "admin", "manager", "user"];
 
+    // ===== Create User =====
+    const resetCreateForm = () => {
+        setCreateForm({
+            name: "", email: "", password: "", phone: "", gamerId: "",
+            nickname: "", teamName: "", facebookName: "", facebookLink: "",
+            province: "", role: "user",
+        });
+        setShowPassword(false);
+        setCreatedEfvId(null);
+    };
+
+    const handleCreateUser = async () => {
+        if (!createForm.name.trim()) { toast.error("Vui lòng nhập họ tên"); return; }
+        if (!createForm.email.trim()) { toast.error("Vui lòng nhập email"); return; }
+        if (!/^\S+@\S+\.\S+$/.test(createForm.email)) { toast.error("Email không hợp lệ"); return; }
+        if (!createForm.password || createForm.password.length < 8) {
+            toast.error("Mật khẩu phải có ít nhất 8 ký tự");
+            return;
+        }
+
+        setIsCreating(true);
+        try {
+            const res = await adminAPI.createUser(createForm);
+            if (res.success) {
+                const newEfvId = res.data?.efvId;
+                setCreatedEfvId(newEfvId);
+                toast.success(res.message || `Tạo tài khoản thành công! EFV ID: ${newEfvId}`);
+                loadUsers();
+            } else {
+                toast.error(res.message || "Tạo tài khoản thất bại");
+            }
+        } catch (e: any) {
+            toast.error(e.message || "Có lỗi xảy ra khi tạo tài khoản");
+        } finally {
+            setIsCreating(false);
+        }
+    };
+
+    const generateRandomPassword = () => {
+        const chars = 'abcdefghijkmnpqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ23456789!@#$';
+        let pw = '';
+        for (let i = 0; i < 12; i++) pw += chars.charAt(Math.floor(Math.random() * chars.length));
+        setCreateForm(prev => ({ ...prev, password: pw }));
+        setShowPassword(true);
+    };
+
     const openProfileModal = (u: any) => {
         setProfileUser(u);
         setAvatarPreview(u.avatar || null);
@@ -313,6 +378,13 @@ export default function AdminUsersPage() {
                         Tổng cộng {pagination.total} người dùng
                     </p>
                 </div>
+                <Button
+                    onClick={() => { resetCreateForm(); setShowCreateModal(true); }}
+                    className="bg-gradient-to-r from-efb-blue to-blue-600 text-white hover:from-efb-blue/90 hover:to-blue-700 rounded-xl shadow-md shadow-blue-200/50 font-semibold gap-2 h-10 px-5 transition-all hover:shadow-lg hover:shadow-blue-200/60"
+                >
+                    <UserPlus className="w-4 h-4" />
+                    Tạo tài khoản
+                </Button>
             </div>
 
             {/* Filters */}
@@ -818,6 +890,283 @@ export default function AdminUsersPage() {
                                 <Button onClick={handleProfileSubmit} className="flex-1 bg-efb-blue text-white hover:bg-efb-blue/90 rounded-xl" disabled={isSavingProfile}>
                                     {isSavingProfile ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Save className="w-4 h-4 mr-2" />}
                                     Lưu hồ sơ
+                                </Button>
+                            </div>
+                        </div>
+                    )}
+                </DialogContent>
+            </Dialog>
+
+            {/* ===== Create User Modal ===== */}
+            <Dialog open={showCreateModal} onOpenChange={(v) => { if (!v) { setShowCreateModal(false); resetCreateForm(); } }}>
+                <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+                    <DialogHeader>
+                        <DialogTitle className="flex items-center gap-2.5">
+                            <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center shadow-md shadow-blue-200/50">
+                                <UserPlus className="w-4.5 h-4.5 text-white" />
+                            </div>
+                            <div>
+                                <span className="text-lg">Tạo tài khoản mới</span>
+                                <p className="text-xs text-efb-text-muted font-normal mt-0.5">EFV ID sẽ được tự động cấp</p>
+                            </div>
+                        </DialogTitle>
+                    </DialogHeader>
+
+                    {/* Success State */}
+                    {createdEfvId ? (
+                        <motion.div
+                            initial={{ opacity: 0, scale: 0.95 }}
+                            animate={{ opacity: 1, scale: 1 }}
+                            className="py-8 text-center space-y-5"
+                        >
+                            <div className="w-20 h-20 rounded-full bg-gradient-to-br from-emerald-400 to-emerald-600 flex items-center justify-center mx-auto shadow-lg shadow-emerald-200/50">
+                                <BadgeCheck className="w-10 h-10 text-white" />
+                            </div>
+                            <div>
+                                <h3 className="text-xl font-bold text-efb-dark">Tạo tài khoản thành công!</h3>
+                                <p className="text-sm text-efb-text-muted mt-1">Tài khoản đã sẵn sàng sử dụng</p>
+                            </div>
+                            <div className="inline-flex items-center gap-3 bg-amber-50 border-2 border-amber-200 rounded-2xl px-6 py-4">
+                                <Sparkles className="w-5 h-5 text-amber-500" />
+                                <div className="text-left">
+                                    <p className="text-[10px] font-semibold text-amber-600 uppercase tracking-wider">EFV ID được cấp</p>
+                                    <p className="text-3xl font-black text-amber-700">{createdEfvId}</p>
+                                </div>
+                            </div>
+                            <div className="bg-blue-50/50 border border-blue-100 rounded-xl p-3 mx-auto max-w-sm">
+                                <p className="text-xs text-blue-700">Tài khoản đã được <span className="font-semibold">xác minh tự động</span> và có thể đăng nhập ngay.</p>
+                            </div>
+                            <div className="flex gap-3 justify-center pt-2">
+                                <Button
+                                    variant="outline"
+                                    onClick={() => { setShowCreateModal(false); resetCreateForm(); }}
+                                    className="rounded-xl px-6"
+                                >
+                                    Đóng
+                                </Button>
+                                <Button
+                                    onClick={resetCreateForm}
+                                    className="bg-efb-blue text-white hover:bg-efb-blue/90 rounded-xl px-6 gap-2"
+                                >
+                                    <UserPlus className="w-4 h-4" />
+                                    Tạo thêm
+                                </Button>
+                            </div>
+                        </motion.div>
+                    ) : (
+                        <div className="space-y-5 pt-1">
+                            {/* Required Info Banner */}
+                            <div className="flex items-start gap-2.5 p-3 rounded-xl bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-100">
+                                <Shield className="w-4 h-4 text-blue-500 mt-0.5 flex-shrink-0" />
+                                <p className="text-[12px] text-blue-700 leading-relaxed">
+                                    <span className="font-semibold">Admin tạo tài khoản:</span> Tài khoản sẽ được xác minh tự động, không cần email xác nhận. EFV ID được cấp ngay sau khi tạo.
+                                </p>
+                            </div>
+
+                            {/* Account Info */}
+                            <div>
+                                <h3 className="text-sm font-bold text-gray-900 mb-3 flex items-center gap-2">
+                                    <div className="w-5 h-5 rounded-md bg-red-50 flex items-center justify-center">
+                                        <Key className="w-3 h-3 text-red-500" />
+                                    </div>
+                                    Thông tin tài khoản <span className="text-red-400 text-xs">*</span>
+                                </h3>
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                    <div>
+                                        <Label className="text-xs text-gray-500">Họ tên <span className="text-red-400">*</span></Label>
+                                        <Input
+                                            value={createForm.name}
+                                            onChange={(e) => setCreateForm({ ...createForm, name: e.target.value })}
+                                            placeholder="Nguyễn Văn A"
+                                            className="h-10 rounded-xl mt-1"
+                                        />
+                                    </div>
+                                    <div>
+                                        <Label className="text-xs text-gray-500">Email <span className="text-red-400">*</span></Label>
+                                        <Input
+                                            type="email"
+                                            value={createForm.email}
+                                            onChange={(e) => setCreateForm({ ...createForm, email: e.target.value })}
+                                            placeholder="email@example.com"
+                                            className="h-10 rounded-xl mt-1"
+                                        />
+                                    </div>
+                                    <div className="sm:col-span-2">
+                                        <Label className="text-xs text-gray-500">Mật khẩu <span className="text-red-400">*</span></Label>
+                                        <div className="flex gap-2 mt-1">
+                                            <div className="relative flex-1">
+                                                <Input
+                                                    type={showPassword ? "text" : "password"}
+                                                    value={createForm.password}
+                                                    onChange={(e) => setCreateForm({ ...createForm, password: e.target.value })}
+                                                    placeholder="Ít nhất 8 ký tự"
+                                                    className="h-10 rounded-xl pr-10"
+                                                />
+                                                <button
+                                                    type="button"
+                                                    onClick={() => setShowPassword(!showPassword)}
+                                                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors"
+                                                >
+                                                    {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                                                </button>
+                                            </div>
+                                            <Button
+                                                type="button"
+                                                variant="outline"
+                                                onClick={generateRandomPassword}
+                                                className="rounded-xl h-10 px-3 text-xs whitespace-nowrap border-dashed hover:border-blue-300 hover:bg-blue-50/50 transition-all"
+                                                title="Tạo mật khẩu ngẫu nhiên"
+                                            >
+                                                <Sparkles className="w-3.5 h-3.5 mr-1" />
+                                                Tự tạo
+                                            </Button>
+                                        </div>
+                                        {createForm.password && createForm.password.length < 8 && (
+                                            <p className="text-[10px] text-red-500 mt-1">⚠ Mật khẩu cần ít nhất 8 ký tự</p>
+                                        )}
+                                        {createForm.password && createForm.password.length >= 8 && (
+                                            <p className="text-[10px] text-emerald-600 mt-1">✓ Mật khẩu hợp lệ</p>
+                                        )}
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Role Selection */}
+                            <div>
+                                <h3 className="text-sm font-bold text-gray-900 mb-3 flex items-center gap-2">
+                                    <div className="w-5 h-5 rounded-md bg-amber-50 flex items-center justify-center">
+                                        <Crown className="w-3 h-3 text-amber-500" />
+                                    </div>
+                                    Vai trò
+                                </h3>
+                                <div className="grid grid-cols-3 gap-2">
+                                    {(["user", "manager", "admin"] as const).map((r) => {
+                                        const rs = roleStyles[r];
+                                        const RIcon = rs.icon;
+                                        return (
+                                            <button
+                                                key={r}
+                                                onClick={() => setCreateForm({ ...createForm, role: r })}
+                                                className={`px-3 py-3 rounded-xl text-sm font-medium border transition-all flex items-center justify-center gap-2 ${
+                                                    createForm.role === r
+                                                        ? "bg-efb-blue text-white border-efb-blue shadow-md shadow-blue-100"
+                                                        : "bg-white text-efb-text-secondary border-gray-200 hover:border-gray-300 hover:bg-gray-50"
+                                                }`}
+                                            >
+                                                <RIcon className="w-3.5 h-3.5" />
+                                                {rs.label}
+                                            </button>
+                                        );
+                                    })}
+                                </div>
+                            </div>
+
+                            {/* Personal Info */}
+                            <div>
+                                <h3 className="text-sm font-bold text-gray-900 mb-3 flex items-center gap-2">
+                                    <div className="w-5 h-5 rounded-md bg-blue-50 flex items-center justify-center">
+                                        <User className="w-3 h-3 text-blue-500" />
+                                    </div>
+                                    Thông tin cá nhân <span className="text-xs text-gray-400 font-normal">(không bắt buộc)</span>
+                                </h3>
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                    <div>
+                                        <Label className="text-xs text-gray-500">SĐT</Label>
+                                        <Input
+                                            value={createForm.phone}
+                                            onChange={(e) => setCreateForm({ ...createForm, phone: e.target.value })}
+                                            placeholder="0901234567"
+                                            className="h-9 rounded-lg mt-1"
+                                        />
+                                    </div>
+                                    <div>
+                                        <Label className="text-xs text-gray-500">Biệt danh</Label>
+                                        <Input
+                                            value={createForm.nickname}
+                                            onChange={(e) => setCreateForm({ ...createForm, nickname: e.target.value })}
+                                            placeholder="Nickname"
+                                            className="h-9 rounded-lg mt-1"
+                                        />
+                                    </div>
+                                    <div>
+                                        <Label className="text-xs text-gray-500">Tỉnh/Thành phố</Label>
+                                        <Input
+                                            value={createForm.province}
+                                            onChange={(e) => setCreateForm({ ...createForm, province: e.target.value })}
+                                            placeholder="TP. Hồ Chí Minh"
+                                            className="h-9 rounded-lg mt-1"
+                                        />
+                                    </div>
+                                    <div>
+                                        <Label className="text-xs text-gray-500">Tên Facebook</Label>
+                                        <Input
+                                            value={createForm.facebookName}
+                                            onChange={(e) => setCreateForm({ ...createForm, facebookName: e.target.value })}
+                                            className="h-9 rounded-lg mt-1"
+                                        />
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Game Info */}
+                            <div>
+                                <h3 className="text-sm font-bold text-gray-900 mb-3 flex items-center gap-2">
+                                    <div className="w-5 h-5 rounded-md bg-purple-50 flex items-center justify-center">
+                                        <Gamepad2 className="w-3 h-3 text-purple-500" />
+                                    </div>
+                                    Thông tin game <span className="text-xs text-gray-400 font-normal">(không bắt buộc)</span>
+                                </h3>
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                    <div>
+                                        <Label className="text-xs text-gray-500">Gamer ID (eFootball)</Label>
+                                        <Input
+                                            value={createForm.gamerId}
+                                            onChange={(e) => setCreateForm({ ...createForm, gamerId: e.target.value })}
+                                            placeholder="ID game eFootball"
+                                            className="h-9 rounded-lg mt-1"
+                                        />
+                                    </div>
+                                    <div>
+                                        <Label className="text-xs text-gray-500">Tên đội</Label>
+                                        <Input
+                                            value={createForm.teamName}
+                                            onChange={(e) => setCreateForm({ ...createForm, teamName: e.target.value })}
+                                            placeholder="Team name"
+                                            className="h-9 rounded-lg mt-1"
+                                        />
+                                    </div>
+                                    <div className="sm:col-span-2">
+                                        <Label className="text-xs text-gray-500">Link Facebook</Label>
+                                        <Input
+                                            value={createForm.facebookLink}
+                                            onChange={(e) => setCreateForm({ ...createForm, facebookLink: e.target.value })}
+                                            placeholder="https://facebook.com/..."
+                                            className="h-9 rounded-lg mt-1"
+                                        />
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Actions */}
+                            <div className="flex gap-3 pt-3 border-t border-gray-100">
+                                <Button
+                                    variant="outline"
+                                    onClick={() => { setShowCreateModal(false); resetCreateForm(); }}
+                                    className="flex-1 rounded-xl h-11"
+                                    disabled={isCreating}
+                                >
+                                    Hủy
+                                </Button>
+                                <Button
+                                    onClick={handleCreateUser}
+                                    disabled={isCreating || !createForm.name || !createForm.email || !createForm.password || createForm.password.length < 8}
+                                    className="flex-1 bg-gradient-to-r from-efb-blue to-blue-600 text-white hover:from-efb-blue/90 hover:to-blue-700 rounded-xl h-11 shadow-md shadow-blue-200/40 font-semibold disabled:opacity-50 disabled:shadow-none transition-all"
+                                >
+                                    {isCreating ? (
+                                        <><Loader2 className="w-4 h-4 animate-spin mr-2" /> Đang tạo...</>
+                                    ) : (
+                                        <><UserPlus className="w-4 h-4 mr-2" /> Tạo tài khoản</>
+                                    )}
                                 </Button>
                             </div>
                         </div>
