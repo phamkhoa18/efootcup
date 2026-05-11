@@ -4,6 +4,7 @@ import dbConnect from "@/lib/mongodb";
 import Match from "@/models/Match";
 import Team from "@/models/Team";
 import Tournament from "@/models/Tournament";
+import MatchAuditLog from "@/models/MatchAuditLog";
 import { requireManager, apiResponse, apiError } from "@/lib/auth";
 
 interface RouteParams {
@@ -100,6 +101,7 @@ export async function GET(req: NextRequest, { params }: RouteParams) {
             .populate("awayTeam", "name shortName logo stars seed")
             .populate("winner", "name shortName")
             .populate("referee", "name")
+            .populate("updatedBy", "name email")
             .sort({ round: 1, matchNumber: 1, scheduledAt: 1 });
 
         if (limit > 0) {
@@ -187,8 +189,22 @@ export async function PUT(req: NextRequest, { params }: RouteParams) {
             notes,
         } = body;
 
-        const match = await Match.findById(matchId);
+        const match = await Match.findById(matchId)
+            .populate("homeTeam", "name shortName")
+            .populate("awayTeam", "name shortName");
         if (!match) return apiError("Không tìm thấy trận đấu", 404);
+
+        // Capture old values for audit log
+        const oldValues = {
+            homeScore: match.homeScore,
+            awayScore: match.awayScore,
+            homePenalty: match.homePenalty,
+            awayPenalty: match.awayPenalty,
+            status: match.status,
+            scheduledAt: match.scheduledAt,
+            notes: match.notes,
+            events: match.events ? JSON.stringify(match.events) : null,
+        };
 
         // --- Helper: find which slot this match occupies in its next match ---
         const findSlotInNextMatch = async (currentMatch: any): Promise<"homeTeam" | "awayTeam"> => {
@@ -326,6 +342,8 @@ export async function PUT(req: NextRequest, { params }: RouteParams) {
             if (isResetting) {
                 match.homeScore = null;
                 match.awayScore = null;
+                // Clear old submissions so players can re-submit after reset
+                match.resultSubmissions = [];
             }
         }
 
@@ -441,6 +459,106 @@ export async function PUT(req: NextRequest, { params }: RouteParams) {
 
         await match.save();
 
+        // ========================================
+        // PHASE 4: CREATE AUDIT LOG
+        // ========================================
+        try {
+            const changes: { field: string; oldValue: any; newValue: any }[] = [];
+            const actions: string[] = [];
+            const summaryParts: string[] = [];
+
+            // Detect score changes
+            if (oldValues.homeScore !== match.homeScore || oldValues.awayScore !== match.awayScore) {
+                changes.push(
+                    { field: "homeScore", oldValue: oldValues.homeScore, newValue: match.homeScore },
+                    { field: "awayScore", oldValue: oldValues.awayScore, newValue: match.awayScore }
+                );
+                actions.push("update_score");
+                const oldScoreStr = oldValues.homeScore !== null ? `${oldValues.homeScore}-${oldValues.awayScore}` : "chưa có";
+                summaryParts.push(`Tỉ số: ${oldScoreStr} → ${match.homeScore}-${match.awayScore}`);
+            }
+
+            // Detect penalty changes
+            if (oldValues.homePenalty !== match.homePenalty || oldValues.awayPenalty !== match.awayPenalty) {
+                changes.push(
+                    { field: "homePenalty", oldValue: oldValues.homePenalty, newValue: match.homePenalty },
+                    { field: "awayPenalty", oldValue: oldValues.awayPenalty, newValue: match.awayPenalty }
+                );
+                actions.push("update_penalty");
+                summaryParts.push(`Penalty: ${match.homePenalty ?? 0}-${match.awayPenalty ?? 0}`);
+            }
+
+            // Detect status changes
+            if (oldValues.status !== match.status) {
+                changes.push({ field: "status", oldValue: oldValues.status, newValue: match.status });
+                const statusLabels: Record<string, string> = {
+                    scheduled: "Chờ thi đấu", live: "Đang trực tiếp", completed: "Kết thúc",
+                    postponed: "Hoãn", cancelled: "Hủy", walkover: "Đi tiếp", bye: "Bye"
+                };
+                if (match.status === "scheduled" && oldValues.status === "completed") {
+                    actions.push("reset_match");
+                    summaryParts.push(`Reset trận đấu`);
+                } else {
+                    actions.push("change_status");
+                    summaryParts.push(`Trạng thái: ${statusLabels[oldValues.status] || oldValues.status} → ${statusLabels[match.status] || match.status}`);
+                }
+            }
+
+            // Detect schedule changes
+            if (scheduledAt && String(oldValues.scheduledAt) !== String(match.scheduledAt)) {
+                changes.push({ field: "scheduledAt", oldValue: oldValues.scheduledAt, newValue: match.scheduledAt });
+                actions.push("update_schedule");
+                const timeStr = new Date(match.scheduledAt!).toLocaleString("vi-VN", { hour: "2-digit", minute: "2-digit", day: "2-digit", month: "2-digit" });
+                summaryParts.push(`Đặt lịch: ${timeStr}`);
+            }
+
+            // Detect notes changes
+            if (notes !== undefined && oldValues.notes !== match.notes) {
+                changes.push({ field: "notes", oldValue: oldValues.notes, newValue: match.notes });
+                actions.push("update_notes");
+                summaryParts.push(`Ghi chú: "${(match.notes || "").substring(0, 50)}${(match.notes || "").length > 50 ? "..." : ""}"`);
+            }
+
+            // Detect events changes
+            if (events && oldValues.events !== JSON.stringify(match.events)) {
+                changes.push({ field: "events", oldValue: "[...]", newValue: "[...]" });
+                actions.push("update_events");
+                summaryParts.push(`Cập nhật sự kiện trận đấu`);
+            }
+
+            // Only create audit log if there were actual changes
+            if (changes.length > 0) {
+                const primaryAction = actions.includes("reset_match") ? "reset_match"
+                    : actions.includes("update_score") ? "update_score"
+                    : actions.includes("change_status") ? "change_status"
+                    : actions.includes("update_schedule") ? "update_schedule"
+                    : actions.includes("update_penalty") ? "update_penalty"
+                    : actions.includes("update_notes") ? "update_notes"
+                    : "update_events";
+
+                const homeTeamObj = match.homeTeam as any;
+                const awayTeamObj = match.awayTeam as any;
+
+                await MatchAuditLog.create({
+                    match: match._id,
+                    tournament: id,
+                    user: authResult.user._id,
+                    action: primaryAction,
+                    changes,
+                    summary: summaryParts.join(" · "),
+                    metadata: {
+                        matchNumber: match.matchNumber,
+                        roundName: match.roundName || `Vòng ${match.round}`,
+                        homeTeamName: homeTeamObj?.name || homeTeamObj?.shortName || "TBD",
+                        awayTeamName: awayTeamObj?.name || awayTeamObj?.shortName || "TBD",
+                    },
+                    ipAddress: req.headers.get("x-forwarded-for") || req.headers.get("x-real-ip") || undefined,
+                });
+            }
+        } catch (auditErr) {
+            console.error("Audit log error (non-blocking):", auditErr);
+        }
+
         // Notify players involved in the match
         try {
             const teamIds = [match.homeTeam, match.awayTeam].filter(Boolean);
@@ -492,6 +610,7 @@ export async function PUT(req: NextRequest, { params }: RouteParams) {
             .populate("homeTeam", "name shortName logo")
             .populate("awayTeam", "name shortName logo")
             .populate("winner", "name shortName")
+            .populate("updatedBy", "name email")
             .lean();
 
         return apiResponse(updatedMatch, 200, "Cập nhật trận đấu thành công");

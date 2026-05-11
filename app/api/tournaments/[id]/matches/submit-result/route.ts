@@ -129,10 +129,7 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
             submittedAt: new Date(),
         };
 
-        // Block if match already has official scores set by manager
-        if (match.homeScore !== null && match.homeScore !== undefined && match.awayScore !== null && match.awayScore !== undefined) {
-            return apiError("Quản lý giải đã cập nhật tỉ số chính thức. Bạn không thể gửi kết quả.", 400);
-        }
+        // Note: match.status === "completed" is already blocked at line 59-61 above
 
         // Check if user already submitted — allow update instead of blocking
         const existingSub = match.resultSubmissions?.find(

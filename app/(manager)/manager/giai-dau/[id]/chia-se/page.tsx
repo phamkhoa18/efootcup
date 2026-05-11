@@ -9,10 +9,24 @@ import { Badge } from "@/components/ui/badge";
 import {
     Share2, Copy, Facebook, Link2, QrCode, Users, UserPlus, Loader2,
     CheckCircle2, Trash2, ExternalLink, Shield, Calendar,
-    Swords, Check, AlertCircle, Mail, Clock, RotateCcw, KeyRound
+    Swords, Check, AlertCircle, Mail, Clock, RotateCcw, KeyRound,
+    History, Activity, ChevronDown, Filter
 } from "lucide-react";
 import { tournamentAPI } from "@/lib/api";
 import { toast } from "sonner";
+
+function getTimeAgo(date: Date): string {
+    const now = new Date();
+    const diffMs = now.getTime() - date.getTime();
+    const diffMin = Math.floor(diffMs / 60000);
+    const diffHour = Math.floor(diffMin / 60);
+    const diffDay = Math.floor(diffHour / 24);
+    if (diffMin < 1) return "Vừa xong";
+    if (diffMin < 60) return `${diffMin} phút trước`;
+    if (diffHour < 24) return `${diffHour} giờ trước`;
+    if (diffDay < 7) return `${diffDay} ngày trước`;
+    return date.toLocaleString("vi-VN", { hour: "2-digit", minute: "2-digit", day: "2-digit", month: "2-digit" });
+}
 
 export default function ChiaSePage() {
     const params = useParams();
@@ -25,6 +39,14 @@ export default function ChiaSePage() {
     const [isRegenerating, setIsRegenerating] = useState(false);
     const [removingId, setRemovingId] = useState<string | null>(null);
     const [copied, setCopied] = useState(false);
+
+    // Audit log state
+    const [auditLogs, setAuditLogs] = useState<any[]>([]);
+    const [userStats, setUserStats] = useState<any[]>([]);
+    const [isLoadingAudit, setIsLoadingAudit] = useState(false);
+    const [auditFilterUser, setAuditFilterUser] = useState<string | null>(null);
+    const [auditPage, setAuditPage] = useState(1);
+    const [auditPagination, setAuditPagination] = useState<any>(null);
 
     const baseUrl = typeof window !== "undefined" ? window.location.origin : "";
     const publicShareUrl = `${baseUrl}/giai-dau/${id}`;
@@ -45,6 +67,27 @@ export default function ChiaSePage() {
     }, [id]);
 
     useEffect(() => { loadData(); }, [loadData]);
+
+    // Load audit logs
+    const loadAuditLogs = useCallback(async (page = 1, userId?: string | null) => {
+        setIsLoadingAudit(true);
+        try {
+            const params: Record<string, string> = { page: String(page), limit: "15" };
+            if (userId) params.userId = userId;
+            const res = await tournamentAPI.getMatchAuditLog(id, params);
+            if (res.success) {
+                setAuditLogs(res.data?.logs || []);
+                setUserStats(res.data?.userStats || []);
+                setAuditPagination(res.data?.pagination || null);
+            }
+        } catch (error) {
+            console.error("Load audit logs error:", error);
+        } finally {
+            setIsLoadingAudit(false);
+        }
+    }, [id]);
+
+    useEffect(() => { loadAuditLogs(auditPage, auditFilterUser); }, [loadAuditLogs, auditPage, auditFilterUser]);
 
     const handleGenerateCode = async () => {
         setIsGenerating(true);
@@ -423,6 +466,193 @@ export default function ChiaSePage() {
                     <p className="text-[11px] text-gray-400 mt-3">Quét mã QR để xem trang giải đấu</p>
                 </div>
             </motion.div>
+
+            {/* Section 5: Activity Feed */}
+            <motion.div
+                initial={{ opacity: 0, y: 12 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.35 }}
+                className="bg-white rounded-2xl border border-gray-100 overflow-hidden shadow-sm"
+            >
+                <div className="px-6 py-4 border-b border-gray-50 bg-gradient-to-r from-teal-50/50 to-cyan-50/50">
+                    <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                            <Activity className="w-4 h-4 text-teal-500" />
+                            <h2 className="text-sm font-bold text-gray-800">
+                                Hoạt động cộng tác viên
+                                {auditPagination?.total > 0 && (
+                                    <span className="ml-1.5 text-[10px] bg-teal-100 text-teal-700 px-1.5 py-0.5 rounded-full font-bold">
+                                        {auditPagination.total}
+                                    </span>
+                                )}
+                            </h2>
+                        </div>
+                        {auditFilterUser && (
+                            <button
+                                onClick={() => { setAuditFilterUser(null); setAuditPage(1); }}
+                                className="text-[11px] text-red-500 hover:text-red-600 font-bold flex items-center gap-1"
+                            >
+                                <Filter className="w-3 h-3" /> Bỏ lọc
+                            </button>
+                        )}
+                    </div>
+                    <p className="text-[11px] text-gray-400 mt-0.5">Lịch sử thay đổi trận đấu bởi các cộng tác viên</p>
+                </div>
+
+                {/* User Stats Cards */}
+                {userStats.length > 0 && (
+                    <div className="px-6 py-4 border-b border-gray-50">
+                        <div className="flex gap-2 overflow-x-auto pb-1 custom-scrollbar">
+                            {userStats.map((stat: any) => {
+                                const isActive = auditFilterUser === stat._id?.toString();
+                                return (
+                                    <button
+                                        key={stat._id}
+                                        onClick={() => {
+                                            setAuditFilterUser(isActive ? null : stat._id?.toString());
+                                            setAuditPage(1);
+                                        }}
+                                        className={`flex-shrink-0 flex items-center gap-2.5 px-3 py-2 rounded-xl border transition-all text-left ${
+                                            isActive
+                                                ? 'bg-teal-50 border-teal-200 ring-1 ring-teal-300'
+                                                : 'bg-gray-50/80 border-gray-100 hover:border-gray-200 hover:bg-gray-50'
+                                        }`}
+                                    >
+                                        <div className={`w-8 h-8 rounded-lg flex items-center justify-center text-xs font-bold flex-shrink-0 shadow-sm ${
+                                            isActive
+                                                ? 'bg-gradient-to-br from-teal-400 to-cyan-500 text-white'
+                                                : 'bg-gradient-to-br from-indigo-400 to-purple-500 text-white'
+                                        }`}>
+                                            {stat.userInfo?.name?.charAt(0)?.toUpperCase() || '?'}
+                                        </div>
+                                        <div className="min-w-0">
+                                            <div className="text-[11px] font-bold text-gray-900 truncate max-w-[100px]">{stat.userInfo?.name || '?'}</div>
+                                            <div className="flex items-center gap-1.5 mt-0.5">
+                                                <span className="text-[9px] font-bold text-emerald-600 bg-emerald-50 border border-emerald-100 px-1 py-px rounded">
+                                                    {stat.scoreUpdates} tỉ số
+                                                </span>
+                                                {stat.resets > 0 && (
+                                                    <span className="text-[9px] font-bold text-red-600 bg-red-50 border border-red-100 px-1 py-px rounded">
+                                                        {stat.resets} reset
+                                                    </span>
+                                                )}
+                                                <span className="text-[9px] text-gray-400">
+                                                    {stat.totalActions} lần
+                                                </span>
+                                            </div>
+                                        </div>
+                                    </button>
+                                );
+                            })}
+                        </div>
+                    </div>
+                )}
+
+                {/* Activity Timeline */}
+                <div className="p-6">
+                    {isLoadingAudit ? (
+                        <div className="flex items-center justify-center py-10">
+                            <Loader2 className="w-5 h-5 animate-spin text-teal-500" />
+                            <span className="ml-2 text-sm text-gray-400">Đang tải...</span>
+                        </div>
+                    ) : auditLogs.length === 0 ? (
+                        <div className="text-center py-10">
+                            <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-gray-100 to-gray-50 flex items-center justify-center mx-auto mb-4 shadow-inner">
+                                <History className="w-6 h-6 text-gray-300" />
+                            </div>
+                            <h3 className="text-sm font-bold text-gray-700 mb-1">Chưa có hoạt động</h3>
+                            <p className="text-xs text-gray-400 max-w-xs mx-auto">
+                                Khi cộng tác viên cập nhật kết quả trận đấu, lịch sử sẽ hiện ở đây
+                            </p>
+                        </div>
+                    ) : (
+                        <div className="space-y-2">
+                            {auditLogs.map((log: any, idx: number) => {
+                                const actionConfig: Record<string, { color: string; bgColor: string; borderColor: string; label: string; icon: string }> = {
+                                    update_score: { color: 'text-emerald-600', bgColor: 'bg-emerald-50', borderColor: 'border-emerald-200', label: 'Tỉ số', icon: '⚽' },
+                                    change_status: { color: 'text-blue-600', bgColor: 'bg-blue-50', borderColor: 'border-blue-200', label: 'Trạng thái', icon: '🔄' },
+                                    reset_match: { color: 'text-red-600', bgColor: 'bg-red-50', borderColor: 'border-red-200', label: 'Reset', icon: '🔁' },
+                                    update_schedule: { color: 'text-purple-600', bgColor: 'bg-purple-50', borderColor: 'border-purple-200', label: 'Lịch', icon: '📅' },
+                                    update_penalty: { color: 'text-orange-600', bgColor: 'bg-orange-50', borderColor: 'border-orange-200', label: 'Penalty', icon: '🎯' },
+                                    update_notes: { color: 'text-gray-600', bgColor: 'bg-gray-50', borderColor: 'border-gray-200', label: 'Ghi chú', icon: '📝' },
+                                    update_events: { color: 'text-amber-600', bgColor: 'bg-amber-50', borderColor: 'border-amber-200', label: 'Sự kiện', icon: '📋' },
+                                    create_match: { color: 'text-indigo-600', bgColor: 'bg-indigo-50', borderColor: 'border-indigo-200', label: 'Tạo mới', icon: '✨' },
+                                };
+                                const config = actionConfig[log.action] || actionConfig.update_score;
+                                const userName = log.user?.name || log.user?.email || 'Hệ thống';
+                                const matchLabel = log.metadata?.homeTeamName && log.metadata?.awayTeamName
+                                    ? `${log.metadata.homeTeamName} vs ${log.metadata.awayTeamName}`
+                                    : `Trận #${log.metadata?.matchNumber || '?'}`;
+
+                                return (
+                                    <motion.div
+                                        key={log._id || idx}
+                                        initial={{ opacity: 0, x: -8 }}
+                                        animate={{ opacity: 1, x: 0 }}
+                                        transition={{ delay: idx * 0.03 }}
+                                        className="flex items-start gap-3 p-3 rounded-xl bg-gray-50/60 hover:bg-gray-50 border border-transparent hover:border-gray-100 transition-all"
+                                    >
+                                        <div className={`w-9 h-9 rounded-xl ${config.bgColor} border ${config.borderColor} flex items-center justify-center text-sm flex-shrink-0 shadow-sm`}>
+                                            {config.icon}
+                                        </div>
+                                        <div className="flex-1 min-w-0">
+                                            <div className="flex items-center gap-1.5 flex-wrap">
+                                                <span className="text-xs font-bold text-gray-900 truncate max-w-[120px]">{userName}</span>
+                                                <span className={`text-[9px] font-bold ${config.color} ${config.bgColor} border ${config.borderColor} px-1.5 py-px rounded`}>
+                                                    {config.label}
+                                                </span>
+                                            </div>
+                                            <p className="text-[11px] text-gray-600 mt-0.5 leading-relaxed">{log.summary}</p>
+                                            <div className="flex items-center gap-2 mt-1">
+                                                <span className="text-[10px] text-gray-400 bg-white px-1.5 py-0.5 rounded border border-gray-100 truncate max-w-[180px]">
+                                                    {log.metadata?.roundName} · {matchLabel}
+                                                </span>
+                                                <span className="text-[10px] text-gray-400" title={new Date(log.createdAt).toLocaleString('vi-VN')}>
+                                                    {getTimeAgo(new Date(log.createdAt))}
+                                                </span>
+                                            </div>
+                                        </div>
+                                    </motion.div>
+                                );
+                            })}
+
+                            {/* Pagination */}
+                            {auditPagination && auditPagination.totalPages > 1 && (
+                                <div className="flex items-center justify-between pt-3 border-t border-gray-100">
+                                    <span className="text-[11px] text-gray-400">
+                                        Trang {auditPagination.page}/{auditPagination.totalPages}
+                                    </span>
+                                    <div className="flex gap-1.5">
+                                        <Button
+                                            variant="outline"
+                                            size="sm"
+                                            disabled={auditPage <= 1}
+                                            onClick={() => setAuditPage(p => Math.max(1, p - 1))}
+                                            className="h-7 text-[11px] px-3 rounded-lg"
+                                        >
+                                            Trước
+                                        </Button>
+                                        <Button
+                                            variant="outline"
+                                            size="sm"
+                                            disabled={auditPage >= auditPagination.totalPages}
+                                            onClick={() => setAuditPage(p => p + 1)}
+                                            className="h-7 text-[11px] px-3 rounded-lg"
+                                        >
+                                            Sau
+                                        </Button>
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+                    )}
+                </div>
+            </motion.div>
+
+            <style jsx global>{`
+                .custom-scrollbar::-webkit-scrollbar { height: 4px; width: 4px; }
+                .custom-scrollbar::-webkit-scrollbar-thumb { background: #E2E8F0; border-radius: 4px; }
+            `}</style>
         </div>
     );
 }

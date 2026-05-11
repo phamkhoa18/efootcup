@@ -265,6 +265,12 @@ export const tournamentAPI = {
             method: "DELETE",
             body: JSON.stringify({ userId }),
         }),
+
+    // Audit Log
+    getMatchAuditLog: (tournamentId: string, params?: Record<string, string>) => {
+        const searchParams = new URLSearchParams(params || {});
+        return apiFetch(`/tournaments/${tournamentId}/matches/audit-log?${searchParams.toString()}`);
+    },
 };
 
 // ====== Dashboard ======

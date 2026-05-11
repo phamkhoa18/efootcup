@@ -106,6 +106,7 @@ export async function GET(req: NextRequest, { params }: RouteParams) {
             .populate("homeTeam", "name shortName logo stars seed")
             .populate("awayTeam", "name shortName logo stars seed")
             .populate("winner", "name shortName")
+            .populate("updatedBy", "name email")
             .sort({ round: 1, "bracketPosition.y": 1 })
             .lean();
 

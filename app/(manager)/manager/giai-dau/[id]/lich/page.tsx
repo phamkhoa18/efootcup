@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
-import { Calendar, Download, Edit3, Filter, Settings2, Share2, Play, Users, X, Info, ChevronDown, CheckCircle2, Bone, Hexagon, SplitSquareHorizontal, Loader2, ArrowLeftRight, FileBarChart, Eye, ArrowUp, ArrowDown, Shuffle, Hash, Trophy, Save, Sparkles, Search } from "lucide-react";
+import { Calendar, Download, Edit3, Filter, Settings2, Share2, Play, Users, X, Info, ChevronDown, CheckCircle2, Bone, Hexagon, SplitSquareHorizontal, Loader2, ArrowLeftRight, FileBarChart, Eye, ArrowUp, ArrowDown, Shuffle, Hash, Trophy, Save, Sparkles, Search, History, UserCheck } from "lucide-react";
 import { tournamentAPI } from "@/lib/api";
 import { toast } from "sonner";
 import { useConfirmDialog } from "@/components/ui/confirm-dialog";
@@ -17,6 +17,22 @@ import autoTable from "jspdf-autotable";
 import { useBracketSwap } from "@/hooks/useBracketSwap";
 import SwapFloatingBar from "@/components/SwapFloatingBar";
 import { useAuth } from "@/contexts/AuthContext";
+
+// Helper: Vietnamese relative time
+function getTimeAgo(date: Date): string {
+    const now = new Date();
+    const diffMs = now.getTime() - date.getTime();
+    const diffSec = Math.floor(diffMs / 1000);
+    const diffMin = Math.floor(diffSec / 60);
+    const diffHour = Math.floor(diffMin / 60);
+    const diffDay = Math.floor(diffHour / 24);
+
+    if (diffSec < 60) return "Vừa xong";
+    if (diffMin < 60) return `${diffMin} phút trước`;
+    if (diffHour < 24) return `${diffHour} giờ trước`;
+    if (diffDay < 7) return `${diffDay} ngày trước`;
+    return date.toLocaleString("vi-VN", { hour: "2-digit", minute: "2-digit", day: "2-digit", month: "2-digit", year: "numeric" });
+}
 
 // Reusable icons/components
 const ClearIcon = () => (
@@ -636,6 +652,15 @@ export default function LichThiDauPage() {
                                                     <div className="col-span-4 flex flex-col gap-1.5 text-[13px] font-medium">
                                                         <div className={`${isCompleted ? (isHomeWin ? "font-bold text-gray-900" : "text-gray-400 line-through") : "text-purple-600"}`}>{p1Name}{p1Sub}</div>
                                                         <div className={`${isCompleted ? (isAwayWin ? "font-bold text-gray-900" : "text-gray-400 line-through") : "text-purple-600"}`}>{p2Name}{p2Sub}</div>
+                                                        {/* Updater Info */}
+                                                        {m.updatedBy && m.updatedAt && (
+                                                            <div className="flex items-center gap-1 text-[10px] text-gray-400 mt-0.5" title={`Cập nhật bởi ${m.updatedBy.name || m.updatedBy.email}`}>
+                                                                <UserCheck className="w-3 h-3 text-teal-400 flex-shrink-0" />
+                                                                <span className="font-semibold text-teal-600 truncate max-w-[100px]">{m.updatedBy.name || m.updatedBy.email}</span>
+                                                                <span className="text-gray-300">·</span>
+                                                                <span>{new Date(m.updatedAt).toLocaleString('vi-VN', { hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit' })}</span>
+                                                            </div>
+                                                        )}
                                                     </div>
                                                     <div className="col-span-2 text-center text-sm font-bold text-gray-900">
                                                         {isCompleted || m.status === "live" ? (
@@ -724,6 +749,15 @@ export default function LichThiDauPage() {
                                                             {isCompleted || m.status === "live" ? (m.awayScore ?? 0) : "-"}
                                                         </span>
                                                     </div>
+                                                    {/* Mobile Updater Info */}
+                                                    {m.updatedBy && m.updatedAt && (
+                                                        <div className="flex items-center gap-1 text-[10px] text-gray-400 mt-1 px-1.5 pb-1">
+                                                            <UserCheck className="w-3 h-3 text-teal-400 flex-shrink-0" />
+                                                            <span className="font-semibold text-teal-600 truncate max-w-[100px]">{m.updatedBy.name || m.updatedBy.email}</span>
+                                                            <span className="text-gray-300">·</span>
+                                                            <span>{new Date(m.updatedAt).toLocaleString('vi-VN', { hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit' })}</span>
+                                                        </div>
+                                                    )}
                                                 </div>
                                             </div>
                                         )
@@ -1153,6 +1187,9 @@ function EditMatchModal({ match, tournament, onClose, onSaved }: { match: any; t
             : [{ homeScore: match.homeScore ?? "", awayScore: match.awayScore ?? "" }]
     );
     const [isSaving, setIsSaving] = useState(false);
+    const [auditLogs, setAuditLogs] = useState<any[]>([]);
+    const [isLoadingAudit, setIsLoadingAudit] = useState(false);
+    const [isAuditExpanded, setIsAuditExpanded] = useState(false);
 
     const formatNameStr = (team: any, pFallback: any) => {
         const p1 = team?.player1 || pFallback?.name || "Tự do";
@@ -1190,6 +1227,25 @@ function EditMatchModal({ match, tournament, onClose, onSaved }: { match: any; t
             }
         }
     }, [sets]);
+
+    // Fetch audit logs for this match
+    useEffect(() => {
+        const fetchAuditLogs = async () => {
+            setIsLoadingAudit(true);
+            try {
+                const matchId = match._id || match.id;
+                const res = await tournamentAPI.getMatchAuditLog(tournament._id, { matchId, limit: "10" });
+                if (res.success) {
+                    setAuditLogs(res.data?.logs || []);
+                }
+            } catch (err) {
+                console.error("Failed to load audit logs:", err);
+            } finally {
+                setIsLoadingAudit(false);
+            }
+        };
+        fetchAuditLogs();
+    }, [match._id, match.id, tournament._id]);
 
     const handleSave = async () => {
         setIsSaving(true);
@@ -1526,7 +1582,90 @@ function EditMatchModal({ match, tournament, onClose, onSaved }: { match: any; t
                         </div>
                     )}
 
+                    {/* =============== AUDIT LOG TIMELINE =============== */}
+                    <div className="mt-8">
+                        <button
+                            onClick={() => setIsAuditExpanded(!isAuditExpanded)}
+                            className="w-full flex items-center justify-between px-4 py-3 rounded-xl bg-gradient-to-r from-slate-50 to-gray-50 border border-gray-200 hover:border-gray-300 transition-all group"
+                        >
+                            <div className="flex items-center gap-2">
+                                <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-teal-400 to-cyan-500 flex items-center justify-center shadow-sm">
+                                    <History className="w-3.5 h-3.5 text-white" />
+                                </div>
+                                <span className="text-sm font-bold text-gray-800">Lịch sử thay đổi</span>
+                                {auditLogs.length > 0 && (
+                                    <span className="bg-teal-100 text-teal-700 text-[10px] font-bold px-1.5 py-0.5 rounded-full">
+                                        {auditLogs.length}
+                                    </span>
+                                )}
+                            </div>
+                            <ChevronDown className={`w-4 h-4 text-gray-400 transition-transform duration-200 ${isAuditExpanded ? 'rotate-180' : ''}`} />
+                        </button>
 
+                        {isAuditExpanded && (
+                            <div className="mt-3 rounded-xl border border-gray-100 bg-white overflow-hidden">
+                                {isLoadingAudit ? (
+                                    <div className="flex items-center justify-center py-8">
+                                        <Loader2 className="w-5 h-5 animate-spin text-teal-500" />
+                                        <span className="ml-2 text-sm text-gray-400">Đang tải...</span>
+                                    </div>
+                                ) : auditLogs.length === 0 ? (
+                                    <div className="text-center py-8">
+                                        <div className="w-10 h-10 rounded-xl bg-gray-100 flex items-center justify-center mx-auto mb-2">
+                                            <History className="w-5 h-5 text-gray-300" />
+                                        </div>
+                                        <p className="text-xs text-gray-400">Chưa có lịch sử thay đổi</p>
+                                    </div>
+                                ) : (
+                                    <div className="relative">
+                                        {/* Vertical timeline line */}
+                                        <div className="absolute left-[23px] top-6 bottom-6 w-px bg-gradient-to-b from-teal-200 via-gray-200 to-transparent" />
+
+                                        <div className="divide-y divide-gray-50">
+                                            {auditLogs.map((log: any, idx: number) => {
+                                                const actionConfig: Record<string, { color: string; bgColor: string; borderColor: string; label: string }> = {
+                                                    update_score: { color: 'text-emerald-600', bgColor: 'bg-emerald-50', borderColor: 'border-emerald-200', label: 'Tỉ số' },
+                                                    change_status: { color: 'text-blue-600', bgColor: 'bg-blue-50', borderColor: 'border-blue-200', label: 'Trạng thái' },
+                                                    reset_match: { color: 'text-red-600', bgColor: 'bg-red-50', borderColor: 'border-red-200', label: 'Reset' },
+                                                    update_schedule: { color: 'text-purple-600', bgColor: 'bg-purple-50', borderColor: 'border-purple-200', label: 'Lịch' },
+                                                    update_events: { color: 'text-amber-600', bgColor: 'bg-amber-50', borderColor: 'border-amber-200', label: 'Sự kiện' },
+                                                    update_notes: { color: 'text-gray-600', bgColor: 'bg-gray-50', borderColor: 'border-gray-200', label: 'Ghi chú' },
+                                                    update_penalty: { color: 'text-orange-600', bgColor: 'bg-orange-50', borderColor: 'border-orange-200', label: 'Penalty' },
+                                                    create_match: { color: 'text-indigo-600', bgColor: 'bg-indigo-50', borderColor: 'border-indigo-200', label: 'Tạo mới' },
+                                                };
+                                                const config = actionConfig[log.action] || actionConfig.update_score;
+                                                const userName = log.user?.name || log.user?.email || 'Hệ thống';
+                                                const userInitial = userName.charAt(0).toUpperCase();
+                                                const timeAgo = getTimeAgo(new Date(log.createdAt));
+
+                                                return (
+                                                    <div key={log._id || idx} className="flex gap-3 px-4 py-3 hover:bg-gray-50/50 transition-colors">
+                                                        {/* Timeline dot */}
+                                                        <div className="flex-shrink-0 relative z-10">
+                                                            <div className={`w-8 h-8 rounded-full ${config.bgColor} border-2 ${config.borderColor} flex items-center justify-center text-[10px] font-bold ${config.color} shadow-sm`}>
+                                                                {userInitial}
+                                                            </div>
+                                                        </div>
+                                                        {/* Content */}
+                                                        <div className="flex-1 min-w-0">
+                                                            <div className="flex items-center gap-1.5 flex-wrap">
+                                                                <span className="text-xs font-bold text-gray-900 truncate max-w-[120px]">{userName}</span>
+                                                                <span className={`text-[9px] font-bold ${config.color} ${config.bgColor} border ${config.borderColor} px-1.5 py-px rounded`}>
+                                                                    {config.label}
+                                                                </span>
+                                                            </div>
+                                                            <p className="text-[11px] text-gray-600 mt-0.5 leading-relaxed">{log.summary}</p>
+                                                            <span className="text-[10px] text-gray-400 mt-0.5 block" title={new Date(log.createdAt).toLocaleString('vi-VN')}>{timeAgo}</span>
+                                                        </div>
+                                                    </div>
+                                                );
+                                            })}
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+                        )}
+                    </div>
 
 
                 </div>
