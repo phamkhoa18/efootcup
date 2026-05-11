@@ -1,7 +1,7 @@
 "use client";
 
 import { motion, AnimatePresence } from "framer-motion";
-import { Swords, Trophy, Users, Search, X, Copy, QrCode, Share2, Check, CheckCircle2, Info, Loader2, Download, ArrowUp, ArrowDown, Shuffle, Hash, RotateCcw, Sparkles, FileBarChart, Eye, ImageIcon, MessageSquare, Clock, User, Save } from "lucide-react";
+import { Swords, Trophy, Users, Search, X, Copy, QrCode, Share2, Check, CheckCircle2, Info, Loader2, Download, ArrowUp, ArrowDown, Shuffle, Hash, RotateCcw, Sparkles, FileBarChart, Eye, ImageIcon, MessageSquare, Clock, User, Save, UserCheck } from "lucide-react";
 import { useState, useEffect } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
@@ -216,6 +216,20 @@ const MatchCard = ({ match, onClick, isSwapMode, selectedTeamId, swappedTeamIds,
                         <span className={`text-[12px] tabular-nums ml-1 ${awayWin ? "text-blue-600 font-bold" : "text-gray-400 font-semibold"}`}>{awayScore}</span>
                     </div>
                 </div>
+
+                {/* Updater Info on completed matches */}
+                {isCompleted && !isWalkover && match.updatedBy && (
+                    <div className="px-1.5 py-[3px] bg-teal-50/80 flex items-center gap-1 text-[8px] text-teal-600 border-t border-teal-100">
+                        <UserCheck className="w-2.5 h-2.5 text-teal-400 flex-shrink-0" />
+                        <span className="font-semibold truncate max-w-[100px]">{match.updatedBy.name || 'Quản lý'}</span>
+                        {match.updatedAt && (
+                            <>
+                                <span className="text-teal-300">·</span>
+                                <span className="text-teal-500">{new Date(match.updatedAt).toLocaleString('vi-VN', { hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit' })}</span>
+                            </>
+                        )}
+                    </div>
+                )}
             </motion.div>
         </div>
     );
@@ -795,6 +809,19 @@ const MatchDetailModal = ({ match, tournament, onClose, onSaved }: { match: any;
                         </motion.div>
                     )}
                 </AnimatePresence>
+
+                {/* Updater Info */}
+                {match.updatedBy && match.updatedAt && (
+                    <div className="mx-4 mb-2 rounded-lg bg-teal-50/80 border border-teal-100 px-3 py-2 flex items-center gap-2">
+                        <UserCheck className="w-4 h-4 text-teal-500 flex-shrink-0" />
+                        <span className="text-[11px] text-teal-700">
+                            Cập nhật bởi <span className="font-bold">{match.updatedBy.name || 'Quản lý'}</span>
+                        </span>
+                        <span className="text-[10px] text-teal-500">
+                            · {new Date(match.updatedAt).toLocaleString('vi-VN', { hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit' })}
+                        </span>
+                    </div>
+                )}
 
                 {/* Footer fixed */}
                 <div className="border-t border-gray-100 p-4 bg-white flex items-center justify-between flex-shrink-0">

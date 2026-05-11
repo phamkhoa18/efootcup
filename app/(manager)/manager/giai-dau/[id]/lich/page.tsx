@@ -654,9 +654,9 @@ export default function LichThiDauPage() {
                                                         <div className={`${isCompleted ? (isAwayWin ? "font-bold text-gray-900" : "text-gray-400 line-through") : "text-purple-600"}`}>{p2Name}{p2Sub}</div>
                                                         {/* Updater Info */}
                                                         {m.updatedBy && m.updatedAt && (
-                                                            <div className="flex items-center gap-1 text-[10px] text-gray-400 mt-0.5" title={`Cập nhật bởi ${m.updatedBy.name || m.updatedBy.email}`}>
+                                                            <div className="flex items-center gap-1 text-[10px] text-gray-400 mt-0.5" title={`${m.updatedBy.name || ''}`}>
                                                                 <UserCheck className="w-3 h-3 text-teal-400 flex-shrink-0" />
-                                                                <span className="font-semibold text-teal-600 truncate max-w-[100px]">{m.updatedBy.name || m.updatedBy.email}</span>
+                                                                <span className="font-semibold text-teal-600 truncate max-w-[120px]">{m.updatedBy.name || 'Quản lý'}</span>
                                                                 <span className="text-gray-300">·</span>
                                                                 <span>{new Date(m.updatedAt).toLocaleString('vi-VN', { hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit' })}</span>
                                                             </div>
@@ -753,7 +753,7 @@ export default function LichThiDauPage() {
                                                     {m.updatedBy && m.updatedAt && (
                                                         <div className="flex items-center gap-1 text-[10px] text-gray-400 mt-1 px-1.5 pb-1">
                                                             <UserCheck className="w-3 h-3 text-teal-400 flex-shrink-0" />
-                                                            <span className="font-semibold text-teal-600 truncate max-w-[100px]">{m.updatedBy.name || m.updatedBy.email}</span>
+                                                            <span className="font-semibold text-teal-600 truncate max-w-[120px]">{m.updatedBy.name || 'Quản lý'}</span>
                                                             <span className="text-gray-300">·</span>
                                                             <span>{new Date(m.updatedAt).toLocaleString('vi-VN', { hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit' })}</span>
                                                         </div>
@@ -1161,6 +1161,39 @@ export default function LichThiDauPage() {
                             </div>
                         )}
                     </div>
+                    {/* Official Result + Updater Info */}
+                    {viewingSubmissions?.status === 'completed' && (
+                        <div className="mx-3 sm:mx-4 mb-3 rounded-xl bg-gradient-to-r from-teal-50 to-emerald-50 border border-teal-100 p-3 sm:p-4">
+                            <div className="flex items-center gap-2 mb-2">
+                                <CheckCircle2 className="w-4 h-4 text-emerald-500" />
+                                <span className="text-xs font-bold text-emerald-800">Kết quả chính thức</span>
+                            </div>
+                            <div className="flex items-center justify-center gap-3 mb-2">
+                                <div className="text-center">
+                                    <span className="text-[10px] text-gray-500 font-medium">{viewingSubmissions.homeTeam?.shortName || viewingSubmissions.homeTeam?.name || 'Đội nhà'}</span>
+                                    <div className="text-2xl font-black text-gray-900 mt-0.5">{viewingSubmissions.homeScore ?? '-'}</div>
+                                </div>
+                                <span className="text-gray-300 text-lg font-light mt-3">—</span>
+                                <div className="text-center">
+                                    <span className="text-[10px] text-gray-500 font-medium">{viewingSubmissions.awayTeam?.shortName || viewingSubmissions.awayTeam?.name || 'Đội khách'}</span>
+                                    <div className="text-2xl font-black text-gray-900 mt-0.5">{viewingSubmissions.awayScore ?? '-'}</div>
+                                </div>
+                            </div>
+                            {viewingSubmissions.updatedBy && (
+                                <div className="flex items-center justify-center gap-1.5 text-[11px] text-teal-700 bg-white/60 rounded-lg py-1.5 px-3">
+                                    <UserCheck className="w-3.5 h-3.5 text-teal-500 flex-shrink-0" />
+                                    <span>Cập nhật bởi</span>
+                                    <span className="font-bold">{viewingSubmissions.updatedBy.name || 'Quản lý'}</span>
+                                    {viewingSubmissions.updatedAt && (
+                                        <>
+                                            <span className="text-teal-400">·</span>
+                                            <span className="text-teal-600">{new Date(viewingSubmissions.updatedAt).toLocaleString('vi-VN', { hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit' })}</span>
+                                        </>
+                                    )}
+                                </div>
+                            )}
+                        </div>
+                    )}
                     <div className="border-t border-gray-100 p-3 sm:p-4 bg-gray-50 flex justify-between items-center gap-3 flex-shrink-0">
                         <p className="text-[10px] text-gray-400 italic hidden sm:block">Xem kết quả và nhập tỉ số chính thức qua nút Sửa bên cạnh.</p>
                         <Button variant="outline" onClick={() => setViewingSubmissions(null)} className="px-6 h-10 sm:h-9 rounded-lg border-gray-200 text-gray-700 font-semibold hover:bg-gray-100 text-sm w-full sm:w-auto">
