@@ -141,7 +141,7 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
         if (existingSub) {
             // Update existing submission for current version
             result = await Match.updateOne(
-                { _id: matchId, "resultSubmissions._id": existingSub._id },
+                { _id: matchId, "resultSubmissions._id": (existingSub as any)._id },
                 {
                     $set: {
                         "resultSubmissions.$.homeScore": submissionData.homeScore,
@@ -182,7 +182,7 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
                     recipient: tournament.createdBy,
                     type: "tournament",
                     title: "Kết quả trận đấu mới",
-                    message: `Người chơi đã gửi kết quả trận đấu: ${homeTeam?.player1 || homeTeam?.name || "?"} ${homeScore} - ${awayScore} ${awayTeam?.player1 || awayTeam?.name || "?"} trong giải "${tournament.title}"`,
+                    message: `Người chơi đã gửi kết quả trận đấu: ${(homeTeam as any)?.player1 || homeTeam?.name || "?"} ${homeScore} - ${awayScore} ${(awayTeam as any)?.player1 || awayTeam?.name || "?"} trong giải "${tournament.title}"`,
                     link: `/manager/giai-dau/${tournamentId}/lich`,
                 });
             }
