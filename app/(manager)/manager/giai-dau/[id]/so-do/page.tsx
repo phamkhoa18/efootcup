@@ -1,7 +1,7 @@
 "use client";
 
 import { motion, AnimatePresence } from "framer-motion";
-import { Swords, Trophy, Users, Search, X, Copy, QrCode, Share2, Check, CheckCircle2, Info, Loader2, Download, ArrowUp, ArrowDown, Shuffle, Hash, RotateCcw, Sparkles, FileBarChart, Eye, ImageIcon, MessageSquare, Clock, User, Save, UserCheck } from "lucide-react";
+import { Swords, Trophy, Users, Search, X, Copy, QrCode, Share2, Check, CheckCircle2, Info, Loader2, Download, ArrowUp, ArrowDown, Shuffle, Hash, RotateCcw, Sparkles, FileBarChart, Eye, ImageIcon, MessageSquare, Clock, User, Save, UserCheck, History } from "lucide-react";
 import { useState, useEffect } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
@@ -225,7 +225,7 @@ const MatchCard = ({ match, onClick, isSwapMode, selectedTeamId, swappedTeamIds,
                         {match.updatedAt && (
                             <>
                                 <span className="text-teal-300">·</span>
-                                <span className="text-teal-500">{new Date(match.updatedAt).toLocaleString('vi-VN', { hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit' })}</span>
+                                <span className="text-teal-500">{new Date(match.updatedAt).toLocaleString('vi-VN', { hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit', year: 'numeric' })}</span>
                             </>
                         )}
                     </div>
@@ -445,7 +445,7 @@ const MatchDetailModal = ({ match, tournament, onClose, onSaved }: { match: any;
                                                     {match.homeTeam?.efvId != null && <span className="text-[9px] font-bold text-amber-600 bg-amber-50 border border-amber-200 px-1 py-px rounded">#{match.homeTeam.efvId}</span>}
                                                     <span className="text-[13px] font-semibold text-gray-900 truncate inline-block max-w-[90px] sm:max-w-none align-bottom leading-tight">{match.homeTeam?.player1 || match.p1?.name || "Tự do"}{match.homeTeam?.player2 && match.homeTeam.player2 !== "TBD" ? ` / ${match.homeTeam.player2}` : ""}</span>
                                                 </div>
-                                                {match.homeTeam?.shortName && <div className="text-[10px] text-gray-400 mt-0.5 truncate">{match.homeTeam.shortName}</div>}
+                                                {match.homeTeam?.name && <div className="text-[10px] text-gray-400 mt-0.5 truncate">{match.homeTeam.name}</div>}
                                             </div>
                                         </div>
                                         <ClearIcon />
@@ -502,7 +502,7 @@ const MatchDetailModal = ({ match, tournament, onClose, onSaved }: { match: any;
                                                     {match.awayTeam?.efvId != null && <span className="text-[9px] font-bold text-amber-600 bg-amber-50 border border-amber-200 px-1 py-px rounded">#{match.awayTeam.efvId}</span>}
                                                     <span className="text-[13px] font-semibold text-gray-900 truncate inline-block max-w-[90px] sm:max-w-none align-bottom leading-tight">{match.awayTeam?.player1 || match.p2?.name || "Tự do"}{match.awayTeam?.player2 && match.awayTeam.player2 !== "TBD" ? ` / ${match.awayTeam.player2}` : ""}</span>
                                                 </div>
-                                                {match.awayTeam?.shortName && <div className="text-[10px] text-gray-400 mt-0.5 truncate">{match.awayTeam.shortName}</div>}
+                                                {match.awayTeam?.name && <div className="text-[10px] text-gray-400 mt-0.5 truncate">{match.awayTeam.name}</div>}
                                             </div>
                                         </div>
                                         <ClearIcon />
@@ -551,7 +551,7 @@ const MatchDetailModal = ({ match, tournament, onClose, onSaved }: { match: any;
                                         {match.homeTeam?.efvId != null && <span className="text-[8px] font-bold text-amber-600 bg-amber-50 border border-amber-200 px-1 py-px rounded">#{match.homeTeam.efvId}</span>}
                                         <span>{match.homeTeam?.player1 || match.p1?.name || "Tự do"}{match.homeTeam?.player2 && match.homeTeam.player2 !== "TBD" ? ` / ${match.homeTeam.player2}` : ""}</span>
                                     </div>
-                                    {match.homeTeam?.shortName && <span className="text-[10px] text-gray-400">{match.homeTeam.shortName}</span>}
+                                    {match.homeTeam?.name && <span className="text-[10px] text-gray-400">{match.homeTeam.name}</span>}
                                 </button>
                                 <button
                                     onClick={() => setSelectedWinner('away')}
@@ -561,7 +561,7 @@ const MatchDetailModal = ({ match, tournament, onClose, onSaved }: { match: any;
                                         {match.awayTeam?.efvId != null && <span className="text-[8px] font-bold text-amber-600 bg-amber-50 border border-amber-200 px-1 py-px rounded">#{match.awayTeam.efvId}</span>}
                                         <span>{match.awayTeam?.player1 || match.p2?.name || "Tự do"}{match.awayTeam?.player2 && match.awayTeam.player2 !== "TBD" ? ` / ${match.awayTeam.player2}` : ""}</span>
                                     </div>
-                                    {match.awayTeam?.shortName && <span className="text-[10px] text-gray-400">{match.awayTeam.shortName}</span>}
+                                    {match.awayTeam?.name && <span className="text-[10px] text-gray-400">{match.awayTeam.name}</span>}
                                 </button>
                             </div>
                         </div>
@@ -598,8 +598,14 @@ const MatchDetailModal = ({ match, tournament, onClose, onSaved }: { match: any;
                     </div>
 
                     {/* Player Submitted Results */}
-                    {match.resultSubmissions && match.resultSubmissions.length > 0 ? (
+                    {match.resultSubmissions && match.resultSubmissions.length > 0 ? (() => {
+                        const currentVersion = match.matchVersion || 1;
+                        const currentSubs = match.resultSubmissions.filter((s: any) => (s.version || 1) === currentVersion);
+                        const historySubs = match.resultSubmissions.filter((s: any) => (s.version || 1) !== currentVersion);
+
+                        return (
                         <div className="mt-6 sm:mt-8">
+                            {/* Current Version Submissions */}
                             <div className="flex items-center gap-2 mb-4">
                                 <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-orange-400 to-amber-500 flex items-center justify-center shadow-sm">
                                     <FileBarChart className="w-4 h-4 text-white" />
@@ -608,14 +614,20 @@ const MatchDetailModal = ({ match, tournament, onClose, onSaved }: { match: any;
                                     <h4 className="text-sm font-bold text-gray-900 flex items-center gap-2">
                                         Kết quả VĐV đã gửi
                                         <span className="bg-orange-100 text-orange-600 text-[10px] font-bold px-2 py-0.5 rounded-full">
-                                            {match.resultSubmissions.length}
+                                            {currentSubs.length}
                                         </span>
+                                        {currentVersion > 1 && (
+                                            <span className="bg-blue-100 text-blue-600 text-[10px] font-bold px-2 py-0.5 rounded-full">
+                                                Lần {currentVersion}
+                                            </span>
+                                        )}
                                     </h4>
                                     <p className="text-[10px] text-gray-400">Kết quả do VĐV tự gửi lên để xác nhận</p>
                                 </div>
                             </div>
+                            {currentSubs.length > 0 ? (
                             <div className="space-y-4">
-                                {match.resultSubmissions.map((sub: any, idx: number) => {
+                                {currentSubs.map((sub: any, idx: number) => {
                                     const isFromHome = sub.team?.toString?.() === (match.homeTeam?._id || match.homeTeam)?.toString?.();
                                     const submitterTeam = isFromHome ? match.homeTeam : match.awayTeam;
                                     const submitterTeamName = submitterTeam?.name || submitterTeam?.shortName || "";
@@ -694,7 +706,7 @@ const MatchDetailModal = ({ match, tournament, onClose, onSaved }: { match: any;
                                                                 {match.homeTeam?.efvId != null && <span className="text-[8px] font-bold text-amber-600 bg-amber-50 border border-amber-200 px-1 py-px rounded">#{match.homeTeam.efvId}</span>}
                                                                 <span className="text-[10px] font-bold text-gray-600 truncate">{match.homeTeam?.player1 || match.p1?.name || "Đội nhà"}</span>
                                                             </div>
-                                                            {match.homeTeam?.shortName && <p className="text-[9px] text-gray-400">{match.homeTeam.shortName}</p>}
+                                                            {match.homeTeam?.name && <p className="text-[9px] text-gray-400">{match.homeTeam.name}</p>}
                                                         </div>
                                                         <span className={`text-2xl sm:text-3xl font-black inline-block min-w-[48px] py-1.5 px-3 rounded-xl ${
                                                             sub.homeScore > sub.awayScore 
@@ -711,7 +723,7 @@ const MatchDetailModal = ({ match, tournament, onClose, onSaved }: { match: any;
                                                                 {match.awayTeam?.efvId != null && <span className="text-[8px] font-bold text-amber-600 bg-amber-50 border border-amber-200 px-1 py-px rounded">#{match.awayTeam.efvId}</span>}
                                                                 <span className="text-[10px] font-bold text-gray-600 truncate">{match.awayTeam?.player1 || match.p2?.name || "Đội khách"}</span>
                                                             </div>
-                                                            {match.awayTeam?.shortName && <p className="text-[9px] text-gray-400">{match.awayTeam.shortName}</p>}
+                                                            {match.awayTeam?.name && <p className="text-[9px] text-gray-400">{match.awayTeam.name}</p>}
                                                         </div>
                                                         <span className={`text-2xl sm:text-3xl font-black inline-block min-w-[48px] py-1.5 px-3 rounded-xl ${
                                                             sub.awayScore > sub.homeScore 
@@ -763,8 +775,62 @@ const MatchDetailModal = ({ match, tournament, onClose, onSaved }: { match: any;
                                     );
                                 })}
                             </div>
+                            ) : (
+                                <div className="text-center py-4 text-gray-400 bg-gray-50 rounded-xl border border-dashed border-gray-200">
+                                    <p className="text-sm">VĐV chưa gửi lại kết quả cho lần này.</p>
+                                </div>
+                            )}
+
+                            {/* Historical Submissions */}
+                            {historySubs.length > 0 && (
+                                <div className="mt-6 pt-4 border-t border-gray-200">
+                                    <div className="flex items-center gap-2 mb-3">
+                                        <History className="w-3.5 h-3.5 text-gray-400" />
+                                        <span className="text-xs font-bold text-gray-500">Lịch sử gửi trước đó</span>
+                                        <span className="bg-gray-100 text-gray-500 text-[10px] font-bold px-2 py-0.5 rounded-full">{historySubs.length}</span>
+                                    </div>
+                                    <div className="space-y-3 opacity-60">
+                                        {historySubs.map((sub: any, idx: number) => {
+                                            const isFromHome = sub.team?.toString?.() === (match.homeTeam?._id || match.homeTeam)?.toString?.();
+                                            const submitterTeam = isFromHome ? match.homeTeam : match.awayTeam;
+                                            const submitterTeamName = submitterTeam?.name || submitterTeam?.shortName || "";
+                                            const userData = sub.userData || {};
+                                            const displayName = userData.name || submitterTeam?.player1 || (isFromHome ? match.p1?.name : match.p2?.name) || "VĐV";
+
+                                            return (
+                                                <div key={`hist-${idx}`} className="rounded-lg border border-gray-200 overflow-hidden bg-gray-50">
+                                                    <div className={`px-3 py-2 flex items-center justify-between ${isFromHome ? 'bg-blue-50/30 border-b border-blue-100/50' : 'bg-rose-50/30 border-b border-rose-100/50'}`}>
+                                                        <div className="flex items-center gap-2 min-w-0">
+                                                            <span className="text-xs font-semibold text-gray-600 truncate">{displayName}</span>
+                                                            {submitterTeamName && <span className="text-[10px] text-gray-400">· {submitterTeamName}</span>}
+                                                            <span className="bg-gray-200 text-gray-500 text-[9px] font-bold px-1.5 py-px rounded">Lần {sub.version || 1}</span>
+                                                        </div>
+                                                        <span className="text-[10px] text-gray-400 flex-shrink-0">
+                                                            {sub.submittedAt ? new Date(sub.submittedAt).toLocaleString("vi-VN", { hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit', year: 'numeric' }) : ""}
+                                                        </span>
+                                                    </div>
+                                                    <div className="px-3 py-2 flex items-center justify-between">
+                                                        <div className="flex items-center gap-2">
+                                                            <span className="text-sm font-bold text-gray-600">{sub.homeScore} - {sub.awayScore}</span>
+                                                            {sub.notes && <span className="text-[10px] text-gray-400 italic truncate max-w-[150px]">"{sub.notes}"</span>}
+                                                        </div>
+                                                        {sub.screenshots?.length > 0 && (
+                                                            <div className="flex gap-1">
+                                                                {sub.screenshots.map((s: string, si: number) => (
+                                                                    <img key={si} src={s} alt={`Lịch sử ${si + 1}`} className="w-8 h-8 rounded object-cover border border-gray-200 cursor-pointer hover:opacity-80" onClick={() => setViewingImage(s)} />
+                                                                ))}
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
+                                </div>
+                            )}
                         </div>
-                    ) : (
+                        );
+                    })() : (
                         <div className="mt-8 mb-4 text-center">
                             <div className="text-gray-500 font-medium mb-1">Chưa có kết quả VĐV gửi lên</div>
                             <div className="text-xs text-gray-400">Kết quả sẽ hiển thị khi VĐV gửi ảnh chụp màn hình kết quả trận đấu.</div>
@@ -818,7 +884,7 @@ const MatchDetailModal = ({ match, tournament, onClose, onSaved }: { match: any;
                             Cập nhật bởi <span className="font-bold">{match.updatedBy.name || 'Quản lý'}</span>
                         </span>
                         <span className="text-[10px] text-teal-500">
-                            · {new Date(match.updatedAt).toLocaleString('vi-VN', { hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit' })}
+                            · {new Date(match.updatedAt).toLocaleString('vi-VN', { hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit', year: 'numeric' })}
                         </span>
                     </div>
                 )}
@@ -1457,27 +1523,27 @@ export default function SoDoThiDauPage() {
     return (
         <div className="flex flex-col h-[calc(100vh-120px)] space-y-4">
             {/* Header Section */}
-            <div className="flex flex-col md:flex-row md:items-center justify-between bg-white p-5 rounded-2xl border border-gray-100 shadow-sm gap-5">
-                <div className="flex items-center gap-4">
-                    <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center shadow-lg shadow-blue-200">
-                        <Trophy className="w-6 h-6 text-white" />
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between bg-white px-4 py-2.5 rounded-lg border border-gray-200 gap-3">
+                <div className="flex items-center gap-2.5">
+                    <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center shadow-sm">
+                        <Trophy className="w-4 h-4 text-white" />
                     </div>
                     <div>
-                        <h1 className="text-xl font-extrabold text-[#1E293B] tracking-tight">Sơ đồ thi đấu</h1>
-                        <p className="text-xs text-slate-400 font-medium flex items-center gap-1.5 mt-0.5">
-                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
-                            {totalTeams} trận · {totalRounds} vòng đấu
+                        <h1 className="text-sm font-bold text-gray-900 leading-tight">Sơ đồ thi đấu</h1>
+                        <p className="text-[11px] text-gray-400 font-medium flex items-center gap-1 mt-px">
+                            <span className="w-1 h-1 rounded-full bg-emerald-500" />
+                            {totalTeams} trận · {totalRounds} vòng
                         </p>
                     </div>
                 </div>
 
-                <div className="flex items-center gap-2 flex-wrap">
-                    <div className="relative flex-1 min-w-[120px] max-w-[200px]">
-                        <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                <div className="flex items-center gap-1.5 flex-wrap">
+                    <div className="relative flex-1 min-w-[100px] max-w-[160px]">
+                        <Search className="w-3.5 h-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400" />
                         <input
                             type="text"
                             placeholder="Tìm VĐV..."
-                            className="bg-slate-50 pl-9 pr-3 py-2 border border-transparent rounded-xl text-sm w-full focus:outline-none focus:bg-white focus:border-efb-blue transition-all"
+                            className="bg-gray-50 pl-8 pr-2 py-1.5 border border-gray-200 rounded-md text-xs w-full focus:outline-none focus:bg-white focus:border-blue-400 focus:ring-1 focus:ring-blue-100 transition-all"
                             value={search}
                             onChange={(e) => setSearch(e.target.value)}
                         />
@@ -1487,9 +1553,9 @@ export default function SoDoThiDauPage() {
                             <Button
                                 onClick={swap.isSwapMode ? swap.exitSwapMode : swap.enterSwapMode}
                                 variant={swap.isSwapMode ? "default" : "outline"}
-                                className={`h-9 sm:h-11 px-3 sm:px-5 rounded-xl font-bold flex items-center gap-1.5 text-xs sm:text-sm transition-all ${swap.isSwapMode ? 'bg-blue-600 text-white hover:bg-blue-700 ring-2 ring-blue-300 ring-offset-1 shadow-lg shadow-blue-200' : 'border-amber-200 text-amber-600 hover:bg-amber-50'}`}
+                                className={`h-8 px-2.5 rounded-md font-semibold flex items-center gap-1 text-[11px] transition-all ${swap.isSwapMode ? 'bg-blue-600 text-white hover:bg-blue-700 ring-1 ring-blue-300 ring-offset-1 shadow-sm' : 'border-gray-200 text-amber-600 hover:bg-amber-50'}`}
                             >
-                                <Shuffle className="w-3.5 h-3.5 sm:w-4 sm:h-4" /> <span className="hidden sm:inline">{swap.isSwapMode ? 'Thoát' : 'Sắp xếp'}</span>
+                                <Shuffle className="w-3.5 h-3.5" /> <span className="hidden sm:inline">{swap.isSwapMode ? 'Thoát' : 'Sắp xếp'}</span>
                             </Button>
                             <Button
                                 onClick={async () => {
@@ -1503,9 +1569,9 @@ export default function SoDoThiDauPage() {
                                     }
                                 }}
                                 variant="outline"
-                                className="h-9 sm:h-11 px-3 sm:px-5 rounded-xl border-red-200 text-red-600 hover:bg-red-50 font-bold flex items-center gap-1.5 text-xs sm:text-sm"
+                                className="h-8 px-2.5 rounded-md border-gray-200 text-red-500 hover:bg-red-50 font-semibold flex items-center gap-1 text-[11px]"
                             >
-                                <RotateCcw className="w-3.5 h-3.5 sm:w-4 sm:h-4" /> <span className="hidden sm:inline">Tạo lại</span>
+                                <RotateCcw className="w-3.5 h-3.5" /> <span className="hidden sm:inline">Tạo lại</span>
                             </Button>
                         </>
                     )}
@@ -1513,16 +1579,16 @@ export default function SoDoThiDauPage() {
                         onClick={handleDownloadPDF}
                         disabled={isLoading}
                         variant="outline"
-                        className="h-9 sm:h-11 px-3 sm:px-5 rounded-xl border-blue-200 text-blue-600 hover:bg-blue-50 font-bold flex items-center gap-1.5 text-xs sm:text-sm"
+                        className="h-8 px-2.5 rounded-md border-gray-200 text-blue-600 hover:bg-blue-50 font-semibold flex items-center gap-1 text-[11px]"
                     >
-                        {isLoading ? <Loader2 className="w-3.5 h-3.5 sm:w-4 sm:h-4 animate-spin" /> : <Download className="w-3.5 h-3.5 sm:w-4 sm:h-4" />}
+                        {isLoading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Download className="w-3.5 h-3.5" />}
                         <span className="hidden sm:inline">Tải PDF</span>
                     </Button>
                     <Button
                         onClick={() => setIsShareModalOpen(true)}
-                        className="h-9 sm:h-11 px-3 sm:px-5 rounded-xl bg-efb-blue text-white hover:bg-efb-blue-light font-bold flex items-center gap-1.5 text-xs sm:text-sm"
+                        className="h-8 px-2.5 rounded-md bg-efb-blue text-white hover:bg-efb-blue-light font-semibold flex items-center gap-1 text-[11px]"
                     >
-                        <Share2 className="w-3.5 h-3.5 sm:w-4 sm:h-4" /> <span className="hidden sm:inline">Chia sẻ</span>
+                        <Share2 className="w-3.5 h-3.5" /> <span className="hidden sm:inline">Chia sẻ</span>
                     </Button>
                 </div>
             </div>

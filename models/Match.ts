@@ -37,6 +37,7 @@ export interface IMatch extends Document {
     }[];
     notes?: string;
     screenshots?: string[];
+    matchVersion: number; // Incremented each time match is reset
     resultSubmissions: {
         user: mongoose.Types.ObjectId;
         team: mongoose.Types.ObjectId;
@@ -47,6 +48,7 @@ export interface IMatch extends Document {
         screenshots: string[];
         notes?: string;
         submittedAt: Date;
+        version: number; // Which matchVersion this submission belongs to
     }[];
     nextMatch?: mongoose.Types.ObjectId; // Winner goes to this match
     previousMatches?: mongoose.Types.ObjectId[]; // Matches that feed into this
@@ -121,6 +123,7 @@ const MatchSchema = new Schema<IMatch>(
         ],
         notes: { type: String },
         screenshots: [{ type: String }],
+        matchVersion: { type: Number, default: 1 },
         resultSubmissions: [
             {
                 user: { type: Schema.Types.ObjectId, ref: "User", required: true },
@@ -132,6 +135,7 @@ const MatchSchema = new Schema<IMatch>(
                 screenshots: [{ type: String }],
                 notes: { type: String },
                 submittedAt: { type: Date, default: Date.now },
+                version: { type: Number, default: 1 },
             },
         ],
         nextMatch: { type: Schema.Types.ObjectId, ref: "Match" },

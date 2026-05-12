@@ -115,7 +115,7 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
             return apiError("Bạn không phải là thành viên của trận đấu này", 403);
         }
 
-        console.log("✅ User team found:", userTeam._id.toString(), userTeam.name);
+        const currentVersion = match.matchVersion || 1;
 
         const submissionData = {
             user: new mongoose.Types.ObjectId(userId),
@@ -127,20 +127,21 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
             screenshots: screenshots || [],
             notes: notes || "",
             submittedAt: new Date(),
+            version: currentVersion,
         };
 
         // Note: match.status === "completed" is already blocked at line 59-61 above
 
-        // Check if user already submitted — allow update instead of blocking
+        // Check if user already submitted FOR THIS VERSION — allow update instead of blocking
         const existingSub = match.resultSubmissions?.find(
-            (s: any) => s.user?.toString() === userId.toString()
+            (s: any) => s.user?.toString() === userId.toString() && (s.version || 1) === currentVersion
         );
 
         let result;
         if (existingSub) {
-            // Update existing submission
+            // Update existing submission for current version
             result = await Match.updateOne(
-                { _id: matchId, "resultSubmissions.user": new mongoose.Types.ObjectId(userId) },
+                { _id: matchId, "resultSubmissions._id": existingSub._id },
                 {
                     $set: {
                         "resultSubmissions.$.homeScore": submissionData.homeScore,
@@ -150,12 +151,13 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
                         "resultSubmissions.$.screenshots": submissionData.screenshots,
                         "resultSubmissions.$.notes": submissionData.notes,
                         "resultSubmissions.$.submittedAt": submissionData.submittedAt,
+                        "resultSubmissions.$.version": currentVersion,
                     }
                 }
             );
-            console.log("📝 Updated existing submission:", JSON.stringify(result));
+            console.log("📝 Updated existing submission (version " + currentVersion + "):", JSON.stringify(result));
         } else {
-            // Add new submission using $push
+            // Add new submission (new version or first time)
             result = await Match.updateOne(
                 { _id: matchId },
                 {
@@ -164,7 +166,7 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
                     }
                 }
             );
-            console.log("📝 Pushed new submission:", JSON.stringify(result));
+            console.log("📝 Pushed new submission (version " + currentVersion + "):", JSON.stringify(result));
         }
 
         // Verify the save
@@ -180,7 +182,7 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
                     recipient: tournament.createdBy,
                     type: "tournament",
                     title: "Kết quả trận đấu mới",
-                    message: `Người chơi đã gửi kết quả trận đấu: ${homeTeam?.shortName || "?"} ${homeScore} - ${awayScore} ${awayTeam?.shortName || "?"} trong giải "${tournament.title}"`,
+                    message: `Người chơi đã gửi kết quả trận đấu: ${homeTeam?.player1 || homeTeam?.name || "?"} ${homeScore} - ${awayScore} ${awayTeam?.player1 || awayTeam?.name || "?"} trong giải "${tournament.title}"`,
                     link: `/manager/giai-dau/${tournamentId}/lich`,
                 });
             }

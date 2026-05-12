@@ -342,8 +342,9 @@ export async function PUT(req: NextRequest, { params }: RouteParams) {
             if (isResetting) {
                 match.homeScore = null;
                 match.awayScore = null;
-                // Clear old submissions so players can re-submit after reset
-                match.resultSubmissions = [];
+                // Increment matchVersion so old submissions are preserved as history
+                // and players can submit new results for the new version
+                match.matchVersion = (match.matchVersion || 1) + 1;
             }
         }
 
@@ -549,8 +550,8 @@ export async function PUT(req: NextRequest, { params }: RouteParams) {
                     metadata: {
                         matchNumber: match.matchNumber,
                         roundName: match.roundName || `Vòng ${match.round}`,
-                        homeTeamName: homeTeamObj?.name || homeTeamObj?.shortName || "TBD",
-                        awayTeamName: awayTeamObj?.name || awayTeamObj?.shortName || "TBD",
+                        homeTeamName: homeTeamObj?.player1 || homeTeamObj?.name || "TBD",
+                        awayTeamName: awayTeamObj?.player1 || awayTeamObj?.name || "TBD",
                     },
                     ipAddress: req.headers.get("x-forwarded-for") || req.headers.get("x-real-ip") || undefined,
                 });

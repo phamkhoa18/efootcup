@@ -658,7 +658,7 @@ export default function LichThiDauPage() {
                                                                 <UserCheck className="w-3 h-3 text-teal-400 flex-shrink-0" />
                                                                 <span className="font-semibold text-teal-600 truncate max-w-[120px]">{m.updatedBy.name || 'Quản lý'}</span>
                                                                 <span className="text-gray-300">·</span>
-                                                                <span>{new Date(m.updatedAt).toLocaleString('vi-VN', { hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit' })}</span>
+                                                                <span>{new Date(m.updatedAt).toLocaleString('vi-VN', { hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit', year: 'numeric' })}</span>
                                                             </div>
                                                         )}
                                                     </div>
@@ -755,7 +755,7 @@ export default function LichThiDauPage() {
                                                             <UserCheck className="w-3 h-3 text-teal-400 flex-shrink-0" />
                                                             <span className="font-semibold text-teal-600 truncate max-w-[120px]">{m.updatedBy.name || 'Quản lý'}</span>
                                                             <span className="text-gray-300">·</span>
-                                                            <span>{new Date(m.updatedAt).toLocaleString('vi-VN', { hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit' })}</span>
+                                                            <span>{new Date(m.updatedAt).toLocaleString('vi-VN', { hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit', year: 'numeric' })}</span>
                                                         </div>
                                                     )}
                                                 </div>
@@ -1075,11 +1075,15 @@ export default function LichThiDauPage() {
                         </button>
                     </div>
                     <div className="p-4 sm:p-6 overflow-y-auto space-y-4 flex-1">
-                        {viewingSubmissions?.resultSubmissions?.length > 0 ? (
-                            viewingSubmissions.resultSubmissions.map((sub: any, idx: number) => {
+                        {viewingSubmissions?.resultSubmissions?.length > 0 ? (() => {
+                            const currentVersion = viewingSubmissions.matchVersion || 1;
+                            const currentSubs = viewingSubmissions.resultSubmissions.filter((s: any) => (s.version || 1) === currentVersion);
+                            const historySubs = viewingSubmissions.resultSubmissions.filter((s: any) => (s.version || 1) !== currentVersion);
+                            
+                            const renderSubmission = (sub: any, idx: number, isHistory: boolean = false) => {
                                 const isFromHome = sub.team?.toString() === (viewingSubmissions.homeTeam?._id || viewingSubmissions.homeTeam)?.toString();
                                 const submitterTeam = isFromHome ? viewingSubmissions.homeTeam : viewingSubmissions.awayTeam;
-                                const submitterTeamName = submitterTeam?.shortName || submitterTeam?.name || "";
+                                const submitterTeamName = submitterTeam?.name || submitterTeam?.shortName || "";
 
                                 // Use enriched userData
                                 const userData = sub.userData || {};
@@ -1125,7 +1129,7 @@ export default function LichThiDauPage() {
                                                     {viewingSubmissions.homeTeam?.efvId != null && <span className="text-[8px] font-bold text-amber-600 bg-amber-50 border border-amber-200 px-1 py-px rounded">#{viewingSubmissions.homeTeam.efvId}</span>}
                                                     <span className="text-[10px] font-bold text-gray-600 truncate">{viewingSubmissions.homeTeam?.player1 || "Đội nhà"}</span>
                                                 </div>
-                                                {viewingSubmissions.homeTeam?.shortName && <p className="text-[9px] text-gray-400">{viewingSubmissions.homeTeam.shortName}</p>}
+                                                {viewingSubmissions.homeTeam?.name && <p className="text-[9px] text-gray-400">{viewingSubmissions.homeTeam.name}</p>}
                                             </div>
                                             <span className={`text-2xl font-black px-4 py-2 rounded-xl inline-block ${sub.homeScore > sub.awayScore ? 'text-emerald-600 bg-emerald-50' : 'text-blue-600 bg-blue-50'}`}>{sub.homeScore}</span>
                                         </div>
@@ -1136,7 +1140,7 @@ export default function LichThiDauPage() {
                                                     {viewingSubmissions.awayTeam?.efvId != null && <span className="text-[8px] font-bold text-amber-600 bg-amber-50 border border-amber-200 px-1 py-px rounded">#{viewingSubmissions.awayTeam.efvId}</span>}
                                                     <span className="text-[10px] font-bold text-gray-600 truncate">{viewingSubmissions.awayTeam?.player1 || "Đội khách"}</span>
                                                 </div>
-                                                {viewingSubmissions.awayTeam?.shortName && <p className="text-[9px] text-gray-400">{viewingSubmissions.awayTeam.shortName}</p>}
+                                                {viewingSubmissions.awayTeam?.name && <p className="text-[9px] text-gray-400">{viewingSubmissions.awayTeam.name}</p>}
                                             </div>
                                             <span className={`text-2xl font-black px-4 py-2 rounded-xl inline-block ${sub.awayScore > sub.homeScore ? 'text-emerald-600 bg-emerald-50' : 'text-blue-600 bg-blue-50'}`}>{sub.awayScore}</span>
                                         </div>
@@ -1154,8 +1158,41 @@ export default function LichThiDauPage() {
                                     </div>
                                 </div>
                                 );
-                            })
-                        ) : (
+                            };
+
+                            return (
+                                <>
+                                    {/* Current Version */}
+                                    {currentVersion > 1 && (
+                                        <div className="flex items-center gap-2 mb-2">
+                                            <span className="bg-blue-100 text-blue-600 text-[10px] font-bold px-2 py-0.5 rounded-full">Lần {currentVersion}</span>
+                                            <span className="text-[10px] text-gray-400">Kết quả mới nhất</span>
+                                        </div>
+                                    )}
+                                    {currentSubs.length > 0 ? (
+                                        currentSubs.map((sub: any, idx: number) => renderSubmission(sub, idx))
+                                    ) : (
+                                        <div className="text-center py-4 text-gray-400 bg-gray-50 rounded-xl border border-dashed border-gray-200">
+                                            <p className="text-sm">VĐV chưa gửi lại kết quả cho lần này.</p>
+                                        </div>
+                                    )}
+
+                                    {/* Historical Submissions */}
+                                    {historySubs.length > 0 && (
+                                        <div className="mt-4 pt-4 border-t border-gray-200">
+                                            <div className="flex items-center gap-2 mb-3">
+                                                <History className="w-3.5 h-3.5 text-gray-400" />
+                                                <span className="text-xs font-bold text-gray-500">Lịch sử gửi trước đó</span>
+                                                <span className="bg-gray-100 text-gray-500 text-[10px] font-bold px-2 py-0.5 rounded-full">{historySubs.length}</span>
+                                            </div>
+                                            <div className="space-y-3 opacity-70">
+                                                {historySubs.map((sub: any, idx: number) => renderSubmission(sub, idx, true))}
+                                            </div>
+                                        </div>
+                                    )}
+                                </>
+                            );
+                        })() : (
                             <div className="text-center py-8 text-gray-400">
                                 <p className="text-sm">Chưa có kết quả nào được gửi.</p>
                             </div>
@@ -1168,15 +1205,35 @@ export default function LichThiDauPage() {
                                 <CheckCircle2 className="w-4 h-4 text-emerald-500" />
                                 <span className="text-xs font-bold text-emerald-800">Kết quả chính thức</span>
                             </div>
-                            <div className="flex items-center justify-center gap-3 mb-2">
-                                <div className="text-center">
-                                    <span className="text-[10px] text-gray-500 font-medium">{viewingSubmissions.homeTeam?.shortName || viewingSubmissions.homeTeam?.name || 'Đội nhà'}</span>
-                                    <div className="text-2xl font-black text-gray-900 mt-0.5">{viewingSubmissions.homeScore ?? '-'}</div>
+                            <div className="flex items-center justify-center gap-4 sm:gap-6 mb-2">
+                                <div className="text-center flex-1 min-w-0">
+                                    <div className="mb-1">
+                                        <p className="text-xs font-bold text-gray-800 truncate">
+                                            {viewingSubmissions.homeTeam?.player1 || 'Đội nhà'}
+                                        </p>
+                                        {viewingSubmissions.homeTeam?.player2 && viewingSubmissions.homeTeam.player2 !== "TBD" && (
+                                            <p className="text-[10px] font-semibold text-gray-500 truncate">/ {viewingSubmissions.homeTeam.player2}</p>
+                                        )}
+                                        {viewingSubmissions.homeTeam?.name && (
+                                            <p className="text-[9px] text-gray-400 mt-0.5 truncate">{viewingSubmissions.homeTeam.name}</p>
+                                        )}
+                                    </div>
+                                    <div className="text-2xl font-black text-gray-900">{viewingSubmissions.homeScore ?? '-'}</div>
                                 </div>
                                 <span className="text-gray-300 text-lg font-light mt-3">—</span>
-                                <div className="text-center">
-                                    <span className="text-[10px] text-gray-500 font-medium">{viewingSubmissions.awayTeam?.shortName || viewingSubmissions.awayTeam?.name || 'Đội khách'}</span>
-                                    <div className="text-2xl font-black text-gray-900 mt-0.5">{viewingSubmissions.awayScore ?? '-'}</div>
+                                <div className="text-center flex-1 min-w-0">
+                                    <div className="mb-1">
+                                        <p className="text-xs font-bold text-gray-800 truncate">
+                                            {viewingSubmissions.awayTeam?.player1 || 'Đội khách'}
+                                        </p>
+                                        {viewingSubmissions.awayTeam?.player2 && viewingSubmissions.awayTeam.player2 !== "TBD" && (
+                                            <p className="text-[10px] font-semibold text-gray-500 truncate">/ {viewingSubmissions.awayTeam.player2}</p>
+                                        )}
+                                        {viewingSubmissions.awayTeam?.name && (
+                                            <p className="text-[9px] text-gray-400 mt-0.5 truncate">{viewingSubmissions.awayTeam.name}</p>
+                                        )}
+                                    </div>
+                                    <div className="text-2xl font-black text-gray-900">{viewingSubmissions.awayScore ?? '-'}</div>
                                 </div>
                             </div>
                             {viewingSubmissions.updatedBy && (
@@ -1187,7 +1244,7 @@ export default function LichThiDauPage() {
                                     {viewingSubmissions.updatedAt && (
                                         <>
                                             <span className="text-teal-400">·</span>
-                                            <span className="text-teal-600">{new Date(viewingSubmissions.updatedAt).toLocaleString('vi-VN', { hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit' })}</span>
+                                            <span className="text-teal-600">{new Date(viewingSubmissions.updatedAt).toLocaleString('vi-VN', { hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit', year: 'numeric' })}</span>
                                         </>
                                     )}
                                 </div>
@@ -1399,9 +1456,9 @@ function EditMatchModal({ match, tournament, onClose, onSaved }: { match: any; t
                                             <div className="min-w-0">
                                                 <div className="flex items-center gap-1 flex-wrap">
                                                     {match.homeTeam?.efvId != null && <span className="text-[9px] font-bold text-amber-600 bg-amber-50 border border-amber-200 px-1 py-px rounded">#{match.homeTeam.efvId}</span>}
-                                                    <span className="text-[13px] font-semibold text-gray-900 truncate inline-block max-w-[90px] sm:max-w-none align-bottom leading-tight">{match.homeTeam?.player1 || match.p1?.name || "Tự do"}</span>
+                                                    <span className="text-[13px] font-semibold text-gray-900 leading-tight">{match.homeTeam?.player1 || match.p1?.name || "Tự do"}{match.homeTeam?.player2 && match.homeTeam.player2 !== "TBD" ? ` / ${match.homeTeam.player2}` : ""}</span>
                                                 </div>
-                                                {match.homeTeam?.shortName && <div className="text-[10px] text-gray-400 mt-0.5 truncate">{match.homeTeam.shortName}</div>}
+                                                {match.homeTeam?.name && <div className="text-[10px] text-gray-400 mt-0.5">{match.homeTeam.name}</div>}
                                             </div>
                                         </div>
                                     </div>
@@ -1455,9 +1512,9 @@ function EditMatchModal({ match, tournament, onClose, onSaved }: { match: any; t
                                             <div className="min-w-0">
                                                 <div className="flex items-center gap-1 flex-wrap">
                                                     {match.awayTeam?.efvId != null && <span className="text-[9px] font-bold text-amber-600 bg-amber-50 border border-amber-200 px-1 py-px rounded">#{match.awayTeam.efvId}</span>}
-                                                    <span className="text-[13px] font-semibold text-gray-900 truncate inline-block max-w-[90px] sm:max-w-none align-bottom leading-tight">{match.awayTeam?.player1 || match.p2?.name || "Tự do"}</span>
+                                                    <span className="text-[13px] font-semibold text-gray-900 leading-tight">{match.awayTeam?.player1 || match.p2?.name || "Tự do"}{match.awayTeam?.player2 && match.awayTeam.player2 !== "TBD" ? ` / ${match.awayTeam.player2}` : ""}</span>
                                                 </div>
-                                                {match.awayTeam?.shortName && <div className="text-[10px] text-gray-400 mt-0.5 truncate">{match.awayTeam.shortName}</div>}
+                                                {match.awayTeam?.name && <div className="text-[10px] text-gray-400 mt-0.5">{match.awayTeam.name}</div>}
                                             </div>
                                         </div>
                                     </div>
@@ -1505,7 +1562,7 @@ function EditMatchModal({ match, tournament, onClose, onSaved }: { match: any; t
                                         {match.homeTeam?.efvId != null && <span className="text-[8px] font-bold text-amber-600 bg-amber-50 border border-amber-200 px-1 py-px rounded">#{match.homeTeam.efvId}</span>}
                                         <span>{match.homeTeam?.player1 || match.p1?.name || "Tự do"}</span>
                                     </div>
-                                    {match.homeTeam?.shortName && <span className="text-[10px] text-gray-400">{match.homeTeam.shortName}</span>}
+                                    {match.homeTeam?.name && <span className="text-[10px] text-gray-400">{match.homeTeam.name}</span>}
                                 </button>
                                 <button
                                     onClick={() => setSelectedWinner('away')}
@@ -1515,28 +1572,13 @@ function EditMatchModal({ match, tournament, onClose, onSaved }: { match: any; t
                                         {match.awayTeam?.efvId != null && <span className="text-[8px] font-bold text-amber-600 bg-amber-50 border border-amber-200 px-1 py-px rounded">#{match.awayTeam.efvId}</span>}
                                         <span>{match.awayTeam?.player1 || match.p2?.name || "Tự do"}</span>
                                     </div>
-                                    {match.awayTeam?.shortName && <span className="text-[10px] text-gray-400">{match.awayTeam.shortName}</span>}
+                                    {match.awayTeam?.name && <span className="text-[10px] text-gray-400">{match.awayTeam.name}</span>}
                                 </button>
                             </div>
                         </div>
                     </div>
 
-                    {/* Meta Fields */}
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6 mt-6">
-                        <div>
-                            <label className="block text-sm font-bold text-gray-900 mb-2">Thời gian</label>
-                            <Select>
-                                <SelectTrigger className="w-full text-gray-500 bg-white border-gray-200 shadow-sm focus:ring-0 rounded-md h-10">
-                                    <SelectValue placeholder="Thời gian bắt đầu" />
-                                </SelectTrigger>
-                                <SelectContent><SelectItem value="now">Bây giờ</SelectItem></SelectContent>
-                            </Select>
-                        </div>
-                        <div>
-                            <label className="block text-sm font-bold text-gray-900 mb-2">Sân thi đấu</label>
-                            <Input className="w-full border-gray-200 shadow-sm rounded-md h-10" />
-                        </div>
-                    </div>
+
 
                     {/* Player Submitted Results */}
                     {match.resultSubmissions && match.resultSubmissions.length > 0 && (
@@ -1550,7 +1592,7 @@ function EditMatchModal({ match, tournament, onClose, onSaved }: { match: any; t
                                 {match.resultSubmissions.map((sub: any, idx: number) => {
                                     const isFromHome = sub.team?.toString?.() === (match.homeTeam?._id || match.homeTeam)?.toString?.();
                                     const submitterTeam = isFromHome ? match.homeTeam : match.awayTeam;
-                                    const submitterTeamName = submitterTeam?.shortName || submitterTeam?.name || "";
+                                    const submitterTeamName = submitterTeam?.name || "";
                                     const userData = sub.userData || {};
                                     const displayName = userData.name || submitterTeam?.player1 || "VĐV";
                                     const displayEfvId = userData.efvId ?? null;
@@ -1587,7 +1629,7 @@ function EditMatchModal({ match, tournament, onClose, onSaved }: { match: any; t
                                         <div className="flex items-center gap-3 mb-2 flex-wrap">
                                             <div className="flex items-center gap-1.5">
                                                 {match.homeTeam?.efvId != null && <span className="text-[8px] font-bold text-amber-600 bg-amber-50 border border-amber-200 px-1 py-px rounded">#{match.homeTeam.efvId}</span>}
-                                                <span className="text-xs font-bold text-gray-700">{match.homeTeam?.player1 || match.homeTeam?.shortName || "H"}</span>
+                                                <span className="text-xs font-bold text-gray-700">{match.homeTeam?.player1 || match.homeTeam?.name || "Đội nhà"}</span>
                                             </div>
                                             <div className="flex items-center gap-2">
                                                 <span className={`text-xl font-black px-3 py-1 rounded-lg ${sub.homeScore > sub.awayScore ? 'text-emerald-600 bg-emerald-50' : 'text-blue-600 bg-blue-50'}`}>{sub.homeScore}</span>
@@ -1596,7 +1638,7 @@ function EditMatchModal({ match, tournament, onClose, onSaved }: { match: any; t
                                             </div>
                                             <div className="flex items-center gap-1.5">
                                                 {match.awayTeam?.efvId != null && <span className="text-[8px] font-bold text-amber-600 bg-amber-50 border border-amber-200 px-1 py-px rounded">#{match.awayTeam.efvId}</span>}
-                                                <span className="text-xs font-bold text-gray-700">{match.awayTeam?.player1 || match.awayTeam?.shortName || "A"}</span>
+                                                <span className="text-xs font-bold text-gray-700">{match.awayTeam?.player1 || match.awayTeam?.name || "Đội khách"}</span>
                                             </div>
                                         </div>
                                         {sub.notes && <p className="text-xs text-gray-500 italic mb-2">"{sub.notes}"</p>}
