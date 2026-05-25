@@ -223,6 +223,18 @@ function TournamentListContent() {
                                                     <div className="flex justify-between"><span>Thể thức</span><span className="font-medium text-gray-700">{t.teamSize >= 2 ? '2vs2' : '1vs1'} - {formatLabels[t.format] || t.format}</span></div>
                                                     <div className="flex justify-between"><span>Đội</span><span className="font-medium text-gray-700">{t.currentTeams || 0}/{t.maxTeams}</span></div>
                                                     <div className="flex justify-between"><span>Giải thưởng</span><span className="font-bold text-gradient">{t.prize?.total || "0 VNĐ"}</span></div>
+                                                    <div className="flex justify-between items-center">
+                                                        <span>Điều kiện</span>
+                                                        {t.registrationConstraints?.requireEfvRank ? (
+                                                            <span className="inline-flex items-center font-bold text-[11px] text-amber-700 bg-amber-50 px-2 py-0.5 rounded border border-amber-200">
+                                                                Chỉ Top {t.registrationConstraints.requireEfvRank}
+                                                            </span>
+                                                        ) : (
+                                                            <span className="inline-flex items-center font-bold text-[11px] text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
+                                                                Tự do tham gia
+                                                            </span>
+                                                        )}
+                                                    </div>
                                                     <div className="flex justify-between items-center border-t border-dashed border-gray-100 pt-2 mt-1">
                                                         <span className="flex items-center gap-1.5"><Wallet className="w-3.5 h-3.5 text-gray-400" />Phí tham gia</span>
                                                         {t.entryFee > 0 ? (

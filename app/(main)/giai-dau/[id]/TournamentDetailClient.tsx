@@ -1387,6 +1387,12 @@ export default function TournamentDetailClient({ initialData, id }: { initialDat
                             <Badge className="bg-gray-50 text-gray-500 border-gray-100 text-[10px] rounded-full px-2.5 py-0.5">{platformLabels[t.platform] || t.platform}</Badge>
                             {t.entryFee > 0 && <Badge className="bg-emerald-50 text-emerald-600 border-emerald-100 text-[10px] rounded-full px-2.5 py-0.5">{Number(t.entryFee).toLocaleString("vi-VN")} ₫</Badge>}
                             {t.entryFee <= 0 && <Badge className="bg-green-50 text-green-600 border-green-100 text-[10px] rounded-full px-2.5 py-0.5">Miễn phí</Badge>}
+                            {t.registrationConstraints?.rankLimit && t.registrationConstraints.rankLimit !== "none" && (
+                                <Badge className={`text-[10px] rounded-full px-2.5 py-0.5 border flex items-center gap-1 ${t.registrationConstraints.rankLimit === "only_top_64" ? "bg-blue-50 text-blue-600 border-blue-100" : "bg-red-50 text-red-600 border-red-100"}`}>
+                                    <Shield className="w-2.5 h-2.5" />
+                                    {t.registrationConstraints.rankLimit === "only_top_64" ? "Chỉ TOP 64" : "Cấm TOP 64"}
+                                </Badge>
+                            )}
                         </div>
 
                         {/* Title */}
@@ -1592,8 +1598,14 @@ export default function TournamentDetailClient({ initialData, id }: { initialDat
                                                 { label: "Hiệp phụ", value: t.settings?.extraTime ? "Có" : "Không", icon: Zap, color: "text-orange-600 bg-orange-50" },
                                                 { label: "Luân lưu (Pen)", value: t.settings?.penalties ? "Có" : "Không", icon: Target, color: "text-red-600 bg-red-50" },
                                                 { label: "Số lượt/vòng", value: `${t.settings?.legsPerRound || 1} lượt`, icon: ArrowRight, color: "text-emerald-600 bg-emerald-50" },
-                                            ].map((item) => (
-                                                <div key={item.label} className={`${item.color.split(" ")[1]} rounded-xl p-3.5`}>
+                                                ...(t.registrationConstraints?.rankLimit && t.registrationConstraints.rankLimit !== "none" ? [{
+                                                    label: "Ràng buộc ĐK",
+                                                    value: t.registrationConstraints.rankLimit === "only_top_64" ? "Chỉ TOP 64" : "Cấm TOP 64",
+                                                    icon: Shield,
+                                                    color: t.registrationConstraints.rankLimit === "only_top_64" ? "text-blue-600 bg-blue-50" : "text-rose-600 bg-rose-50"
+                                                }] : []),
+                                            ].map((item, idx) => (
+                                                <div key={idx} className={`${item.color.split(" ")[1]} rounded-xl p-3.5`}>
                                                     <div className="flex items-center gap-2 mb-1.5">
                                                         <item.icon className={`w-3.5 h-3.5 ${item.color.split(" ")[0]}`} />
                                                         <span className="text-[10px] font-medium text-gray-400 uppercase tracking-wider">{item.label}</span>
@@ -1731,6 +1743,15 @@ export default function TournamentDetailClient({ initialData, id }: { initialDat
                                                 <div className="flex justify-between items-center">
                                                     <span className="text-gray-400">Địa điểm</span>
                                                     <span className="font-semibold text-gray-900 text-right max-w-[180px]">{t.location}</span>
+                                                </div>
+                                            )}
+                                            {t.registrationConstraints?.rankLimit && t.registrationConstraints.rankLimit !== "none" && (
+                                                <div className="flex justify-between items-center">
+                                                    <span className="text-gray-400">Ràng buộc ĐK</span>
+                                                    <span className={`font-semibold flex items-center gap-1 ${t.registrationConstraints.rankLimit === "only_top_64" ? "text-blue-600" : "text-red-600"}`}>
+                                                        <Shield className="w-3.5 h-3.5" />
+                                                        {t.registrationConstraints.rankLimit === "only_top_64" ? "Chỉ TOP 64" : "Cấm TOP 64"}
+                                                    </span>
                                                 </div>
                                             )}
                                             <div className="flex justify-between items-center">

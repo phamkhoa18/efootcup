@@ -107,8 +107,8 @@ export default function NewsPage() {
             {/* ===== Top Bar ===== */}
             <div className="bg-white border-b border-gray-100">
                 <div className="max-w-[1200px] mx-auto px-4 lg:px-6">
-                    <div className="flex items-center justify-between h-10">
-                        <div className="flex items-center gap-1.5 overflow-x-auto scrollbar-hide">
+                    <div className="flex items-center justify-between h-10 gap-2">
+                        <div className="flex items-center gap-1.5 overflow-x-auto scrollbar-hide flex-1 min-w-0">
                             <Flame className="w-3.5 h-3.5 text-red-500 flex-shrink-0" />
                             <span className="text-[11px] font-semibold text-red-500 uppercase tracking-wider flex-shrink-0">HOT</span>
                             <div className="h-3 w-px bg-gray-200 mx-1.5 flex-shrink-0" />
@@ -140,7 +140,7 @@ export default function NewsPage() {
                                         autoFocus />
                                 </div>
                                 <button type="submit" className="h-10 px-5 bg-[#1b64f2] text-white text-sm font-medium rounded-lg hover:bg-[#1554d0] transition-colors">Tìm</button>
-                                <button type="button" onClick={() => { setSearchOpen(false); setSearch(""); }} className="h-10 w-10 flex items-center justify-center rounded-lg hover:bg-gray-100">
+                                <button type="button" onClick={() => { setSearchOpen(false); setSearch(""); }} className="h-10 w-10 flex items-center justify-center rounded-lg hover:bg-gray-100 flex-shrink-0">
                                     <X className="w-4 h-4 text-gray-400" />
                                 </button>
                             </form>
@@ -198,7 +198,7 @@ export default function NewsPage() {
                                     const cat = getCategoryInfo(post);
                                     return (
                                         <Link key={post._id} href={`/tin-tuc/${post.slug}`} className="group flex gap-3 p-2.5 rounded-xl hover:bg-gray-50 transition-colors">
-                                            <div className="relative w-[140px] h-[90px] rounded-lg overflow-hidden flex-shrink-0">
+                                            <div className="relative w-[100px] sm:w-[140px] h-[75px] sm:h-[90px] rounded-lg overflow-hidden flex-shrink-0">
                                                 {post.coverImage ? (
                                                     <img src={post.coverImage} alt="" className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
                                                 ) : (
@@ -240,7 +240,7 @@ export default function NewsPage() {
                 <div className="grid lg:grid-cols-3 gap-6">
 
                     {/* Left: Posts Grid */}
-                    <div className="lg:col-span-2">
+                    <div className="lg:col-span-2 min-w-0">
                         {/* Category Filter */}
                         <div className="flex items-center gap-2 mb-5 overflow-x-auto scrollbar-hide pb-1">
                             <Filter className="w-3.5 h-3.5 text-gray-400 flex-shrink-0" />
@@ -371,7 +371,7 @@ export default function NewsPage() {
                                         return (
                                             <motion.div key={post._id} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.03 }}>
                                                 <Link href={`/tin-tuc/${post.slug}`} className="group flex gap-3.5 p-3 bg-white rounded-lg border border-gray-100 hover:shadow-md hover:border-transparent transition-all duration-300">
-                                                    <div className="relative w-[120px] h-[80px] rounded-lg overflow-hidden flex-shrink-0">
+                                                    <div className="relative w-[100px] sm:w-[120px] h-[75px] sm:h-[80px] rounded-lg overflow-hidden flex-shrink-0">
                                                         {post.coverImage ? (
                                                             <img src={post.coverImage} alt="" className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
                                                         ) : (
@@ -419,9 +419,9 @@ export default function NewsPage() {
 
                                 {/* Pagination */}
                                 {totalPages > 1 && (
-                                    <div className="flex items-center justify-center gap-1.5 pt-8 pb-4">
+                                    <div className="flex items-center justify-center gap-1.5 pt-8 pb-4 flex-wrap">
                                         <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page <= 1}
-                                            className="w-9 h-9 rounded-lg flex items-center justify-center bg-white border border-gray-200 text-gray-400 hover:text-gray-600 hover:border-gray-300 disabled:opacity-30 transition-all text-xs">
+                                            className="w-8 h-8 sm:w-9 sm:h-9 rounded-lg flex items-center justify-center bg-white border border-gray-200 text-gray-400 hover:text-gray-600 hover:border-gray-300 disabled:opacity-30 transition-all text-xs">
                                             <ChevronLeft className="w-3.5 h-3.5" />
                                         </button>
                                         {Array.from({ length: totalPages }, (_, i) => i + 1)
@@ -430,7 +430,7 @@ export default function NewsPage() {
                                                 <span key={p}>
                                                     {idx > 0 && arr[idx - 1] !== p - 1 && <span className="px-1 text-gray-300 text-xs">···</span>}
                                                     <button onClick={() => setPage(p)}
-                                                        className={`w-9 h-9 rounded-lg text-xs font-medium transition-all ${p === page
+                                                        className={`w-8 h-8 sm:w-9 sm:h-9 rounded-lg text-xs font-medium transition-all ${p === page
                                                             ? "bg-[#1b64f2] text-white shadow-sm"
                                                             : "bg-white border border-gray-200 text-gray-500 hover:border-gray-300 hover:text-gray-700"}`}>
                                                         {p}
@@ -438,7 +438,7 @@ export default function NewsPage() {
                                                 </span>
                                             ))}
                                         <button onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={page >= totalPages}
-                                            className="w-9 h-9 rounded-lg flex items-center justify-center bg-white border border-gray-200 text-gray-400 hover:text-gray-600 hover:border-gray-300 disabled:opacity-30 transition-all text-xs">
+                                            className="w-8 h-8 sm:w-9 sm:h-9 rounded-lg flex items-center justify-center bg-white border border-gray-200 text-gray-400 hover:text-gray-600 hover:border-gray-300 disabled:opacity-30 transition-all text-xs">
                                             <ChevronRight className="w-3.5 h-3.5" />
                                         </button>
                                     </div>

@@ -166,6 +166,10 @@ export async function POST(req: NextRequest) {
                 discord: body.contact?.discord || "",
                 zalo: body.contact?.zalo || "",
             },
+            registrationConstraints: {
+                rankLimit: body.registrationConstraints?.rankLimit || "none",
+            },
+            customEfvPoints: body.customEfvPoints,
             isPublic: body.isPublic !== undefined ? body.isPublic : true,
             tags: Array.isArray(body.tags) ? body.tags.filter(Boolean) : [],
             status: body.status || "draft",

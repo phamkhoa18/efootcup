@@ -18,7 +18,7 @@ import {
 } from "lucide-react";
 import { tournamentAPI } from "@/lib/api";
 import { useAuth } from "@/contexts/AuthContext";
-import { EFV_TIER_OPTIONS, EFV_PC_TIER_OPTIONS } from "@/lib/efv-points";
+import { EFV_TIER_OPTIONS, EFV_PC_TIER_OPTIONS, EFV_POINT_TABLE, PLACEMENT_LABELS } from "@/lib/efv-points";
 import { toast } from "sonner";
 
 /* ===== Helpers ===== */
@@ -136,6 +136,8 @@ export default function EditTournamentPage() {
     // Mode & EFV Tier
     const [mode, setMode] = useState<"mobile" | "pc" | "free">("mobile");
     const [efvTier, setEfvTier] = useState<string | null>(null);
+    const [customEfvPoints, setCustomEfvPoints] = useState<Record<string, number>>({});
+    const [rankLimit, setRankLimit] = useState<"none" | "only_top_64" | "block_top_64">("none");
 
     // Format & Settings
     const [format, setFormat] = useState("single_elimination");
@@ -198,6 +200,12 @@ export default function EditTournamentPage() {
                     setTags(Array.isArray(t.tags) ? t.tags.join(", ") : "");
                     setMode(t.mode || "mobile");
                     setEfvTier(t.efvTier || null);
+                    if (t.customEfvPoints && Object.keys(t.customEfvPoints).length > 0) {
+                        setCustomEfvPoints(t.customEfvPoints as Record<string, number>);
+                    } else if (t.efvTier) {
+                        setCustomEfvPoints({ ...(EFV_POINT_TABLE[t.efvTier] || {}) });
+                    }
+                    setRankLimit(t.registrationConstraints?.rankLimit || "none");
                     setFormat(t.format || "single_elimination");
                     setPlatform(t.platform || "cross_platform");
                     setMaxTeamsStr(String(t.maxTeams || 16));
@@ -331,6 +339,10 @@ export default function EditTournamentPage() {
                 tags: tags.split(",").map((t) => t.trim()).filter(Boolean),
                 mode,
                 efvTier: efvTier || null,
+                registrationConstraints: {
+                    rankLimit,
+                },
+                customEfvPoints: Object.keys(customEfvPoints).length > 0 ? customEfvPoints : undefined,
             };
 
             const res = await tournamentAPI.update(id, updateData);
@@ -446,7 +458,7 @@ export default function EditTournamentPage() {
                                     <div className="text-[11px] text-gray-400">eFootball Mobile</div>
                                 </div>
                             </button>
-                            <button type="button" onClick={() => { setMode("pc"); setEfvTier(null); }}
+                            <button type="button" onClick={() => { setMode("pc"); setEfvTier(null); setCustomEfvPoints({}); }}
                                 className={`flex items-center gap-3 p-4 rounded-xl border-2 transition-all ${mode === "pc" ? "border-efb-blue bg-efb-blue/5" : "border-gray-200 hover:border-gray-300"}`}>
                                 <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${mode === "pc" ? "bg-efb-blue/10" : "bg-gray-100"}`}>
                                     <Monitor className={`w-5 h-5 ${mode === "pc" ? "text-efb-blue" : "text-gray-400"}`} />
@@ -456,7 +468,7 @@ export default function EditTournamentPage() {
                                     <div className="text-[11px] text-gray-400">eFootball Console</div>
                                 </div>
                             </button>
-                            <button type="button" onClick={() => { setMode("free"); setEfvTier(null); }}
+                            <button type="button" onClick={() => { setMode("free"); setEfvTier(null); setCustomEfvPoints({}); }}
                                 className={`flex items-center gap-3 p-4 rounded-xl border-2 transition-all ${mode === "free" ? "border-emerald-500 bg-emerald-50" : "border-gray-200 hover:border-gray-300"}`}>
                                 <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${mode === "free" ? "bg-emerald-100" : "bg-gray-100"}`}>
                                     <Gamepad2 className={`w-5 h-5 ${mode === "free" ? "text-emerald-600" : "text-gray-400"}`} />
@@ -478,7 +490,7 @@ export default function EditTournamentPage() {
                             </div>
                             <div className="grid grid-cols-3 gap-3">
                                 {(mode === "mobile" ? EFV_TIER_OPTIONS : EFV_PC_TIER_OPTIONS).map((tier) => (
-                                    <button key={tier.value} type="button" onClick={() => setEfvTier(tier.value)}
+                                    <button key={tier.value} type="button" onClick={() => { setEfvTier(tier.value); setCustomEfvPoints({ ...(EFV_POINT_TABLE[tier.value] || {}) }); }}
                                         className={`relative p-4 rounded-xl border-2 transition-all text-center group ${efvTier === tier.value ? `${tier.borderColor} ${tier.bgColor}` : "border-gray-200 hover:border-gray-300"}`}>
                                         <div className={`w-10 h-10 rounded-xl mx-auto mb-2.5 bg-gradient-to-br ${tier.color} flex items-center justify-center shadow-sm group-hover:scale-105 transition-transform`}>
                                             <Crown className="w-5 h-5 text-white" />
@@ -496,6 +508,50 @@ export default function EditTournamentPage() {
                                     </button>
                                 ))}
                             </div>
+
+                            {/* Custom Points Configuration */}
+                            {efvTier && (
+                                <motion.div
+                                    initial={{ opacity: 0, height: 0 }}
+                                    animate={{ opacity: 1, height: "auto" }}
+                                    className="mt-4 p-4 rounded-xl border border-amber-200 bg-amber-50/50 space-y-4"
+                                >
+                                    <div className="flex items-center justify-between">
+                                        <div>
+                                            <Label className="text-sm font-semibold text-amber-800">Tùy chỉnh điểm EFV (Tùy chọn)</Label>
+                                            <p className="text-xs text-amber-700 mt-0.5">Sửa lại điểm số trao thưởng chuẩn của hạng {efvTier}</p>
+                                        </div>
+                                        <Button
+                                            type="button"
+                                            variant="outline"
+                                            size="sm"
+                                            onClick={() => setCustomEfvPoints({ ...(EFV_POINT_TABLE[efvTier] || {}) })}
+                                            className="h-8 text-xs bg-white border-amber-200 hover:bg-amber-50"
+                                        >
+                                            Khôi phục điểm gốc
+                                        </Button>
+                                    </div>
+                                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                                        {Object.entries(customEfvPoints).map(([key, value]) => (
+                                            <div key={key} className="space-y-1">
+                                                <Label className="text-xs text-gray-600 font-medium">
+                                                    {PLACEMENT_LABELS[key] || key}
+                                                </Label>
+                                                <div className="relative">
+                                                    <Input
+                                                        type="number"
+                                                        value={value}
+                                                        onChange={(e) => setCustomEfvPoints((prev) => ({ ...prev, [key]: parseInt(e.target.value) || 0 }))}
+                                                        className="h-9 pr-10 text-sm font-semibold bg-white"
+                                                        min={0}
+                                                    />
+                                                    <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-gray-400">điểm</span>
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </motion.div>
+                            )}
                         </motion.div>
                     )}
 
@@ -643,6 +699,46 @@ export default function EditTournamentPage() {
                                 <div className="text-[11px] text-gray-400">Thi đấu trực tiếp</div>
                             </div>
                         </button>
+                    </div>
+
+                    {/* Registration Constraints */}
+                    <div className="space-y-3 pt-4 border-t border-gray-100">
+                        <Label className="text-sm font-medium">Giới hạn đăng ký (Dựa theo BXH)</Label>
+                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                            <button
+                                type="button"
+                                onClick={() => setRankLimit("none")}
+                                className={`flex flex-col gap-1 p-3.5 rounded-xl border-2 transition-all text-left ${rankLimit === "none"
+                                    ? "border-efb-blue bg-efb-blue/5"
+                                    : "border-gray-200 hover:border-gray-300"
+                                    }`}
+                            >
+                                <div className={`text-sm font-semibold ${rankLimit === "none" ? "text-efb-blue" : "text-gray-700"}`}>Không giới hạn</div>
+                                <div className="text-[11px] text-gray-500">Ai cũng có thể đăng ký tham gia</div>
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => setRankLimit("only_top_64")}
+                                className={`flex flex-col gap-1 p-3.5 rounded-xl border-2 transition-all text-left ${rankLimit === "only_top_64"
+                                    ? "border-amber-500 bg-amber-50"
+                                    : "border-gray-200 hover:border-gray-300"
+                                    }`}
+                            >
+                                <div className={`text-sm font-semibold ${rankLimit === "only_top_64" ? "text-amber-600" : "text-gray-700"}`}>Chỉ TOP 64 BXH</div>
+                                <div className="text-[11px] text-gray-500">Chỉ VĐV nằm trong Top 64 mới được đăng ký</div>
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => setRankLimit("block_top_64")}
+                                className={`flex flex-col gap-1 p-3.5 rounded-xl border-2 transition-all text-left ${rankLimit === "block_top_64"
+                                    ? "border-rose-500 bg-rose-50"
+                                    : "border-gray-200 hover:border-gray-300"
+                                    }`}
+                            >
+                                <div className={`text-sm font-semibold ${rankLimit === "block_top_64" ? "text-rose-600" : "text-gray-700"}`}>Cấm TOP 64 BXH</div>
+                                <div className="text-[11px] text-gray-500">VĐV nằm trong Top 64 không được phép tham gia</div>
+                            </button>
+                        </div>
                     </div>
                     {!isOnline && (
                         <div className="space-y-2">

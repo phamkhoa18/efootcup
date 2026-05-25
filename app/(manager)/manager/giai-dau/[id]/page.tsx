@@ -5,7 +5,7 @@ import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, CheckCircle2, Clock, Edit3, Flame, Loader2, Pause, Play, Settings, Trophy, Users, AlertCircle, Ban, Eye, EyeOff, FileText, Calendar, Gamepad2, Bone, Hexagon, SplitSquareHorizontal, MapPin, Globe, DollarSign, X, Crown, Award, Camera, ImageIcon } from "lucide-react";
+import { ArrowLeft, CheckCircle2, Clock, Edit3, Flame, Loader2, Pause, Play, Settings, Trophy, Users, AlertCircle, Ban, Eye, EyeOff, FileText, Calendar, Gamepad2, Bone, Hexagon, SplitSquareHorizontal, MapPin, Globe, DollarSign, X, Crown, Award, Camera, ImageIcon, Shield } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useAuth } from "@/contexts/AuthContext";
 import { tournamentAPI } from "@/lib/api";
@@ -538,6 +538,15 @@ export default function TournamentDetailPage() {
                                     <div className="text-xs text-efb-text-muted">Chế độ</div>
                                     <div className="text-sm font-medium text-efb-dark">
                                         {t.mode === "mobile" ? "📱 Mobile" : t.mode === "free" ? "🎯 Tự do" : "🖥 Console"}
+                                    </div>
+                                </div>
+                            )}
+                            {t.registrationConstraints?.rankLimit && t.registrationConstraints.rankLimit !== "none" && (
+                                <div>
+                                    <div className="text-xs text-efb-text-muted">Ràng buộc đăng ký</div>
+                                    <div className={`text-sm font-medium flex items-center gap-1 ${t.registrationConstraints.rankLimit === "only_top_64" ? "text-blue-600" : "text-red-600"}`}>
+                                        <Shield className="w-3.5 h-3.5" />
+                                        {t.registrationConstraints.rankLimit === "only_top_64" ? "Chỉ TOP 64 BXH" : "Cấm TOP 64 BXH"}
                                     </div>
                                 </div>
                             )}

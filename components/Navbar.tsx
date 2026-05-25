@@ -146,10 +146,7 @@ export function Navbar() {
                                 priority
                             />
                         </div>
-                        <div className="hidden sm:flex flex-col">
-                            <span className="text-sm font-bold text-efb-dark leading-tight">{siteSettings.siteName || "EFV CUP"}</span>
-                            <span className="text-[10px] text-efb-text-muted">{siteSettings.siteTagline ? siteSettings.siteTagline.slice(0, 30) : "Việt Nam"}</span>
-                        </div>
+
                     </Link>
 
                     {/* Desktop Nav */}

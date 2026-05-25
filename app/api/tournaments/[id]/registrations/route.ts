@@ -156,10 +156,59 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
         // HOTFIX: Ensure the registering user has an EFV ID (if legacy/seeded user)
         // -------------------------------------------------------------
         const currentUser = await User.findById(authResult.user._id);
-        if (currentUser && !currentUser.efvId) {
+        if (!currentUser) {
+            return apiError("Không tìm thấy thông tin tài khoản", 404);
+        }
+        if (!currentUser.efvId) {
             const Counter = (await import('@/models/Counter')).default;
             currentUser.efvId = await Counter.getNextSequence("efvId");
             await currentUser.save();
+        }
+
+        // Identify Player 2
+        let player2UserId = undefined;
+        let player2EfvId = undefined;
+        if (body.player2EfvId) {
+            const p2User: any = await User.findOne({ efvId: Number(body.player2EfvId) }).select('_id efvId').lean();
+            if (p2User) {
+                player2UserId = p2User._id;
+                player2EfvId = p2User.efvId;
+                if (player2UserId.toString() === authResult.user._id.toString()) {
+                    return apiError("VĐV 1 và VĐV 2 không được là cùng một người", 400);
+                }
+            } else {
+                return apiError("Không tìm thấy VĐV 2 với EFV ID đã nhập. Vui lòng kiểm tra lại.", 404);
+            }
+        }
+
+        // -------------------------------------------------------------
+        // CHECK REGISTRATION CONSTRAINTS (TOP 64)
+        // -------------------------------------------------------------
+        if (tournament.registrationConstraints?.rankLimit && tournament.registrationConstraints.rankLimit !== "none") {
+            const Bxh = (await import('@/models/Bxh')).default;
+            const rankLimit = tournament.registrationConstraints.rankLimit;
+
+            // Check Player 1
+            const p1Bxh = await Bxh.findOne({ gamerId: String(currentUser.efvId), mode: "mobile" }).lean() as any;
+            const p1Rank = p1Bxh?.rank || 999999;
+            
+            if (rankLimit === "only_top_64" && p1Rank > 64) {
+                return apiError("VĐV 1 không đủ điều kiện: Giải đấu này chỉ dành cho VĐV nằm trong TOP 64 BXH Mobile", 403);
+            } else if (rankLimit === "block_top_64" && p1Rank <= 64) {
+                return apiError("VĐV 1 không đủ điều kiện: Giải đấu này không dành cho VĐV nằm trong TOP 64 BXH Mobile", 403);
+            }
+
+            // Check Player 2 (if any)
+            if (player2EfvId) {
+                const p2Bxh = await Bxh.findOne({ gamerId: String(player2EfvId), mode: "mobile" }).lean() as any;
+                const p2Rank = p2Bxh?.rank || 999999;
+
+                if (rankLimit === "only_top_64" && p2Rank > 64) {
+                    return apiError("VĐV 2 không đủ điều kiện: Giải đấu này chỉ dành cho VĐV nằm trong TOP 64 BXH Mobile", 403);
+                } else if (rankLimit === "block_top_64" && p2Rank <= 64) {
+                    return apiError("VĐV 2 không đủ điều kiện: Giải đấu này không dành cho VĐV nằm trong TOP 64 BXH Mobile", 403);
+                }
+            }
         }
 
         // Duplicate Check 1/3: Keep DB clean for this user's direct registrations
@@ -191,20 +240,6 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
         });
         if (p1AsP2) {
             return apiError("Bạn hiện đã có tên trong một đội đăng ký khác (vai trò VĐV 2). Không thể đăng ký thêm.", 409);
-        }
-
-        // Identify Player 2
-        let player2UserId = undefined;
-        if (body.player2EfvId) {
-            const p2User: any = await User.findOne({ efvId: Number(body.player2EfvId) }).select('_id').lean();
-            if (p2User) {
-                player2UserId = p2User._id;
-                if (player2UserId.toString() === authResult.user._id.toString()) {
-                    return apiError("VĐV 1 và VĐV 2 không được là cùng một người", 400);
-                }
-            } else {
-                return apiError("Không tìm thấy VĐV 2 với EFV ID đã nhập. Vui lòng kiểm tra lại.", 404);
-            }
         }
 
         // Duplicate Check 3/3: Ensure Player 2 (if any) is not ALREADY participating anywhere

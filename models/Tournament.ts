@@ -58,6 +58,10 @@ export interface ITournament extends Document {
         // Double elimination
         resetFinal?: boolean; // Grand final reset if loser bracket winner wins first match
     };
+    registrationConstraints?: {
+        rankLimit: "none" | "only_top_64" | "block_top_64";
+    };
+    customEfvPoints?: Map<string, number>;
     contact: {
         phone?: string;
         email?: string;
@@ -248,6 +252,17 @@ const TournamentSchema = new Schema<ITournament>(
             advancePerGroup: { type: Number },
             numberOfRounds: { type: Number },
             resetFinal: { type: Boolean },
+        },
+        registrationConstraints: {
+            rankLimit: {
+                type: String,
+                enum: ["none", "only_top_64", "block_top_64"],
+                default: "none",
+            },
+        },
+        customEfvPoints: {
+            type: Map,
+            of: Number,
         },
         contact: {
             phone: { type: String, default: "" },

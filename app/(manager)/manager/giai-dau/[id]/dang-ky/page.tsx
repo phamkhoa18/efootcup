@@ -981,6 +981,84 @@ export default function DangKyPage() {
         toast.success(`Đã xuất toàn bộ ${data.length} bản đăng ký ra Excel`);
     };
 
+    const handleExportEfvRanking = async () => {
+        try {
+            toast.loading("Đang tải dữ liệu BXH...", { id: 'export-efv' });
+            
+            // Fetch teams from the teams endpoint which populates _efvPoints correctly
+            const res = await fetch(`/api/tournaments/${id}/teams?limit=2000`);
+            const data = await res.json();
+            
+            if (!data.success) throw new Error("Fetch failed");
+            
+            const teams = data.data?.teams || [];
+            
+            if (teams.length === 0) {
+                toast.error("Chưa có VĐV/Đội nào tham gia", { id: 'export-efv' });
+                return;
+            }
+
+            const getEfvPts = (team: any) => {
+                if (!tournament?.efvTier) return 0;
+                if (team._efvPoints != null) return team._efvPoints;
+                const partPts: Record<string, number> = { efv_250: 30, efv_500: 50, efv_1000: 100, efv_50: 5, efv_100: 10, efv_200: 20 };
+                return partPts[tournament.efvTier] ?? 0;
+            };
+
+            const exportData = teams.map((team: any) => {
+                const reg = team._reg || {};
+                const playerName = reg.playerName || team.captain?.name || "—";
+                
+                const row: any = {
+                    "STT": 0,
+                    "Tên Đội": team.name,
+                    "VĐV 1": playerName,
+                    "EFV-ID 1": reg?.user?.efvId != null ? reg.user.efvId : "",
+                    "Điểm EFV": getEfvPts(team)
+                };
+
+                if (teamSize >= 2) {
+                    row["VĐV 2"] = reg.player2Name || "";
+                    row["EFV-ID 2"] = reg?.player2User?.efvId != null ? reg.player2User.efvId : "";
+                }
+
+                const placementMap: Record<string, string> = {
+                    champion: 'Vô địch', runner_up: 'Á quân', top_4: 'Top 4', top_8: 'Top 8', top_16: 'Top 16',
+                    top_32: 'Top 32', top_64: 'Top 64', group_stage: 'Vòng bảng',
+                };
+                if (tournament?.status === 'completed' && team._placement) {
+                    row["Thành Tích"] = placementMap[team._placement] || 'Tham gia';
+                }
+
+                return row;
+            });
+
+            exportData.sort((a: any, b: any) => b["Điểm EFV"] - a["Điểm EFV"]);
+            exportData.forEach((row: any, i: number) => row["STT"] = i + 1);
+
+            const ws = XLSX.utils.json_to_sheet(exportData);
+            
+            const colWidths = Object.keys(exportData[0] || {}).map((key: string) => ({
+                wch: Math.max(
+                    key.length + 2,
+                    ...exportData.map((row: any) => String(row[key] || "").length)
+                )
+            }));
+            ws["!cols"] = colWidths.map((w: any) => ({ wch: Math.min(w.wch, 50) }));
+            
+            const wb = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(wb, ws, "BXH EFV");
+            
+            const dateStr = new Date().toISOString().slice(0, 10);
+            XLSX.writeFile(wb, `BXH_EFV_${tournament?.title?.substring(0,20).replace(/[^a-zA-Z0-9]/g, '_') || 'GiaiDau'}_${dateStr}.xlsx`);
+            
+            toast.success("Đã xuất file BXH EFV thành công!", { id: 'export-efv' });
+        } catch (e) {
+            console.error(e);
+            toast.error("Lỗi khi xuất file BXH", { id: 'export-efv' });
+        }
+    };
+
     // =============================================
     // SePay Transactions
     // =============================================
@@ -1356,6 +1434,15 @@ export default function DangKyPage() {
                         disabled={registrations.length === 0}
                     >
                         <Download className="w-3.5 h-3.5 mr-1.5" /> Xuất Excel
+                    </Button>
+                    <Button
+                        variant="outline"
+                        size="sm"
+                        className="rounded-xl h-9 text-xs border-amber-200 text-amber-700 hover:bg-amber-50"
+                        onClick={handleExportEfvRanking}
+                        disabled={registrations.length === 0}
+                    >
+                        <Trophy className="w-3.5 h-3.5 mr-1.5 text-amber-500" /> Xuất BXH EFV
                     </Button>
                     {hasFee && (
                         <Button

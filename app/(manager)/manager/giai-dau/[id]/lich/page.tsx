@@ -69,61 +69,209 @@ export default function LichThiDauPage() {
     const { confirm, alert: showAlert } = useConfirmDialog();
 
     const handleDownloadPDF = async () => {
-        const element = document.getElementById("schedule-container");
-        if (!element) return;
-
         setIsUpdating(true);
         try {
-            // Using toCanvas as it's often more reliable
-            const canvas = await toCanvas(element, {
-                backgroundColor: '#ffffff',
-                pixelRatio: 2,
-                skipAutoScale: true,
-                cacheBust: true,
+            // Khởi tạo jsPDF
+            const pdf = new jsPDF("landscape", "mm", "a4");
+
+            // Load font Roboto hỗ trợ Tiếng Việt
+            toast.info("Đang tạo PDF, vui lòng đợi...");
+            const fontRes = await fetch('https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.2.7/fonts/Roboto/Roboto-Regular.ttf');
+            const fontBuffer = await fontRes.arrayBuffer();
+            const fontBytes = new Uint8Array(fontBuffer);
+            let binary = '';
+            for (let i = 0; i < fontBytes.byteLength; i++) {
+                binary += String.fromCharCode(fontBytes[i]);
+            }
+            const fontBase64 = btoa(binary);
+            pdf.addFileToVFS('Roboto-Regular.ttf', fontBase64);
+            pdf.addFont('Roboto-Regular.ttf', 'Roboto', 'normal', 'Identity-H');
+            pdf.addFont('Roboto-Regular.ttf', 'Roboto', 'bold', 'Identity-H');
+            pdf.setFont('Roboto', 'normal');
+
+            // Hàm hỗ trợ tải ảnh thành Base64 (PNG)
+            const loadImgAsPngBase64 = async (url: string) => {
+                return new Promise<string>((resolve) => {
+                    const img = new Image();
+                    img.crossOrigin = 'Anonymous';
+                    img.onload = () => {
+                        const canvas = document.createElement('canvas');
+                        canvas.width = img.width;
+                        canvas.height = img.height;
+                        const ctx = canvas.getContext('2d');
+                        if (ctx) ctx.drawImage(img, 0, 0);
+                        resolve(canvas.toDataURL('image/png'));
+                    };
+                    img.onerror = () => resolve('');
+                    img.src = url;
+                });
+            };
+
+            const siteLogoBase64 = await loadImgAsPngBase64(window.location.origin + '/assets/logo_football.png');
+            let tourAvatarBase64 = '';
+            if (tournament?.thumbnail || tournament?.banner) {
+                tourAvatarBase64 = await loadImgAsPngBase64(tournament.thumbnail || tournament.banner);
+            }
+
+            // Vẽ Site Logo & Info
+            let startX = 14;
+            if (siteLogoBase64) {
+                pdf.addImage(siteLogoBase64, 'PNG', startX, 10, 12, 12);
+                startX += 15;
+            }
+            pdf.setFontSize(10);
+            pdf.setTextColor(100, 116, 139); // Slate-500
+            pdf.text("EFOOTBALL.VN - HỆ THỐNG GIẢI ĐẤU CHUYÊN NGHIỆP", startX, 17);
+            
+            // Đường kẻ ngang phân cách
+            pdf.setDrawColor(226, 232, 240);
+            pdf.setLineWidth(0.5);
+            pdf.line(14, 25, 283, 25);
+
+            // Vẽ Avatar Giải đấu (nếu có) bên góc phải
+            if (tourAvatarBase64) {
+                // Vẽ khung avatar 26x26 ở góc phải
+                pdf.addImage(tourAvatarBase64, 'PNG', 255, 30, 28, 28);
+                // Vẽ viền mỏng cho avatar
+                pdf.setDrawColor(203, 213, 225);
+                pdf.rect(255, 30, 28, 28);
+            }
+
+            // Header Giải đấu
+            const title = tournament?.title || "Lịch Thi Đấu";
+            pdf.setFontSize(22);
+            pdf.setTextColor(15, 23, 42);
+            // Giới hạn độ dài text nếu có avatar
+            const maxTitleWidth = tourAvatarBase64 ? 230 : 270;
+            const splitTitle = pdf.splitTextToSize(title.toUpperCase(), maxTitleWidth);
+            pdf.text(splitTitle, 14, 38);
+
+            // Tính toán Y tiếp theo dựa vào số dòng của title
+            const titleHeight = splitTitle.length * 8;
+            let infoY = 38 + titleHeight - 2;
+
+            pdf.setFontSize(10);
+            pdf.setTextColor(71, 85, 105);
+            
+            const formatStr = tournament?.format === 'round_robin' ? 'Vòng tròn' : tournament?.format === 'group_stage' ? 'Vòng bảng' : 'Loại trực tiếp';
+            const platformStr = tournament?.platform ? tournament.platform.toUpperCase() : 'ĐA NỀN TẢNG';
+            const teamSizeStr = tournament?.teamSize === 2 ? '2v2' : '1v1';
+            const onlineStr = tournament?.isOnline ? 'Online' : 'Offline';
+            pdf.text(`Thể thức: ${formatStr} | Nền tảng: ${platformStr} | Kích thước: ${teamSizeStr} | Hình thức: ${onlineStr}`, 14, infoY);
+            
+            const efvStr = tournament?.efvTier ? tournament.efvTier.replace('_', ' ').toUpperCase() : 'Không';
+            const feeStr = tournament?.entryFee ? tournament.entryFee.toLocaleString('vi-VN') + ' VNĐ' : 'Miễn phí';
+            const durationStr = tournament?.settings?.matchDuration ? `${tournament.settings.matchDuration} phút` : '—';
+            const penStr = tournament?.settings?.penalties ? 'Có' : 'Không';
+            pdf.text(`Hạng EFV: ${efvStr} | Lệ phí: ${feeStr} | Thời lượng: ${durationStr} | Penalty: ${penStr}`, 14, infoY + 5);
+
+            const locationStr = tournament?.isOnline ? 'Thi đấu Online' : (tournament?.location || 'Chưa cập nhật');
+            const contactStr = tournament?.contact?.phone ? ` | CSKH: ${tournament.contact.phone}` : '';
+            pdf.text(`Địa điểm: ${locationStr}${contactStr}`, 14, infoY + 10);
+
+            const printDate = new Date().toLocaleString("vi-VN", { hour: '2-digit', minute:'2-digit', day: '2-digit', month: '2-digit', year: 'numeric' });
+            pdf.text(`Ngày xuất: ${printDate} | Mã giải: ${id.substring(0, 8).toUpperCase()}`, 14, infoY + 15);
+
+            let currentY = Math.max(infoY + 25, tourAvatarBase64 ? 65 : 55);
+
+            // Lặp qua từng vòng đấu
+            Object.entries(rounds).forEach(([roundName, roundMatches]: [string, any[]], index) => {
+                if (!roundMatches || roundMatches.length === 0) return;
+
+                // Lọc các trận đấu hợp lệ
+                const validMatches = roundMatches.filter(m => m.status !== 'walkover' && m.status !== 'bye');
+                if (validMatches.length === 0) return;
+
+                const tableData = validMatches.map(m => {
+                    const formatTeamInfo = (team: any, pFallback: any) => {
+                        if (!team || typeof team === 'string') return "Tự do\n(—)";
+                        const tName = team.name || "Tự do";
+                        const tEfv = team.efvId ? `[EFV: #${team.efvId}]` : "";
+                        const p1 = team.player1 || pFallback?.name || "—";
+                        const p2 = team.player2 && team.player2 !== "TBD" ? ` / ${team.player2}` : "";
+                        return `${tName} ${tEfv}\n(${p1}${p2})`;
+                    };
+
+                    const homeStr = formatTeamInfo(m.homeTeam, m.p1);
+                    const awayStr = formatTeamInfo(m.awayTeam, m.p2);
+                    
+                    const isCompleted = m.status === 'completed' || m.status === 'walkover';
+                    const score = isCompleted || m.status === 'live' ? `${m.homeScore ?? 0} - ${m.awayScore ?? 0}` : "vs";
+                    const status = m.status === 'completed' ? 'Kết thúc' : m.status === 'live' ? 'LIVE' : 'Chờ thi đấu';
+                    
+                    let updaterInfo = "—";
+                    if (m.updatedBy && m.updatedAt) {
+                        const dateStr = new Date(m.updatedAt).toLocaleString('vi-VN', { hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit' });
+                        updaterInfo = `${m.updatedBy.name || 'Quản lý'}\n(${dateStr})`;
+                    }
+                    
+                    const matchFormat = tournament?.isOnline ? "Online" : "Offline";
+
+                    return [
+                        m.matchNumber,
+                        homeStr,
+                        score,
+                        awayStr,
+                        matchFormat,
+                        status,
+                        updaterInfo
+                    ];
+                });
+
+                // Vẽ title Vòng đấu
+                if (currentY > 170) {
+                    pdf.addPage();
+                    currentY = 20;
+                }
+                pdf.setFontSize(14);
+                pdf.setTextColor(220, 38, 38); // Red-600
+                pdf.setFont('Roboto', 'bold');
+                pdf.text(`[ ${roundName.toUpperCase()} ]`, 14, currentY);
+                
+                currentY += 5;
+
+                // AutoTable
+                autoTable(pdf, {
+                    head: [['#', 'ĐỘI NHÀ (VĐV)', 'TỈ SỐ', 'ĐỘI KHÁCH (VĐV)', 'HÌNH THỨC', 'TRẠNG THÁI', 'NGƯỜI XÁC NHẬN']],
+                    body: tableData,
+                    startY: currentY,
+                    theme: 'grid',
+                    styles: { 
+                        font: 'Roboto', 
+                        fontSize: 9,
+                        cellPadding: 3,
+                        valign: 'middle',
+                    },
+                    headStyles: {
+                        fillColor: [37, 99, 235], // Blue-600
+                        textColor: [255, 255, 255],
+                        fontStyle: 'bold',
+                        halign: 'center'
+                    },
+                    columnStyles: {
+                        0: { halign: 'center', cellWidth: 10, fontStyle: 'bold' }, // ID
+                        // 1: Auto (Home)
+                        2: { halign: 'center', cellWidth: 20, fontStyle: 'bold', textColor: [220, 38, 38] }, // Score
+                        // 3: Auto (Away)
+                        4: { halign: 'center', cellWidth: 25 }, // Pitch
+                        5: { halign: 'center', cellWidth: 25 }, // Status
+                        6: { halign: 'center', cellWidth: 40, textColor: [71, 85, 105], fontSize: 8 } // Updater
+                    },
+                    margin: { top: 20, left: 14, right: 14 }
+                });
+
+                // Cập nhật Y cho vòng tiếp theo (cộng thêm margin)
+                currentY = (pdf as any).lastAutoTable.finalY + 15;
             });
 
-            const imgData = canvas.toDataURL("image/png");
-            const pdf = new jsPDF("p", "mm", "a4");
-            const pdfWidth = pdf.internal.pageSize.getWidth();
-            const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
+            // Save PDF
+            const safeName = (tournament?.title || 'Giai_Dau').replace(/[^a-zA-Z0-9]/g, '_');
+            pdf.save(`Lich_Thi_Dau_${safeName}.pdf`);
+            toast.success("Đã tải PDF thành công!");
 
-            // Add a title to the PDF
-            pdf.setFontSize(18);
-            pdf.text(tournament?.title || "Lich Thi Dau", 10, 15);
-
-            pdf.addImage(imgData, "PNG", 0, 20, pdfWidth, pdfHeight);
-            pdf.save(`Lich_Thi_Dau_${tournament?.title?.replace(/\s+/g, '_') || id}.pdf`);
         } catch (error) {
             console.error("Error generating PDF:", error);
-            // Fallback to data-driven table if image capture fails
-            try {
-                const pdf = new jsPDF();
-                pdf.text(tournament?.title || "Lich Thi Dau", 10, 10);
-
-                Object.entries(rounds).forEach(([roundName, roundMatches]: [string, any[]]) => {
-                    const tableData = roundMatches.map(m => [
-                        m.matchNumber,
-                        m.homeTeam?.name || "Tự do",
-                        `${m.homeScore ?? 0} - ${m.awayScore ?? 0}`,
-                        m.awayTeam?.name || "Tự do",
-                        m.pitch || "Sân 1",
-                        m.status === 'completed' ? 'Kết thúc' : m.status === 'live' ? 'Đang đá' : 'Chưa đá'
-                    ]);
-
-                    autoTable(pdf, {
-                        head: [['#', 'Đội 1', 'KQ', 'Đội 2', 'Sân', 'TT']],
-                        body: tableData,
-                        startY: (pdf as any).lastAutoTable?.finalY + 10 || 20,
-                        didDrawPage: (data) => {
-                            pdf.text(roundName, data.settings.margin.left, 15);
-                        }
-                    });
-                });
-                pdf.save(`Lich_Thi_Dau_${id}.pdf`);
-            } catch (fallbackError) {
-                console.error("Fallback PDF failed:", fallbackError);
-                toast.error("Không thể tạo file PDF. Vui lòng thử lại sau.");
-            }
+            toast.error("Không thể tạo file PDF. Vui lòng thử lại sau.");
         } finally {
             setIsUpdating(false);
         }
@@ -569,6 +717,20 @@ export default function LichThiDauPage() {
             <div id="schedule-container" className="bg-white border text-sm max-w-full print-container relative rounded-lg overflow-hidden">
                 <style jsx>{`
                     .print-container { background: white !important; }
+                    
+                    /* CSS khi xuất PDF (ẩn các nút không cần thiết) */
+                    :global(.exporting-pdf) .action-buttons {
+                        display: none !important;
+                    }
+                    :global(.exporting-pdf) .status-label {
+                        border: 1px solid #e2e8f0 !important;
+                        background: #f8fafc !important;
+                        color: #475569 !important;
+                    }
+                    :global(.exporting-pdf) .round-header {
+                        margin-top: 15px;
+                        border-top: 2px solid #3b82f6;
+                    }
                 `}</style>
                 {Object.entries(displayRoundsObj).length === 0 ? (
                     <div className="text-center py-20 bg-gray-50">
@@ -584,7 +746,7 @@ export default function LichThiDauPage() {
                         return (
                             <div key={roundName}>
                                 {/* Round Header */}
-                                <div className="bg-[#D9EAF7] flex items-center justify-center py-2 px-4 relative border-b border-white">
+                                <div className="round-header bg-[#D9EAF7] flex items-center justify-center py-2 px-4 relative border-b border-white">
                                     <span className="text-red-500 font-bold text-sm">{roundName}</span>
                                     <span className="text-gray-700 font-semibold ml-1 text-sm hidden sm:inline">| {tournament?.title}</span>
                                 </div>
@@ -667,14 +829,14 @@ export default function LichThiDauPage() {
                                                             isWalkover ? <span className="text-gray-400">Tự động đi tiếp</span> : <span>{m.homeScore ?? 0} - {m.awayScore ?? 0}</span>
                                                         ) : <span className="text-gray-300">-</span>}
                                                     </div>
-                                                    <div className="col-span-1 flex justify-center">
+                                                    <div className="col-span-1 flex justify-center action-buttons">
                                                         <Button variant="outline" size="sm" className="h-6 text-[10px] rounded px-2 border-gray-200 text-gray-400 font-normal">Chọn sân</Button>
                                                     </div>
                                                     <div className="col-span-2 flex items-center justify-between pr-2">
-                                                        <div className={`px-2 py-0.5 rounded text-[11px] font-semibold ${isCompleted ? "bg-emerald-50 text-emerald-600" : m.status === "live" ? "bg-red-50 text-red-600 animate-pulse" : "bg-blue-50/50 border border-blue-100 text-blue-400"}`}>
+                                                        <div className={`status-label px-2 py-0.5 rounded text-[11px] font-semibold ${isCompleted ? "bg-emerald-50 text-emerald-600" : m.status === "live" ? "bg-red-50 text-red-600 animate-pulse" : "bg-blue-50/50 border border-blue-100 text-blue-400"}`}>
                                                             {isWalkover ? "Đi tiếp" : isCompleted ? "Kết thúc" : m.status === "live" ? "LIVE" : "Chờ thi đấu"}
                                                         </div>
-                                                        <div className="flex gap-1.5 items-center text-gray-400">
+                                                        <div className="flex gap-1.5 items-center text-gray-400 action-buttons">
                                                             {!isCompleted && m.status !== "live" ? (
                                                                 <Play className="w-4 h-4 hover:text-green-500 cursor-pointer transition-colors" onClick={() => handleSetMatchLive(m._id || m.id)} />
                                                             ) : <div className="w-4 h-4" />}
