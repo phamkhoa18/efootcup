@@ -3,7 +3,7 @@ import dbConnect from "@/lib/mongodb";
 import Bxh2v2 from "@/models/Bxh2v2";
 import { apiResponse, apiError } from "@/lib/auth";
 
-export const revalidate = 60; // Cache 60 seconds
+export const dynamic = 'force-dynamic';
 
 /**
  * GET /api/bxh-2v2
@@ -14,9 +14,10 @@ export async function GET(req: NextRequest) {
         await dbConnect();
         const searchParams = req.nextUrl.searchParams;
         const limit = parseInt(searchParams.get("limit") || "1000"); // Return up to 1000 for frontend to handle pagination
+        const mode = searchParams.get("mode") || "mobile";
         
         // Return active ranking teams only (points > 0)
-        const query = { points: { $gt: 0 } };
+        const query = { points: { $gt: 0 }, mode };
         
         const data = await Bxh2v2.find(query)
             .sort({ rank: 1, points: -1 })
