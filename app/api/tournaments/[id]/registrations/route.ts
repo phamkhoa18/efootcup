@@ -344,18 +344,19 @@ export async function PUT(req: NextRequest, { params }: RouteParams) {
             // Create team — auto-generate name/shortName if not provided
             const teamName = registration.teamName || registration.playerName || "Team";
             const teamShort = registration.teamShortName || teamName.substring(0, 4).toUpperCase();
+            const teamMembers: any[] = [];
+            if (registration.user) {
+                teamMembers.push({ user: registration.user, role: "captain", joinedAt: new Date() });
+            }
+            if (registration.player2User) {
+                teamMembers.push({ user: registration.player2User, role: "player", joinedAt: new Date() });
+            }
             const team = await Team.create({
                 name: teamName,
                 shortName: teamShort,
                 tournament: id,
                 captain: registration.user || undefined,
-                members: registration.user ? [
-                    {
-                        user: registration.user,
-                        role: "captain",
-                        joinedAt: new Date(),
-                    },
-                ] : [],
+                members: teamMembers,
             });
 
             registration.status = "approved";
@@ -435,12 +436,19 @@ export async function PUT(req: NextRequest, { params }: RouteParams) {
                 }
                 const teamName = registration.teamName || registration.playerName || "Team";
                 const teamShort = registration.teamShortName || teamName.substring(0, 4).toUpperCase();
+                const teamMembers2: any[] = [];
+                if (registration.user) {
+                    teamMembers2.push({ user: registration.user, role: "captain", joinedAt: new Date() });
+                }
+                if (registration.player2User) {
+                    teamMembers2.push({ user: registration.player2User, role: "player", joinedAt: new Date() });
+                }
                 const team = await Team.create({
                     name: teamName,
                     shortName: teamShort,
                     tournament: id,
                     captain: registration.user || undefined,
-                    members: registration.user ? [{ user: registration.user, role: "captain", joinedAt: new Date() }] : [],
+                    members: teamMembers2,
                 });
                 registration.team = team._id;
                 registration.approvedBy = authResult.user._id as any;

@@ -43,3 +43,7 @@ next-env.d.ts
 # uploads (user-uploaded files, served via /api/files/)
 /uploads/
 /public/uploads/scratch/
+
+# backup data
+/public/data/
+/scratch/mongo_restore/
