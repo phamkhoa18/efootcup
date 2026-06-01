@@ -1,0 +1,23 @@
+<!DOCTYPE html>
+<html>
+<head>
+<style>
+  .card { width: 200px; height: 110px; border: 1px solid black; position: relative; margin: 20px; }
+  .slot { height: 50px; border: 1px solid red; margin: 2px; }
+  .line { position: absolute; background: blue; }
+</style>
+</head>
+<body>
+  <div class="card">
+    <div class="slot">Home</div>
+    <div class="slot">Away</div>
+    
+    <!-- Incoming straight to Home -->
+    <div class="line" style="left: -40px; width: 40px; height: 1px; top: 25%;"></div>
+    
+    <!-- Drop indicator to Away -->
+    <div class="line" style="left: -20px; width: 20px; height: 1px; top: 75%;"></div>
+    <div class="line" style="left: -20px; width: 1px; height: 20px; top: 75%;"></div>
+  </div>
+</body>
+</html>

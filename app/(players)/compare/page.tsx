@@ -1,197 +1,281 @@
+"use client";
+
+import { useState, Suspense } from "react";
+import { motion, AnimatePresence } from "framer-motion";
 import Link from "next/link";
-import Image from "next/image";
-import Player from "@/models/players/Player";
-import { connectPlayerDb } from "@/lib/player-db";
-import { AlertCircle, ArrowLeft, ArrowLeftRight, ChevronDown, Activity, Dumbbell, ShieldHalf, Target } from "lucide-react";
+import { useSearchParams } from "next/navigation";
+import { Search, ArrowLeftRight, RotateCcw, ChevronDown, Zap } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Skeleton } from "@/components/ui/skeleton";
+import { fetchPlayers, fetchPlayerDetail, getPlayerImageUrl } from "@/lib/efvn-api";
+import type { PlayerDetail, PlayerSummary } from "@/lib/efvn-types";
 
-export default async function ComparePage({
-  searchParams,
-}: {
-  searchParams: Record<string, string | string[] | undefined> | Promise<Record<string, string | string[] | undefined>>
-}) {
-    await connectPlayerDb();
-    const resolvedParams = await Promise.resolve(searchParams);
-    
-    // Tìm lấy 2 cầu thủ theo p1, p2. Nếu không có lấy 2 cầu thủ rank cao nhất làm mẫu.
-    let p1Id = resolvedParams?.p1 as string;
-    let p2Id = resolvedParams?.p2 as string;
+const STAT_ROWS = [
+    ["Attacking Prowess", "offensiveAwareness"],
+    ["Ball Control", "ballControl"],
+    ["Dribbling", "dribbling"],
+    ["Tight Possession", "tightPossession"],
+    ["Finishing", "finishing"],
+    ["Low Pass", "lowPass"],
+    ["Lofted Pass", "loftedPass"],
+    ["Speed", "speed"],
+    ["Acceleration", "acceleration"],
+    ["Kicking Power", "kickingPower"],
+    ["Defensive Awareness", "defensiveAwareness"],
+    ["Tackling", "ballWinning"],
+    ["Aggression", "aggression"],
+    ["Stamina", "stamina"],
+    ["Physical Contact", "physicalContact"],
+    ["Jump", "jump"],
+    ["Balance", "balance"],
+] as const;
 
-    const topPlayers = await Player.find().sort({ "overall.max": -1 }).limit(2).lean();
-    
-    let player1 = await Player.findOne({ $or: [{ efhubId: p1Id }, { _id: p1Id?.length === 24 ? p1Id : undefined }] }).lean() || topPlayers[0];
-    let player2 = await Player.findOne({ $or: [{ efhubId: p2Id }, { _id: p2Id?.length === 24 ? p2Id : undefined }] }).lean() || topPlayers[1];
+function CompareContent() {
+    const searchParams = useSearchParams();
+    const initialP1 = searchParams.get("p1") || "";
+    const initialP2 = searchParams.get("p2") || "";
 
-    if (!player1 || !player2) {
-        return (
-            <div className="flex-grow flex items-center justify-center min-h-[50vh]">
-                <div className="text-center text-slate-500">
-                     <AlertCircle className="w-12 h-12 mb-4 mx-auto block" />
-                     <p>Cần ít nhất 2 cầu thủ trong Database để tải trang so sánh.</p>
-                </div>
-            </div>
-        );
-    }
+    const [leftQuery, setLeftQuery] = useState(initialP1);
+    const [rightQuery, setRightQuery] = useState(initialP2);
+    const [leftPlayer, setLeftPlayer] = useState<PlayerDetail | null>(null);
+    const [rightPlayer, setRightPlayer] = useState<PlayerDetail | null>(null);
+    const [leftResults, setLeftResults] = useState<PlayerSummary[]>([]);
+    const [rightResults, setRightResults] = useState<PlayerSummary[]>([]);
+    const [loadingSlot, setLoadingSlot] = useState<"left" | "right" | null>(null);
+    const [error, setError] = useState("");
 
-    const p1Stats = player1.stats?.maxLevel || player1.stats?.level1 || {};
-    const p2Stats = player2.stats?.maxLevel || player2.stats?.level1 || {};
+    const searchPlayer = async (side: "left" | "right") => {
+        const query = (side === "left" ? leftQuery : rightQuery).trim();
+        if (!query) { setError("Nhập tên hoặc ID cầu thủ."); return; }
 
-    const p1Ovr = player1.overall?.max || player1.overall?.base || 0;
-    const p2Ovr = player2.overall?.max || player2.overall?.base || 0;
+        setLoadingSlot(side);
+        setError("");
+        try {
+            // Try search by name first
+            const listRes = await fetchPlayers({ q: query, limit: 8, minOvr: 1 });
+            const candidates = listRes.data || [];
 
-    const statsCategories = [
-        {
-            title: "Tấn công & Kỹ thuật",
-            icon: <Target className="w-5 h-5 text-emerald-500" />,
-            stats: [
-                { label: 'Dứt điểm (Finishing)', key: 'finishing' },
-                { label: 'Rê bóng (Dribbling)', key: 'dribbling' },
-                { label: 'Chuyền ngắn (Low Pass)', key: 'lowPass' },
-                { label: 'Tốc độ (Speed)', key: 'speed' },
-                { label: 'Nhận thức tấn công', key: 'offensiveAwareness' }
-            ]
-        },
-        {
-            title: "Thể lực & Thể hình",
-            icon: <Dumbbell className="w-5 h-5 text-emerald-500" />,
-            stats: [
-                { label: 'Sức bền (Stamina)', key: 'stamina' },
-                { label: 'Tì đè (Physical)', key: 'physicalContact' },
-                { label: 'Tăng tốc (Acceleration)', key: 'acceleration' },
-                { label: 'Lực sút (Kicking Power)', key: 'kickingPower' }
-            ]
-        },
-        {
-            title: "Phòng ngự",
-            icon: <ShieldHalf className="w-5 h-5 text-emerald-500" />,
-            stats: [
-                { label: 'Vào bóng (Tackling)', key: 'tackling' },
-                { label: 'Cắt bóng (Interception)', key: 'interception' },
-                { label: 'Nhận thức phòng thủ', key: 'defensiveAwareness' },
-                { label: 'Quyết liệt (Aggression)', key: 'aggression' }
-            ]
+            if (candidates.length > 0) {
+                if (side === "left") setLeftResults(candidates);
+                else setRightResults(candidates);
+                // Auto-pick first result, then fetch full detail
+                const detail = await fetchPlayerDetail(candidates[0].efhubId);
+                if (side === "left") setLeftPlayer(detail.data);
+                else setRightPlayer(detail.data);
+            } else {
+                // Try by ID
+                const detail = await fetchPlayerDetail(query);
+                if (detail.data) {
+                    if (side === "left") { setLeftPlayer(detail.data); setLeftResults([]); }
+                    else { setRightPlayer(detail.data); setRightResults([]); }
+                } else {
+                    setError("Không tìm thấy cầu thủ.");
+                }
+            }
+        } catch {
+            setError("Không tìm thấy cầu thủ.");
+        } finally {
+            setLoadingSlot(null);
         }
-    ];
+    };
 
-    const p1Img = player1.images?.portrait || player1.images?.card || player1.images?.thumbnail || '';
-    const p2Img = player2.images?.portrait || player2.images?.card || player2.images?.thumbnail || '';
+    const pickPlayer = async (side: "left" | "right", p: PlayerSummary) => {
+        setLoadingSlot(side);
+        try {
+            const detail = await fetchPlayerDetail(p.efhubId);
+            if (side === "left") setLeftPlayer(detail.data);
+            else setRightPlayer(detail.data);
+        } catch {} finally { setLoadingSlot(null); }
+    };
 
-    const p1AvgStr = (Object.values(p1Stats).filter(v => typeof v === 'number').reduce((a: any,b: any)=>a+b,0) / Object.keys(p1Stats).length || 0).toFixed(1);
-    const p2AvgStr = (Object.values(p2Stats).filter(v => typeof v === 'number').reduce((a: any,b: any)=>a+b,0) / Object.keys(p2Stats).length || 0).toFixed(1);
+    const swapSides = () => {
+        const tmpP = leftPlayer; setLeftPlayer(rightPlayer); setRightPlayer(tmpP);
+        const tmpQ = leftQuery; setLeftQuery(rightQuery); setRightQuery(tmpQ);
+        const tmpR = leftResults; setLeftResults(rightResults); setRightResults(tmpR);
+    };
+
+    const resetAll = () => {
+        setLeftPlayer(null); setRightPlayer(null);
+        setLeftQuery(""); setRightQuery("");
+        setLeftResults([]); setRightResults([]);
+        setError("");
+    };
+
+    const leftStats = leftPlayer?.stats?.maxLevel || {};
+    const rightStats = rightPlayer?.stats?.maxLevel || {};
+    const leftOvr = leftPlayer?.overall?.max || 0;
+    const rightOvr = rightPlayer?.overall?.max || 0;
 
     return (
-        <div className="flex-grow bg-[#11131a] text-slate-50 min-h-screen pb-24 w-full">
-            <main className="pt-8 px-4 lg:px-12 xl:px-24 space-y-6 bg-[#11131a] pb-12 w-full h-full min-h-screen">
-                
-                {/* Page Title */}
-                <section className="flex flex-col gap-1 max-w-screen-2xl mx-auto">
-                    <span className="text-emerald-500 font-bold text-[10px] uppercase tracking-[0.2em] mb-2">
-                        <Link href="/players" className="flex items-center gap-1 hover:text-white transition-colors w-fit">
-                            <ArrowLeft className="w-4 h-4" />
-                            Về danh sách
-                        </Link>
-                    </span>
-                    <h2 className="text-3xl font-extrabold tracking-tighter text-white uppercase italic">So sánh Cầu thủ</h2>
-                    <p className="text-slate-400 text-sm mt-1">D-ARENA Analytics System</p>
-                </section>
-
-                <div className="max-w-screen-2xl mx-auto space-y-6">
-                    {/* Player Selection Cards */}
-                    <div className="grid grid-cols-2 gap-3 lg:gap-8">
-                        {/* Player 1 */}
-                        <div className="bg-slate-900 rounded-xl p-4 flex flex-col items-center relative overflow-hidden group border border-white/5 lg:p-8 shadow-2xl backdrop-blur-md">
-                            <div className="absolute inset-0 bg-gradient-to-br from-emerald-500/10 to-transparent"></div>
-                            <div className="relative z-10 w-20 h-20 lg:w-32 lg:h-32 rounded-full border-2 border-emerald-500 overflow-hidden mb-3 bg-slate-950 flex items-center justify-center">
-                                {p1Img ? <img className="w-full h-full object-cover" src={p1Img} alt={player1.name}/> : <span className="text-xs text-slate-500">NO IMG</span>}
-                            </div>
-                            <h3 className="relative z-10 font-bold text-center leading-tight lg:text-xl text-white uppercase truncate w-full">{player1.name}</h3>
-                            <span className="relative z-10 text-[10px] lg:text-xs text-slate-400 uppercase font-bold mt-1 truncate w-full text-center">{player1.club || player1.teamId || 'N/A'}</span>
-                            <div className="absolute top-2 right-2 lg:top-4 lg:right-4 bg-emerald-500 text-slate-950 px-2 lg:px-3 py-0.5 lg:py-1 rounded text-[10px] lg:text-sm font-black italic">{p1Ovr}</div>
-                        </div>
-
-                        {/* Player 2 */}
-                        <div className="bg-slate-900 rounded-xl p-4 flex flex-col items-center relative overflow-hidden group border border-white/5 lg:p-8 shadow-2xl backdrop-blur-md">
-                            <div className="absolute inset-0 bg-gradient-to-br from-amber-500/10 to-transparent"></div>
-                            <div className="relative z-10 w-20 h-20 lg:w-32 lg:h-32 rounded-full border-2 border-amber-500 overflow-hidden mb-3 bg-slate-950 flex items-center justify-center">
-                                {p2Img ? <img className="w-full h-full object-cover" src={p2Img} alt={player2.name} /> : <span className="text-xs text-slate-500">NO IMG</span>}
-                            </div>
-                            <h3 className="relative z-10 font-bold text-center leading-tight lg:text-xl text-white uppercase truncate w-full">{player2.name}</h3>
-                            <span className="relative z-10 text-[10px] lg:text-xs text-slate-400 uppercase font-bold mt-1 truncate w-full text-center">{player2.club || player2.teamId  || 'N/A'}</span>
-                            <div className="absolute top-2 right-2 lg:top-4 lg:right-4 bg-amber-500 text-slate-950 px-2 lg:px-3 py-0.5 lg:py-1 rounded text-[10px] lg:text-sm font-black italic">{p2Ovr}</div>
-                            <Link href="/players" className="absolute inset-0 bg-slate-950/50 backdrop-blur-[2px] opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center font-bold uppercase tracking-widest text-xs z-20 hover:text-emerald-400 cursor-pointer text-white border-none">
-                                <ArrowLeftRight className="mr-2 w-4 h-4" /> Đổi
-                            </Link>
-                        </div>
-                    </div>
-
-                    {/* Comparison Stats Table */}
-                    <div className="space-y-4">
-                        {statsCategories.map((cat, i) => (
-                             <StatCategory key={i} title={cat.title} icon={cat.icon} stats={cat.stats.map(s => ({
-                                 label: s.label,
-                                 p1: p1Stats[s.key] || p1Stats[s.key.charAt(0).toUpperCase() + s.key.slice(1)] || parseInt(p1Stats[s.key]) || 0,
-                                 p2: p2Stats[s.key] || p2Stats[s.key.charAt(0).toUpperCase() + s.key.slice(1)] || parseInt(p2Stats[s.key]) || 0,
-                             }))} />
-                        ))}
-                    </div>
-
-                    {/* Comparison Summary Bento */}
-                    <div className="grid grid-cols-2 gap-3 pb-8 lg:gap-8">
-                        <div className="bg-slate-900 rounded-xl p-4 lg:p-8 flex flex-col justify-center gap-1 border border-white/5 shadow-inner">
-                            <span className="text-[10px] lg:text-xs text-slate-400 uppercase font-black">Chỉ số TB (P1)</span>
-                            <div className="text-2xl lg:text-4xl font-black text-emerald-500">{p1AvgStr}</div>
-                        </div>
-                        <div className="bg-slate-900 rounded-xl p-4 lg:p-8 flex flex-col justify-center gap-1 border border-white/5 shadow-inner">
-                            <span className="text-[10px] lg:text-xs text-slate-400 uppercase font-black">Chỉ số TB (P2)</span>
-                            <div className="text-2xl lg:text-4xl font-black text-amber-500">{p2AvgStr}</div>
-                        </div>
-                    </div>
+        <>
+            {/* Hero */}
+            <section className="relative overflow-hidden">
+                <div className="absolute inset-0 bg-efb-blue" />
+                <div className="absolute inset-0 overflow-hidden pointer-events-none">
+                    <motion.div animate={{ scale: [1, 1.15, 1], opacity: [0.06, 0.14, 0.06] }} transition={{ duration: 8, repeat: Infinity }}
+                        className="absolute -top-20 right-0 w-[500px] h-[500px] bg-gradient-to-br from-yellow-300/25 to-transparent rounded-full blur-3xl" />
                 </div>
-            </main>
-        </div>
+                <div className="relative z-10 max-w-[1200px] mx-auto px-6 lg:px-8 pt-10 pb-8">
+                    <motion.h1 initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }}
+                        className="text-2xl sm:text-3xl font-extralight text-white mb-2">
+                        So sánh <span className="font-semibold text-efb-yellow">cầu thủ</span>
+                    </motion.h1>
+                    <motion.p initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.15 }}
+                        className="text-sm text-white/40 max-w-md">
+                        Chọn 2 cầu thủ để so sánh chi tiết mọi chỉ số.
+                    </motion.p>
+                </div>
+                <svg viewBox="0 0 1440 40" fill="none" className="w-full block relative z-10">
+                    <path d="M0 40H1440V10C1440 10 1200 40 720 40C240 40 0 10 0 10V40Z" fill="white" />
+                </svg>
+            </section>
+
+            <section className="max-w-[1200px] mx-auto px-6 lg:px-8 -mt-1 pb-16">
+                {/* Action buttons */}
+                <div className="flex gap-2 mb-6">
+                    <Button onClick={swapSides} variant="outline" size="sm" className="rounded-xl gap-1.5"
+                        disabled={!leftPlayer && !rightPlayer}>
+                        <ArrowLeftRight className="w-3.5 h-3.5" />Đảo vị trí
+                    </Button>
+                    <Button onClick={resetAll} variant="ghost" size="sm" className="rounded-xl gap-1.5 text-efb-text-muted">
+                        <RotateCcw className="w-3.5 h-3.5" />Đặt lại
+                    </Button>
+                </div>
+
+                {error && <div className="rounded-xl bg-red-50 border border-red-100 p-3 text-sm text-red-600 mb-4">{error}</div>}
+
+                {/* Search Panels */}
+                <div className="grid gap-5 lg:grid-cols-2 mb-8">
+                    {(["left", "right"] as const).map((side) => {
+                        const query = side === "left" ? leftQuery : rightQuery;
+                        const setQuery = side === "left" ? setLeftQuery : setRightQuery;
+                        const player = side === "left" ? leftPlayer : rightPlayer;
+                        const results = side === "left" ? leftResults : rightResults;
+                        const isLoading = loadingSlot === side;
+
+                        return (
+                            <motion.div key={side} initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: side === "left" ? 0.1 : 0.2 }}
+                                className="card-white rounded-2xl p-5">
+                                <div className="flex items-center justify-between mb-3">
+                                    <h3 className="text-sm font-semibold text-efb-text">
+                                        Cầu thủ {side === "left" ? "A" : "B"}
+                                    </h3>
+                                    <Badge variant="secondary" className="text-[10px]">{side.toUpperCase()}</Badge>
+                                </div>
+
+                                {/* Search input */}
+                                <div className="flex gap-2 mb-3">
+                                    <Input
+                                        value={query}
+                                        onChange={(e) => setQuery(e.target.value)}
+                                        onKeyDown={(e) => e.key === "Enter" && searchPlayer(side)}
+                                        placeholder="Nhập tên hoặc ID cầu thủ"
+                                        className="h-10 bg-efb-bg-alt border-efb-border"
+                                    />
+                                    <Button onClick={() => searchPlayer(side)} disabled={isLoading}
+                                        className="h-10 rounded-xl bg-efb-blue hover:bg-efb-blue-light text-white px-4">
+                                        {isLoading ? "..." : <Search className="w-4 h-4" />}
+                                    </Button>
+                                </div>
+
+                                {/* Selected player */}
+                                {player ? (
+                                    <div className="p-3 bg-efb-bg-alt rounded-xl flex gap-3">
+                                        <div className="w-16 h-20 bg-white rounded-lg overflow-hidden flex items-center justify-center shrink-0">
+                                            {getPlayerImageUrl(player.images?.card || player.images?.portrait) ? (
+                                                <img src={getPlayerImageUrl(player.images?.card || player.images?.portrait)} alt={player.name} className="w-full h-full object-cover" />
+                                            ) : <div className="text-[10px] text-gray-300">N/A</div>}
+                                        </div>
+                                        <div className="min-w-0 flex-1">
+                                            <div className="font-semibold text-sm text-efb-text">{player.name}</div>
+                                            <div className="text-[11px] text-efb-text-muted">{player.positions?.[0]} · {player.club}</div>
+                                            <Link href={`/players/${player.efhubId}`}
+                                                className="text-[11px] font-semibold text-efb-blue hover:underline mt-1 inline-block">
+                                                Chi tiết →
+                                            </Link>
+                                        </div>
+                                    </div>
+                                ) : (
+                                    <div className="p-4 bg-efb-bg-alt rounded-xl text-sm text-efb-text-muted text-center">
+                                        Chưa chọn cầu thủ.
+                                    </div>
+                                )}
+
+                                {/* Search results dropdown */}
+                                {results.length > 1 && (
+                                    <div className="mt-2 max-h-40 overflow-y-auto space-y-1">
+                                        {results.map((r) => (
+                                            <button key={r.efhubId} type="button"
+                                                className={`w-full text-left p-2 rounded-lg text-xs transition-colors ${
+                                                    player?.efhubId === r.efhubId
+                                                        ? "bg-efb-blue/10 border border-efb-blue/30"
+                                                        : "bg-efb-bg-alt hover:bg-gray-100 border border-transparent"
+                                                }`}
+                                                onClick={() => pickPlayer(side, r)}>
+                                                <span className="font-semibold text-efb-text">{r.name}</span>
+                                                <span className="text-efb-text-muted ml-2">{r.positions?.[0]} · OVR {r.overall?.max} · {r.club}</span>
+                                            </button>
+                                        ))}
+                                    </div>
+                                )}
+                            </motion.div>
+                        );
+                    })}
+                </div>
+
+                {/* Comparison Table */}
+                <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }}
+                    className="card-white rounded-2xl overflow-hidden">
+                    <div className="p-5 border-b border-efb-border flex items-center gap-2.5">
+                        <div className="w-1 h-5 bg-efb-blue rounded-full" />
+                        <h2 className="text-sm font-semibold text-efb-text">Bảng so sánh chỉ số</h2>
+                    </div>
+
+                    {!leftPlayer || !rightPlayer ? (
+                        <div className="p-8 text-center text-sm text-efb-text-muted">
+                            Chọn đủ 2 cầu thủ để hiển thị bảng so sánh chi tiết.
+                        </div>
+                    ) : (
+                        <div className="divide-y divide-efb-border-light">
+                            {/* Header */}
+                            <div className="grid grid-cols-[1.5fr_1fr_1fr_0.8fr] gap-2 px-5 py-3 bg-efb-bg-alt text-[11px] font-bold uppercase text-efb-text-muted tracking-wider">
+                                <div>Stat</div>
+                                <div className="text-right">{leftPlayer.name.split(" ").pop()} ({leftOvr})</div>
+                                <div className="text-right">{rightPlayer.name.split(" ").pop()} ({rightOvr})</div>
+                                <div className="text-right">±</div>
+                            </div>
+
+                            {STAT_ROWS.map(([label, key]) => {
+                                const left = leftStats[key] || 0;
+                                const right = rightStats[key] || 0;
+                                const diff = left - right;
+                                return (
+                                    <div key={label} className="grid grid-cols-[1.5fr_1fr_1fr_0.8fr] gap-2 px-5 py-2.5 text-sm hover:bg-efb-bg-alt transition-colors">
+                                        <div className="text-efb-text-secondary text-xs">{label}</div>
+                                        <div className="text-right font-semibold text-efb-text">{left}</div>
+                                        <div className="text-right font-semibold text-efb-text">{right}</div>
+                                        <div className={`text-right font-bold text-xs ${
+                                            diff > 0 ? "text-emerald-600" : diff < 0 ? "text-red-500" : "text-efb-text-muted"
+                                        }`}>
+                                            {diff > 0 ? `+${diff}` : diff === 0 ? "=" : diff}
+                                        </div>
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    )}
+                </motion.div>
+            </section>
+        </>
     );
 }
 
-function StatCategory({ title, icon, stats }: { title: string, icon: React.ReactNode, stats: Array<{label: string, p1: number, p2: number}> }) {
+export default function ComparePage() {
     return (
-        <div className="bg-slate-900 overflow-hidden border border-white/5 rounded-xl shadow-lg">
-            <div className="px-4 py-3 lg:px-6 lg:py-4 bg-slate-950/50 flex justify-between items-center border-b border-white/5">
-                <h4 className="text-sm lg:text-base font-bold uppercase tracking-widest text-white flex items-center gap-2">
-                    {icon}
-                    {title}
-                </h4>
-                <ChevronDown className="w-4 h-4 text-slate-500" />
-            </div>
-            <div className="p-4 lg:p-8 space-y-6 lg:space-y-8">
-                {stats.map((stat, i) => {
-                    const diff = stat.p1 - stat.p2;
-                    const isP1Better = diff > 0;
-                    const isP2Better = diff < 0;
-
-                    return (
-                        <div key={i} className="space-y-2 lg:space-y-3">
-                            <div className="flex justify-between text-xs lg:text-sm font-bold uppercase text-slate-400 tracking-wider px-1">
-                                <span className={isP1Better ? "text-emerald-400" : (isP2Better ? "text-slate-500" : "text-slate-400")}>{stat.p1}</span>
-                                <span className="text-[10px] sm:text-xs text-white">{stat.label}</span>
-                                <span className={isP2Better ? "text-amber-400" : (isP1Better ? "text-slate-500" : "text-slate-400")}>{stat.p2}</span>
-                            </div>
-                            <div className="grid grid-cols-[1fr_1fr] gap-4 h-1.5 lg:h-2">
-                                <div className="bg-slate-950 rounded-full overflow-hidden flex justify-end">
-                                    <div 
-                                        className={`h-full rounded-full transition-all ${isP1Better ? 'bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]' : 'bg-slate-700'}`} 
-                                        style={{ width: `${Math.min(stat.p1, 100)}%` }}
-                                    ></div>
-                                </div>
-                                <div className="bg-slate-950 rounded-full overflow-hidden">
-                                    <div 
-                                        className={`h-full rounded-full transition-all ${isP2Better ? 'bg-amber-500 shadow-[0_0_8px_rgba(245,158,11,0.5)]' : 'bg-slate-700'}`} 
-                                        style={{ width: `${Math.min(stat.p2, 100)}%` }}
-                                    ></div>
-                                </div>
-                            </div>
-                        </div>
-                    );
-                })}
-            </div>
-        </div>
+        <Suspense>
+            <CompareContent />
+        </Suspense>
     );
 }

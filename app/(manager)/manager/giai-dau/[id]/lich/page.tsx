@@ -153,7 +153,7 @@ export default function LichThiDauPage() {
             pdf.setFontSize(10);
             pdf.setTextColor(71, 85, 105);
             
-            const formatStr = tournament?.format === 'round_robin' ? 'Vòng tròn' : tournament?.format === 'group_stage' ? 'Vòng bảng' : 'Loại trực tiếp';
+            const formatStr = tournament?.format === 'round_robin' ? 'Vòng tròn' : tournament?.format === 'group_stage' ? 'Vòng bảng' : tournament?.format === 'double_elimination' ? 'Nhánh thắng - Nhánh thua' : 'Loại trực tiếp';
             const platformStr = tournament?.platform ? tournament.platform.toUpperCase() : 'ĐA NỀN TẢNG';
             const teamSizeStr = tournament?.teamSize === 2 ? '2v2' : '1v1';
             const onlineStr = tournament?.isOnline ? 'Online' : 'Offline';
@@ -629,7 +629,7 @@ export default function LichThiDauPage() {
                     <div className="flex items-start gap-2 text-sm text-gray-600">
                         <Info className="w-4 h-4 text-gray-400 mt-0.5" />
                         <div>
-                            <div>Hình thức thi đấu: <span className="font-semibold">{tournament?.format === 'round_robin' ? 'Vòng tròn' : tournament?.format === 'group_stage' ? 'Vòng bảng' : 'Loại trực tiếp'}</span></div>
+                            <div>Hình thức thi đấu: <span className="font-semibold">{tournament?.format === 'round_robin' ? 'Vòng tròn' : tournament?.format === 'group_stage' ? 'Vòng bảng' : tournament?.format === 'double_elimination' ? 'Nhánh thắng - Nhánh thua' : 'Loại trực tiếp'}</span></div>
                             <div className="text-blue-500 font-semibold">{completedMatches}/{totalMatches} trận đã kết thúc</div>
                         </div>
                     </div>
@@ -1573,7 +1573,7 @@ function EditMatchModal({ match, tournament, onClose, onSaved }: { match: any; t
                         <div>
                             <div className="font-bold text-gray-900 text-sm mb-1">{tournament?.title || "Vincode"}</div>
                             <div className="text-gray-500 text-xs flex flex-wrap items-center gap-3 sm:gap-6">
-                                <span>Hình thức: <span className="text-gray-900 font-semibold">{tournament?.format === 'round_robin' ? 'Vòng tròn' : "Loại trực tiếp"}</span></span>
+                                <span>Hình thức: <span className="text-gray-900 font-semibold">{tournament?.format === 'round_robin' ? 'Vòng tròn' : tournament?.format === 'double_elimination' ? 'Nhánh thắng - Nhánh thua' : "Loại trực tiếp"}</span></span>
                                 <span>Vòng: <span className="text-gray-900 font-semibold">{match.roundName || `Vòng ${match.round}`}</span></span>
                             </div>
                         </div>

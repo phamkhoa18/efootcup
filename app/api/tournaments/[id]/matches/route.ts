@@ -323,17 +323,53 @@ export async function PUT(req: NextRequest, { params }: RouteParams) {
             }
 
             // 1b. Un-eliminate the previous loser
-            if (previousWinner && tournament.format === "single_elimination") {
+            if (previousWinner) {
                 const previousLoserId = previousWinner.toString() === match.homeTeam?.toString()
                     ? match.awayTeam : match.homeTeam;
+
                 if (previousLoserId) {
-                    await Team.findByIdAndUpdate(previousLoserId, { status: "active" });
+                    if (tournament.format === "single_elimination") {
+                        await Team.findByIdAndUpdate(previousLoserId, { status: "active" });
+                    } else if (tournament.format === "double_elimination") {
+                        // Only un-eliminate if the loser was actually eliminated
+                        // (loser bracket matches, grand final, reset matches)
+                        if (match.bracketType === "loser" || match.bracketType === "grand_final") {
+                            await Team.findByIdAndUpdate(previousLoserId, { status: "active" });
+                        }
+                    }
                 }
             }
 
             // 1c. Cascade rollback: remove previous winner from next match and future rounds
             if (match.nextMatch && previousWinner) {
                 await cascadeRollback(match.nextMatch, previousWinner);
+            }
+
+            // 1c-2. Double elimination: rollback loser drop from loser bracket
+            if (tournament.format === "double_elimination" && match.bracketType === "winner" && match.loserDropsToMatch && previousWinner) {
+                const previousLoserId = previousWinner.toString() === match.homeTeam?.toString()
+                    ? match.awayTeam : match.homeTeam;
+                if (previousLoserId) {
+                    const lbMatch = await Match.findById(match.loserDropsToMatch);
+                    if (lbMatch) {
+                        const loserStr = previousLoserId.toString();
+                        if (lbMatch.homeTeam?.toString() === loserStr) {
+                            lbMatch.homeTeam = null;
+                        } else if (lbMatch.awayTeam?.toString() === loserStr) {
+                            lbMatch.awayTeam = null;
+                        }
+                        // If the LB match had a result and involved the removed team, cascade reset it
+                        if (lbMatch.status === "completed" && lbMatch.winner) {
+                            await cascadeRollback(lbMatch._id, lbMatch.winner);
+                            lbMatch.homeScore = null;
+                            lbMatch.awayScore = null;
+                            lbMatch.winner = null;
+                            lbMatch.status = "scheduled";
+                            lbMatch.completedAt = undefined;
+                        }
+                        await lbMatch.save();
+                    }
+                }
             }
 
             // 1d. Clear old result on the current match
@@ -428,32 +464,97 @@ export async function PUT(req: NextRequest, { params }: RouteParams) {
                 await Team.findByIdAndUpdate(match.homeTeam, homeUpdate);
                 await Team.findByIdAndUpdate(match.awayTeam, awayUpdate);
 
-                // Elimination: mark loser as eliminated
-                if (tournament.format === "single_elimination" && winnerId) {
+                // Elimination logic
+                if (winnerId) {
                     const loserId =
                         winnerId.toString() === match.homeTeam?.toString()
                             ? match.awayTeam
                             : match.homeTeam;
-                    await Team.findByIdAndUpdate(loserId, { status: "eliminated" });
+
+                    if (tournament.format === "single_elimination") {
+                        // Single elimination: loser is always eliminated
+                        await Team.findByIdAndUpdate(loserId, { status: "eliminated" });
+                    } else if (tournament.format === "double_elimination") {
+                        if (match.bracketType === "loser") {
+                            // Losing in loser bracket = eliminated
+                            await Team.findByIdAndUpdate(loserId, { status: "eliminated" });
+                        } else if (match.bracketType === "grand_final" && !match.isResetMatch) {
+                            // Grand Final (not reset): check if WB champion wins
+                            const wbChampionId = match.homeTeam; // homeTeam = WB champion
+                            if (winnerId.toString() === wbChampionId?.toString()) {
+                                // WB champion wins → LB champion eliminated, tournament over
+                                await Team.findByIdAndUpdate(loserId, { status: "eliminated" });
+                            }
+                            // If LB champion wins GF1, nobody eliminated yet (goes to reset)
+                        } else if (match.bracketType === "grand_final" && match.isResetMatch) {
+                            // Reset match: loser is eliminated
+                            await Team.findByIdAndUpdate(loserId, { status: "eliminated" });
+                        }
+                        // Winner bracket loser: NOT eliminated (drops to loser bracket)
+                    }
                 }
             }
 
             // Advance winner to next match
             if (match.nextMatch && winnerId) {
-                const slot = await findSlotInNextMatch(match);
-                const nextMatch = await Match.findById(match.nextMatch);
-                if (nextMatch) {
-                    nextMatch[slot] = winnerId;
-
-                    // If the next match was walkover/bye and now has both teams, reset to scheduled
-                    if ((nextMatch.status === 'walkover' || nextMatch.status === 'bye') && nextMatch.homeTeam && nextMatch.awayTeam) {
-                        nextMatch.status = 'scheduled';
-                        nextMatch.winner = null;
-                        nextMatch.homeScore = null;
-                        nextMatch.awayScore = null;
+                // Special handling for Grand Final in double elimination
+                if (tournament.format === "double_elimination" && match.bracketType === "grand_final" && !match.isResetMatch) {
+                    const wbChampionId = match.homeTeam;
+                    if (winnerId.toString() === wbChampionId?.toString()) {
+                        // WB champion wins GF → tournament over, no advance to reset
+                        // Don't advance to reset match
+                    } else {
+                        // LB champion wins GF → both teams go to reset match
+                        const resetMatch = await Match.findById(match.nextMatch);
+                        if (resetMatch && resetMatch.isResetMatch) {
+                            resetMatch.homeTeam = match.homeTeam; // WB champion
+                            resetMatch.awayTeam = match.awayTeam; // LB champion
+                            await resetMatch.save();
+                        }
                     }
+                } else {
+                    const slot = await findSlotInNextMatch(match);
+                    const nextMatch = await Match.findById(match.nextMatch);
+                    if (nextMatch) {
+                        nextMatch[slot] = winnerId;
 
-                    await nextMatch.save();
+                        // If the next match was walkover/bye and now has both teams, reset to scheduled
+                        if ((nextMatch.status === 'walkover' || nextMatch.status === 'bye') && nextMatch.homeTeam && nextMatch.awayTeam) {
+                            nextMatch.status = 'scheduled';
+                            nextMatch.winner = null;
+                            nextMatch.homeScore = null;
+                            nextMatch.awayScore = null;
+                        }
+
+                        await nextMatch.save();
+                    }
+                }
+            }
+
+            // Double elimination: Drop loser to loser bracket
+            if (tournament.format === "double_elimination" && match.bracketType === "winner" && match.loserDropsToMatch && winnerId) {
+                const loserId =
+                    winnerId.toString() === match.homeTeam?.toString()
+                        ? match.awayTeam
+                        : match.homeTeam;
+
+                if (loserId) {
+                    const lbMatch = await Match.findById(match.loserDropsToMatch);
+                    if (lbMatch) {
+                        // Determine which slot in LB match to place the loser
+                        // For WB R1 drops: losers pair up (idx 0,1 → LB match 0, idx 2,3 → LB match 1)
+                        // For WB R2+ drops: loser goes to awayTeam slot
+                        if (match.round === 1) {
+                            // WB R1: pair losers into LB R1 matches
+                            const posY = match.bracketPosition?.y ?? 0;
+                            const side = posY % 2 === 0 ? "homeTeam" : "awayTeam";
+                            lbMatch[side] = loserId;
+                        } else {
+                            // WB R2+: loser drops as awayTeam
+                            lbMatch.awayTeam = loserId;
+                        }
+                        await lbMatch.save();
+                    }
                 }
             }
         }

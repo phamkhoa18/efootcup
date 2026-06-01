@@ -52,6 +52,9 @@ export interface IMatch extends Document {
     }[];
     nextMatch?: mongoose.Types.ObjectId; // Winner goes to this match
     previousMatches?: mongoose.Types.ObjectId[]; // Matches that feed into this
+    bracketType?: 'winner' | 'loser' | 'grand_final'; // Double elimination bracket type
+    loserDropsToMatch?: mongoose.Types.ObjectId; // Loser of this match goes to this match in loser bracket
+    isResetMatch?: boolean; // Grand final reset match flag
     bracketPosition: {
         x: number;
         y: number;
@@ -140,6 +143,12 @@ const MatchSchema = new Schema<IMatch>(
         ],
         nextMatch: { type: Schema.Types.ObjectId, ref: "Match" },
         previousMatches: [{ type: Schema.Types.ObjectId, ref: "Match" }],
+        bracketType: {
+            type: String,
+            enum: ['winner', 'loser', 'grand_final'],
+        },
+        loserDropsToMatch: { type: Schema.Types.ObjectId, ref: "Match" },
+        isResetMatch: { type: Boolean, default: false },
         bracketPosition: {
             x: { type: Number, default: 0 },
             y: { type: Number, default: 0 },
@@ -154,6 +163,7 @@ const MatchSchema = new Schema<IMatch>(
 // Indexes
 MatchSchema.index({ tournament: 1, round: 1 });
 MatchSchema.index({ tournament: 1, group: 1 });
+MatchSchema.index({ tournament: 1, bracketType: 1 });
 MatchSchema.index({ homeTeam: 1 });
 MatchSchema.index({ awayTeam: 1 });
 MatchSchema.index({ status: 1 });

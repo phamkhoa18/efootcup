@@ -45,12 +45,17 @@ const iconMap: Record<string, any> = {
 export function Navbar() {
     const [scrolled, setScrolled] = useState(false);
     const [mobileOpen, setMobileOpen] = useState(false);
+    const [isMounted, setIsMounted] = useState(false);
     const { user, isAuthenticated, isManager, isLoading, logout, token } = useAuth();
     const [notifications, setNotifications] = useState<any[]>([]);
     const [unreadCount, setUnreadCount] = useState(0);
     const [isNotifOpen, setIsNotifOpen] = useState(false);
     const [navLinks, setNavLinks] = useState(defaultNavLinks);
     const { settings: siteSettings } = useSiteSettings();
+
+    useEffect(() => {
+        setIsMounted(true);
+    }, []);
 
     // Fetch dynamic menu from admin settings
     useEffect(() => {
@@ -164,7 +169,7 @@ export function Navbar() {
 
                     {/* Desktop Actions */}
                     <div className="hidden lg:flex items-center gap-3">
-                        {isLoading ? (
+                        {!isMounted || isLoading ? (
                             /* Loading skeleton */
                             <div className="flex items-center gap-3">
                                 <div className="w-20 h-9 bg-gray-100 rounded-lg animate-pulse" />
@@ -363,17 +368,18 @@ export function Navbar() {
                     </div>
 
                     {/* Mobile Menu */}
-                    <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
-                        <SheetTrigger asChild className="lg:hidden">
-                            <Button
-                                variant="ghost"
-                                size="icon"
-                                className="text-efb-text hover:bg-efb-blue/[0.05]"
-                            >
-                                <Menu className="w-5 h-5" />
-                            </Button>
-                        </SheetTrigger>
-                        <SheetContent
+                    {isMounted ? (
+                        <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
+                            <SheetTrigger asChild className="lg:hidden">
+                                <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    className="text-efb-text hover:bg-efb-blue/[0.05]"
+                                >
+                                    <Menu className="w-5 h-5" />
+                                </Button>
+                            </SheetTrigger>
+                            <SheetContent
                             side="right"
                             className="w-full sm:w-[360px] bg-white border-l border-efb-border p-0"
                         >
@@ -522,6 +528,9 @@ export function Navbar() {
                             </div>
                         </SheetContent>
                     </Sheet>
+                    ) : (
+                        <div className="lg:hidden w-10 h-10" />
+                    )}
                 </nav>
             </div>
         </motion.header>

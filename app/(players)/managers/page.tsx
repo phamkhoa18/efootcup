@@ -1,174 +1,264 @@
-import Link from "next/link";
-import { connectPlayerDb } from "@/lib/player-db";
-import mongoose from "mongoose";
-import { ArrowLeft, ArrowDownUp, LayoutGrid, ChevronRight, Users, Zap, Triangle, Shield, Expand, HelpCircle } from "lucide-react";
+"use client";
 
-// Create or use the Manager model specifically for the player DB
-const ManagerSchema = new mongoose.Schema({}, { strict: false });
+import { useState, useEffect, useCallback } from "react";
+import { motion } from "framer-motion";
+import { Search, Shield, Zap, Triangle, Expand, ChevronLeft, ChevronRight, RotateCcw } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Skeleton } from "@/components/ui/skeleton";
+import { fetchManagers, getPlayerImageUrl } from "@/lib/efvn-api";
+import type { ManagerSummary, PaginationMeta, ManagerFilterParams } from "@/lib/efvn-types";
 
-export default async function ManagersPage() {
-    // Wait for connection
-    await connectPlayerDb();
-    
-    // Check if the model is already compiled to avoid OverwriteModelError
-    const Manager = mongoose.connections.find(c => c.name === 'efootball_vn')!.models.Manager || 
-                    mongoose.connections.find(c => c.name === 'efootball_vn')!.model('Manager', ManagerSchema, 'managers');
+const PLAYSTYLE_LABELS: Record<string, { label: string; icon: React.ReactNode; color: string }> = {
+    quickCounter: { label: "Quick Counter", icon: <Zap className="w-3.5 h-3.5" />, color: "text-blue-600 bg-blue-50" },
+    possessionGame: { label: "Possession", icon: <Triangle className="w-3.5 h-3.5" />, color: "text-emerald-600 bg-emerald-50" },
+    longBallCounter: { label: "Long Ball Counter", icon: <Shield className="w-3.5 h-3.5" />, color: "text-orange-600 bg-orange-50" },
+    outWide: { label: "Out Wide", icon: <Expand className="w-3.5 h-3.5" />, color: "text-purple-600 bg-purple-50" },
+    longBall: { label: "Long Ball", icon: <Shield className="w-3.5 h-3.5" />, color: "text-amber-600 bg-amber-50" },
+};
 
-    // Fetch managers
-    const managers = await Manager.find({}).lean();
+const containerVariants = { hidden: {}, show: { transition: { staggerChildren: 0.04 } } };
+const cardVariants = { hidden: { opacity: 0, y: 12 }, show: { opacity: 1, y: 0, transition: { duration: 0.3 } } };
 
-    const getBestStyle = (styleLevel: any) => {
-        if (!styleLevel) return { name: 'Unknown', val: 0, icon: <HelpCircle className="w-4 h-4" />, color: 'text-slate-400' };
-        
-        let best = { style: 'pos', val: styleLevel.pos || 0 };
-        if ((styleLevel.qc || 0) > best.val) best = { style: 'qc', val: styleLevel.qc };
-        if ((styleLevel.lbc || 0) > best.val) best = { style: 'lbc', val: styleLevel.lbc };
-        if ((styleLevel.ow || 0) > best.val) best = { style: 'ow', val: styleLevel.ow };
-        
-        switch (best.style) {
-            case 'qc': return { name: 'Quick Counter', val: best.val, icon: <Zap className="w-4 h-4" />, color: 'text-blue-400' };
-            case 'pos': return { name: 'Possession', val: best.val, icon: <Triangle className="w-4 h-4" />, color: 'text-emerald-400' };
-            case 'lbc': return { name: 'L. Ball Counter', val: best.val, icon: <Shield className="w-4 h-4" />, color: 'text-orange-400' };
-            case 'ow': return { name: 'Out Wide', val: best.val, icon: <Expand className="w-4 h-4" />, color: 'text-purple-400' };
-            default: return { name: 'Unknown', val: best.val, icon: <HelpCircle className="w-4 h-4" />, color: 'text-slate-400' };
-        }
-    };
-
-    return (
-        <section className="flex-1 w-full bg-[#11131a] min-h-screen text-slate-200 uppercase:selection:bg-emerald-500/30">
-            <div className="p-6 md:p-10 max-w-screen-2xl mx-auto">
-                {/* Hero Title */}
-                <div className="mb-12">
-                    <Link href="/players" className="inline-flex items-center gap-2 text-slate-400 hover:text-emerald-400 transition-colors bg-slate-900/50 px-4 py-2 rounded-lg border border-white/5 mb-6">
-                        <ArrowLeft className="w-4 h-4" />
-                        <span className="text-sm font-bold uppercase tracking-wider">Trang cầu thủ</span>
-                    </Link>
-                    <h1 className="text-4xl md:text-7xl font-black tracking-tighter text-white mb-4 italic uppercase">Danh sách HLV</h1>
-                    <p className="text-slate-400 font-medium tracking-tight text-base max-w-3xl leading-relaxed">
-                        Khám phá cơ sở dữ liệu chiến thuật hàng đầu thế giới. Lọc theo đội hình ưa thích và phong cách chơi để tìm người dẫn dắt hoàn hảo cho đội bóng của bạn.
-                    </p>
-                </div>
-
-                {/* Bento Filter Section */}
-                <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 mb-12">
-                    <div className="lg:col-span-2 bg-slate-900/50 backdrop-blur-md border border-white/5 p-6 rounded-lg shadow-xl">
-                        <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-widest mb-3">Tên HLV</label>
-                        <div className="relative group">
-                            <input className="w-full bg-slate-950/50 border border-white/10 focus:border-emerald-500 focus:ring-0 rounded-lg p-4 text-white placeholder:text-slate-600 transition-all outline-none" placeholder="Tìm kiếm HLV..." type="text"/>
-                        </div>
-                    </div>
-                    <div className="bg-slate-900/50 backdrop-blur-md border border-white/5 p-6 rounded-lg shadow-xl">
-                        <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-widest mb-3">Đội hình</label>
-                        <select className="w-full bg-slate-950/50 border border-white/10 focus:border-emerald-500 focus:ring-0 rounded-lg p-4 text-white appearance-none cursor-pointer outline-none">
-                            <option>Tất cả đội hình</option>
-                            <option>4-3-3</option>
-                            <option>4-2-3-1</option>
-                            <option>4-4-2</option>
-                            <option>3-2-2-3</option>
-                        </select>
-                    </div>
-                    <div className="bg-slate-900/50 backdrop-blur-md border border-white/5 p-6 rounded-lg shadow-xl">
-                        <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-widest mb-3">Phong cách</label>
-                        <select className="w-full bg-slate-950/50 border border-white/10 focus:border-emerald-500 focus:ring-0 rounded-lg p-4 text-white appearance-none cursor-pointer outline-none">
-                            <option>Mọi phong cách</option>
-                            <option>Quick Counter</option>
-                            <option>Possession Game</option>
-                            <option>Long Ball Counter</option>
-                            <option>Out Wide</option>
-                        </select>
-                    </div>
-                </div>
-
-                {/* List Header */}
-                <div className="flex items-center justify-between mb-8 px-4 border-l-4 border-emerald-500">
-                    <h2 className="text-sm font-black text-emerald-400 tracking-[0.2em] uppercase">Thông tin HLV</h2>
-                    <div className="flex items-center gap-4 text-[11px] font-bold text-slate-500 uppercase tracking-widest">
-                        <span className="hidden md:inline">Xếp hạng theo: Rating cao nhất</span>
-                        <ArrowDownUp className="w-4 h-4 cursor-pointer hover:text-emerald-400" />
-                    </div>
-                </div>
-
-                {/* Tactical List View */}
-                <div className="space-y-4">
-                    {managers.length > 0 ? managers.map((manager: any, i) => {
-                        const bestStyle = getBestStyle(manager.styleLevel);
-                        return (
-                            <div key={manager._id || i} className="group bg-slate-900/50 backdrop-blur-md hover:bg-slate-800/80 border border-white/5 transition-all duration-300 p-5 rounded-lg flex flex-col md:flex-row items-center gap-6 shadow-lg hover:shadow-emerald-500/10 cursor-pointer">
-                                <div className="relative">
-                                    <div className="w-20 h-20 rounded-lg overflow-hidden bg-slate-950 border border-white/10">
-                                        {manager.img ? (
-                                            <img alt={manager.name} className="w-full h-full object-cover grayscale group-hover:grayscale-0 transition-all duration-700" src={manager.img} />
-                                        ) : (
-                                            <div className="w-full h-full flex items-center justify-center text-[10px] text-slate-500 font-bold bg-slate-800">NO IMG</div>
-                                        )}
-                                    </div>
-                                    {manager.rating && (
-                                        <div className="absolute -top-2 -right-2 bg-emerald-500 text-slate-950 text-[9px] font-black px-2 py-0.5 rounded shadow-lg">{manager.rating}</div>
-                                    )}
-                                </div>
-                                
-                                <div className="flex-1 min-w-0 w-full text-center md:text-left">
-                                    <div className="flex flex-col md:flex-row items-center gap-3 mb-2">
-                                        <h3 className="text-2xl font-black text-white italic truncate tracking-tight uppercase">{manager.name || 'Unknown'}</h3>
-                                        <span className="bg-slate-950 border border-white/10 px-2 py-0.5 rounded text-[10px] font-bold text-slate-400 uppercase">{manager.club || 'N/A'}</span>
-                                    </div>
-                                    <div className="flex flex-col md:flex-row items-center gap-5 mt-4 md:mt-0">
-                                        <div className="flex items-center gap-1.5 group/stat">
-                                            <LayoutGrid className="w-4 h-4 text-emerald-500" />
-                                            <span className="text-sm font-medium text-slate-300">{manager.formation || 'N/A'}</span>
-                                        </div>
-                                        <div className="flex items-center gap-1.5 group/stat">
-                                            <div className={`${bestStyle.color}`}>{bestStyle.icon}</div>
-                                            <span className="text-sm font-medium text-slate-300">{bestStyle.name}: {bestStyle.val}</span>
-                                        </div>
-                                    </div>
-                                </div>
-
-                                {/* Attribute Bars */}
-                                {manager.styleLevel && (
-                                    <div className="flex gap-3 w-full md:w-auto overflow-x-auto pb-2 md:pb-0 justify-center">
-                                        <StatBox label="POS" val={manager.styleLevel.pos} isBest={bestStyle.name === 'Possession'} />
-                                        <StatBox label="QC" val={manager.styleLevel.qc} isBest={bestStyle.name === 'Quick Counter'} />
-                                        <StatBox label="LBC" val={manager.styleLevel.lbc} isBest={bestStyle.name === 'L. Ball Counter'} />
-                                        <StatBox label="OW" val={manager.styleLevel.ow} isBest={bestStyle.name === 'Out Wide'} />
-                                    </div>
-                                )}
-                                
-                                <ChevronRight className="w-5 h-5 text-slate-600 group-hover:text-emerald-400 transition-colors hidden md:block" />
-                            </div>
-                        );
-                    }) : (
-                        <div className="flex flex-col items-center justify-center p-16 bg-slate-900/30 border border-white/5 rounded-xl border-dashed">
-                            <div className="w-20 h-20 flex items-center justify-center rounded-full bg-slate-800/50 mb-6 shadow-inner">
-                                <Users className="w-8 h-8 text-emerald-500/50" />
-                            </div>
-                            <h3 className="text-2xl font-black text-white italic mb-2 tracking-tight">CHƯA CÓ DỮ LIỆU HLV</h3>
-                            <p className="text-slate-400 text-center max-w-md">Xin lỗi, hệ thống eFootball Database hiện đang được đồng bộ và các HLV chưa khả dụng. Hãy quay lại sau.</p>
-                            <Link href="/players" className="mt-8 bg-emerald-500 text-slate-950 font-black px-6 py-3 rounded-lg hover:bg-emerald-400 transition-colors text-sm uppercase tracking-widest shadow-lg shadow-emerald-500/20">
-                                Xem danh sách cầu thủ
-                            </Link>
-                        </div>
-                    )}
-                </div>
-            </div>
-        </section>
-    );
+function getBestStyle(prof: Record<string, number> | undefined) {
+    if (!prof) return null;
+    let best = { key: "", val: 0 };
+    for (const [k, v] of Object.entries(prof)) {
+        if (v > best.val) best = { key: k, val: v };
+    }
+    return best.val > 0 ? best : null;
 }
 
-function StatBox({ label, val, isBest }: { label: string, val: number, isBest: boolean }) {
-    if (isBest) {
-        return (
-            <div className="bg-slate-950 p-3 rounded-lg min-w-[85px] text-center border-b-2 border-emerald-500 shadow-inner">
-                <div className="text-[9px] text-emerald-500 font-bold uppercase tracking-wider mb-1">{label}</div>
-                <div className="text-lg font-black text-emerald-400">{val || 0}</div>
-            </div>
-        );
-    }
-    
+export default function ManagersPage() {
+    const [query, setQuery] = useState("");
+    const [formation, setFormation] = useState("");
+    const [playstyle, setPlaystyle] = useState("");
+    const [page, setPage] = useState(1);
+    const [managers, setManagers] = useState<ManagerSummary[]>([]);
+    const [meta, setMeta] = useState<PaginationMeta | null>(null);
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState("");
+
+    const loadManagers = useCallback(async (p: number = page) => {
+        setLoading(true);
+        setError("");
+        try {
+            const params: ManagerFilterParams = {
+                page: p,
+                limit: 20,
+                q: query || undefined,
+                formation: formation || undefined,
+                playstyle: playstyle || undefined,
+            };
+            const res = await fetchManagers(params);
+            setManagers(res.data || []);
+            setMeta(res.meta || null);
+        } catch {
+            setError("Không thể tải dữ liệu HLV.");
+        } finally {
+            setLoading(false);
+        }
+    }, [query, formation, playstyle, page]);
+
+    useEffect(() => { loadManagers(); }, [loadManagers]);
+
+    const applyFilters = () => { setPage(1); loadManagers(1); };
+    const resetFilters = () => { setQuery(""); setFormation(""); setPlaystyle(""); setPage(1); };
+    const gotoPage = (p: number) => { setPage(p); window.scrollTo({ top: 0, behavior: "smooth" }); };
+
     return (
-        <div className="bg-slate-950 p-3 rounded-lg min-w-[85px] text-center border-b-2 border-white/10 shadow-inner">
-            <div className="text-[9px] text-slate-500 font-bold uppercase tracking-wider mb-1">{label}</div>
-            <div className="text-lg font-black text-white">{val || 0}</div>
-        </div>
+        <>
+            {/* Hero */}
+            <section className="relative overflow-hidden">
+                <div className="absolute inset-0 bg-efb-blue" />
+                <div className="absolute inset-0 overflow-hidden pointer-events-none">
+                    <motion.div animate={{ scale: [1, 1.15, 1], opacity: [0.06, 0.14, 0.06] }} transition={{ duration: 8, repeat: Infinity }}
+                        className="absolute -top-20 right-0 w-[500px] h-[500px] bg-gradient-to-br from-yellow-300/25 to-transparent rounded-full blur-3xl" />
+                </div>
+                <div className="relative z-10 max-w-[1200px] mx-auto px-6 lg:px-8 pt-10 pb-8">
+                    <motion.h1 initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }}
+                        className="text-2xl sm:text-3xl font-extralight text-white mb-2">
+                        Danh sách <span className="font-semibold text-efb-yellow">HLV</span>
+                    </motion.h1>
+                    <motion.p initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.15 }}
+                        className="text-sm text-white/40 max-w-md">
+                        Khám phá HLV và chiến thuật phù hợp cho đội bóng của bạn.
+                    </motion.p>
+                    {meta && (
+                        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.25 }}
+                            className="mt-4 inline-flex bg-white/[0.08] backdrop-blur-sm rounded-xl px-4 py-2 border border-white/[0.1]">
+                            <span className="text-lg font-bold text-white">{meta.total.toLocaleString()}</span>
+                            <span className="text-[9px] uppercase tracking-widest text-white/40 font-semibold ml-2 self-center">HLV</span>
+                        </motion.div>
+                    )}
+                </div>
+                <svg viewBox="0 0 1440 40" fill="none" className="w-full block relative z-10">
+                    <path d="M0 40H1440V10C1440 10 1200 40 720 40C240 40 0 10 0 10V40Z" fill="white" />
+                </svg>
+            </section>
+
+            <section className="max-w-[1200px] mx-auto px-6 lg:px-8 -mt-1 pb-16">
+                {/* Filters */}
+                <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }}
+                    className="card-white rounded-2xl p-5 mb-8">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                        <div>
+                            <label className="text-xs font-semibold text-efb-text-secondary mb-1.5 block">Tên HLV</label>
+                            <div className="relative">
+                                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-efb-text-muted" />
+                                <Input value={query} onChange={(e) => setQuery(e.target.value)}
+                                    onKeyDown={(e) => e.key === "Enter" && applyFilters()}
+                                    placeholder="Tìm kiếm..." className="pl-9 h-10 bg-efb-bg-alt border-efb-border" />
+                            </div>
+                        </div>
+                        <div>
+                            <label className="text-xs font-semibold text-efb-text-secondary mb-1.5 block">Đội hình</label>
+                            <Select value={formation} onValueChange={setFormation}>
+                                <SelectTrigger className="h-10 bg-efb-bg-alt border-efb-border"><SelectValue placeholder="Tất cả" /></SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value=" ">Tất cả</SelectItem>
+                                    {["4-3-3", "4-2-3-1", "4-4-2", "4-2-1-3", "3-2-2-3", "3-4-3", "4-1-2-3", "4-3-1-2", "4-1-3-2", "5-4-1"].map(f => (
+                                        <SelectItem key={f} value={f}>{f}</SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                        </div>
+                        <div>
+                            <label className="text-xs font-semibold text-efb-text-secondary mb-1.5 block">Phong cách</label>
+                            <Select value={playstyle} onValueChange={setPlaystyle}>
+                                <SelectTrigger className="h-10 bg-efb-bg-alt border-efb-border"><SelectValue placeholder="Tất cả" /></SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value=" ">Tất cả</SelectItem>
+                                    <SelectItem value="quickCounter">Quick Counter</SelectItem>
+                                    <SelectItem value="possessionGame">Possession Game</SelectItem>
+                                    <SelectItem value="longBallCounter">Long Ball Counter</SelectItem>
+                                    <SelectItem value="outWide">Out Wide</SelectItem>
+                                </SelectContent>
+                            </Select>
+                        </div>
+                        <div className="flex items-end gap-2">
+                            <Button onClick={applyFilters} className="h-10 flex-1 bg-efb-blue hover:bg-efb-blue-light text-white rounded-xl">
+                                <Search className="w-4 h-4 mr-1.5" />Tìm
+                            </Button>
+                            <Button onClick={resetFilters} variant="ghost" className="h-10 rounded-xl text-efb-text-muted">
+                                <RotateCcw className="w-4 h-4" />
+                            </Button>
+                        </div>
+                    </div>
+                </motion.div>
+
+                {error && <div className="rounded-xl bg-red-50 border border-red-100 p-4 text-sm text-red-600 mb-6">{error}</div>}
+
+                {/* Manager Grid */}
+                {loading ? (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+                        {Array.from({ length: 9 }).map((_, i) => (
+                            <div key={i} className="card-white rounded-2xl p-5 space-y-3">
+                                <div className="flex items-center gap-3">
+                                    <Skeleton className="w-12 h-12 rounded-xl" />
+                                    <div className="flex-1">
+                                        <Skeleton className="h-4 w-3/4 mb-1" />
+                                        <Skeleton className="h-3 w-1/2" />
+                                    </div>
+                                </div>
+                                <Skeleton className="h-3 w-full" />
+                                <Skeleton className="h-3 w-2/3" />
+                            </div>
+                        ))}
+                    </div>
+                ) : managers.length === 0 ? (
+                    <div className="text-center py-20">
+                        <p className="text-efb-text-secondary">Không tìm thấy HLV nào.</p>
+                        <Button onClick={resetFilters} variant="outline" className="mt-4 rounded-xl">
+                            <RotateCcw className="w-4 h-4 mr-2" />Đặt lại
+                        </Button>
+                    </div>
+                ) : (
+                    <motion.div variants={containerVariants} initial="hidden" animate="show"
+                        className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+                        {managers.map((manager) => {
+                            const best = getBestStyle(manager.playstyleProficiency);
+                            const bestInfo = best ? PLAYSTYLE_LABELS[best.key] : null;
+                            return (
+                                <motion.div key={manager.efhubId || manager._id} variants={cardVariants}
+                                    className="card-white rounded-2xl p-5 hover-lift">
+                                    {/* Header */}
+                                    <div className="flex items-start gap-3 mb-4">
+                                        <div className="w-12 h-12 rounded-xl bg-efb-bg-alt flex items-center justify-center border border-efb-border-light">
+                                            {manager.imageUrl ? (
+                                                <img src={getPlayerImageUrl(manager.imageUrl)} alt={manager.name} className="w-10 h-10 object-cover rounded-lg" />
+                                            ) : (
+                                                <Shield className="w-5 h-5 text-efb-text-muted" />
+                                            )}
+                                        </div>
+                                        <div className="flex-1 min-w-0">
+                                            <h3 className="text-sm font-semibold text-efb-text truncate">{manager.name}</h3>
+                                            <div className="text-[11px] text-efb-text-muted">{manager.team || manager.nationality || "Unknown"}</div>
+                                        </div>
+                                        <Badge variant="secondary" className="text-[10px] font-bold shrink-0">
+                                            {manager.formation || "N/A"}
+                                        </Badge>
+                                    </div>
+
+                                    {/* Best playstyle */}
+                                    {bestInfo && (
+                                        <div className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] font-semibold mb-3 ${bestInfo.color}`}>
+                                            {bestInfo.icon}
+                                            {bestInfo.label}
+                                            <span className="font-bold ml-1">{best?.val}</span>
+                                        </div>
+                                    )}
+
+                                    {/* Playstyle bars */}
+                                    {manager.playstyleProficiency && (
+                                        <div className="space-y-1.5">
+                                            {Object.entries(manager.playstyleProficiency).map(([key, val]) => {
+                                                const info = PLAYSTYLE_LABELS[key];
+                                                if (!info) return null;
+                                                return (
+                                                    <div key={key}>
+                                                        <div className="flex justify-between text-[10px] mb-0.5">
+                                                            <span className="text-efb-text-muted">{info.label}</span>
+                                                            <span className="font-semibold text-efb-text-secondary">{val}</span>
+                                                        </div>
+                                                        <div className="h-1 bg-gray-100 rounded-full overflow-hidden">
+                                                            <motion.div
+                                                                className="h-full bg-efb-blue rounded-full"
+                                                                initial={{ width: 0 }}
+                                                                animate={{ width: `${Math.min(100, val)}%` }}
+                                                                transition={{ duration: 0.6, delay: 0.1 }}
+                                                            />
+                                                        </div>
+                                                    </div>
+                                                );
+                                            })}
+                                        </div>
+                                    )}
+                                </motion.div>
+                            );
+                        })}
+                    </motion.div>
+                )}
+
+                {/* Pagination */}
+                {meta && meta.totalPages > 1 && !loading && (
+                    <div className="mt-10 flex items-center justify-center gap-2">
+                        <Button variant="outline" size="icon" className="h-9 w-9 rounded-lg"
+                            disabled={page <= 1} onClick={() => gotoPage(page - 1)}>
+                            <ChevronLeft className="w-4 h-4" />
+                        </Button>
+                        <span className="text-sm text-efb-text-secondary px-3">
+                            Trang <span className="font-semibold text-efb-text">{page}</span> / {meta.totalPages}
+                        </span>
+                        <Button variant="outline" size="icon" className="h-9 w-9 rounded-lg"
+                            disabled={page >= meta.totalPages} onClick={() => gotoPage(page + 1)}>
+                            <ChevronRight className="w-4 h-4" />
+                        </Button>
+                    </div>
+                )}
+            </section>
+        </>
     );
 }

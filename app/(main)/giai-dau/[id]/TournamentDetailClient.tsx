@@ -21,7 +21,7 @@ import {
     Gamepad2, Award, FileText, UserPlus, Clock, Shield, Swords, Camera, MapPinned, Facebook,
     Loader2, Globe, CheckCircle2, Eye, Ban, DollarSign, Phone, Mail, MessageCircle,
     LogIn, AlertCircle, Info, X, Watch, CreditCard, Upload, ExternalLink, Wallet, Image as ImageIcon, User,
-    Zap, Target, ArrowRight, Search, Maximize2, Minimize2, ChevronDown
+    Zap, Target, ArrowRight, Search, Maximize2, Minimize2, ChevronDown, RefreshCcw
 } from "lucide-react";
 import { tournamentAPI, tournamentPaymentAPI, paymentConfigAPI } from "@/lib/api";
 import { useAuth } from "@/contexts/AuthContext";
@@ -88,7 +88,7 @@ const MatchCard = ({ match, onClick }: { match: any; onClick: () => void }) => {
         const teamName = remainingTeam?.name || remainingTeam?.shortName || "";
 
         return (
-            <div className="flex items-center relative z-20 w-[200px]">
+            <div className="flex items-center relative z-20 w-[220px]">
                 <div className="absolute -left-2 top-1/2 -translate-y-1/2 w-4 h-4 bg-[#F8FAFC] border border-[#CBD5E1] rounded-full flex items-center justify-center text-[7px] font-bold text-gray-500 z-30">
                     {bracketNumber}
                 </div>
@@ -120,7 +120,7 @@ const MatchCard = ({ match, onClick }: { match: any; onClick: () => void }) => {
         const woP2 = remainingTeam?.player2 && remainingTeam.player2 !== "TBD" ? remainingTeam.player2 : "";
 
         return (
-            <div className="flex items-center relative z-20 w-[200px]">
+            <div className="flex items-center relative z-20 w-[220px]">
                 <div className="absolute -left-2 top-1/2 -translate-y-1/2 w-4 h-4 bg-[#F8FAFC] border border-[#CBD5E1] rounded-full flex items-center justify-center text-[7px] font-bold text-gray-500 z-30">
                     {bracketNumber}
                 </div>
@@ -161,7 +161,7 @@ const MatchCard = ({ match, onClick }: { match: any; onClick: () => void }) => {
     }
 
     return (
-        <div className="flex items-center relative z-20 w-[200px]">
+        <div className="flex items-center relative z-20 w-[220px]">
             <div className="absolute -left-2 top-1/2 -translate-y-1/2 w-4 h-4 bg-[#F8FAFC] border border-[#CBD5E1] rounded-full flex items-center justify-center text-[7px] font-bold text-gray-500 z-30">
                 {bracketNumber}
             </div>
@@ -1352,6 +1352,95 @@ export default function TournamentDetailClient({ initialData, id }: { initialDat
         }))
         .filter(round => round.matches.length > 0);
 
+    const isDoubleElimination = t?.format === 'double_elimination';
+    const wbRounds = bracketRounds.filter(r => r.name.startsWith('Round') || r.name.startsWith('WB'));
+    const lbRounds = bracketRounds.filter(r => r.name.startsWith('Losers Round') || r.name.startsWith('LB'));
+
+    const renderPublicBracketSection = (sectionRounds: typeof bracketRounds, sectionKey: string) => {
+        const displayRds = sectionRounds;
+        const firstRoundMatchCount = displayRds[0]?.matches.length || 1;
+        return (
+            <div className="inline-flex p-12 min-w-full relative z-10">
+                {displayRds.map((round, rIndex) => {
+                    const isLastRound = rIndex === displayRds.length - 1;
+                    const currentMatchCount = round.matches.length || 1;
+                    const scale = Math.max(1, firstRoundMatchCount / currentMatchCount);
+                    const GAP = 128;
+                    return (
+                        <div key={`${sectionKey}-${rIndex}`} className="flex">
+                            <div className="flex flex-col w-[220px]">
+                                <div className="h-10 flex items-center justify-center mb-12">
+                                    <div className="w-[160px] py-2 rounded-md bg-gradient-to-r from-amber-100 to-orange-100 border border-amber-200 flex items-center justify-center shadow-sm">
+                                        <span className="text-[13px] font-bold text-gray-800">{round.name}</span>
+                                    </div>
+                                </div>
+                                <div className="relative shrink-0 w-full" style={{ height: `${firstRoundMatchCount * UNIT_HEIGHT}px`, minHeight: `${firstRoundMatchCount * UNIT_HEIGHT}px` }}>
+                                    {round.matches.map((match: any, mIdx: number) => {
+                                        const topPadding = (scale - 1) * (UNIT_HEIGHT / 2);
+                                        const yOffset = topPadding + (match.bracketPosition?.y || 0) * UNIT_HEIGHT * scale;
+                                        const matchesSearch = bracketSearch.trim() === "" || [
+                                            match.homeTeam?.name, match.homeTeam?.shortName, match.homeTeam?.player1, match.homeTeam?.player2,
+                                            match.awayTeam?.name, match.awayTeam?.shortName, match.awayTeam?.player1, match.awayTeam?.player2,
+                                            match.p1?.name, match.p2?.name,
+                                            match.homeTeam?.efvId != null ? String(match.homeTeam.efvId) : null,
+                                            match.awayTeam?.efvId != null ? String(match.awayTeam.efvId) : null,
+                                        ].some(v => v && v.toLowerCase().includes(bracketSearch.toLowerCase()));
+
+                                        return (
+                                            <div
+                                                key={match._id || match.id}
+                                                className={`absolute left-0 flex items-center transition-opacity ${matchesSearch ? 'opacity-100' : 'opacity-20'}`}
+                                                style={{ top: `${yOffset}px`, height: `${UNIT_HEIGHT}px`, width: '100%' }}
+                                            >
+                                                <MatchCard match={match} onClick={() => setSelectedMatch(match)} />
+                                                {rIndex > 0 && (
+                                                    <div className="absolute bg-[#CBD5E1]" style={{ left: `-${GAP / 2}px`, width: `${GAP / 2}px`, height: '1px', top: '50%' }} />
+                                                )}
+                                                {match.nextMatch && !isLastRound && (() => {
+                                                    const bY = match.bracketPosition?.y ?? 0;
+                                                    const isTop = bY % 2 === 0;
+                                                    const vLen = (UNIT_HEIGHT * scale) / 2;
+                                                    const halfGap = GAP / 2;
+
+                                                    const nextRoundMatches = sectionRounds[rIndex + 1]?.matches || [];
+                                                    const nextMatch = nextRoundMatches.find((m: any) => {
+                                                        return m._id === match.nextMatch || m.id === match.nextMatch || String(m._id) === String(match.nextMatch) || String(m.id) === String(match.nextMatch);
+                                                    });
+                                                    const isStraightLine = nextMatch && nextMatch.bracketPosition?.y === bY && nextRoundMatches.length === round.matches.length;
+
+                                                    const pairY = isTop ? bY + 1 : bY - 1;
+                                                    const pairMatch = round.matches.find((m: any) => m.bracketPosition?.y === pairY);
+                                                    const isPairBye = pairMatch?.status === 'bye' || !pairMatch;
+
+                                                    if (isStraightLine) {
+                                                        return (
+                                                            <div className="absolute bg-[#CBD5E1]" style={{ right: `-${halfGap}px`, width: `${halfGap}px`, height: '1px', top: '50%' }} />
+                                                        );
+                                                    }
+
+                                                    return (
+                                                        <>
+                                                            <div className="absolute bg-[#CBD5E1]" style={{ right: `-${halfGap}px`, width: `${halfGap}px`, height: '1px', top: '50%' }} />
+                                                            <div className="absolute bg-[#CBD5E1]" style={{ right: `-${halfGap}px`, width: '1px', height: `${vLen}px`, ...(isTop ? { top: '50%' } : { bottom: '50%' }) }} />
+                                                            {(isTop || isPairBye) && (
+                                                                <div className="absolute bg-[#CBD5E1]" style={{ right: `-${GAP}px`, width: `${halfGap}px`, height: '1px', top: isTop ? `calc(50% + ${vLen}px)` : `calc(50% - ${vLen}px)` }} />
+                                                            )}
+                                                        </>
+                                                    );
+                                                })()}
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            </div>
+                            <div style={{ width: `${GAP}px` }} />
+                        </div>
+                    );
+                })}
+            </div>
+        );
+    };
+
     return (
         <>
             <section className="relative pt-24 pb-14">
@@ -1788,116 +1877,32 @@ export default function TournamentDetailClient({ initialData, id }: { initialDat
                                 </div>
                                 <div className="bg-[#FDFDFD] rounded-2xl border p-8 overflow-auto min-h-[500px] relative shadow-inner" ref={scrollContainerRef} onMouseDown={onMouseDown} onMouseLeave={onMouseLeave} onMouseUp={onMouseUp} onMouseMove={onMouseMove}>
                                     <div className="absolute inset-0 opacity-[0.4] pointer-events-none" style={{ backgroundImage: `radial-gradient(#E2E8F0 1.2px, transparent 1.2px)`, backgroundSize: '32px 32px' }} />
-                                    <div className="inline-flex p-12 min-w-full relative z-10">
-                                        {bracketRounds.map((round, rIndex) => {
-                                            const isLastRound = rIndex === bracketRounds.length - 1;
-                                            const scale = Math.pow(2, rIndex);
-                                            const GAP = 128;
-                                            const halfGap = GAP / 2;
-
-                                            return (
-                                                <div key={rIndex} className="flex">
-                                                    <div className="flex flex-col w-[200px]">
-                                                        <div className="h-10 flex items-center justify-center mb-12">
-                                                            <div className="w-[140px] py-1.5 rounded-sm bg-[#FEEBDB] flex items-center justify-center">
-                                                                <span className="text-[12px] font-bold text-gray-800">{round.name}</span>
-                                                            </div>
-                                                        </div>
-                                                        <div className="relative flex-1">
-                                                            {round.matches.map((match: any, mIdx: number) => {
-                                                                const topPadding = (scale - 1) * (UNIT_HEIGHT / 2);
-                                                                const yOffset = topPadding + (match.bracketPosition?.y || 0) * UNIT_HEIGHT * scale;
-
-                                                                // Highlight matching search
-                                                                const matchesSearch = bracketSearch.trim() === "" || [
-                                                                    match.homeTeam?.name, match.homeTeam?.shortName, match.homeTeam?.player1, match.homeTeam?.player2,
-                                                                    match.awayTeam?.name, match.awayTeam?.shortName, match.awayTeam?.player1, match.awayTeam?.player2,
-                                                                    match.p1?.name, match.p2?.name,
-                                                                    match.homeTeam?.efvId != null ? String(match.homeTeam.efvId) : null,
-                                                                    match.awayTeam?.efvId != null ? String(match.awayTeam.efvId) : null,
-                                                                ].some(v => v && v.toLowerCase().includes(bracketSearch.toLowerCase()));
-
-                                                                return (
-                                                                    <div
-                                                                        key={match._id || match.id}
-                                                                        className={`absolute left-0 flex items-center transition-opacity ${matchesSearch ? 'opacity-100' : 'opacity-20'}`}
-                                                                        style={{
-                                                                            top: `${yOffset}px`,
-                                                                            height: `${UNIT_HEIGHT}px`,
-                                                                            width: '100%'
-                                                                        }}
-                                                                    >
-                                                                        <MatchCard match={match} onClick={() => setSelectedMatch(match)} />
-
-                                                                        {/* Connector lines to next round */}
-                                                                        {match.nextMatch && !isLastRound && (() => {
-                                                                            const bY = match.bracketPosition?.y ?? 0;
-                                                                            const isTop = bY % 2 === 0;
-                                                                            const vLen = (UNIT_HEIGHT * scale) / 2;
-
-                                                                            return (
-                                                                                <>
-                                                                                    {/* Horizontal stub from card to midpoint */}
-                                                                                    <div
-                                                                                        className="absolute bg-[#CBD5E1]"
-                                                                                        style={{
-                                                                                            right: `-${halfGap}px`,
-                                                                                            width: `${halfGap}px`,
-                                                                                            height: '1px',
-                                                                                            top: '50%',
-                                                                                        }}
-                                                                                    />
-                                                                                    {/* Vertical line from this match to sibling */}
-                                                                                    <div
-                                                                                        className="absolute bg-[#CBD5E1]"
-                                                                                        style={{
-                                                                                            right: `-${halfGap}px`,
-                                                                                            width: '1px',
-                                                                                            height: `${vLen}px`,
-                                                                                            ...(isTop
-                                                                                                ? { top: '50%' }
-                                                                                                : { bottom: '50%' }
-                                                                                            ),
-                                                                                        }}
-                                                                                    />
-                                                                                    {/* Horizontal line from midpoint to next round (only for the top match of each pair) */}
-                                                                                    {isTop && (
-                                                                                        <div
-                                                                                            className="absolute bg-[#CBD5E1]"
-                                                                                            style={{
-                                                                                                right: `-${GAP}px`,
-                                                                                                width: `${halfGap}px`,
-                                                                                                height: '1px',
-                                                                                                top: `calc(50% + ${vLen}px)`,
-                                                                                            }}
-                                                                                        />
-                                                                                    )}
-                                                                                </>
-                                                                            );
-                                                                        })()}
-
-                                                                        {/* Incoming line from previous round */}
-                                                                        {rIndex > 0 && (
-                                                                            <div
-                                                                                className="absolute bg-[#CBD5E1]"
-                                                                                style={{
-                                                                                    left: `-${halfGap}px`,
-                                                                                    width: `${halfGap}px`,
-                                                                                    height: '1px',
-                                                                                    top: '50%',
-                                                                                }}
-                                                                            />
-                                                                        )}
-                                                                    </div>
-                                                                );
-                                                            })}
-                                                        </div>
+                                    {isDoubleElimination ? (
+                                        <div className="inline-flex flex-col gap-16 p-12 min-w-full relative z-10">
+                                            {wbRounds.length > 0 && (
+                                                <div className="flex flex-col">
+                                                    <h3 className="text-base font-semibold uppercase tracking-wider text-blue-700 flex items-center gap-2 mb-6 pl-4 mt-4">
+                                                        <Trophy className="w-5 h-5" /> Nhánh Thắng
+                                                    </h3>
+                                                    <div className="pl-4">
+                                                        {renderPublicBracketSection(wbRounds, 'wb')}
                                                     </div>
-                                                    <div style={{ width: `${GAP}px` }} />
                                                 </div>
-                                            );
-                                        })}
-                                    </div>
+                                            )}
+                                            {lbRounds.length > 0 && (
+                                                <div className="flex flex-col">
+                                                    <h3 className="text-base font-semibold uppercase tracking-wider text-amber-700 flex items-center gap-2 mb-6 pl-4 mt-4">
+                                                        <RefreshCcw className="w-5 h-5" /> Nhánh Thua
+                                                    </h3>
+                                                    <div className="pl-4">
+                                                        {renderPublicBracketSection(lbRounds, 'lb')}
+                                                    </div>
+                                                </div>
+                                            )}
+                                        </div>
+                                    ) : (
+                                        renderPublicBracketSection(bracketRounds, 'se')
+                                    )}
                                 </div>
 
                         {/* Fullscreen Bracket Overlay */}
@@ -1942,59 +1947,32 @@ export default function TournamentDetailClient({ initialData, id }: { initialDat
                                     <div className="flex-1 overflow-auto bg-[#F8FAFC] relative" onMouseDown={onMouseDown} onMouseLeave={onMouseLeave} onMouseUp={onMouseUp} onMouseMove={onMouseMove}>
                                         <div className="absolute inset-0 opacity-[0.3] pointer-events-none" style={{ backgroundImage: `radial-gradient(#E2E8F0 1.2px, transparent 1.2px)`, backgroundSize: '32px 32px' }} />
                                         <div className="inline-flex p-12 min-w-full relative z-10">
-                                            {bracketRounds.map((round, rIndex) => {
-                                                const isLastRound = rIndex === bracketRounds.length - 1;
-                                                const scale = Math.pow(2, rIndex);
-                                                const GAP = 128;
-                                                const halfGap = GAP / 2;
-                                                return (
-                                                    <div key={`fs-${rIndex}`} className="flex">
-                                                        <div className="flex flex-col w-[220px]">
-                                                            <div className="h-10 flex items-center justify-center mb-12">
-                                                                <div className="w-[160px] py-2 rounded-md bg-gradient-to-r from-amber-100 to-orange-100 border border-amber-200 flex items-center justify-center shadow-sm">
-                                                                    <span className="text-[13px] font-bold text-gray-800">{round.name}</span>
-                                                                </div>
-                                                            </div>
-                                                            <div className="relative flex-1">
-                                                                {round.matches.map((match, mIdx) => {
-                                                                    const topPadding = (scale - 1) * (UNIT_HEIGHT / 2);
-                                                                    const yOffset = topPadding + (match.bracketPosition?.y || 0) * UNIT_HEIGHT * scale;
-                                                                    const matchesSearch = bracketSearch.trim() === "" || [
-                                                                        match.homeTeam?.name, match.homeTeam?.shortName, match.homeTeam?.player1, match.homeTeam?.player2,
-                                                                        match.awayTeam?.name, match.awayTeam?.shortName, match.awayTeam?.player1, match.awayTeam?.player2,
-                                                                        match.p1?.name, match.p2?.name,
-                                                                        match.homeTeam?.efvId != null ? String(match.homeTeam.efvId) : null,
-                                                                        match.awayTeam?.efvId != null ? String(match.awayTeam.efvId) : null,
-                                                                    ].some(v => v && v.toLowerCase().includes(bracketSearch.toLowerCase()));
-                                                                    return (
-                                                                        <div
-                                                                            key={match._id || match.id}
-                                                                            className={`absolute left-0 flex items-center transition-opacity ${matchesSearch ? 'opacity-100' : 'opacity-20'}`}
-                                                                            style={{ top: `${yOffset}px`, height: `${UNIT_HEIGHT}px`, width: '100%' }}
-                                                                        >
-                                                                            <MatchCard match={match} onClick={() => setSelectedMatch(match)} />
-                                                                            {match.nextMatch && !isLastRound && (() => {
-                                                                                const bY = match.bracketPosition?.y ?? 0;
-                                                                                const isTop = bY % 2 === 0;
-                                                                                const vLen = (UNIT_HEIGHT * scale) / 2;
-                                                                                return (
-                                                                                    <>
-                                                                                        <div className="absolute bg-[#CBD5E1]" style={{ right: `-${halfGap}px`, width: `${halfGap}px`, height: '1px', top: '50%' }} />
-                                                                                        <div className="absolute bg-[#CBD5E1]" style={{ right: `-${halfGap}px`, width: '1px', height: `${vLen}px`, ...(isTop ? { top: '50%' } : { bottom: '50%' }) }} />
-                                                                                        {isTop && <div className="absolute bg-[#CBD5E1]" style={{ right: `-${GAP}px`, width: `${halfGap}px`, height: '1px', top: `calc(50% + ${vLen}px)` }} />}
-                                                                                    </>
-                                                                                );
-                                                                            })()}
-                                                                            {rIndex > 0 && <div className="absolute bg-[#CBD5E1]" style={{ left: `-${halfGap}px`, width: `${halfGap}px`, height: '1px', top: '50%' }} />}
-                                                                        </div>
-                                                                    );
-                                                                })}
-                                                            </div>
+                                        {isDoubleElimination ? (
+                                            <div className="inline-flex flex-col gap-16 p-12 min-w-max relative z-10">
+                                                {wbRounds.length > 0 && (
+                                                    <div className="flex flex-col">
+                                                        <h3 className="text-base font-semibold uppercase tracking-wider text-blue-700 flex items-center gap-2 mb-6 pl-4 mt-4">
+                                                            <Trophy className="w-5 h-5" /> Nhánh Thắng
+                                                        </h3>
+                                                        <div className="pl-4">
+                                                            {renderPublicBracketSection(wbRounds, 'wb-fs')}
                                                         </div>
-                                                        <div style={{ width: `${GAP}px` }} />
                                                     </div>
-                                                );
-                                            })}
+                                                )}
+                                                {lbRounds.length > 0 && (
+                                                    <div className="flex flex-col">
+                                                        <h3 className="text-base font-semibold uppercase tracking-wider text-amber-700 flex items-center gap-2 mb-6 pl-4 mt-4">
+                                                            <RefreshCcw className="w-5 h-5" /> Nhánh Thua
+                                                        </h3>
+                                                        <div className="pl-4">
+                                                            {renderPublicBracketSection(lbRounds, 'lb-fs')}
+                                                        </div>
+                                                    </div>
+                                                )}
+                                            </div>
+                                        ) : (
+                                            renderPublicBracketSection(bracketRounds, 'se-fs')
+                                        )}
                                         </div>
                                     </div>
                                 </motion.div>

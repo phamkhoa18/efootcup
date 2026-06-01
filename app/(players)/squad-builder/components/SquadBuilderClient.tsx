@@ -2,7 +2,7 @@
 import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Plus, X, Trash2, Search, SearchX, Users, BarChart3, Trophy, User, Loader2 } from 'lucide-react';
-import { fetchPlayersAction } from '../../actions/getPlayers';
+import { fetchPlayers, getPlayerImageUrl } from '@/lib/efvn-api';
 
 const FORMATIONS: Record<string, { i: number; p: string; top: number; left: number }[]> = {
     '4-3-3': [
@@ -59,14 +59,14 @@ const FORMATIONS: Record<string, { i: number; p: string; top: number; left: numb
     ]
 };
 
-export default function SquadBuilderClient({ initialPlayers }: { initialPlayers: any[] }) {
+export default function SquadBuilderClient() {
     const [formation, setFormation] = useState<string>('4-2-1-3');
     const [squad, setSquad] = useState<Record<number, any>>({});
     const [selectedSlot, setSelectedSlot] = useState<{ id: number, targetPos: string } | null>(null);
     const [searchTerm, setSearchTerm] = useState('');
     
     // Server Action Infinite Scroll State
-    const [players, setPlayers] = useState<any[]>(initialPlayers);
+    const [players, setPlayers] = useState<any[]>([]);
     const [page, setPage] = useState(1);
     const [loading, setLoading] = useState(false);
     const [hasMore, setHasMore] = useState(true);
@@ -98,11 +98,11 @@ export default function SquadBuilderClient({ initialPlayers }: { initialPlayers:
             setHasMore(true);
             setLoading(true);
             const debounce = setTimeout(() => {
-                fetchPlayersAction(searchTerm, 1).then(res => {
-                    setPlayers(res);
+                fetchPlayers({ q: searchTerm || undefined, page: 1, limit: 30, sortBy: 'overall.max', sortOrder: 'desc' }).then(res => {
+                    setPlayers(res.data || []);
                     setLoading(false);
-                    if (res.length < 30) setHasMore(false);
-                });
+                    if ((res.data || []).length < 30) setHasMore(false);
+                }).catch(() => { setLoading(false); });
             }, 300);
             return () => clearTimeout(debounce);
         }
@@ -124,11 +124,11 @@ export default function SquadBuilderClient({ initialPlayers }: { initialPlayers:
     useEffect(() => {
         if (page > 1) {
             setLoading(true);
-            fetchPlayersAction(searchTerm, page).then(res => {
-                setPlayers(prev => [...prev, ...res]);
+            fetchPlayers({ q: searchTerm || undefined, page, limit: 30, sortBy: 'overall.max', sortOrder: 'desc' }).then(res => {
+                setPlayers(prev => [...prev, ...(res.data || [])]);
                 setLoading(false);
-                if (res.length < 30) setHasMore(false);
-            });
+                if ((res.data || []).length < 30) setHasMore(false);
+            }).catch(() => { setLoading(false); });
         }
     }, [page]);
 
@@ -160,40 +160,40 @@ export default function SquadBuilderClient({ initialPlayers }: { initialPlayers:
     };
 
     return (
-        <div className="flex-grow flex flex-col w-full min-h-screen text-slate-50 bg-[#11131a] pb-12 font-sans relative">
+        <div className="flex-grow flex flex-col w-full min-h-screen text-efb-text bg-white pb-12 font-sans relative">
             
             {/* Minimal Modern Header */}
-            <header className="px-4 md:px-6 py-4 md:py-6 border-b border-white/5 bg-[#11131a]/80 backdrop-blur-xl z-30">
+            <header className="px-4 md:px-6 py-4 md:py-6 border-b border-efb-border bg-white/80 backdrop-blur-xl z-30">
                 <div className="max-w-screen-2xl mx-auto flex flex-col md:flex-row justify-between items-center gap-4">
                     <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 bg-emerald-500 rounded-lg flex items-center justify-center shadow-lg shadow-emerald-500/20">
-                            <Trophy className="w-6 h-6 text-slate-950" />
+                        <div className="w-10 h-10 bg-efb-blue rounded-lg flex items-center justify-center shadow-lg shadow-efb-blue/20">
+                            <Trophy className="w-6 h-6 text-white" />
                         </div>
                         <div>
-                            <h1 className="text-xl md:text-2xl font-black text-white italic leading-tight uppercase tracking-tight">Dream Squad</h1>
-                            <p className="text-slate-400 text-[10px] md:text-xs font-bold uppercase tracking-widest">eFootball Tactical Board</p>
+                            <h1 className="text-xl md:text-2xl font-black text-efb-text italic leading-tight uppercase tracking-tight">Dream Squad</h1>
+                            <p className="text-efb-text-secondary text-[10px] md:text-xs font-bold uppercase tracking-widest">eFootball Tactical Board</p>
                         </div>
                     </div>
                     
                     <div className="flex items-center gap-3 md:gap-6 w-full md:w-auto overflow-x-auto pb-2 md:pb-0 hide-scrollbar">
-                        <div className="bg-slate-900/80 px-4 py-2 rounded-lg border border-white/5 shrink-0 flex items-center gap-3">
-                            <span className="text-[10px] text-slate-500 font-bold uppercase tracking-widest">OVR</span>
-                            <span className="text-xl md:text-2xl font-black text-emerald-400">{teamRating}</span>
+                        <div className="bg-efb-bg-alt px-4 py-2 rounded-lg border border-efb-border shrink-0 flex items-center gap-3">
+                            <span className="text-[10px] text-efb-text-muted font-bold uppercase tracking-widest">OVR</span>
+                            <span className="text-xl md:text-2xl font-black text-efb-blue">{teamRating}</span>
                         </div>
-                        <div className="bg-slate-900/80 px-4 py-2 rounded-lg border border-white/5 shrink-0 flex items-center gap-3">
-                            <span className="text-[10px] text-slate-500 font-bold uppercase tracking-widest">Team PTS</span>
-                            <span className="text-xl md:text-2xl font-black text-white">{currentPts}</span>
+                        <div className="bg-efb-bg-alt px-4 py-2 rounded-lg border border-efb-border shrink-0 flex items-center gap-3">
+                            <span className="text-[10px] text-efb-text-muted font-bold uppercase tracking-widest">Team PTS</span>
+                            <span className="text-xl md:text-2xl font-black text-efb-text">{currentPts}</span>
                         </div>
-                        <div className="bg-slate-900/80 px-2 py-2 rounded-lg border border-white/5 shrink-0">
+                        <div className="bg-efb-bg-alt px-2 py-2 rounded-lg border border-efb-border shrink-0">
                             <select 
                                 value={formation}
                                 onChange={(e) => setFormation(e.target.value)}
-                                className="bg-transparent border-none text-sm font-bold text-white focus:ring-0 outline-none cursor-pointer pr-4"
+                                className="bg-transparent border-none text-sm font-bold text-efb-text focus:ring-0 outline-none cursor-pointer pr-4"
                             >
-                                {Object.keys(FORMATIONS).map(f => <option key={f} value={f} className="bg-slate-900 drop-shadow">{f}</option>)}
+                                {Object.keys(FORMATIONS).map(f => <option key={f} value={f} className="bg-white">{f}</option>)}
                             </select>
                         </div>
-                        <button onClick={handleClearSquad} className="bg-slate-900/80 hover:bg-red-500/20 text-slate-400 hover:text-red-400 transition-colors px-3 py-2.5 rounded-lg border border-white/5 shrink-0">
+                        <button onClick={handleClearSquad} className="bg-efb-bg-alt hover:bg-red-50 text-efb-text-muted hover:text-red-500 transition-colors px-3 py-2.5 rounded-lg border border-efb-border shrink-0">
                             <Trash2 className="w-4 h-4" />
                         </button>
                     </div>
@@ -205,27 +205,27 @@ export default function SquadBuilderClient({ initialPlayers }: { initialPlayers:
                 
                 {/* Tactical Pitch Area */}
                 <div className="flex-grow xl:w-2/3 flex justify-center relative">
-                    <div className="relative w-full max-w-[800px] aspect-[4/5] sm:aspect-[4/5] md:aspect-[3/4] lg:aspect-[16/11] xl:aspect-[3/4] max-h-[85vh] bg-[#0c1c14] rounded-xl overflow-hidden shadow-2xl border border-emerald-900/30">
+                    <div className="relative w-full max-w-[800px] aspect-[4/5] sm:aspect-[4/5] md:aspect-[3/4] lg:aspect-[16/11] xl:aspect-[3/4] max-h-[85vh] bg-emerald-600 rounded-xl overflow-hidden shadow-xl border border-emerald-700/50">
                         {/* Beautiful Field Pattern */}
                         <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/carbon-fibre.png')] opacity-20"></div>
                         <div className="absolute inset-0 flex flex-col">
                             {Array.from({ length: 10 }).map((_, i) => (
-                                <div key={i} className={`flex-1 ${i % 2 === 0 ? 'bg-emerald-900/10' : 'bg-transparent'}`}></div>
+                                <div key={i} className={`flex-1 ${i % 2 === 0 ? 'bg-emerald-700/30' : 'bg-transparent'}`}></div>
                             ))}
                         </div>
                         
                         {/* Pitch Lines (Glowing White/Emerald) */}
-                        <div className="absolute inset-4 border max-w-full max-h-full border-white/20 rounded pointer-events-none"></div>
-                        <div className="absolute inset-y-0 left-1/2 w-px bg-white/20 pointer-events-none -translate-x-1/2"></div>
-                        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[25%] aspect-square border border-white/20 rounded-full pointer-events-none"></div>
-                        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[1%] aspect-square bg-white border border-white rounded-full pointer-events-none"></div>
+                        <div className="absolute inset-4 border-2 max-w-full max-h-full border-white/60 rounded pointer-events-none"></div>
+                        <div className="absolute inset-y-0 left-1/2 w-[2px] bg-white/60 pointer-events-none -translate-x-1/2"></div>
+                        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[25%] aspect-square border-2 border-white/60 rounded-full pointer-events-none"></div>
+                        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[1%] aspect-square bg-white rounded-full pointer-events-none"></div>
                         
                         {/* Penalty Boxes */}
-                        <div className="absolute top-4 left-1/2 -translate-x-1/2 w-[45%] h-[15%] border border-white/20 border-t-0 pointer-events-none flex justify-center">
-                            <div className="absolute bottom-0 translate-y-1/2 w-[35%] aspect-[2/1] border border-white/20 rounded-b-full border-t-0 opacity-80"></div>
+                        <div className="absolute top-4 left-1/2 -translate-x-1/2 w-[45%] h-[15%] border-2 border-white/60 border-t-0 pointer-events-none flex justify-center">
+                            <div className="absolute bottom-0 translate-y-1/2 w-[35%] aspect-[2/1] border-2 border-white/60 rounded-b-full border-t-0 opacity-80"></div>
                         </div>
-                        <div className="absolute bottom-4 left-1/2 -translate-x-1/2 w-[45%] h-[15%] border border-white/20 border-b-0 pointer-events-none flex justify-center">
-                            <div className="absolute top-0 -translate-y-1/2 w-[35%] aspect-[2/1] border border-white/20 rounded-t-full border-b-0 opacity-80"></div>
+                        <div className="absolute bottom-4 left-1/2 -translate-x-1/2 w-[45%] h-[15%] border-2 border-white/60 border-b-0 pointer-events-none flex justify-center">
+                            <div className="absolute top-0 -translate-y-1/2 w-[35%] aspect-[2/1] border-2 border-white/60 rounded-t-full border-b-0 opacity-80"></div>
                         </div>
 
                         {/* Rendering Cards with Framer Motion layout animations */}
@@ -260,9 +260,9 @@ export default function SquadBuilderClient({ initialPlayers }: { initialPlayers:
 
                 {/* Sub & Overview Panel */}
                 <aside className="w-full xl:w-80 flex flex-col gap-6 shrink-0 z-20">
-                    <div className="bg-slate-900/60 rounded-xl border border-white/5 p-5 backdrop-blur-md">
-                        <h3 className="font-black text-white uppercase tracking-widest text-sm mb-4 border-b border-white/10 pb-3 flex items-center gap-2">
-                            <Users className="w-5 h-5 text-emerald-500" />
+                    <div className="card-white rounded-xl p-5">
+                        <h3 className="font-black text-efb-text uppercase tracking-widest text-sm mb-4 border-b border-efb-border pb-3 flex items-center gap-2">
+                            <Users className="w-5 h-5 text-efb-blue" />
                             Dự Bị (Substitutes)
                         </h3>
                         {/* Sub Slots 11 - 17 */}
@@ -271,18 +271,24 @@ export default function SquadBuilderClient({ initialPlayers }: { initialPlayers:
                                 const slotId = 11 + idx;
                                 const p = squad[slotId];
                                 return (
-                                    <div key={slotId} onClick={() => handleSlotClick(slotId, 'SUB')} className="aspect-[3/4] bg-slate-950 border border-white/10 rounded-lg cursor-pointer hover:border-emerald-500/50 transition-colors flex flex-col items-center justify-center relative group overflow-hidden">
+                                    <div key={slotId} onClick={() => handleSlotClick(slotId, 'SUB')} className="aspect-[3/4] bg-efb-bg-alt border border-efb-border rounded-lg cursor-pointer hover:border-efb-blue/50 transition-colors flex flex-col items-center justify-center relative group overflow-hidden">
                                         {p ? (
                                             <>
-                                                <img src={p.images?.portrait || p.images?.card} className="w-[80%] h-[70%] object-contain mt-2" alt={p.name} />
-                                                <div className="absolute top-1 left-1 bg-emerald-500 text-slate-950 text-[8px] font-black px-1 rounded-sm">{p.overall?.max || p.overall?.base}</div>
-                                                <div className="w-full text-center bg-black/80 mt-auto py-1 text-[8px] font-bold text-white truncate px-1">{p.name}</div>
+                                                {getPlayerImageUrl(p.images?.card || p.images?.portrait) ? (
+                                                    <img src={getPlayerImageUrl(p.images?.card || p.images?.portrait)} className="w-[80%] h-[70%] object-contain mt-2" alt={p.name} />
+                                                ) : (
+                                                    <div className="w-[80%] h-[70%] mt-2 flex items-center justify-center">
+                                                        <User className="w-6 h-6 text-gray-400" />
+                                                    </div>
+                                                )}
+                                                <div className="absolute top-1 left-1 bg-efb-blue text-white text-[8px] font-black px-1 rounded-sm">{p.overall?.max || p.overall?.base}</div>
+                                                <div className="w-full text-center bg-white/90 backdrop-blur-sm mt-auto py-1 text-[8px] font-bold text-efb-text truncate px-1 border-t border-efb-border-light">{p.name}</div>
                                                 <button onClick={(e) => handleRemovePlayer(e, slotId)} className="absolute top-1 right-1 opacity-0 group-hover:opacity-100 bg-red-500 text-white w-4 h-4 rounded-full flex items-center justify-center text-[10px]">
                                                     <X className="w-3 h-3" />
                                                 </button>
                                             </>
                                         ) : (
-                                            <Plus className="w-6 h-6 text-slate-700 group-hover:text-emerald-500 transition-colors" />
+                                            <Plus className="w-6 h-6 text-efb-text-muted group-hover:text-efb-blue transition-colors" />
                                         )}
                                     </div>
                                 );
@@ -291,19 +297,19 @@ export default function SquadBuilderClient({ initialPlayers }: { initialPlayers:
                     </div>
                     
                     {/* Insights Block */}
-                    <div className="bg-gradient-to-br from-slate-900 to-[#11131a] rounded-xl border border-white/5 p-5 shadow-2xl relative overflow-hidden flex-1">
+                    <div className="card-white rounded-xl p-5 relative overflow-hidden flex-1">
                         <div className="absolute top-0 right-0 p-4 opacity-5 pointer-events-none">
                             <BarChart3 className="w-32 h-32" />
                         </div>
-                        <h3 className="font-black text-white uppercase tracking-widest text-sm mb-4 border-b border-white/10 pb-3">Phân tích</h3>
+                        <h3 className="font-black text-efb-text uppercase tracking-widest text-sm mb-4 border-b border-efb-border pb-3">Phân tích</h3>
                         <div className="space-y-4 relative z-10">
                             <div className="flex justify-between items-center text-sm">
-                                <span className="text-slate-400 font-bold uppercase tracking-wide">Cầu thủ</span>
-                                <span className="text-white font-mono">{activePlayersCount}/18</span>
+                                <span className="text-efb-text-secondary font-bold uppercase tracking-wide">Cầu thủ</span>
+                                <span className="text-efb-text font-mono">{activePlayersCount}/18</span>
                             </div>
                             <div className="flex justify-between items-center text-sm">
-                                <span className="text-slate-400 font-bold uppercase tracking-wide">Giá trị đội (GPS)</span>
-                                <span className="text-emerald-400 font-mono font-bold">2.4M</span>
+                                <span className="text-efb-text-secondary font-bold uppercase tracking-wide">Giá trị đội (GPS)</span>
+                                <span className="text-efb-blue font-mono font-bold">2.4M</span>
                             </div>
                         </div>
                     </div>
@@ -317,37 +323,37 @@ export default function SquadBuilderClient({ initialPlayers }: { initialPlayers:
                         initial={{ opacity: 0 }}
                         animate={{ opacity: 1 }}
                         exit={{ opacity: 0 }}
-                        className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6 bg-slate-950/80 backdrop-blur-sm"
+                        className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6 bg-black/40 backdrop-blur-sm"
                     >
                         <motion.div 
                             initial={{ scale: 0.95, y: 20 }}
                             animate={{ scale: 1, y: 0 }}
                             exit={{ scale: 0.95, y: 20 }}
                             transition={{ type: "spring", damping: 25, stiffness: 300 }}
-                            className="bg-[#1a1d27] border border-white/10 w-full max-w-4xl max-h-[85vh] rounded-2xl shadow-2xl flex flex-col overflow-hidden"
+                            className="bg-white border border-efb-border w-full max-w-4xl max-h-[85vh] rounded-2xl shadow-2xl flex flex-col overflow-hidden"
                         >
                             {/* Modal Header */}
-                            <div className="px-6 py-4 border-b border-white/5 bg-[#11131a] flex justify-between items-center shrink-0">
+                            <div className="px-6 py-4 border-b border-efb-border bg-efb-bg-alt flex justify-between items-center shrink-0">
                                 <div className="flex items-center gap-3">
-                                    <div className="bg-emerald-500/20 text-emerald-400 px-3 py-1 rounded-md font-black text-sm border border-emerald-500/30">
+                                    <div className="bg-efb-blue/10 text-efb-blue px-3 py-1 rounded-md font-black text-sm border border-efb-blue/20">
                                         {selectedSlot.targetPos}
                                     </div>
-                                    <h2 className="text-lg font-bold text-white uppercase tracking-wider">Từ điển cầu thủ</h2>
+                                    <h2 className="text-lg font-bold text-efb-text uppercase tracking-wider">Từ điển cầu thủ</h2>
                                 </div>
-                                <button onClick={() => setSelectedSlot(null)} className="text-slate-400 hover:text-white bg-white/5 hover:bg-white/10 p-2 rounded-lg transition-colors">
+                                <button onClick={() => setSelectedSlot(null)} className="text-efb-text-muted hover:text-efb-text bg-black/5 hover:bg-black/10 p-2 rounded-lg transition-colors">
                                     <X className="w-5 h-5" />
                                 </button>
                             </div>
 
                             {/* Modal Search */}
-                            <div className="p-4 sm:p-6 bg-[#1a1d27] shrink-0 border-b border-white/5">
+                            <div className="p-4 sm:p-6 shrink-0 border-b border-efb-border">
                                 <div className="relative">
-                                    <Search className="w-5 h-5 absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
+                                    <Search className="w-5 h-5 absolute left-4 top-1/2 -translate-y-1/2 text-efb-text-muted" />
                                     <input 
                                         autoFocus
                                         value={searchTerm}
                                         onChange={(e) => setSearchTerm(e.target.value)}
-                                        className="w-full bg-[#11131a] border border-white/10 focus:border-emerald-500 rounded-xl pl-12 pr-4 text-base focus:ring-1 focus:ring-emerald-500 text-white py-4 outline-none transition-all shadow-inner" 
+                                        className="w-full bg-efb-bg-alt border border-efb-border focus:border-efb-blue rounded-xl pl-12 pr-4 text-base focus:ring-1 focus:ring-efb-blue text-efb-text py-4 outline-none transition-all" 
                                         placeholder="Nhập tên cầu thủ để tìm kiếm (Vd: Messi, Mbappe...)" 
                                         type="text" 
                                     />
@@ -355,13 +361,11 @@ export default function SquadBuilderClient({ initialPlayers }: { initialPlayers:
                             </div>
 
                             {/* Modal List with Infinite Scroll */}
-                            <div className="flex-1 overflow-y-auto p-4 sm:p-6 bg-[#11131a]/30">
+                            <div className="flex-1 overflow-y-auto p-4 sm:p-6">
                                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
                                     {players.map((p, i) => {
-                                        const imgUrl = p.images?.portrait || p.images?.card || p.images?.thumbnail || '';
+                                        const imgUrl = getPlayerImageUrl(p.images?.card || p.images?.portrait || p.images?.thumbnail || '');
                                         const ovr = p.overall?.max || p.overall?.base || 0;
-                                        
-                                        // Ref attached to the last element
                                         const isLast = i === players.length - 1;
 
                                         return (
@@ -369,26 +373,24 @@ export default function SquadBuilderClient({ initialPlayers }: { initialPlayers:
                                                 ref={isLast ? lastPlayerElementRef : null}
                                                 key={`${p._id}-${i}`}
                                                 onClick={() => handlePlayerSelect(p)}
-                                                className="flex items-center gap-3 bg-[#1a1d27] border border-white/5 hover:border-emerald-500/50 hover:bg-slate-800 p-3 rounded-xl cursor-pointer group transition-all relative overflow-hidden"
+                                                className="flex items-center gap-3 bg-white border border-efb-border hover:border-efb-blue hover:shadow-md p-3 rounded-xl cursor-pointer group transition-all relative overflow-hidden"
                                             >
-                                                <div className="absolute inset-0 bg-gradient-to-r from-emerald-500/0 via-emerald-500/0 to-emerald-500/5 opacity-0 group-hover:opacity-100 transition-opacity"></div>
-                                                
                                                 {/* Meta Pic */}
-                                                <div className="w-12 h-12 bg-slate-950/50 rounded-lg overflow-hidden border border-white/5 shrink-0 relative flex items-center justify-center">
+                                                <div className="w-12 h-12 bg-efb-bg-alt rounded-lg overflow-hidden border border-efb-border-light shrink-0 relative flex items-center justify-center">
                                                     {imgUrl ? (
                                                         <img src={imgUrl} className="w-[90%] h-[90%] object-contain scale-100 group-hover:scale-110 transition-transform duration-300" alt="Player"/>
                                                     ) : (
-                                                        <User className="w-4 h-4 text-slate-500" />
+                                                        <User className="w-4 h-4 text-efb-text-muted" />
                                                     )}
                                                 </div>
                                                 {/* Info */}
                                                 <div className="flex-1 min-w-0 z-10">
-                                                    <h4 className="text-sm font-bold text-white truncate">{p.name}</h4>
-                                                    <div className="text-[10px] text-slate-400 uppercase font-bold mt-0.5 truncate">{p.positions?.[0] || 'N/A'} • {p.club || p.teamId || 'N/A'}</div>
+                                                    <h4 className="text-sm font-bold text-efb-text truncate">{p.name}</h4>
+                                                    <div className="text-[10px] text-efb-text-secondary uppercase font-bold mt-0.5 truncate">{p.positions?.[0] || 'N/A'} • {p.club || p.teamId || 'N/A'}</div>
                                                 </div>
                                                 {/* Rating */}
                                                 <div className="shrink-0 flex flex-col items-end gap-1 pl-2 z-10">
-                                                    <span className={`text-base font-black italic leading-none ${ovr >= 95 ? 'text-emerald-400 drop-shadow-[0_0_5px_rgba(16,185,129,0.5)]' : 'text-slate-300'}`}>{ovr}</span>
+                                                    <span className={`text-base font-black italic leading-none ${ovr >= 95 ? 'text-amber-500' : ovr >= 90 ? 'text-violet-500' : 'text-efb-blue'}`}>{ovr}</span>
                                                 </div>
                                             </div>
                                         );
@@ -397,13 +399,13 @@ export default function SquadBuilderClient({ initialPlayers }: { initialPlayers:
                                 
                                 {loading && (
                                     <div className="flex justify-center items-center py-8">
-                                        <Loader2 className="w-8 h-8 text-emerald-500 animate-spin" />
+                                        <Loader2 className="w-8 h-8 text-efb-blue animate-spin" />
                                     </div>
                                 )}
                                 
                                 {!loading && players.length === 0 && (
-                                    <div className="py-16 text-center text-slate-500 font-bold uppercase tracking-widest text-sm flex flex-col items-center gap-3">
-                                        <SearchX className="w-10 h-10 text-slate-700" />
+                                    <div className="py-16 text-center text-efb-text-secondary font-bold uppercase tracking-widest text-sm flex flex-col items-center gap-3">
+                                        <SearchX className="w-10 h-10 text-efb-text-muted" />
                                         Không tìm thấy cầu thủ "{searchTerm}"
                                     </div>
                                 )}
@@ -437,40 +439,40 @@ function PlayerNode({ slot, player, onClick, onRemove, isMobile = false }: { slo
             {player ? (
                  <div 
                     onClick={onClick}
-                    className="relative cursor-pointer hover:scale-110 transition-transform z-10 shadow-2xl"
+                    className="relative cursor-pointer hover:scale-110 transition-transform z-10 drop-shadow-xl"
                 >
                     <div className={`
-                         bg-gradient-to-b from-slate-800 to-[#11131a] border border-white/20 rounded-md overflow-hidden relative flex items-center justify-center
+                         bg-white border border-efb-border rounded-md overflow-hidden relative flex items-center justify-center shadow-lg
                          ${isMobile ? 'w-12 h-16' : 'w-[4.5rem] h-[6rem] sm:w-[5.5rem] sm:h-[7.5rem]'}
                     `}>
-                        <div className={`absolute top-0.5 left-0.5 z-10 px-1 rounded-sm font-black italic shadow-black drop-shadow-md leading-none ${isMobile ? 'text-[9px]' : 'text-[11px] sm:text-xs'} ${player.overall?.max >= 95 ? 'bg-emerald-500 text-slate-950' : 'bg-[#11131a] text-white'}`}>
+                        <div className={`absolute top-0.5 left-0.5 z-10 px-1 rounded-sm font-black italic shadow-sm leading-none ${isMobile ? 'text-[9px]' : 'text-[11px] sm:text-xs'} ${player.overall?.max >= 95 ? 'bg-amber-400 text-amber-900' : player.overall?.max >= 90 ? 'bg-violet-500 text-white' : 'bg-efb-blue text-white'}`}>
                             {player.overall?.max || player.overall?.base || 0}
                         </div>
                         
-                        {(player.images?.portrait || player.images?.card) ? (
-                            <img src={player.images?.portrait || player.images?.card} className="w-[85%] h-[85%] object-contain filter drop-shadow-[0_5px_5px_rgba(0,0,0,0.5)]" alt={player.name} />
+                        {getPlayerImageUrl(player.images?.card || player.images?.portrait) ? (
+                            <img src={getPlayerImageUrl(player.images?.card || player.images?.portrait)} className="w-[85%] h-[85%] object-contain" alt={player.name} />
                         ) : (
-                            <div className="w-full h-full flex flex-col items-center justify-center text-slate-500">
+                            <div className="w-full h-full flex flex-col items-center justify-center text-efb-text-muted">
                                 <User className="w-4 h-4 sm:w-6 sm:h-6" />
                             </div>
                         )}
                         
                         {/* Name Bar */}
-                        <div className="absolute bottom-0 left-0 w-full bg-black/80 py-0.5 px-0.5 text-center shrink-0">
-                            <div className={`font-bold text-white uppercase truncate ${isMobile ? 'text-[6px]' : 'text-[8px] sm:text-[9px]'}`}>
+                        <div className="absolute bottom-0 left-0 w-full bg-white/90 backdrop-blur-sm border-t border-efb-border-light py-0.5 px-0.5 text-center shrink-0">
+                            <div className={`font-bold text-efb-text uppercase truncate ${isMobile ? 'text-[6px]' : 'text-[8px] sm:text-[9px]'}`}>
                                 {player.name}
                             </div>
                         </div>
                     </div>
                     
                     {/* Position Label attached to the card */}
-                    <div className={`absolute -bottom-2 -translate-x-1/2 left-1/2 bg-emerald-500 text-slate-950 rounded-sm font-black uppercase shadow-md border border-[#11131a] z-20 ${isMobile ? 'text-[7px] px-1' : 'text-[8px] px-1.5 py-0.5'}`}>
+                    <div className={`absolute -bottom-2 -translate-x-1/2 left-1/2 bg-efb-blue text-white rounded-sm font-black uppercase shadow-md border border-efb-blue z-20 ${isMobile ? 'text-[7px] px-1' : 'text-[8px] px-1.5 py-0.5'}`}>
                         {slot.p}
                     </div>
 
                     <button 
                         onClick={onRemove} 
-                         className="absolute -top-2 -right-2 opacity-0 group-hover:opacity-100 bg-red-500 text-white rounded-full flex items-center justify-center shadow-lg border border-[#11131a] z-30 hover:bg-red-400 w-4 h-4 sm:w-5 sm:h-5 transition-opacity"
+                         className="absolute -top-2 -right-2 opacity-0 group-hover:opacity-100 bg-red-500 text-white rounded-full flex items-center justify-center shadow-lg z-30 hover:bg-red-600 w-4 h-4 sm:w-5 sm:h-5 transition-opacity"
                     >
                         <X className="w-3 h-3" />
                     </button>
@@ -479,12 +481,12 @@ function PlayerNode({ slot, player, onClick, onRemove, isMobile = false }: { slo
                 <div 
                     onClick={onClick}
                     className={`
-                        border-2 border-dashed border-white/20 hover:border-emerald-500/60 bg-black/30 hover:bg-emerald-500/10 backdrop-blur-sm rounded-md flex items-center justify-center cursor-pointer transition-colors shadow-inner relative
+                        border-2 border-dashed border-white/40 hover:border-white/80 bg-white/20 hover:bg-white/40 backdrop-blur-sm rounded-md flex items-center justify-center cursor-pointer transition-colors shadow-inner relative
                         ${isMobile ? 'w-10 h-10' : 'w-14 h-14 sm:w-16 sm:h-16'}
                     `}
                 >
-                    <Plus className="w-5 h-5 sm:w-8 sm:h-8 text-white/50 group-hover:text-emerald-400 transition-colors" />
-                    <div className={`absolute -bottom-2 -translate-x-1/2 left-1/2 bg-slate-800 text-slate-300 rounded-sm font-black uppercase shadow-md border border-[#11131a] ${isMobile ? 'text-[7px] px-1' : 'text-[8px] px-1.5 py-0.5'}`}>
+                    <Plus className="w-5 h-5 sm:w-8 sm:h-8 text-white/60 group-hover:text-white transition-colors" />
+                    <div className={`absolute -bottom-2 -translate-x-1/2 left-1/2 bg-white text-efb-text rounded-sm font-black uppercase shadow-md ${isMobile ? 'text-[7px] px-1' : 'text-[8px] px-1.5 py-0.5'}`}>
                         {slot.p}
                     </div>
                 </div>

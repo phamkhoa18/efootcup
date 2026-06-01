@@ -1,7 +1,7 @@
 "use client";
 
 import { motion, AnimatePresence } from "framer-motion";
-import { Swords, Trophy, Users, Search, X, Copy, QrCode, Share2, Check, CheckCircle2, Info, Loader2, Download, ArrowUp, ArrowDown, Shuffle, Hash, RotateCcw, Sparkles, FileBarChart, Eye, ImageIcon, MessageSquare, Clock, User, Save, UserCheck, History } from "lucide-react";
+import { Swords, Trophy, Users, Search, X, Copy, QrCode, Share2, Check, CheckCircle2, Info, Loader2, Download, ArrowUp, ArrowDown, Shuffle, Hash, RotateCcw, RefreshCcw, Sparkles, FileBarChart, Eye, ImageIcon, MessageSquare, Clock, User, Save, UserCheck, History } from "lucide-react";
 import { useState, useEffect } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
@@ -185,7 +185,7 @@ const MatchCard = ({ match, onClick, isSwapMode, selectedTeamId, swappedTeamIds,
                     <div className="flex justify-between items-center px-1">
                         <div className="flex flex-col min-w-0 pr-1 leading-[1.1]">
                             <span className={`truncate text-[11px] ${homeWin ? "text-blue-700 font-bold" : "text-gray-800 font-medium"} ${!match.homeTeam && !match.p1 ? "text-gray-400 italic" : ""}`}>
-                                {match.homeTeam?.player1 || match.p1?.name || "Chờ kết quả"}{match.homeTeam?.player2 && match.homeTeam.player2 !== "TBD" ? ` / ${match.homeTeam.player2}` : ""}
+                                {match.homeTeam?.captain?.nickname || match.homeTeam?.captain?.name || match.homeTeam?.player1 || match.p1?.name || match.homeTeam?.shortName || match.homeTeam?.name || "Chờ kết quả"}{match.homeTeam?.player2 && match.homeTeam.player2 !== "TBD" ? ` / ${match.homeTeam.player2}` : ""}
                             </span>
                         </div>
                         <span className={`text-[12px] tabular-nums ml-1 ${homeWin ? "text-blue-600 font-bold" : "text-gray-400 font-semibold"}`}>{homeScore}</span>
@@ -210,7 +210,7 @@ const MatchCard = ({ match, onClick, isSwapMode, selectedTeamId, swappedTeamIds,
                     <div className="flex justify-between items-center px-1">
                         <div className="flex flex-col min-w-0 pr-1 leading-[1.1]">
                             <span className={`truncate text-[11px] ${awayWin ? "text-blue-700 font-bold" : "text-gray-800 font-medium"} ${!match.awayTeam && !match.p2 ? "text-gray-400 italic" : ""}`}>
-                                {match.awayTeam?.player1 || match.p2?.name || "Chờ kết quả"}{match.awayTeam?.player2 && match.awayTeam.player2 !== "TBD" ? ` / ${match.awayTeam.player2}` : ""}
+                                {match.awayTeam?.captain?.nickname || match.awayTeam?.captain?.name || match.awayTeam?.player1 || match.p2?.name || match.awayTeam?.shortName || match.awayTeam?.name || (match.bracketType === 'loser' && match.round % 2 === 0 ? "Thua từ Nhánh Thắng" : "Chờ kết quả")}{match.awayTeam?.player2 && match.awayTeam.player2 !== "TBD" ? ` / ${match.awayTeam.player2}` : ""}
                             </span>
                         </div>
                         <span className={`text-[12px] tabular-nums ml-1 ${awayWin ? "text-blue-600 font-bold" : "text-gray-400 font-semibold"}`}>{awayScore}</span>
@@ -404,7 +404,7 @@ const MatchDetailModal = ({ match, tournament, onClose, onSaved }: { match: any;
                         <div>
                             <div className="font-bold text-gray-900 text-sm mb-1">{tournament?.title || "Giải đấu"}</div>
                             <div className="text-gray-500 text-xs flex flex-wrap items-center gap-4 sm:gap-6">
-                                <span>Hình thức thi đấu: <span className="text-gray-900 font-semibold">{tournament?.format === 'round_robin' ? 'Vòng tròn' : "Loại trực tiếp"}</span></span>
+                                <span>Hình thức thi đấu: <span className="text-gray-900 font-semibold">{tournament?.format === 'round_robin' ? 'Vòng tròn' : tournament?.format === 'double_elimination' ? 'Nhánh thắng - Nhánh thua' : "Loại trực tiếp"}</span></span>
                                 <span>Vòng đấu: <span className="text-gray-900 font-semibold">{match.roundName || `Vòng ${match.round}`}</span></span>
                             </div>
                         </div>
@@ -1158,7 +1158,7 @@ const BracketCreator = ({ tournamentId, tournament, onCreated }: { tournamentId:
                     </div>
                     <h2 className="text-2xl font-extrabold text-gray-900 mb-2">Tạo sơ đồ thi đấu</h2>
                     <p className="text-sm text-gray-400">
-                        {teams.length} đội tham gia · Loại trực tiếp (Single Elimination)
+                        {teams.length} đội tham gia · {tournament?.format === 'double_elimination' ? 'Nhánh thắng - Nhánh thua (Double Elimination)' : tournament?.format === 'round_robin' ? 'Vòng tròn (Round Robin)' : 'Loại trực tiếp (Single Elimination)'}
                     </p>
                 </div>
 
@@ -1425,6 +1425,10 @@ export default function SoDoThiDauPage() {
     const [isLoading, setIsLoading] = useState(true);
     const [tournament, setTournament] = useState<any>(null);
     const [bracketRounds, setBracketRounds] = useState<{ name: string; matches: any[] }[]>([]);
+    const [wbRounds, setWbRounds] = useState<{ name: string; matches: any[] }[]>([]);
+    const [lbRounds, setLbRounds] = useState<{ name: string; matches: any[] }[]>([]);
+    // Grand final state removed
+    const [bracketTab, setBracketTab] = useState<'winner' | 'loser' | 'grand_final'>('winner');
 
     const handleDownloadPDF = async () => {
         const element = document.getElementById("bracket-capture-area");
@@ -1494,6 +1498,29 @@ export default function SoDoThiDauPage() {
                 .filter(round => (round.matches as any[]).length > 0);
 
             setBracketRounds(sorted as any);
+
+            // Double elimination: separate matches by bracketType
+            const isDE = (tRes.data?.tournament || tRes.data)?.format === 'double_elimination';
+            if (isDE) {
+                const groupByBracket = (type: string) => {
+                    const typeMatches = matches.filter((m: any) => m.bracketType === type);
+                    const typeRoundMap: Record<string, any[]> = {};
+                    typeMatches.forEach((m: any) => {
+                        const rn = m.roundName || `Vòng ${m.round}`;
+                        if (!typeRoundMap[rn]) typeRoundMap[rn] = [];
+                        typeRoundMap[rn].push(m);
+                    });
+                    return Object.entries(typeRoundMap)
+                        .sort(([, a], [, b]) => (a[0]?.round ?? 0) - (b[0]?.round ?? 0))
+                        .map(([name, rm]) => ({ name, matches: rm }))
+                        .filter(r => r.matches.length > 0);
+                };
+                setWbRounds(groupByBracket('winner'));
+                setLbRounds(groupByBracket('loser'));
+            } else {
+                setWbRounds([]);
+                setLbRounds([]);
+            }
         } catch (e) {
             console.error("Load bracket error:", e);
         } finally {
@@ -1503,7 +1530,9 @@ export default function SoDoThiDauPage() {
 
     // filteredRounds is used only for the empty-state check (show BracketCreator)
     const filteredRounds = bracketRounds;
+    const isDoubleElimination = tournament?.format === 'double_elimination';
 
+    // For DE: all rounds are displayed together (no tabs)
     const swap = useBracketSwap(id, bracketRounds, loadData);
 
     const totalTeams = bracketRounds.reduce((sum, r) => sum + r.matches.filter((m: any) => m.status !== 'walkover').length, 0);
@@ -1519,6 +1548,172 @@ export default function SoDoThiDauPage() {
             </div>
         );
     }
+
+    // Helper: render a horizontal bracket diagram for a set of rounds
+    const renderBracketSection = (sectionRounds: typeof bracketRounds, sectionKey: string) => {
+        // Build displayRounds from swap context if matching, else use raw
+        const displayRds = sectionRounds;
+        const firstRoundMatchCount = displayRds[0]?.matches.length || 1;
+        return (
+            <div className="inline-flex p-8 min-w-full relative z-10">
+                {displayRds.map((round, rIndex) => {
+                    const isLastRound = rIndex === displayRds.length - 1;
+                    const currentMatchCount = round.matches.length || 1;
+                    const scale = Math.max(1, firstRoundMatchCount / currentMatchCount);
+                    const GAP = 128;
+
+                    return (
+                        <div key={`${sectionKey}-${rIndex}`} className="flex">
+                            <div className="flex flex-col w-[200px]">
+                                <div className="h-10 flex items-center justify-center mb-12">
+                                    <div className="w-[140px] py-1.5 rounded-sm bg-[#FEEBDB] flex items-center justify-center">
+                                        <span className="text-[12px] font-bold text-gray-800">{round.name}</span>
+                                    </div>
+                                </div>
+                                <div className="relative shrink-0 w-full" style={{ height: `${firstRoundMatchCount * UNIT_HEIGHT}px`, minHeight: `${firstRoundMatchCount * UNIT_HEIGHT}px` }}>
+                                    {round.matches.map((match: any, mIdx: number) => {
+                                        const topPadding = (scale - 1) * (UNIT_HEIGHT / 2);
+                                        const yOffset = topPadding + (match.bracketPosition?.y || 0) * UNIT_HEIGHT * scale;
+
+
+
+                                        const matchesSearch = search.trim() === '' || [
+                                            match.homeTeam?.name, match.homeTeam?.shortName, match.homeTeam?.player1, match.homeTeam?.player2,
+                                            match.awayTeam?.name, match.awayTeam?.shortName, match.awayTeam?.player1, match.awayTeam?.player2,
+                                            match.p1?.name, match.p2?.name,
+                                            match.homeTeam?.efvId != null ? String(match.homeTeam.efvId) : null,
+                                            match.awayTeam?.efvId != null ? String(match.awayTeam.efvId) : null,
+                                        ].some(v => v && v.toLowerCase().includes(search.toLowerCase()));
+
+                                        return (
+                                            <div
+                                                key={match._id || match.id}
+                                                className={`absolute left-0 flex items-center transition-opacity ${matchesSearch ? 'opacity-100' : 'opacity-20'}`}
+                                                style={{
+                                                    top: `${yOffset}px`,
+                                                    height: `${UNIT_HEIGHT}px`,
+                                                    width: '100%'
+                                                }}
+                                            >
+                                                <MatchCard
+                                                    match={match}
+                                                    onClick={() => { if (!swap.isSwapMode) setSelectedMatch(match); }}
+                                                    isSwapMode={swap.isSwapMode && match.status !== 'completed'}
+                                                    selectedTeamId={swap.selectedTeamId}
+                                                    swappedTeamIds={swap.swappedTeamIds}
+                                                    onTeamSelect={swap.handleTeamSelect}
+                                                />
+
+                                                {/* Incoming line from previous round */}
+                                                {rIndex > 0 && (
+                                                    <div
+                                                        className="absolute bg-[#CBD5E1]"
+                                                        style={{
+                                                            left: `-${GAP / 2}px`,
+                                                            width: `${GAP / 2}px`,
+                                                            height: '1px',
+                                                            top: '50%',
+                                                        }}
+                                                    />
+                                                )}
+
+                                                {/* Connector lines to next round */}
+                                                {match.nextMatch && !isLastRound && (() => {
+                                                    const bY = match.bracketPosition?.y ?? 0;
+                                                    const isTop = bY % 2 === 0;
+                                                    const vLen = (UNIT_HEIGHT * scale) / 2;
+                                                    const halfGap = GAP / 2;
+
+                                                    // Determine if straight line (Loser Bracket 1:1 mapping)
+                                                    const nextRoundMatches = sectionRounds[rIndex + 1]?.matches || [];
+                                                    const nextMatch = nextRoundMatches.find((m: any) => {
+                                                        const matchId = match._id || match.id;
+                                                        return m._id === match.nextMatch || m.id === match.nextMatch || String(m._id) === String(match.nextMatch) || String(m.id) === String(match.nextMatch);
+                                                    });
+                                                    const isStraightLine = nextMatch && nextMatch.bracketPosition?.y === bY && nextRoundMatches.length === round.matches.length;
+
+                                                    // Determine if the pair match is a bye (for merge logic)
+                                                    const pairY = isTop ? bY + 1 : bY - 1;
+                                                    const pairMatch = round.matches.find((m: any) => m.bracketPosition?.y === pairY);
+                                                    const isPairBye = pairMatch?.status === 'bye' || !pairMatch;
+
+                                                    if (isStraightLine) {
+                                                        return (
+                                                            <div
+                                                                className="absolute bg-[#CBD5E1]"
+                                                                style={{
+                                                                    right: `-${halfGap}px`,
+                                                                    width: `${halfGap}px`,
+                                                                    height: '1px',
+                                                                    top: '50%',
+                                                                }}
+                                                            />
+                                                        );
+                                                    }
+
+                                                    return (
+                                                        <>
+                                                            <div
+                                                                className="absolute bg-[#CBD5E1]"
+                                                                style={{
+                                                                    right: `-${halfGap}px`,
+                                                                    width: `${halfGap}px`,
+                                                                    height: '1px',
+                                                                    top: '50%',
+                                                                }}
+                                                            />
+                                                            <div
+                                                                className="absolute bg-[#CBD5E1]"
+                                                                style={{
+                                                                    right: `-${halfGap}px`,
+                                                                    width: '1px',
+                                                                    height: `${vLen}px`,
+                                                                    ...(isTop
+                                                                        ? { top: '50%' }
+                                                                        : { bottom: '50%' }
+                                                                    ),
+                                                                }}
+                                                            />
+                                                            {(isTop || isPairBye) && (
+                                                                <div
+                                                                    className="absolute bg-[#CBD5E1]"
+                                                                    style={{
+                                                                        right: `-${GAP}px`,
+                                                                        width: `${halfGap}px`,
+                                                                        height: '1px',
+                                                                        top: isTop ? `calc(50% + ${vLen}px)` : `calc(50% - ${vLen}px)`,
+                                                                    }}
+                                                                />
+                                                            )}
+                                                        </>
+                                                    );
+                                                })()}
+
+                                                {/* Incoming line from previous round */}
+                                                {rIndex > 0 && (
+                                                    <div
+                                                        className="absolute bg-[#CBD5E1]"
+                                                        style={{
+                                                            left: `-${GAP / 2}px`,
+                                                            width: `${GAP / 2}px`,
+                                                            height: '1px',
+                                                            top: '50%',
+                                                        }}
+                                                    />
+                                                )}
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            </div>
+                            {/* Spacer between rounds */}
+                            <div style={{ width: `${GAP}px` }} />
+                        </div>
+                    );
+                })}
+            </div>
+        );
+    };
 
     return (
         <div className="flex flex-col h-[calc(100vh-120px)] space-y-4">
@@ -1592,131 +1787,44 @@ export default function SoDoThiDauPage() {
                     </Button>
                 </div>
             </div>
-
-            {/* Tournament Stage */}
+{/* Tournament Stage */}
             {filteredRounds.length === 0 ? (
                 <BracketCreator tournamentId={id} tournament={tournament} onCreated={loadData} />
             ) : (
-                <div id="bracket-capture-area" className="flex-1 overflow-auto bg-[#FDFDFD] rounded-[24px] border border-gray-100 relative custom-scrollbar shadow-inner">
+                <div id="bracket-capture-area" className="flex-1 overflow-auto rounded-[24px] border border-gray-100 relative custom-scrollbar shadow-inner bg-[#FDFDFD]">
                     <div className="absolute inset-0 opacity-[0.4] pointer-events-none" style={{ backgroundImage: `radial-gradient(#E2E8F0 1.2px, transparent 1.2px)`, backgroundSize: '32px 32px' }} />
-                    <div className="inline-flex p-12 min-w-full relative z-10">
-                        {swap.displayRounds.map((round, rIndex) => {
-                            const isLastRound = rIndex === swap.displayRounds.length - 1;
-                            const scale = Math.pow(2, rIndex);
-                            const GAP = 128;
 
-                            return (
-                                <div key={rIndex} className="flex">
-                                    <div className="flex flex-col w-[200px]">
-                                        <div className="h-10 flex items-center justify-center mb-12">
-                                            <div className="w-[140px] py-1.5 rounded-sm bg-[#FEEBDB] flex items-center justify-center">
-                                                <span className="text-[12px] font-bold text-gray-800">{round.name}</span>
-                                            </div>
-                                        </div>
-                                        <div className="relative flex-1">
-                                            {round.matches.map((match: any, mIdx: number) => {
-                                                const topPadding = (scale - 1) * (UNIT_HEIGHT / 2);
-                                                const yOffset = topPadding + (match.bracketPosition?.y || 0) * UNIT_HEIGHT * scale;
-
-                                                // Search highlight
-                                                const matchesSearch = search.trim() === '' || [
-                                                    match.homeTeam?.name, match.homeTeam?.shortName, match.homeTeam?.player1, match.homeTeam?.player2,
-                                                    match.awayTeam?.name, match.awayTeam?.shortName, match.awayTeam?.player1, match.awayTeam?.player2,
-                                                    match.p1?.name, match.p2?.name,
-                                                    match.homeTeam?.efvId != null ? String(match.homeTeam.efvId) : null,
-                                                    match.awayTeam?.efvId != null ? String(match.awayTeam.efvId) : null,
-                                                ].some(v => v && v.toLowerCase().includes(search.toLowerCase()));
-
-                                                return (
-                                                    <div
-                                                        key={match._id || match.id}
-                                                        className={`absolute left-0 flex items-center transition-opacity ${matchesSearch ? 'opacity-100' : 'opacity-20'}`}
-                                                        style={{
-                                                            top: `${yOffset}px`,
-                                                            height: `${UNIT_HEIGHT}px`,
-                                                            width: '100%'
-                                                        }}
-                                                    >
-                                                        <MatchCard
-                                                            match={match}
-                                                            onClick={() => { if (!swap.isSwapMode) setSelectedMatch(match); }}
-                                                            isSwapMode={swap.isSwapMode && match.status !== 'completed'}
-                                                            selectedTeamId={swap.selectedTeamId}
-                                                            swappedTeamIds={swap.swappedTeamIds}
-                                                            onTeamSelect={swap.handleTeamSelect}
-                                                        />
-
-                                                        {/* Connector lines to next round */}
-                                                        {match.nextMatch && !isLastRound && (() => {
-                                                            const bY = match.bracketPosition?.y ?? 0;
-                                                            const isTop = bY % 2 === 0;
-                                                            const vLen = (UNIT_HEIGHT * scale) / 2;
-                                                            const halfGap = GAP / 2;
-
-                                                            return (
-                                                                <>
-                                                                    {/* Horizontal stub from card to midpoint */}
-                                                                    <div
-                                                                        className="absolute bg-[#CBD5E1]"
-                                                                        style={{
-                                                                            right: `-${halfGap}px`,
-                                                                            width: `${halfGap}px`,
-                                                                            height: '1px',
-                                                                            top: '50%',
-                                                                        }}
-                                                                    />
-                                                                    {/* Vertical line from this match to sibling */}
-                                                                    <div
-                                                                        className="absolute bg-[#CBD5E1]"
-                                                                        style={{
-                                                                            right: `-${halfGap}px`,
-                                                                            width: '1px',
-                                                                            height: `${vLen}px`,
-                                                                            ...(isTop
-                                                                                ? { top: '50%' }
-                                                                                : { bottom: '50%' }
-                                                                            ),
-                                                                        }}
-                                                                    />
-                                                                    {/* Horizontal line from midpoint to next round (only for the top match of each pair) */}
-                                                                    {isTop && (
-                                                                        <div
-                                                                            className="absolute bg-[#CBD5E1]"
-                                                                            style={{
-                                                                                right: `-${GAP}px`,
-                                                                                width: `${halfGap}px`,
-                                                                                height: '1px',
-                                                                                top: `calc(50% + ${vLen}px)`,
-                                                                            }}
-                                                                        />
-                                                                    )}
-                                                                </>
-                                                            );
-                                                        })()}
-
-                                                        {/* Incoming line from previous round */}
-                                                        {rIndex > 0 && (
-                                                            <div
-                                                                className="absolute bg-[#CBD5E1]"
-                                                                style={{
-                                                                    left: `-${GAP / 2}px`,
-                                                                    width: `${GAP / 2}px`,
-                                                                    height: '1px',
-                                                                    top: '50%',
-                                                                }}
-                                                            />
-                                                        )}
-                                                    </div>
-                                                );
-                                            })}
-                                        </div>
+                    {isDoubleElimination ? (
+                        <div className="flex flex-col gap-16 p-12 min-w-max relative z-10">
+                            {/* Winner Bracket */}
+                            {wbRounds.length > 0 && (
+                                <div className="flex flex-col">
+                                    <h3 className="text-base font-semibold uppercase tracking-wider text-blue-700 flex items-center gap-2 mb-6 pl-4">
+                                        <Trophy className="w-5 h-5" /> Nhánh Thắng
+                                    </h3>
+                                    <div className="pl-4">
+                                        {renderBracketSection(wbRounds, 'wb')}
                                     </div>
-                                    {/* Spacer between rounds */}
-                                    <div style={{ width: `${GAP}px` }} />
                                 </div>
-                            );
-                        })}
-                    </div>
+                            )}
+
+                            {/* Loser Bracket */}
+                            {lbRounds.length > 0 && (
+                                <div className="flex flex-col">
+                                    <h3 className="text-base font-semibold uppercase tracking-wider text-amber-700 flex items-center gap-2 mb-6 pl-4">
+                                        <RefreshCcw className="w-5 h-5" /> Nhánh Thua
+                                    </h3>
+                                    <div className="pl-4">
+                                        {renderBracketSection(lbRounds, 'lb')}
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* Grand Final removed per user request */}
+                        </div>
+                    ) : (
+                        renderBracketSection(bracketRounds, 'single')
+                    )}
                 </div>
             )}
 
