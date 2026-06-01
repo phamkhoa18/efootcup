@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { motion } from "framer-motion";
+import { motion, Variants } from "framer-motion";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
@@ -23,12 +23,12 @@ const PLAYSTYLES = [
     "Box To Box", "The Destroyer", "Build Up", "Offensive Full-back", "Cross Specialist"
 ];
 
-const containerVariants = {
+const containerVariants: Variants = {
     hidden: {},
     show: { transition: { staggerChildren: 0.03 } },
 };
 
-const cardVariants = {
+const cardVariants: Variants = {
     hidden: { opacity: 0, scale: 0.95 },
     show: { opacity: 1, scale: 1, transition: { duration: 0.25, ease: "easeOut" } },
 };
