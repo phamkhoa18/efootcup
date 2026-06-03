@@ -641,7 +641,6 @@ async function generateDoubleElimination(tournamentId: string, teams: any[], see
         status: "scheduled",
         bracketType: "grand_final",
         bracketPosition: { x: 0, y: 0 },
-        nextMatch: null,
     });
     allMatches.push(gf1Match);
 
@@ -663,7 +662,6 @@ async function generateDoubleElimination(tournamentId: string, teams: any[], see
         bracketType: "grand_final",
         bracketPosition: { x: 0, y: 0 },
         isResetMatch: true,
-        nextMatch: null,
     });
     allMatches.push(gf2Match);
 
