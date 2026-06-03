@@ -1,27 +1,14 @@
-import mongoose from "mongoose";
-import dotenv from "dotenv";
-dotenv.config({ path: ".env.local" });
-dotenv.config({ path: ".env" });
+import mongoose from 'mongoose';
+import dotenv from 'dotenv';
+dotenv.config({ path: '.env.local' });
 
-const MONGODB_URI = process.env.MONGODB_URI;
+mongoose.connect(process.env.MONGODB_URI as string);
 
-const TeamSchema = new mongoose.Schema({
-    name: String,
-    tournament: mongoose.Schema.Types.ObjectId,
-    status: String,
-});
-const Team = mongoose.models.Team || mongoose.model("Team", TeamSchema);
+const Team = mongoose.model('Team', new mongoose.Schema({ tournament: mongoose.Schema.Types.ObjectId, status: String }, { strict: false }));
 
 async function run() {
-    await mongoose.connect(MONGODB_URI!);
-    
-    const tournamentId = "6a1d19a6eecd25def4349f13";
-    const teamsCount = await Team.countDocuments({ tournament: tournamentId, status: "active" });
-    const allTeams = await Team.countDocuments({ tournament: tournamentId });
-    console.log(`Active teams: ${teamsCount}`);
-    console.log(`Total teams: ${allTeams}`);
-    
+    const teams = await Team.find({ tournament: '6a1d19a6eecd25def4349f13', status: 'approved' });
+    console.log('Approved Teams:', teams.length);
     process.exit(0);
 }
-
 run();

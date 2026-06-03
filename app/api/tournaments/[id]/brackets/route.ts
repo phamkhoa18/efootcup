@@ -626,9 +626,49 @@ async function generateDoubleElimination(tournamentId: string, teams: any[], see
         dropRoundIndex++;
     }
 
-    // ===== STEP 4 & 5: Grand Final removed per user request =====
-    // The user explicitly requested to only have Winner and Loser brackets.
-    // So WB Final winner and LB Final winner do NOT play a Grand Final.
+    // ===== STEP 4 & 5: Restore Grand Final =====
+    const wbFinalMatch = wbMatchesMap.get(totalWBRounds)!.get(0)!;
+    const lbFinalMatch = lbMatchesMap.get(totalLBRounds)!.get(0)!;
+
+    // GF 1
+    const gf1Match = await Match.create({
+        tournament: tournamentId,
+        round: totalWBRounds + 1,
+        roundName: "Chung kết",
+        matchNumber: matchCounter++,
+        homeTeam: null,
+        awayTeam: null,
+        status: "scheduled",
+        bracketType: "grand_final",
+        bracketPosition: { x: 0, y: 0 },
+        nextMatch: null,
+    });
+    allMatches.push(gf1Match);
+
+    wbFinalMatch.nextMatch = gf1Match._id;
+    await wbFinalMatch.save();
+    
+    lbFinalMatch.nextMatch = gf1Match._id;
+    await lbFinalMatch.save();
+
+    // GF 2 (Bracket Reset)
+    const gf2Match = await Match.create({
+        tournament: tournamentId,
+        round: totalWBRounds + 2,
+        roundName: "Chung kết (Reset)",
+        matchNumber: matchCounter++,
+        homeTeam: null,
+        awayTeam: null,
+        status: "scheduled",
+        bracketType: "grand_final",
+        bracketPosition: { x: 0, y: 0 },
+        isResetMatch: true,
+        nextMatch: null,
+    });
+    allMatches.push(gf2Match);
+
+    gf1Match.nextMatch = gf2Match._id;
+    await gf1Match.save();
 
     await resolveGhosts(tournamentId, Match);
 

@@ -2,9 +2,7 @@ import mongoose from 'mongoose';
 import dotenv from 'dotenv';
 dotenv.config({ path: '.env.local' });
 
-const MONGODB_URI = process.env.MONGODB_URI;
-
-mongoose.connect(MONGODB_URI as string);
+mongoose.connect(process.env.MONGODB_URI as string);
 
 const Match = mongoose.model('Match', new mongoose.Schema({
     tournament: mongoose.Schema.Types.ObjectId,
@@ -12,15 +10,16 @@ const Match = mongoose.model('Match', new mongoose.Schema({
     roundName: String,
     status: String,
     bracketPosition: Object,
+    matchNumber: Number
 }, { strict: false }));
 
 async function run() {
     const matches = await Match.find({ 
         tournament: '6a1d19a6eecd25def4349f13',
-        round: { $gt: 100 }
-    }).sort({ round: 1, 'bracketPosition.y': 1 }).select('round roundName status bracketPosition.y').lean();
+        matchNumber: { $in: [128, 33, 20] }
+    }).select('round roundName matchNumber bracketPosition status').lean();
     
-    console.log(matches.map(m => `Round ${m.roundName} (R${m.round}): y = ${m.bracketPosition?.y}, status = ${m.status}`));
+    console.log(matches);
     process.exit(0);
 }
 run();

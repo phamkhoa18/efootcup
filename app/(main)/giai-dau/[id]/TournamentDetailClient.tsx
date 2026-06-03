@@ -62,7 +62,6 @@ const tabs = [
     { key: "bracket", label: "Sơ đồ thi đấu", icon: Swords },
 ];
 
-const UNIT_HEIGHT = 110;
 
 const MatchCard = ({ match, onClick }: { match: any; onClick: () => void }) => {
     const isWalkover = match.status === "walkover";
@@ -146,15 +145,7 @@ const MatchCard = ({ match, onClick }: { match: any; onClick: () => void }) => {
                         </div>
                     </div>
 
-                    <div className="h-px bg-[#E2E8F0] w-full" />
-
-                    {/* Empty opponent row */}
-                    <div className="p-1.5 flex flex-col opacity-40">
-                        <span className="text-[8px] text-gray-300 font-bold text-center mb-0.5 italic">— Không có đối thủ —</span>
-                        <div className="flex justify-between items-center px-1">
-                            <span className="text-[11px] text-gray-300 italic font-medium">Tự do</span>
-                        </div>
-                    </div>
+                    
                 </motion.div>
             </div>
         );
@@ -1355,17 +1346,56 @@ export default function TournamentDetailClient({ initialData, id }: { initialDat
     const isDoubleElimination = t?.format === 'double_elimination';
     const wbRounds = bracketRounds.filter(r => r.name.startsWith('Round') || r.name.startsWith('WB'));
     const lbRounds = bracketRounds.filter(r => r.name.startsWith('Losers Round') || r.name.startsWith('LB'));
+    const gfRounds = bracketRounds.filter(r => r.name.includes('Chung kết'));
 
     const renderPublicBracketSection = (sectionRounds: typeof bracketRounds, sectionKey: string) => {
-        const displayRds = sectionRounds;
-        const firstRoundMatchCount = displayRds[0]?.matches.length || 1;
+        const UNIT_HEIGHT = isDoubleElimination ? 68 : 92;
+        const GAP = isDoubleElimination ? 32 : 72;
+        // Step 1: Filter active matches (ignore "bye" and empty walkovers only if double elimination)
+        const activeRounds = sectionRounds.map(round => ({
+            ...round,
+            matches: round.matches.filter((m: any) => {
+                if (isDoubleElimination) {
+                    if (m.status === 'bye') return false;
+                    if (m.status === 'walkover' && (!m.homeTeam || !m.awayTeam)) return false;
+                }
+                return true;
+            })
+        })).filter(round => round.matches.length > 0);
+
+        if (activeRounds.length === 0) return null;
+
+        const firstRoundMatchCount = sectionRounds[0]?.matches.length || 1; // Use ORIGINAL count for correct scale logic
+        
+        // Step 2: Calculate theoretical Y for all active matches
+        const allActiveMatches: any[] = [];
+        activeRounds.forEach((round, rIndex) => {
+            // Must use the original round matches length to maintain the binary tree scale
+            const originalRound = sectionRounds.find(r => r.name === round.name);
+            const currentMatchCount = originalRound?.matches.length || 1;
+            const scale = Math.max(1, firstRoundMatchCount / currentMatchCount);
+            
+            round.matches.forEach((match: any) => {
+                const topPadding = (scale - 1) * (UNIT_HEIGHT / 2);
+                match._theoreticalY = topPadding + (match.bracketPosition?.y || 0) * UNIT_HEIGHT * scale;
+                match._scale = scale;
+                allActiveMatches.push(match);
+            });
+        });
+
+        // Step 3: Extract unique theoretical Ys and map them to compact Y indexes
+        const uniqueYs = Array.from(new Set(allActiveMatches.map(m => m._theoreticalY))).sort((a, b) => a - b);
+        allActiveMatches.forEach(m => {
+            m._compactY = uniqueYs.indexOf(m._theoreticalY);
+        });
+
+        // The total height of the container is based on the number of unique Ys (packed rows)
+        const containerHeight = uniqueYs.length * UNIT_HEIGHT;
+
         return (
             <div className="inline-flex p-12 min-w-full relative z-10">
-                {displayRds.map((round, rIndex) => {
-                    const isLastRound = rIndex === displayRds.length - 1;
-                    const currentMatchCount = round.matches.length || 1;
-                    const scale = Math.max(1, firstRoundMatchCount / currentMatchCount);
-                    const GAP = 128;
+                {activeRounds.map((round, rIndex) => {
+                    const isLastRound = rIndex === activeRounds.length - 1;
                     return (
                         <div key={`${sectionKey}-${rIndex}`} className="flex">
                             <div className="flex flex-col w-[220px]">
@@ -1374,10 +1404,10 @@ export default function TournamentDetailClient({ initialData, id }: { initialDat
                                         <span className="text-[13px] font-bold text-gray-800">{round.name}</span>
                                     </div>
                                 </div>
-                                <div className="relative shrink-0 w-full" style={{ height: `${firstRoundMatchCount * UNIT_HEIGHT}px`, minHeight: `${firstRoundMatchCount * UNIT_HEIGHT}px` }}>
-                                    {round.matches.map((match: any, mIdx: number) => {
-                                        const topPadding = (scale - 1) * (UNIT_HEIGHT / 2);
-                                        const yOffset = topPadding + (match.bracketPosition?.y || 0) * UNIT_HEIGHT * scale;
+                                <div className="relative shrink-0 w-full" style={{ height: `${containerHeight}px`, minHeight: `${containerHeight}px` }}>
+                                    {round.matches.map((match: any) => {
+                                        const yOffset = match._compactY * UNIT_HEIGHT;
+                                        
                                         const matchesSearch = bracketSearch.trim() === "" || [
                                             match.homeTeam?.name, match.homeTeam?.shortName, match.homeTeam?.player1, match.homeTeam?.player2,
                                             match.awayTeam?.name, match.awayTeam?.shortName, match.awayTeam?.player1, match.awayTeam?.player2,
@@ -1393,24 +1423,25 @@ export default function TournamentDetailClient({ initialData, id }: { initialDat
                                                 style={{ top: `${yOffset}px`, height: `${UNIT_HEIGHT}px`, width: '100%' }}
                                             >
                                                 <MatchCard match={match} onClick={() => setSelectedMatch(match)} />
+                                                
+                                                {/* Incoming line from previous round */}
                                                 {rIndex > 0 && (
                                                     <div className="absolute bg-[#CBD5E1]" style={{ left: `-${GAP / 2}px`, width: `${GAP / 2}px`, height: '1px', top: '50%' }} />
                                                 )}
+                                                
+                                                {/* Outgoing connector lines to next round */}
                                                 {match.nextMatch && !isLastRound && (() => {
-                                                    const bY = match.bracketPosition?.y ?? 0;
-                                                    const isTop = bY % 2 === 0;
-                                                    const vLen = (UNIT_HEIGHT * scale) / 2;
+                                                    const nextRoundMatches = activeRounds[rIndex + 1]?.matches || [];
+                                                    const nextMatch = nextRoundMatches.find((m: any) => m._id === match.nextMatch || m.id === match.nextMatch || String(m._id) === String(match.nextMatch));
+                                                    
+                                                    // If the next match doesn't exist in active rounds (maybe it's a bye that got filtered), we don't draw a line
+                                                    if (!nextMatch) return null;
+
+                                                    const myCenterY = yOffset + UNIT_HEIGHT / 2;
+                                                    const nextCenterY = nextMatch._compactY * UNIT_HEIGHT + UNIT_HEIGHT / 2;
+                                                    
+                                                    const isStraightLine = myCenterY === nextCenterY;
                                                     const halfGap = GAP / 2;
-
-                                                    const nextRoundMatches = sectionRounds[rIndex + 1]?.matches || [];
-                                                    const nextMatch = nextRoundMatches.find((m: any) => {
-                                                        return m._id === match.nextMatch || m.id === match.nextMatch || String(m._id) === String(match.nextMatch) || String(m.id) === String(match.nextMatch);
-                                                    });
-                                                    const isStraightLine = nextMatch && nextMatch.bracketPosition?.y === bY && nextRoundMatches.length === round.matches.length;
-
-                                                    const pairY = isTop ? bY + 1 : bY - 1;
-                                                    const pairMatch = round.matches.find((m: any) => m.bracketPosition?.y === pairY);
-                                                    const isPairBye = pairMatch?.status === 'bye' || !pairMatch;
 
                                                     if (isStraightLine) {
                                                         return (
@@ -1418,12 +1449,20 @@ export default function TournamentDetailClient({ initialData, id }: { initialDat
                                                         );
                                                     }
 
+                                                    // Calculate dynamic vertical line
+                                                    const vDiff = nextCenterY - myCenterY;
+                                                    const isTop = vDiff > 0; // The next match is BELOW us (visually), so we are the top match in the pairing
+                                                    const vLen = Math.abs(vDiff);
+
                                                     return (
                                                         <>
                                                             <div className="absolute bg-[#CBD5E1]" style={{ right: `-${halfGap}px`, width: `${halfGap}px`, height: '1px', top: '50%' }} />
                                                             <div className="absolute bg-[#CBD5E1]" style={{ right: `-${halfGap}px`, width: '1px', height: `${vLen}px`, ...(isTop ? { top: '50%' } : { bottom: '50%' }) }} />
-                                                            {(isTop || isPairBye) && (
-                                                                <div className="absolute bg-[#CBD5E1]" style={{ right: `-${GAP}px`, width: `${halfGap}px`, height: '1px', top: isTop ? `calc(50% + ${vLen}px)` : `calc(50% - ${vLen}px)` }} />
+                                                            {isTop && (
+                                                                <div className="absolute bg-[#CBD5E1]" style={{ right: `-${GAP}px`, width: `${halfGap}px`, height: '1px', top: `calc(50% + ${vLen}px)` }} />
+                                                            )}
+                                                            {!isTop && (
+                                                                <div className="absolute bg-[#CBD5E1]" style={{ right: `-${GAP}px`, width: `${halfGap}px`, height: '1px', top: `calc(50% - ${vLen}px)` }} />
                                                             )}
                                                         </>
                                                     );
@@ -1899,6 +1938,16 @@ export default function TournamentDetailClient({ initialData, id }: { initialDat
                                                     </div>
                                                 </div>
                                             )}
+                                            {gfRounds.length > 0 && (
+                                                <div className="flex flex-col">
+                                                    <h3 className="text-base font-semibold uppercase tracking-wider text-purple-700 flex items-center gap-2 mb-6 pl-4 mt-4">
+                                                        <Trophy className="w-5 h-5" /> Chung kết tổng
+                                                    </h3>
+                                                    <div className="pl-4">
+                                                        {renderPublicBracketSection(gfRounds, 'gf')}
+                                                    </div>
+                                                </div>
+                                            )}
                                         </div>
                                     ) : (
                                         renderPublicBracketSection(bracketRounds, 'se')
@@ -1966,6 +2015,16 @@ export default function TournamentDetailClient({ initialData, id }: { initialDat
                                                         </h3>
                                                         <div className="pl-4">
                                                             {renderPublicBracketSection(lbRounds, 'lb-fs')}
+                                                        </div>
+                                                    </div>
+                                                )}
+                                                {gfRounds.length > 0 && (
+                                                    <div className="flex flex-col">
+                                                        <h3 className="text-base font-semibold uppercase tracking-wider text-purple-700 flex items-center gap-2 mb-6 pl-4 mt-4">
+                                                            <Trophy className="w-5 h-5" /> Chung kết tổng
+                                                        </h3>
+                                                        <div className="pl-4">
+                                                            {renderPublicBracketSection(gfRounds, 'gf-fs')}
                                                         </div>
                                                     </div>
                                                 )}

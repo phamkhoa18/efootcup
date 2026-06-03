@@ -208,6 +208,12 @@ export async function PUT(req: NextRequest, { params }: RouteParams) {
 
         // --- Helper: find which slot this match occupies in its next match ---
         const findSlotInNextMatch = async (currentMatch: any): Promise<"homeTeam" | "awayTeam"> => {
+            const nextMatch = await Match.findById(currentMatch.nextMatch);
+            if (nextMatch && nextMatch.bracketType === "grand_final") {
+                if (currentMatch.bracketType === "winner") return "homeTeam";
+                if (currentMatch.bracketType === "loser") return "awayTeam";
+            }
+
             const siblings = await Match.find({
                 tournament: id,
                 round: currentMatch.round,
